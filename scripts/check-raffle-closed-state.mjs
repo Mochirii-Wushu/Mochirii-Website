@@ -89,11 +89,9 @@ const forbiddenSurfaces = [
   "apps/web/lib/prize-draw.ts",
   "apps/web/lib/prize-draw-rules.ts",
   "apps/web/lib/supabase/prize-draw.ts",
-  "services/reward-relay",
   "supabase/migrations/20260719130111_monthly_prize_draw.sql",
   "scripts/register-reaper-raffle-commands.mjs",
   "scripts/check-reaper-raffle-commands.mjs",
-  "scripts/check-reward-relay.mjs",
 ];
 
 for (const [label, file] of Object.entries(files)) {
@@ -115,6 +113,12 @@ for (const [file, snippets] of raffleFunctionContracts) {
 
 for (const file of forbiddenSurfaces) {
   if (existsSync(resolve(root, file))) failures.push(`${file}: operational raffle surface must stay absent from the public closed-state change`);
+}
+
+const rewardRelaySourceExists = existsSync(resolve(root, "services/reward-relay"));
+const rewardRelayGuardExists = existsSync(resolve(root, "scripts/check-reward-relay.mjs"));
+if (rewardRelaySourceExists !== rewardRelayGuardExists) {
+  failures.push("disabled reward-relay source and its fail-closed repository guard must be added or removed together");
 }
 
 const data = JSON.parse(read(files.data) || "{}");
@@ -308,6 +312,7 @@ console.log("- Public content is provider-neutral; entry, claim, administration,
 console.log("- The 7/5 and 8/4 grid contracts reflow to full-width cards at 980px.");
 console.log("- Private routes reject at the server boundary; claims stay closed by default and render actions only from trusted claimable status.");
 console.log("- Seven Edge workflows are present under explicit fail-closed operational gates.");
+if (rewardRelaySourceExists) console.log("- Disabled reward-relay source is isolated from the public pages and guarded separately.");
 
 function read(file) {
   const absolute = resolve(root, file);

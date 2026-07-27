@@ -1,0 +1,17 @@
+{
+  "name": "@mochirii/reward-relay",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.18 <23"
+  },
+  "scripts": {
+    "start": "node src/server.mjs",
+    "test": "node --test test/relay.test.mjs test/reward-chain.test.mjs",
+    "test:chain": "node --test test/reward-chain.test.mjs",
+    "config-hash": "node src/config-hash.mjs",
+    "reconcile": "node src/reconcile.mjs",
+    "control": "node src/control.mjs"
+  }
+}

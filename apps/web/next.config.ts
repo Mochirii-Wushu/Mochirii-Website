@@ -61,6 +61,20 @@ const spinnerContentSecurityPolicy = [
   "upgrade-insecure-requests",
 ].join("; ");
 
+const rewardClaimContentSecurityPolicy = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "object-src 'none'",
+  "frame-ancestors 'none'",
+  "form-action 'self'",
+  "script-src 'self' 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data:",
+  "font-src 'self' data:",
+  "connect-src 'self'",
+  "upgrade-insecure-requests",
+].join("; ");
+
 const securityHeaders = [
   {
     key: "Content-Security-Policy",
@@ -136,6 +150,31 @@ const nextConfig: NextConfig = {
           {
             key: "Referrer-Policy",
             value: "no-referrer",
+          },
+        ],
+      },
+      {
+        source: "/raffle/claim",
+        headers: [
+          {
+            key: "Content-Security-Policy",
+            value: rewardClaimContentSecurityPolicy,
+          },
+          {
+            key: "Cache-Control",
+            value: "private, no-store",
+          },
+          {
+            key: "Referrer-Policy",
+            value: "no-referrer",
+          },
+          {
+            key: "X-Robots-Tag",
+            value: "noindex, nofollow, noarchive, nosnippet, noimageindex",
+          },
+          {
+            key: "Vary",
+            value: "Cookie",
           },
         ],
       },

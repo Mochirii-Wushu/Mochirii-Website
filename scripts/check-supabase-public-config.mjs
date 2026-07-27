@@ -10,6 +10,7 @@ const allowedEnvFiles = new Set([
   "services/social/.env.docker.example",
   "services/social/.env.example",
   "services/social/.env.testing",
+  "services/reward-relay/.env.example",
   "supabase/functions/.env.example",
 ]);
 const expectedProjectRef = SUPABASE_PROJECT_REF;
@@ -120,7 +121,9 @@ function checkEnvFiles(trackedFiles, untrackedFiles) {
   });
 
   untrackedFiles.filter(isEnvPath).forEach((file) => {
-    addFailure(file, 0, "untracked environment file is not ignored; update .gitignore before adding secrets locally.");
+    if (!allowedEnvFiles.has(file)) {
+      addFailure(file, 0, "untracked environment file is not ignored; update .gitignore before adding secrets locally.");
+    }
   });
 }
 

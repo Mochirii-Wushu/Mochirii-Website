@@ -1,0 +1,8 @@
+# Local relay state is operational metadata and must never enter Git.
+data/
+*.sqlite
+*.sqlite3
+*.sqlite-shm
+*.sqlite-wal
+*.sqlite3-shm
+*.sqlite3-wal

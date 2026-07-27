@@ -13,13 +13,18 @@ function isIsolatedSpinnerPath(pathname: string) {
   return pathname === "/spinner" || pathname.startsWith("/spinner/");
 }
 
+function isIsolatedRewardClaimPath(pathname: string) {
+  return pathname === "/raffle/claim" || pathname === "/raffle/claim/";
+}
+
 function isIsolatedPrivateRafflePath(pathname: string) {
-  return pathname === "/raffle/claim" || pathname === "/leader-dashboard/raffle";
+  return pathname === "/leader-dashboard/raffle" || pathname === "/leader-dashboard/raffle/";
 }
 
 export function SiteRouteShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   if (isIsolatedSpinnerPath(pathname) || isIsolatedPrivateRafflePath(pathname)) return children;
+  if (isIsolatedRewardClaimPath(pathname)) return children;
 
   return <OrdinarySiteShell>{children}</OrdinarySiteShell>;
 }

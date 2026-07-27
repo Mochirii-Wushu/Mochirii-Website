@@ -73,6 +73,7 @@
     "check:raffle-closed-state": "node scripts/check-raffle-closed-state.mjs",
     "test:raffle-public": "node --experimental-default-type=module --experimental-strip-types --test apps/web/lib/raffle/public-view_test.ts",
     "check:raffle-core-foundation": "node scripts/check-raffle-core-foundation.mjs",
+    "check:reward-relay": "node scripts/check-reward-relay.mjs",
     "check:recruitment-audio-player": "node scripts/check-recruitment-audio-player.mjs",
     "check:refs": "node scripts/check-refs.mjs",
     "check:security-hardening": "node scripts/check-security-hardening.mjs",
