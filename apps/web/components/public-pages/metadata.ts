@@ -70,16 +70,16 @@ const pageMeta: Record<
     image: "/assets/img/announcements/hero.webp",
   },
   raffle: {
-    title: "Mochirii Monthly Raffle Status",
+    title: "Mochirii Monthly Raffle",
     description:
-      "Current status for the Mochirii Monthly Raffle. Entries are closed, there is no current drawing, and no promotion is active.",
+      "Monthly Mochirii guild drawings, standing entry limits, possible reward types, current entry status, and results. No purchase necessary.",
     path: "/raffle",
     image: "/assets/img/raffles/hero.webp",
   },
   raffleRules: {
-    title: "Mochirii Raffle Rules Status",
+    title: "Mochirii Monthly Raffle Rules",
     description:
-      "Current rules status for the Mochirii Monthly Raffle. There is no current drawing and no official rules are in effect.",
+      "Standing Mochirii Monthly Raffle eligibility, entry limits, free participation methods, current drawing rules, and completed-drawing archive.",
     path: "/raffle/rules",
     image: "/assets/img/raffles/hero.webp",
   },

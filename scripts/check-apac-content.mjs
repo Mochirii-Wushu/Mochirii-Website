@@ -68,7 +68,10 @@ assert(events.meta?.timezoneLabel === expected.displayTimezone, "the Events page
 for (const item of events.upcoming || []) {
   assert(item.timezone === expected.displayTimezone, `events.${item.scheduleId || "unknown"}.timezone must use the website label.`);
 }
-assert(raffles.availabilityState === "closed", "the Raffle page must remain closed when no drawing is active.");
+assert(raffles.publicView?.cycleStatus === "inactive", "the Raffle page must remain inactive when no drawing is active.");
+assert(raffles.publicView?.timezone === "Asia/Singapore", "the Raffle page must use Singapore as its authoritative time zone.");
+assert(raffles.publicView?.standardEntryStatus === "closed", "the Raffle page must keep standard entries closed while inactive.");
+assert(raffles.publicView?.bonusEntryStatus === "closed", "the Raffle page must keep bonus entries closed while inactive.");
 
 const siteMetadata = read("apps/web/lib/site-metadata.ts");
 assertIncludes("site metadata", siteMetadata, `SITE_DESCRIPTION =\n  ${JSON.stringify(expected.description)}`);

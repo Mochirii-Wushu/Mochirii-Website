@@ -48,7 +48,7 @@ For each file:
 Current data shape summary:
 
 - Announcements: `meta` plus `items[]`.
-- Raffle: `programName`, `availabilityState`, `meta`, `currentStatus[]`, `howToConfirm[]`, `memberSafety[]`, and `rulesStatus`.
+- Raffle: the versioned `RafflePublicView` contract parsed from `raffles.json`; see the raffle section below for its controlled fields and state rules.
 - Spotify: `intro` plus `items[]`.
 - Spotlight: `hero` plus `spotlight`.
 
@@ -94,49 +94,171 @@ Tone lane: word, notice, bulletin, update, timing, news.
 
 Do not turn Announcements into long Recruitment copy, an Events schedule replacement, Tome rules, or Gallery memories.
 
-## 4. Raffle Status Rules
+## 4. Raffle Program Rules
 
-Current supported fields:
+### Public data contract
 
+`apps/web/lib/raffle/public-view.ts` owns the provider-neutral `RafflePublicView`
+contract. `apps/web/public/data/raffles.json` is reviewed public input and must
+pass `parseRafflePageModel` before rendering; its nested `publicView` must pass
+`parseRafflePublicView`. Keep `schemaVersion` at `1` until
+the parser, renderer, tests, and this guide change together.
+
+Supported top-level fields:
+
+- `schemaVersion`
 - `programName`
-- `availabilityState`
-- `meta.kicker`
-- `meta.title`
-- `meta.intro`
-- `meta.statusLabel`
-- `meta.frequency`
-- `meta.badges[]`
-- `meta.hero.image`
-- `meta.hero.atmosphere`
-- `currentStatus[]`
-- `howToConfirm[]`
-- `memberSafety[]`
-- `rulesStatus.title`
-- `rulesStatus.summary`
-- `rulesStatus.details[]`
+- `meta`
+- `publicView`
+- `entryModel`
+- `rewards`
+- `eligibility`
+- `standingPrinciples[]`
+- `results`
+- `rules`
 
-How to add or update a raffle safely:
+`publicView` is the provider-neutral cycle interface and contains only:
 
-- Edit `apps/web/public/data/raffles.json`.
-- Keep `availabilityState` equal to `closed` whenever no drawing is active.
-- Keep `currentStatus[]`, `howToConfirm[]`, `memberSafety[]`, and `rulesStatus.details[]` as plain text arrays.
-- State clearly that entries are closed, no promotion is active, and no entry method exists.
-- Keep the no-purchase notice visible even though no cycle is open.
-- Do not publish a sponsor, eligible locations, dates, rewards, official rules, entry controls, external links, or provider names before approval.
-- Do not add a client data request, authentication, form, API route, database call, schedule, or provider dependency to this closed-state surface.
+- `cycleStatus`: `inactive`, `scheduled`, `open`, `closed`, `drawing`,
+  `results`, or `paused`.
+- Separate `standardEntryStatus` and `bonusEntryStatus` values.
+- `timezone`, which must remain `Asia/Singapore`.
+- Nullable UTC `opensAt`, `closesAt`, `drawAt`, and `claimEndsAt` instants.
+- Nullable `publicReward`, immutable active-cycle `rulesUrl`, aggregate
+  `entrantCount`, and aggregate `totalEntryCount`.
+- Literal entry limits of five base, five maximum bonus, and ten total.
+- A privacy-safe `publicResult` of `none` or `winner_confirmed`.
 
-Observed rendering rules:
+The parser uses an exact-key allowlist. Do not add supplier, platform, payment,
+internal-system, account, secret, or operational fields to this public
+contract. Public copy, metadata, accessibility text, errors, and serialized
+data remain Mochirii-only and provider-neutral.
 
-- `/raffle` is a static Server Component with a clear closed status and no dead or nonfunctional control.
-- `/raffle/rules` is a static status page, not an official-rules archive or an offer.
+### Standing program model
+
+The standing model is fixed unless a separately reviewed program change updates
+the contract, copy, rules, and tests together:
+
+- One eligible monthly opt-in provides five standard entries.
+- A member may earn up to five optional bonus entries.
+- Each permanent bonus method provides at most one entry per drawing and has an
+  equivalent free participation path.
+- The maximum is ten entries per person in one drawing.
+- Purchases, payments, donations, subscriptions, referrals, invitations,
+  follows, public shares, daily logins, and early entry never improve entry
+  counts or odds.
+- Alternative-response text is reduced to non-reversible completion evidence
+  and then discarded.
+- Potential winners use the authenticated Mochirii claim page within the
+  standing seven-day claim window unless an active rules version lawfully
+  states another period. Private reminders may be sent with approximately 72
+  and 24 hours remaining.
+- Electronic rewards expire 30 days after issue unless an active rules version
+  lawfully states another term.
+
+`entryModel.permanentBonusMethods` contains exactly these five standing method
+pairs:
+
+1. Check in for one scheduled guild activity, or complete the monthly pulse poll.
+2. Join the monthly guild gathering, or send an asynchronous agenda response.
+3. Join or host one party or help session, or privately share availability for
+   a future guild group.
+4. Share one useful tip or resource, or answer the rotating knowledge question.
+5. Give one member kudos note, or complete the end-of-cycle feedback prompt.
+
+Standing eligibility remains: verified Mochirii guild membership in good
+standing, age 18 or older, residence in a country approved for the drawing, and
+one account and one opt-in per person per cycle. Keep `No purchase necessary`
+conspicuous on both `/raffle` and `/raffle/rules`.
+
+### Reward and result presentation
+
+Standing reward copy may describe only the approved provider-neutral
+categories:
+
+- Electronic gifts, such as digital gift cards, virtual prepaid rewards, or
+  other electronically delivered choices stated in an active drawing's rules.
+- Approved in-game gifts stated in an active drawing's rules.
+- Guild commendation as a community honor.
+- Hall record as a community honor retained with a completed drawing.
+
+Each active drawing must identify its exact reward, value, eligible locations,
+delivery method, redemption terms, and claim deadline in immutable official
+rules. Do not expose provider names or imply that any standing category is
+offered in a cycle that has not been approved.
+
+Result records use stable `resultKey` values and privacy-safe labels. Signed-out
+visitors see `Winner confirmed` or `Community honor confirmed`. Only a freshly
+server-verified guild member may receive a server-supplied guild display-name
+map for those result keys. Do not place member display names in static JSON,
+metadata, shared caches, unauthenticated responses, or client-accessible private
+data. Missing or invalid membership evidence must fall back to the generic
+label. The official rules and opt-in acknowledgement disclose this
+verified-member display-name visibility before participation.
+
+### Cycle and archive states
+
+All seven cycle states are explicit. Invalid, missing, or inconsistent data
+fails the parser rather than guessing. Only `open` may accept standard entries;
+scheduled, closed, drawing, results, paused, and inactive states keep entries
+closed. An open cycle must accept standard entries and may independently open
+or close bonus entries. Results require privacy-safe winner confirmation,
+exactly one winner and two community honors, drawing evidence whose instant
+equals `drawAt`, and aggregate counts between five and ten entries per entrant.
+
+When no drawing is active:
+
+- Set `publicView.cycleStatus` to `inactive`.
+- Set both public entry states to `closed`.
+- Set all cycle dates, reward, active rules URL, aggregate counts, and result to
+  `null` or `none` as defined by the contract.
+- Set `rules.currentRulesState` to `inactive` and show `No active drawing rules`.
+- State plainly that no raffle is active and no submissions are being accepted.
+- Keep standing entry, eligibility, reward-category, fairness, and no-purchase
+  information visible.
+- Render no submission, claim, sign-in, moderation, reward, disabled, or dead
+  controls and make no private request.
+
+An approved active cycle supplies UTC instants for opening, closing, drawing,
+and claim deadlines plus cycle-specific eligibility, reward copy, and a local
+immutable `/raffle/rules/...` route. `Asia/Singapore` remains the authoritative
+program time zone. Store instants as ISO 8601 UTC values, show Singapore time as
+the governing time, and progressively enhance with the visitor's localized
+equivalent without replacing or obscuring the governing time. Invalid or
+missing dates fail closed, and every non-inactive cycle must satisfy
+`opensAt < closesAt < drawAt < claimEndsAt`.
+
+`/raffle/rules` distinguishes three layers:
+
+- Standing program principles, which remain visible between drawings.
+- Current official drawing rules, which exist only for an approved active
+  cycle and otherwise show `No active drawing rules`.
+- Immutable archived rules for completed drawings at local
+  `/raffle/rules/...` routes.
+
+`rules.versions[]` is the only source for versioned rule pages. Each entry has a
+safe route slug, an exactly matching local URL, active or archived state,
+publication instant, and reviewed public sections. Every current/archive link
+must resolve to a matching version; unknown or unreviewed version URLs return
+not found. Do not invent archive records or publish an empty rules shell.
+
+Observed routing and rendering rules:
+
+- `/raffle` and `/raffle/rules` are public, canonical, indexable Server
+  Components that remain useful without JavaScript.
 - `/raffles` and `/raffles.html` permanently redirect to `/raffle`.
-- Public raffle data contains no external links or provider fields.
-- The website event-card renderer filters the inactive `monthly-raffle` schedule item so Events cannot advertise a drawing while the raffle is closed.
-- `apps/web/public/data/guild-schedule.json` remains a provider-consumed schedule source and is not rewritten by a public closed-state change. Its historical raffle record can move behind a nonpublic boundary only through a separately reviewed provider-safe migration.
+- The website event-card renderer filters the inactive `monthly-raffle`
+  schedule item so Events cannot advertise a drawing while the raffle is
+  inactive.
+- `apps/web/public/data/guild-schedule.json` remains a provider-consumed
+  schedule source and is not rewritten by a public raffle-page change. Moving
+  its historical raffle record requires a separately reviewed provider-safe
+  migration.
 
-Tone lane: status, availability, official source, member safety.
+Tone lane: drawing, entry, reward, result, rules, eligibility, fairness.
 
-The status should remain plain and clear. The Raffle page should not duplicate Events, Join, Recruitment, or Announcements beyond a short closed-state notice.
+Keep status and rules language plain. The Raffle page should not duplicate
+Events, Join, Recruitment, or Announcements.
 
 ## 5. Spotify Rules
 
@@ -285,6 +407,11 @@ Preserve these expectations:
 - Skip link continues to target `#main`.
 - Mobile layouts should not have horizontal overflow.
 - Screen reader text should stay clear and not noisy.
+- Raffle `8/4` and `7/5` card pairs keep their intended proportions above
+  `980px` and every card occupies the usable container width at or below
+  `980px`.
+- Raffle cards must not collapse, clip text, overlap, or require two-dimensional
+  scrolling, including at `320px` CSS width and 200% text sizing.
 
 ## 11. Validation
 
@@ -297,7 +424,10 @@ node scripts/check-json.mjs
 node scripts/check-js.mjs
 node scripts/check-refs.mjs
 node scripts/check-assets.mjs
-npm run check:raffle-closed-state
+npm run check:raffle-public
+npm run test:raffle-public
+npm run smoke:raffle-public:fixtures
+npm run smoke:raffle-public -- --local
 npm run check:production
 ```
 
@@ -306,8 +436,14 @@ Use `npm run smoke:gallery` as a general regression check if shared behavior cou
 ## 12. Manual Side Pages Smoke Checklist
 
 - `/announcements.html` loads.
-- `/raffle` loads and says `Entries closed`, `No active promotion`, and `No purchase necessary`.
-- `/raffle/rules` shows that no active rules or entry method exist.
+- `/raffle` loads and says `No raffle is active`, `Entries closed`, `No submissions are being accepted`, and `No purchase necessary`.
+- `/raffle` shows the standing five-standard, up-to-five-bonus, maximum-ten entry model and all five equivalent-free participation methods.
+- `/raffle` describes only the approved provider-neutral electronic-gift, in-game-gift, and community-honor categories.
+- `/raffle/rules` distinguishes standing principles, current official drawing rules, and immutable archived rules; it shows `No active drawing rules` while inactive.
+- A versioned rules URL renders only reviewed local `rules.versions[]` content; unavailable versions return not found.
+- Signed-out raffle results use only `Winner confirmed` or `Community honor confirmed`; verified-member result-name behavior is tested at the server boundary.
+- Singapore time remains authoritative for active-cycle dates and visitor-local equivalents do not replace it.
+- Inactive raffle pages render no submission, claim, sign-in, moderation, reward, disabled, or dead controls and make no private request.
 - `/raffles` and `/raffles.html` permanently redirect to `/raffle`.
 - `/spotify.html` loads.
 - `/spotlight.html` loads.
@@ -317,6 +453,9 @@ Use `npm run smoke:gallery` as a general regression check if shared behavior cou
 - Images render if present.
 - Spotify embeds render if present.
 - Spotify embeds do not overflow.
+- Raffle cards fill the usable width without collapse at `320px`, `360px`, `390px`, `430px`, and `768px`, including at 200% text sizing.
+- Above `980px`, raffle `8/4` and `7/5` card pairs retain their intended proportions.
+- The production-disabled rendered-fixture smoke covers all seven cycle states, separate open-entry combinations, missing data, Singapore/no-JavaScript time, visitor localization, and alternating verified/unverified result views in Chromium, Firefox, and WebKit.
 - Mobile widths `360px`, `390px`, and `768px` have no horizontal overflow.
 - No console-breaking errors occur.
 - Supabase page shell does not cause signed-out runtime errors.

@@ -1,40 +1,125 @@
 {
+  "schemaVersion": 1,
   "programName": "Mochirii Monthly Raffle",
-  "availabilityState": "closed",
   "meta": {
-    "kicker": "Monthly member raffle",
+    "kicker": "Monthly guild drawings",
     "title": "Mochirii Monthly Raffle",
-    "intro": "There is no current Mochirii raffle drawing. Entries are closed and no promotion is active.",
-    "statusLabel": "ENTRIES CLOSED",
-    "frequency": "No current drawing",
-    "badges": ["Entries closed", "No active promotion", "No purchase necessary"],
+    "intro": "Mochirii holds monthly drawings for eligible guild members. No raffle is active and no submissions are being accepted.",
+    "frequency": "Monthly drawings",
+    "badges": ["No raffle is active", "Entries closed", "No purchase necessary"],
     "hero": {
       "image": "./assets/img/raffles/hero.webp",
       "atmosphere": ""
     }
   },
-  "currentStatus": [
-    "The Mochirii Monthly Raffle is Mochirii's member-drawing program.",
-    "There is no current drawing.",
-    "Entries are closed and no promotion is active."
-  ],
-  "howToConfirm": [
-    "This website is the official source for current Mochirii raffle information.",
-    "The current raffle status is ENTRIES CLOSED.",
-    "No official raffle rules are currently in effect."
-  ],
-  "memberSafety": [
-    "Mochirii raffles follow a no-purchase-necessary entry principle.",
-    "Never pay to enter a Mochirii raffle.",
-    "Treat any raffle message that conflicts with this website as unofficial."
-  ],
-  "rulesStatus": {
-    "title": "No current drawing",
-    "summary": "No official raffle rules are currently in effect because there is no current drawing.",
-    "details": [
-      "There is no current drawing.",
-      "Entries are closed.",
-      "No promotion is active."
+  "publicView": {
+    "cycleStatus": "inactive",
+    "standardEntryStatus": "closed",
+    "bonusEntryStatus": "closed",
+    "timezone": "Asia/Singapore",
+    "opensAt": null,
+    "closesAt": null,
+    "drawAt": null,
+    "claimEndsAt": null,
+    "publicReward": null,
+    "baseEntries": 5,
+    "maximumBonusEntries": 5,
+    "maximumEntries": 10,
+    "rulesUrl": null,
+    "entrantCount": null,
+    "totalEntryCount": null,
+    "publicResult": "none"
+  },
+  "entryModel": {
+    "standardEntrySummary": "One eligible monthly opt-in provides five standard entries.",
+    "bonusEntrySummary": "Members may earn up to five optional bonus entries through the standing participation methods below. Each method provides no more than one bonus entry per drawing.",
+    "permanentBonusMethods": [
+      {
+        "title": "Guild activity",
+        "primaryPath": "Check in for one scheduled guild activity.",
+        "equivalentFreePath": "Or complete the monthly pulse poll.",
+        "maximumEntries": 1
+      },
+      {
+        "title": "Monthly gathering",
+        "primaryPath": "Join the monthly guild gathering.",
+        "equivalentFreePath": "Or send an asynchronous agenda response.",
+        "maximumEntries": 1
+      },
+      {
+        "title": "Member support",
+        "primaryPath": "Join or host one party or help session.",
+        "equivalentFreePath": "Or privately share availability for a future guild group.",
+        "maximumEntries": 1
+      },
+      {
+        "title": "Shared knowledge",
+        "primaryPath": "Share one useful guild tip or resource.",
+        "equivalentFreePath": "Or answer the rotating knowledge question.",
+        "maximumEntries": 1
+      },
+      {
+        "title": "Guild feedback",
+        "primaryPath": "Give one member kudos note.",
+        "equivalentFreePath": "Or complete the end-of-cycle feedback prompt.",
+        "maximumEntries": 1
+      }
+    ],
+    "noAdvantageRules": [
+      "Completing both paths in one pair never earns two bonus entries.",
+      "Alternative-response text is used only to verify completion, reduced to non-reversible evidence, and then discarded.",
+      "Purchases, payments, donations, and subscriptions never improve entry counts or odds.",
+      "Referrals, invitations, follows, public shares, daily logins, and early entry never improve entry counts or odds.",
+      "The maximum is ten entries per person in one drawing."
+    ],
+    "oddsFormula": "A member's valid entries divided by all valid entries after the drawing closes."
+  },
+  "rewards": {
+    "summary": "Drawing rewards may include electronic gifts, approved in-game gifts, and two Mochirii community honors.",
+    "activeDrawingNotice": "Each active drawing identifies the exact primary reward, value, eligible locations, delivery method, redemption terms, and available choices in its official rules.",
+    "categories": [
+      {
+        "title": "Electronic gifts",
+        "description": "Digital gift cards, virtual prepaid rewards, or other eligible electronically delivered choices described in the active drawing rules."
+      },
+      {
+        "title": "In-game gifts",
+        "description": "Approved in-game gifts described in the active drawing rules."
+      },
+      {
+        "title": "Guild commendation",
+        "description": "A community honor recognizing a member's contribution to the guild."
+      },
+      {
+        "title": "Hall record",
+        "description": "A community honor recorded with the completed drawing for guild members to remember."
+      }
     ]
+  },
+  "eligibility": "Verified Mochirii guild member in good standing, age 18 or older, resident of a country approved for that drawing, and limited to one account and one opt-in per person per cycle.",
+  "standingPrinciples": [
+    "No purchase necessary. A purchase or payment never improves the chance of selection.",
+    "Published odds are a member's valid entries divided by all valid entries after the drawing closes.",
+    "Each drawing has separate official rules stating its dates, eligibility, reward, value, claim period, expiration, and any location restrictions.",
+    "Each completed drawing confirms one primary winner, two community-honor recipients, and predetermined alternates without replacement.",
+    "Singapore time governs each drawing.",
+    "Potential winners must retrieve rewards through the authenticated Mochirii claim page within seven days after the drawing unless the active drawing rules lawfully require a different period.",
+    "Private claim reminders may be sent when approximately 72 hours and 24 hours remain.",
+    "Electronic rewards expire 30 days after issue unless the active drawing rules lawfully state a different term.",
+    "Signed-out visitors see only Winner confirmed or Community honor confirmed. Authenticated guild members may see each recipient's selected guild display name.",
+    "Void where prohibited."
+  ],
+  "results": {
+    "current": null,
+    "previous": [],
+    "emptyMessage": "No completed drawing result is available.",
+    "publicEvidence": null
+  },
+  "rules": {
+    "standingRulesUrl": "/raffle/rules",
+    "currentRulesState": "inactive",
+    "currentRulesLabel": "No active drawing rules",
+    "archive": [],
+    "versions": []
   }
 }

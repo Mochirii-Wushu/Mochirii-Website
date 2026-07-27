@@ -199,6 +199,208 @@ body[data-page="raffles"] .hero-cta{
   min-height:44px;
 }
 
+body[data-page="raffles"] .raffle-public-layout,
+body[data-page="raffles"] .raffle-public-layout :where(section, aside, div, li){
+  min-width:0;
+}
+
+body[data-page="raffles"] .raffle-fill-card{
+  height:100%;
+}
+
+body[data-page="raffles"] .raffle-status-list{
+  display:grid;
+  gap:12px;
+  margin:18px 0 0;
+}
+
+body[data-page="raffles"] .raffle-status-list > div{
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+  gap:16px;
+  padding:12px 14px;
+  border:1px solid rgba(218,181,94,.18);
+  border-radius:16px;
+  background:rgba(0,0,0,.16);
+}
+
+body[data-page="raffles"] .raffle-status-list dt,
+body[data-page="raffles"] .raffle-status-list dd{
+  margin:0;
+}
+
+body[data-page="raffles"] .raffle-status-list dd{
+  color:var(--side-ink);
+  font-weight:700;
+}
+
+body[data-page="raffles"] .raffle-cycle-details{
+  padding-top:2px;
+  border-top:1px solid rgba(218,181,94,.16);
+}
+
+body[data-page="raffles"] .raffle-date-list,
+body[data-page="raffles"] .raffle-public-evidence dl{
+  display:grid;
+  gap:10px;
+  margin:14px 0 0;
+}
+
+body[data-page="raffles"] .raffle-date-list > div,
+body[data-page="raffles"] .raffle-public-evidence dl > div{
+  display:grid;
+  gap:4px;
+  min-width:0;
+}
+
+body[data-page="raffles"] .raffle-date-list dt,
+body[data-page="raffles"] .raffle-public-evidence dt{
+  color:var(--side-muted);
+  font-size:.84rem;
+  font-weight:700;
+  letter-spacing:.04em;
+}
+
+body[data-page="raffles"] .raffle-date-list dd,
+body[data-page="raffles"] .raffle-public-evidence dd{
+  margin:0;
+}
+
+body[data-page="raffles"] .raffle-visitor-time{
+  display:block;
+  color:var(--side-muted);
+  font-size:.9rem;
+}
+
+body[data-page="raffles"] .raffle-no-purchase{
+  border-color:rgba(218,181,94,.42);
+  box-shadow:
+    0 24px 64px rgba(0,0,0,.45),
+    0 0 0 1px rgba(218,181,94,.12) inset,
+    0 0 34px rgba(218,181,94,.10);
+}
+
+body[data-page="raffles"] .raffle-method-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:14px;
+  margin-bottom:0;
+  padding:0;
+  list-style:none;
+  counter-reset:raffle-method;
+}
+
+body[data-page="raffles"] .raffle-method-grid > li{
+  counter-increment:raffle-method;
+  padding:18px;
+  border:1px solid rgba(218,181,94,.18);
+  border-radius:18px;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(218,181,94,.10), transparent 42%),
+    rgba(0,0,0,.16);
+  overflow-wrap:anywhere;
+}
+
+body[data-page="raffles"] .raffle-method-grid > li::before{
+  content:counter(raffle-method, decimal-leading-zero);
+  display:block;
+  margin-bottom:8px;
+  color:var(--side-muted);
+  font-size:.78rem;
+  font-weight:700;
+  letter-spacing:.12em;
+}
+
+body[data-page="raffles"] .raffle-method-grid h3,
+body[data-page="raffles"] .raffle-reward-list h3{
+  margin:0 0 8px;
+  color:var(--side-ink);
+  font-size:1rem;
+}
+
+body[data-page="raffles"] .raffle-method-grid p,
+body[data-page="raffles"] .raffle-reward-list p{
+  margin:6px 0 0;
+}
+
+body[data-page="raffles"] .raffle-method-limit{
+  color:var(--side-ink);
+  font-size:.9rem;
+  font-weight:700;
+}
+
+body[data-page="raffles"] .raffle-reward-list{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:14px;
+}
+
+body[data-page="raffles"] .raffle-reward-list > section{
+  padding:16px;
+  border:1px solid rgba(48,178,143,.18);
+  border-radius:18px;
+  background:rgba(0,0,0,.14);
+  overflow-wrap:anywhere;
+}
+
+body[data-page="raffles"] .raffle-result-list{
+  display:grid;
+  gap:12px;
+  margin:18px 0 0;
+  padding:0;
+  list-style:none;
+}
+
+body[data-page="raffles"] .raffle-result-group + .raffle-result-group{
+  margin-top:18px;
+  padding-top:18px;
+  border-top:1px solid rgba(218,181,94,.18);
+}
+
+body[data-page="raffles"] .raffle-result-group > h3{
+  margin:18px 0 0;
+  color:var(--side-ink);
+  font-size:1rem;
+}
+
+body[data-page="raffles"] .raffle-result-group + .raffle-result-group > h3{
+  margin-top:0;
+}
+
+body[data-page="raffles"] .raffle-result-list > li{
+  display:grid;
+  gap:5px;
+  padding:14px;
+  border:1px solid rgba(218,181,94,.18);
+  border-radius:16px;
+  background:rgba(0,0,0,.16);
+}
+
+body[data-page="raffles"] .raffle-result-list strong{
+  color:var(--side-ink);
+}
+
+body[data-page="raffles"] .raffle-public-evidence{
+  margin-top:18px;
+  padding-top:18px;
+  border-top:1px solid rgba(218,181,94,.18);
+}
+
+body[data-page="raffles"] .raffle-public-evidence h3{
+  margin:0;
+  color:var(--side-ink);
+  font-size:1rem;
+}
+
+body[data-page="raffles"] .raffle-public-evidence code{
+  display:block;
+  max-width:100%;
+  overflow-wrap:anywhere;
+  color:var(--side-ink);
+  font-size:.76rem;
+}
+
 body[data-page="spotify"] .spotify-toolbar{
   gap:14px;
   margin-top:18px;
@@ -408,6 +610,17 @@ body[data-page="spotlight"] .col-4 .glass-card{
   body[data-page="spotify"] .hero-intro .badge-row,
   body[data-page="spotlight"] .hero-intro .badge-row{
     justify-content:flex-start;
+  }
+
+  body[data-page="raffles"] .raffle-method-grid,
+  body[data-page="raffles"] .raffle-reward-list{
+    grid-template-columns:minmax(0,1fr);
+  }
+
+  body[data-page="raffles"] .raffle-status-list > div{
+    align-items:flex-start;
+    flex-direction:column;
+    gap:4px;
   }
 
   body[data-page="spotify"] .spotify-toolbar{
