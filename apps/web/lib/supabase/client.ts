@@ -1,5 +1,11 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { isSupabaseConfigured, SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "./config";
+import { createBrowserClient } from "@supabase/ssr";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  isSupabaseConfigured,
+  SUPABASE_AUTH_COOKIE_OPTIONS,
+  SUPABASE_PUBLISHABLE_KEY,
+  SUPABASE_URL,
+} from "./config";
 import { createError, createResult, failedResult, okResult, type SupabaseResult } from "./types";
 
 let browserClient: SupabaseClient | null = null;
@@ -8,12 +14,9 @@ export function getBrowserSupabaseClient() {
   if (!isSupabaseConfigured()) return null;
   if (browserClient) return browserClient;
 
-  browserClient = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-      detectSessionInUrl: true,
-    },
+  browserClient = createBrowserClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+    cookieOptions: SUPABASE_AUTH_COOKIE_OPTIONS,
+    auth: { detectSessionInUrl: false },
   });
 
   return browserClient;

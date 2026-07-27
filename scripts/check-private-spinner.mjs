@@ -131,7 +131,8 @@ for (const snippet of [
   "new NextResponse(null, {",
   "status: 404",
   "NextResponse.next()",
-  'matcher: ["/spinner"]',
+  "matcher: [",
+  '"/spinner",',
   'path: SPINNER_PAGE_PATH',
   "httpOnly: true",
   "secure: true",
@@ -386,7 +387,7 @@ includes("central sign-out", source.auth, "await clearPrivateSpinnerSession();")
 for (const snippet of [
   'pathname === "/spinner"',
   'pathname.startsWith("/spinner/")',
-  "if (isIsolatedSpinnerPath(pathname)) return children;",
+  "if (isIsolatedSpinnerPath(pathname) || isIsolatedPrivateRafflePath(pathname)) return children;",
 ]) includes("route-aware site shell", source.siteShell, snippet);
 for (const snippet of [
   "<SiteHeader {...auth} />",
@@ -414,9 +415,9 @@ const configuredFunctions = Array.from(
   source.supabaseConfig.matchAll(/^\[functions\.([^\]]+)\]$/gmu),
   (match) => match[1],
 );
-if (configuredFunctions.length !== 33) {
+if (configuredFunctions.length !== 40) {
   failures.push(
-    `spinner release inventory: expected 33 configured functions, found ${configuredFunctions.length}.`,
+    `spinner release inventory: expected 40 configured functions, found ${configuredFunctions.length}.`,
   );
 }
 for (const functionName of ["spinner-live-session", "reaper-spinner-dispatch"]) {
@@ -433,7 +434,7 @@ for (const functionName of configuredFunctions) {
 }
 
 for (const snippet of [
-  "all 33 Edge Functions declared in `supabase/config.toml`",
+  "all 40 Edge Functions declared in `supabase/config.toml`",
   "The Preview database is data-less by design",
   "select count(*)::integer as total_rows",
   '"claimed": 0',

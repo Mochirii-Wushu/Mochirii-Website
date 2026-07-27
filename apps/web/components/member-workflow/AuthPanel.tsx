@@ -14,7 +14,11 @@ export function AuthPanel() {
   const [busy, setBusy] = useState(true);
   const [user, setUser] = useState<User | null>(null);
   const [status, setStatus] = useState("Checking your current session.");
-  const [error, setError] = useState("");
+  const [error, setError] = useState(() =>
+    searchParams.get("error") === "sign_in_failed"
+      ? "We couldn't complete sign-in. Please try again."
+      : "",
+  );
   const [phone, setPhone] = useState("");
   const [phoneCode, setPhoneCode] = useState("");
   const [phoneCodeSent, setPhoneCodeSent] = useState(false);
@@ -28,9 +32,9 @@ export function AuthPanel() {
     return raw;
   }, [searchParams]);
 
-  async function load() {
+  async function load({ preserveError = false }: { preserveError?: boolean } = {}) {
     setBusy(true);
-    setError("");
+    if (!preserveError) setError("");
     const result = await getCurrentUser();
     const currentUser = result.ok ? result.data?.user || null : null;
     setUser(currentUser);
@@ -43,7 +47,7 @@ export function AuthPanel() {
   }
 
   useEffect(() => {
-    void Promise.resolve().then(() => load());
+    void Promise.resolve().then(() => load({ preserveError: true }));
     const subscription = onAuthStateChange(() => {
       void load();
     });

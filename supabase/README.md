@@ -29,11 +29,20 @@ Every deployed function owns a local `deno.json` with exact direct dependency
 versions, following [Supabase's function dependency guidance](https://supabase.com/docs/guides/functions/dependencies).
 The Supabase CLI uses that file as Deno configuration when bundling a function;
 it does not upload the repository root `deno.lock`. Accordingly,
-`npm run check:supabase-edge-types` checks all 31 entrypoints with their real
+`npm run check:supabase-edge-types` checks every declared entrypoint with its real
 function-local configuration and no deployment lock, records and audits each
 entrypoint's current resolution in its own temporary lock, and separately audits
 the repository lock used by local tooling. Never describe the root lock as
 freezing the deployed transitive graph.
+
+## Disabled Monthly Raffle Foundation
+
+The source-only monthly raffle foundation is documented in
+[`../docs/integrations/monthly-raffle-core-foundation.md`](../docs/integrations/monthly-raffle-core-foundation.md).
+It remains fail-closed and requires a separate exact authorization before any
+migration, function deployment, secret, schedule, relay, provider, funding, or
+production activation. The final reviewed head must recalculate its function
+inventory and JWT parity before release.
 
 ## Pixelfed Guild Social Mapping
 

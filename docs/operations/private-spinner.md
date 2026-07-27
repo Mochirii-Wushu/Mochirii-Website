@@ -65,7 +65,7 @@ Source, tests, migration, and function code may be reviewed in a PR. The followi
 
 - applying `20260727054717_enforce_three_minute_spinner_countdown.sql` after
   the released spinner and media migrations;
-- allowing the connected production integration to redeploy all 33 Edge Functions declared in `supabase/config.toml`, including the new `spinner-live-session` and `reaper-spinner-dispatch` functions;
+- allowing the connected production integration to redeploy all 40 Edge Functions declared in `supabase/config.toml`, including the spinner functions and the separately disabled raffle foundation;
 - setting `DISCORD_RAFFLE_CHANNEL_ID`, `REAPER_SPINNER_DISPATCH_SECRET`, or changing any existing bot secret;
 - adding the matching Vault values used by scheduled dispatch;
 - exercising the target channel or promoting a production deployment.
@@ -76,11 +76,11 @@ Pause moderator draws before the three-minute timing migration or matching funct
 
 ## Production Integration Blast Radius
 
-The connected production integration does not deploy only the two spinner functions. On every push or merge to the configured production branch, it applies new migrations and deploys every Edge Function declared in `supabase/config.toml`. The exact reviewed spinner release currently declares 33 functions: the prior 31-function inventory plus `spinner-live-session` and `reaper-spinner-dispatch`. This matches the [production integration contract](https://supabase.com/docs/guides/deployment/branching/github-integration): migrations and all functions declared in `config.toml` are production deployment inputs.
+The connected production integration does not deploy only the two spinner functions. On every push or merge to the configured production branch, it applies new migrations and deploys every Edge Function declared in `supabase/config.toml`. The current source declares 40 functions: the established 33-function inventory plus seven separately disabled raffle functions. This matches the [production integration contract](https://supabase.com/docs/guides/deployment/branching/github-integration): migrations and all functions declared in `config.toml` are production deployment inputs.
 
-Before merge, record the prior production commit and no-secret version/status inventory for all 33 functions in ignored operations evidence. Require the exact-head Preview and protected checks to pass. After merge, serialize the release: do not merge another provider-affecting change until the production integration reports success for the migration and all 33 function deployments. Verify the two spinner functions from the merged commit and run the existing no-send authentication/boundary smokes for the other 31 functions. A manual two-function deployment is not an equivalent release and is not authorized by this runbook.
+Before merge, record the prior production commit and no-secret version/status inventory for all 40 functions in ignored operations evidence. Require the exact-head Preview and protected checks to pass. After merge, serialize the release: do not merge another provider-affecting change until the production integration reports success for the migration and all 40 function deployments. Verify the two spinner functions from the merged commit and run the existing read-only or fail-closed authentication/boundary smokes for the other 38 functions. A manual two-function deployment is not an equivalent release and is not authorized by this runbook.
 
-The 33 configured functions are:
+The 40 configured functions are:
 
 1. `verify-discord-member`
 2. `verify-member-access`
@@ -115,6 +115,13 @@ The 33 configured functions are:
 31. `mochi-pets-alpha-admin`
 32. `submit-mochi-pets-feedback`
 33. `sync-pixelfed-social-account`
+34. `get-current-raffle`
+35. `manage-raffle-entry`
+36. `moderate-raffle`
+37. `run-raffle-schedule`
+38. `manage-raffle-claim`
+39. `run-raffle-fulfillment`
+40. `reward-provider-webhook`
 
 ## Authenticated Preview Boundary
 

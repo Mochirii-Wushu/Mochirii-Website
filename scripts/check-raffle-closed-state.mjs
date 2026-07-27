@@ -27,10 +27,63 @@ const files = {
   sideStyles: "apps/web/app/styles/public-side-pages.css",
 };
 
-const forbiddenOperationalSurfaces = [
+const privateRoutes = new Map([
+  ["raffle claim", {
+    path: "apps/web/app/raffle/claim/page.tsx",
+    decisionCall: "const { decision, status } = await getRaffleClaimPageState();",
+    authPath: 'authLoginPath("/raffle/claim")',
+    closedHeading: "No reward available",
+    activationReady: true,
+  }],
+  ["raffle administration", {
+    path: "apps/web/app/leader-dashboard/raffle/page.tsx",
+    decisionCall: "const decision = await getRaffleModeratorPageDecision();",
+    authPath: 'authLoginPath("/leader-dashboard/raffle")',
+    closedHeading: "No active administration",
+    activationReady: false,
+  }],
+]);
+
+const raffleFunctionContracts = new Map([
+  ["supabase/functions/get-current-raffle/index.ts", [
+    'asRecord(body).action !== "member_results"',
+    "dependencies.requireMember || requireRaffleMember",
+    'status: "not_open"',
+  ]],
+  ["supabase/functions/manage-raffle-entry/index.ts", [
+    "action !== \"status\" &&",
+    "!gates.submissions",
+    "!gates.bonusSubmissions",
+    'error: "entries_closed"',
+  ]],
+  ["supabase/functions/moderate-raffle/index.ts", [
+    "!raffleOperationalGates().submissions",
+    "!gates.rewardOrders || !gates.relay",
+  ]],
+  ["supabase/functions/run-raffle-schedule/index.ts", [
+    "!raffleOperationalGates().scheduling",
+    'message: "Raffle scheduling is disabled."',
+  ]],
+  ["supabase/functions/manage-raffle-claim/index.ts", [
+    "dependencies.requireMember || requireRaffleMember",
+    "raffleMemberProfileIsVerified(",
+    "(dependencies.now || Date.now)()",
+    'command.action !== "status" && !gates.claims',
+    'error: "claims_closed"',
+    "privateClaimStatus(current.row)",
+    "claimsEnabled: gates.claims",
+  ]],
+  ["supabase/functions/run-raffle-fulfillment/index.ts", [
+    "!gates.rewardOrders || !gates.relay",
+  ]],
+  ["supabase/functions/reward-provider-webhook/index.ts", [
+    "!gates.rewardOrders || !gates.relay",
+    'error: "not_found"',
+  ]],
+]);
+
+const forbiddenSurfaces = [
   "apps/web/app/api/raffle",
-  "apps/web/app/raffle/claim",
-  "apps/web/app/leader-dashboard/raffle",
   "apps/web/app/raffles/page.tsx",
   "apps/web/components/prize-draw",
   "apps/web/lib/prize-draw.ts",
@@ -38,13 +91,6 @@ const forbiddenOperationalSurfaces = [
   "apps/web/lib/supabase/prize-draw.ts",
   "services/reward-relay",
   "supabase/migrations/20260719130111_monthly_prize_draw.sql",
-  "supabase/functions/get-current-raffle",
-  "supabase/functions/manage-raffle-entry",
-  "supabase/functions/manage-raffle-claim",
-  "supabase/functions/moderate-raffle",
-  "supabase/functions/run-raffle-fulfillment",
-  "supabase/functions/run-raffle-schedule",
-  "supabase/functions/reward-provider-webhook",
   "scripts/register-reaper-raffle-commands.mjs",
   "scripts/check-reaper-raffle-commands.mjs",
   "scripts/check-reward-relay.mjs",
@@ -54,8 +100,21 @@ for (const [label, file] of Object.entries(files)) {
   if (!existsSync(resolve(root, file))) failures.push(`${label}: required file is missing: ${file}`);
 }
 
-for (const file of forbiddenOperationalSurfaces) {
-  if (existsSync(resolve(root, file))) failures.push(`${file}: operational raffle surface must stay outside the public-page track`);
+for (const [label, route] of privateRoutes) {
+  if (!existsSync(resolve(root, route.path))) {
+    failures.push(`${label}: required private route is missing: ${route.path}`);
+  }
+}
+
+for (const [file, snippets] of raffleFunctionContracts) {
+  const source = read(file);
+  for (const snippet of snippets) {
+    assertIncludes(`${file} fail-closed contract`, source, snippet);
+  }
+}
+
+for (const file of forbiddenSurfaces) {
+  if (existsSync(resolve(root, file))) failures.push(`${file}: operational raffle surface must stay absent from the public closed-state change`);
 }
 
 const data = JSON.parse(read(files.data) || "{}");
@@ -126,8 +185,8 @@ const raffleMetadataEnd = metadataSource.indexOf("gallery:", raffleMetadataStart
 const raffleMetadataSource = raffleMetadataStart >= 0 && raffleMetadataEnd > raffleMetadataStart
   ? metadataSource.slice(raffleMetadataStart, raffleMetadataEnd)
   : "";
+const pageSource = read(files.page);
 const publicSource = [
-  read(files.page),
   read(files.rules),
   read(files.ruleVersion),
   read(files.component),
@@ -135,6 +194,20 @@ const publicSource = [
   read(files.data),
   raffleMetadataSource,
 ].join("\n");
+for (const snippet of [
+  'export const dynamic = "force-dynamic";',
+  "getRaffleViewerResultNames()",
+  "<RafflePage viewerResultNames={viewerResultNames}",
+]) {
+  assertIncludes("personalized raffle Server Component", pageSource, snippet);
+}
+for (const [label, pattern] of [
+  ["client component", /["']use client["']/i],
+  ["browser request", /\bfetch\s*\(/i],
+  ["interactive event handler", /\bon(?:click|submit|change|input|keydown|keyup)\s*=/i],
+]) {
+  if (pattern.test(pageSource)) failures.push(`raffle page boundary: ${label} is forbidden`);
+}
 assert(publicSource.includes('drawing: "No raffle is active"'), "public raffle source: inactive drawing label must be explicit");
 assert(publicSource.includes('submissions: "No submissions are being accepted."'), "public raffle source: inactive submission status must be explicit");
 
@@ -150,8 +223,17 @@ for (const [label, pattern] of [
   ["provider or platform name", /\b(?:Tremendous|Supabase|Vercel|Discord|DigitalOcean|Fly\.io|Shopify|Stripe)\b/i],
   ["internal system language", /\b(?:backend|integration|provider|migration|webhook|relay|database|JWT|service role|Edge Function)\b/i],
   ["unfinished implementation language", /\b(?:coming soon|TBD|work in progress|not implemented|blocked|prelaunch)\b/i],
+  ["private raffle route", /(?:\/raffle\/claim|\/leader-dashboard\/raffle)/i],
+  ["private raffle module", /@\/lib\/supabase\/(?:server(?:-auth)?|raffle-access-policy|auth-redirect)/i],
+  ["private raffle function", /(?:get-current-raffle|manage-raffle-(?:entry|claim)|moderate-raffle|run-raffle-(?:schedule|fulfillment)|reward-provider-webhook)/i],
+  ["interactive event handler", /\bon(?:click|submit|change|input|keydown|keyup)\s*=/i],
+  ["server action", /["']use server["']/i],
 ]) {
   if (pattern.test(publicSource)) failures.push(`public raffle source: ${label} is forbidden`);
+}
+
+for (const [label, route] of privateRoutes) {
+  assertPrivateRaffleRoute(label, route);
 }
 
 for (const phrase of [
@@ -224,6 +306,8 @@ console.log("Raffle public contract OK.");
 console.log("- The inactive monthly program, permanent 5+5 entry model, rewards, rules, and results states are complete.");
 console.log("- Public content is provider-neutral; entry, claim, administration, and reward controls remain absent.");
 console.log("- The 7/5 and 8/4 grid contracts reflow to full-width cards at 980px.");
+console.log("- Private routes reject at the server boundary; claims stay closed by default and render actions only from trusted claimable status.");
+console.log("- Seven Edge workflows are present under explicit fail-closed operational gates.");
 
 function read(file) {
   const absolute = resolve(root, file);
@@ -240,6 +324,67 @@ function assertIncludes(label, source, snippet) {
 
 function assertDeepEqual(actual, expected, message) {
   if (JSON.stringify(actual) !== JSON.stringify(expected)) failures.push(message);
+}
+
+function assertPrivateRaffleRoute(label, route) {
+  const source = read(route.path);
+  const decisionCall = route.decisionCall;
+  const decisionIndex = source.indexOf(decisionCall);
+  const renderIndex = source.indexOf("return (");
+
+  for (const snippet of [
+    'export const dynamic = "force-dynamic";',
+    "export const revalidate = 0;",
+    decisionCall,
+    'decision === "redirect-auth"',
+    route.authPath,
+    'decision === "not-found"',
+    "notFound();",
+    "alternates: { canonical: null }",
+    "index: false",
+    "follow: false",
+    "noarchive: true",
+    "nosnippet: true",
+    "noimageindex: true",
+    "openGraph: null",
+    "twitter: null",
+    route.closedHeading,
+  ]) {
+    assertIncludes(`${label} route`, source, snippet);
+  }
+
+  assert(
+    decisionIndex >= 0 && renderIndex > decisionIndex,
+    `${label} route: authorization decision must complete before any private page content renders`,
+  );
+  const forbiddenSurfaces = [
+    ["client component", /["']use client["']/i],
+    ["network request", /\bfetch\s*\(/i],
+    ["event handler", /\bon(?:click|submit|change|input|keydown|keyup)\s*=/i],
+    ["server action", /["']use server["']/i],
+  ];
+  if (!route.activationReady) {
+    forbiddenSurfaces.push(
+      ["form", /<form\b/i],
+      ["button", /<button\b/i],
+    );
+  }
+  for (const [surface, pattern] of forbiddenSurfaces) {
+    if (pattern.test(source)) {
+      failures.push(`${label} route: ${surface} is forbidden while the private workflow is closed`);
+    }
+  }
+  if (route.activationReady) {
+    for (const snippet of [
+      'decision === "claim"',
+      "claimable ? (",
+      "action={claimElectronicReward}",
+      "action={claimInGameReward}",
+      "action={declineRaffleReward}",
+    ]) {
+      assertIncludes(`${label} activation-ready route`, source, snippet);
+    }
+  }
 }
 
 function walkKeys(value, path, visit) {

@@ -41,6 +41,13 @@ const functions = [
   "mochi-pets-alpha-admin",
   "submit-mochi-pets-feedback",
   "sync-pixelfed-social-account",
+  "get-current-raffle",
+  "manage-raffle-entry",
+  "moderate-raffle",
+  "run-raffle-schedule",
+  "manage-raffle-claim",
+  "run-raffle-fulfillment",
+  "reward-provider-webhook",
 ];
 
 function denoBinary() {

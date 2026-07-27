@@ -11,6 +11,7 @@
     "dev": "next dev",
     "clean": "node scripts/clean.mjs",
     "build:clean": "npm run clean && next build",
+    "prebuild": "npm run check:raffle-server-boundary && npm run test:raffle-server-boundary",
     "build": "next build",
     "check:client-bundle": "node scripts/check-client-bundle.mjs",
     "check:font-bundle": "node scripts/check-font-bundle.mjs",
@@ -19,6 +20,8 @@
     "vercel:version": "vercel --version",
     "start": "next start",
     "lint": "eslint",
+    "check:raffle-server-boundary": "node scripts/check-raffle-server-boundary.mjs",
+    "test:raffle-server-boundary": "node --experimental-default-type=module --experimental-strip-types --test lib/supabase/auth-redirect-core.test.mts lib/supabase/raffle-access-policy-core.test.mts lib/supabase/raffle-claim-status-core.test.mts lib/supabase/raffle-viewer-adapter-core.test.mts lib/supabase/raffle-viewer-results-core.test.mts",
     "test:spinner-private": "node --experimental-default-type=module --experimental-strip-types --test ../../tests/spinner-media-renderer.test.ts ../../tests/spinner-proxy.test.ts",
     "toolchain:check": "node scripts/check-local-toolchain.mjs",
     "verify:local": "npm run toolchain:check && npm run lint && npm run build && npm run check:client-bundle && npm run check:font-bundle && npm run check:route-css-bundle"
@@ -26,7 +29,8 @@
   "dependencies": {
     "@napi-rs/canvas": "1.0.2",
     "@napi-rs/webcodecs": "1.3.1",
-    "@supabase/supabase-js": "^2.110.8",
+    "@supabase/ssr": "0.12.3",
+    "@supabase/supabase-js": "2.110.8",
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
     "next": "16.2.11",

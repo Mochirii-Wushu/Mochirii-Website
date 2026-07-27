@@ -8,6 +8,11 @@ export const NEXT_PUBLIC_AUTH_PROVIDER_IDS = process.env.NEXT_PUBLIC_AUTH_PROVID
 export const NEXT_PUBLIC_AUTH_PROVIDER_PLACEHOLDER_IDS = process.env.NEXT_PUBLIC_AUTH_PROVIDER_PLACEHOLDER_IDS || "";
 export const NEXT_PUBLIC_PHONE_AUTH_READY = process.env.NEXT_PUBLIC_PHONE_AUTH_READY === "true";
 export const NEXT_PUBLIC_AUTH_CAPTCHA_ENABLED = process.env.NEXT_PUBLIC_AUTH_CAPTCHA_ENABLED === "true";
+export const SUPABASE_AUTH_COOKIE_OPTIONS = {
+  path: "/",
+  sameSite: "lax" as const,
+  secure: process.env.NODE_ENV === "production",
+};
 
 export const DISCORD_GUILD_ID = "1078630751077142608";
 export const DISCORD_REQUIRED_ROLE_IDS = ["1468659807736299520", "1078630751077142615"] as const;

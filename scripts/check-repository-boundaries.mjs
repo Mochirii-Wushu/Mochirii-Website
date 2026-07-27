@@ -35,6 +35,7 @@ const generatedArchivePattern = /\.(?:7z|bak|bundle|dump|gz|rar|tar|tgz|zip)$/i;
 const databaseArtifactPattern = /\.(?:sql|sqlite|sqlite3)$/i;
 const reviewedDatabaseTestPaths = new Set([
   "supabase/tests/private_live_spinner_test.sql",
+  "supabase/tests/raffle_backend_test.sql",
   "supabase/tests/spinner_media_jobs_test.sql",
 ]);
 const credentialPathPattern = /(^|\/)(?:Mochi Creds|private-evidence|Repository Backups)(\/|$)/i;

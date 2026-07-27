@@ -6,6 +6,7 @@ import {
   providerToSupabaseProvider,
   type OAuthProviderId,
 } from "./auth-providers";
+import { authCallbackPath, resolveAuthReturnPath } from "./auth-redirect";
 import { requireBrowserSupabaseClient } from "./client";
 import { failedResult, okResult, createResult, createError, type AuthSessionResult, type AuthUserResult } from "./types";
 
@@ -50,8 +51,9 @@ export function onAuthStateChange(callback: (event: AuthChangeEvent, session: Se
 }
 
 function resolveRedirectTo(value = "/account") {
-  if (typeof window === "undefined") return value;
-  return new URL(value, window.location.origin).href;
+  const callback = authCallbackPath(resolveAuthReturnPath(value));
+  if (typeof window === "undefined") return callback;
+  return new URL(callback, window.location.origin).href;
 }
 
 export async function signInWithProvider(provider: OAuthProviderId, options: { redirectTo?: string } = {}) {

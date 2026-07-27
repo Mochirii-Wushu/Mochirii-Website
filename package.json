@@ -72,6 +72,7 @@
     "check:raffle-public": "node scripts/check-raffle-closed-state.mjs",
     "check:raffle-closed-state": "node scripts/check-raffle-closed-state.mjs",
     "test:raffle-public": "node --experimental-default-type=module --experimental-strip-types --test apps/web/lib/raffle/public-view_test.ts",
+    "check:raffle-core-foundation": "node scripts/check-raffle-core-foundation.mjs",
     "check:recruitment-audio-player": "node scripts/check-recruitment-audio-player.mjs",
     "check:refs": "node scripts/check-refs.mjs",
     "check:security-hardening": "node scripts/check-security-hardening.mjs",
@@ -128,6 +129,7 @@
     "test:discord-signature": "deno test --allow-env --node-modules-dir=auto --import-map=supabase/functions/reaper-discord-interactions/deno.json --lock=deno.lock --frozen=true supabase/functions/_shared/discord-signature_test.ts",
     "test:reaper-discord-events": "deno test --allow-env --node-modules-dir=auto --import-map=supabase/functions/reaper-discord-interactions/deno.json --lock=deno.lock --frozen=true supabase/functions/_shared/reaper-discord-events_test.ts",
     "test:reaper-pending-verification": "deno test --lock=deno.lock --frozen=true supabase/functions/_shared/pending-verification-containment_test.ts",
+    "test:raffle-core-foundation": "deno test --node-modules-dir=auto --config=supabase/functions/get-current-raffle/deno.json --lock=supabase/functions/get-current-raffle/deno.lock --frozen=true supabase/functions/_shared/raffle-claim-boundary_test.ts supabase/functions/_shared/raffle-claim_test.ts supabase/functions/_shared/raffle-core_test.ts supabase/functions/_shared/raffle-current_test.ts supabase/functions/_shared/raffle-edge_test.ts supabase/functions/_shared/raffle-flags_test.ts supabase/functions/_shared/raffle-fulfillment_test.ts supabase/functions/_shared/reward-provider-webhook_test.ts supabase/functions/_shared/reward-relay_test.ts",
     "test:vote-reminder": "deno test --allow-env --lock=deno.lock --frozen=true supabase/functions/_shared/vote-reminders_test.ts"
   },
   "devDependencies": {

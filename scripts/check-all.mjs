@@ -16,6 +16,8 @@ const checks = [
   ["test:live-spinner-backend", ["deno", "test", "--allow-env", "--node-modules-dir=auto", "--import-map=supabase/functions/spinner-live-session/deno.json", "--lock=deno.lock", "--frozen=true", "supabase/functions/_shared/spinner-live_test.ts", "supabase/functions/_shared/spinner-media_test.ts"]],
   ["check:raffle-public", ["node", "scripts/check-raffle-closed-state.mjs"]],
   ["test:raffle-public", ["node", "--experimental-default-type=module", "--experimental-strip-types", "--test", "apps/web/lib/raffle/public-view_test.ts"]],
+  ["check:raffle-core-foundation", ["node", "scripts/check-raffle-core-foundation.mjs"]],
+  ["test:raffle-core-foundation", ["deno", "test", "--node-modules-dir=auto", "--config=supabase/functions/get-current-raffle/deno.json", "--lock=supabase/functions/get-current-raffle/deno.lock", "--frozen=true", "supabase/functions/_shared/raffle-claim_test.ts", "supabase/functions/_shared/raffle-core_test.ts", "supabase/functions/_shared/raffle-current_test.ts", "supabase/functions/_shared/raffle-edge_test.ts", "supabase/functions/_shared/raffle-flags_test.ts", "supabase/functions/_shared/raffle-fulfillment_test.ts", "supabase/functions/_shared/reward-provider-webhook_test.ts", "supabase/functions/_shared/reward-relay_test.ts"]],
   ["check:recruitment-audio-player", ["node", "scripts/check-recruitment-audio-player.mjs"]],
   ["check:content", ["node", "scripts/check-content-guardrails.mjs"]],
   ["check:apac-content", ["node", "scripts/check-apac-content.mjs"]],

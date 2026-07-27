@@ -87,6 +87,18 @@ const protectedFunctions = [
     name: "moderate-member-profile-media",
     body: {},
   },
+  {
+    name: "manage-raffle-entry",
+    body: { action: "status" },
+  },
+  {
+    name: "moderate-raffle",
+    body: { action: "readiness" },
+  },
+  {
+    name: "manage-raffle-claim",
+    body: { action: "status" },
+  },
 ];
 
 const secretProtectedFunctions = [
@@ -159,6 +171,26 @@ const secretProtectedFunctions = [
 const publicReadOnlyFunctions = [
   "list-visible-profile-cards",
   "get-current-spotlight-winner",
+  "get-current-raffle",
+];
+
+const disabledOperationalFunctions = [
+  {
+    name: "run-raffle-schedule",
+    invalidHeaders: { "x-raffle-cron-secret": "invalid-smoke-secret" },
+  },
+  {
+    name: "run-raffle-fulfillment",
+    invalidHeaders: {
+      "x-raffle-fulfillment-secret": "invalid-smoke-secret",
+    },
+  },
+  {
+    name: "reward-provider-webhook",
+    invalidHeaders: {
+      "Tremendous-Webhook-Signature": "invalid-smoke-signature",
+    },
+  },
 ];
 
 function readSupabasePublicConfig() {
@@ -279,6 +311,24 @@ async function checkMethodNotAllowed(config, name) {
   assert(result.status === 405, `${name} DELETE expected 405 Method not allowed, got ${result.status}.`);
 }
 
+async function checkDisabledOperationalFunction(config, target) {
+  for (const [label, method, extraHeaders] of [
+    ["without authentication", "POST", {}],
+    ["with invalid authentication", "POST", target.invalidHeaders],
+    ["with unsupported method", "GET", {}],
+  ]) {
+    const result = await fetchContract(functionUrl(config, target.name), {
+      method,
+      headers: headers(config, extraHeaders),
+      ...(method === "POST" ? { body: "{}" } : {}),
+    });
+    assert(
+      result.status === 404 && result.ok === false,
+      `${target.name} ${label} must remain closed as an opaque 404, got ${result.status}: ${summarizeBody(result.json || result.text)}`,
+    );
+  }
+}
+
 function validateApprovedFeedBody(body) {
   assert(body && typeof body === "object", "approved feed response was not JSON.");
   assert(body.ok === true, `approved feed response ok flag was not true: ${summarizeBody(body)}`);
@@ -376,9 +426,107 @@ async function checkCurrentSpotlightWinner(config) {
   await checkMethodNotAllowed(config, name);
 }
 
+async function checkCurrentRaffle(config) {
+  const name = "get-current-raffle";
+  await checkOptions(config, name);
+
+  const result = await fetchContract(functionUrl(config, name), {
+    method: "GET",
+    headers: headers(config),
+  });
+
+  assert(
+    result.status === 200,
+    `${name} GET expected 200, got ${result.status}: ${summarizeBody(result.json || result.text)}`,
+  );
+  assert(result.json?.ok === true, `${name} response did not return ok=true.`);
+  if (result.json.data == null) {
+    assert(result.json.status === "not_open", `${name} empty state must be not_open.`);
+  } else {
+    assert(
+      result.json.data && typeof result.json.data === "object" && !Array.isArray(result.json.data),
+      `${name} active data must be an object.`,
+    );
+    const expectedKeys = [
+      "baseEntries",
+      "bonusEntryStatus",
+      "claimEndsAt",
+      "closesAt",
+      "cycleStatus",
+      "drawAt",
+      "drawEvidence",
+      "entrantCount",
+      "maximumBonusEntries",
+      "maximumEntries",
+      "opensAt",
+      "publicResult",
+      "publicReward",
+      "rulesUrl",
+      "standardEntryStatus",
+      "timezone",
+      "totalEntryCount",
+    ];
+    const actualKeys = Object.keys(result.json.data).sort();
+    assert(
+      JSON.stringify(actualKeys) === JSON.stringify(expectedKeys),
+      `${name} returned an unexpected public field set.`,
+    );
+    assert(result.json.data.baseEntries === 5, `${name} base entry count must be five.`);
+    assert(result.json.data.maximumBonusEntries === 5, `${name} bonus entry limit must be five.`);
+    assert(result.json.data.maximumEntries === 10, `${name} total entry limit must be ten.`);
+    assert(result.json.data.timezone === "Asia/Singapore", `${name} timezone must be Asia/Singapore.`);
+    if (result.json.data.drawEvidence !== null) {
+      const evidence = result.json.data.drawEvidence;
+      assert(
+        evidence && typeof evidence === "object" && !Array.isArray(evidence),
+        `${name} draw evidence must be an object or null.`,
+      );
+      const expectedEvidenceKeys = [
+        "drawingAt",
+        "ledgerCommitment",
+        "methodVersion",
+        "resultCommitment",
+      ];
+      assert(
+        JSON.stringify(Object.keys(evidence || {}).sort()) ===
+          JSON.stringify(expectedEvidenceKeys),
+        `${name} draw evidence returned reversible or unexpected fields.`,
+      );
+      assert(
+        /^[0-9a-f]{64}$/.test(evidence?.ledgerCommitment || "") &&
+          /^[0-9a-f]{64}$/.test(evidence?.resultCommitment || ""),
+        `${name} draw evidence commitments are invalid.`,
+      );
+    }
+  }
+
+  const serialized = JSON.stringify(result.json);
+  for (const privateField of [
+    "member_id",
+    "user_id",
+    "display_name",
+    "reward_link",
+    "ledger_salt",
+    "ledgerSalt",
+    "seed_hex",
+    "seedHex",
+    "pseudonymous_member_id",
+    "committedPseudonym",
+    "entryOrdinal",
+  ]) {
+    assert(!serialized.includes(privateField), `${name} exposed private field ${privateField}.`);
+  }
+  await checkMethodNotAllowed(config, name);
+}
+
 assert(
-  publicReadOnlyFunctions.length === 2,
+  publicReadOnlyFunctions.length === 3,
   "Public read-only Supabase smoke inventory changed without a reviewed contract update.",
+);
+
+assert(
+  disabledOperationalFunctions.length === 3,
+  "Disabled operational Supabase smoke inventory changed without a reviewed contract update.",
 );
 
 try {
@@ -406,9 +554,14 @@ try {
     );
   }
 
+  for (const target of disabledOperationalFunctions) {
+    await checkDisabledOperationalFunction(config, target);
+  }
+
   await checkApprovedFeed(config);
   await checkVisibleProfileCards(config);
   await checkCurrentSpotlightWinner(config);
+  await checkCurrentRaffle(config);
   console.log("Supabase Edge Function contract smoke OK.");
 } catch (error) {
   const message = error?.message || String(error);

@@ -33,6 +33,12 @@ const files = {
   spotlightPollPublisher: "supabase/functions/publish-member-spotlight-winner/index.ts",
   spotlightPollPublicWinner: "supabase/functions/get-current-spotlight-winner/index.ts",
   pixelfedSocialSync: "supabase/functions/sync-pixelfed-social-account/index.ts",
+  raffleFlags: "supabase/functions/_shared/raffle-flags.ts",
+  currentRaffle: "supabase/functions/get-current-raffle/index.ts",
+  raffleSchedule: "supabase/functions/run-raffle-schedule/index.ts",
+  raffleFulfillment: "supabase/functions/run-raffle-fulfillment/index.ts",
+  rewardProviderWebhook: "supabase/functions/reward-provider-webhook/index.ts",
+  rewardCrypto: "supabase/functions/_shared/reward-crypto.ts",
   report: "reports/free-security-hardening-2026-06-08.md",
   cspReport: "reports/csp-enforcement-verification-2026-06-08.md",
   deployment: "docs/operations/deployment.md",
@@ -103,6 +109,12 @@ const spotlightPollSender = read(files.spotlightPollSender);
 const spotlightPollPublisher = read(files.spotlightPollPublisher);
 const spotlightPollPublicWinner = read(files.spotlightPollPublicWinner);
 const pixelfedSocialSync = read(files.pixelfedSocialSync);
+const raffleFlags = read(files.raffleFlags);
+const currentRaffle = read(files.currentRaffle);
+const raffleSchedule = read(files.raffleSchedule);
+const raffleFulfillment = read(files.raffleFulfillment);
+const rewardProviderWebhook = read(files.rewardProviderWebhook);
+const rewardCrypto = read(files.rewardCrypto);
 const report = read(files.report);
 const cspReport = read(files.cspReport);
 const deployment = read(files.deployment);
@@ -220,6 +232,10 @@ const expectedUnauthenticatedFunctions = [
   "mochi-pets-alpha-action",
   "mochi-pets-alpha-progress",
   "sync-pixelfed-social-account",
+  "get-current-raffle",
+  "run-raffle-schedule",
+  "run-raffle-fulfillment",
+  "reward-provider-webhook",
 ];
 
 const quarantinedUnauthenticatedFunctions = new Set([
@@ -356,6 +372,47 @@ const unauthenticatedFunctionGuardSpecs = {
       "getServiceRoleKey()",
     ],
   },
+  "get-current-raffle": {
+    source: currentRaffle,
+    kind: "public read-only raffle DTO with verified member result branch",
+    snippets: [
+      "PUBLIC_CORS_HEADERS",
+      "return handlePublicGet(dependencies)",
+      "requireRaffleMember",
+      "publicCycleDto(cycle)",
+    ],
+  },
+  "run-raffle-schedule": {
+    source: `${raffleSchedule}\n${raffleFlags}`,
+    kind: "closed-by-default shared-secret raffle scheduler",
+    snippets: [
+      "raffleOperationalGates().scheduling",
+      "RAFFLE_SCHEDULE_CRON_SECRET",
+      "x-raffle-cron-secret",
+      "constantTimeSecretMatches",
+    ],
+  },
+  "run-raffle-fulfillment": {
+    source: `${raffleFulfillment}\n${raffleFlags}`,
+    kind: "closed-by-default shared-secret reward worker",
+    snippets: [
+      "!gates.rewardOrders || !gates.relay",
+      "RAFFLE_FULFILLMENT_CRON_SECRET",
+      "x-raffle-fulfillment-secret",
+      "constantTimeTextEquals",
+    ],
+  },
+  "reward-provider-webhook": {
+    source: `${rewardProviderWebhook}\n${rewardCrypto}\n${raffleFlags}`,
+    kind: "closed-by-default signed reward webhook",
+    snippets: [
+      "!gates.rewardOrders || !gates.relay",
+      "TREMENDOUS_WEBHOOK_SIGNING_SECRET",
+      "PROVIDER_WEBHOOK_SIGNATURE_HEADER",
+      "verifyProviderWebhookSignature",
+      "maximumWebhookBytes",
+    ],
+  },
 };
 
 for (const name of expectedUnauthenticatedFunctions) {
@@ -374,6 +431,7 @@ for (const name of expectedUnauthenticatedFunctions) {
   ["list-approved-gallery-submissions", approvedFeed],
   ["list-visible-profile-cards", visibleProfileCards],
   ["get-current-spotlight-winner", spotlightPollPublicWinner],
+  ["get-current-raffle", currentRaffle],
 ].forEach(([name, source]) => {
   assertNotMatches(
     `${name} public read-only posture`,
