@@ -149,6 +149,8 @@ jobs:
           tests/Feature/RetiredSurfaceSourceContractTest.php
           tests/Feature/DisabledUpstreamServicesTest.php
           tests/Feature/MochiriiSocialSyncServiceTest.php
+          tests/Feature/MochiriiRaffleLeaderboardServiceTest.php
+          tests/Feature/RaffleLeaderboardPageTest.php
           tests/Feature/OAuthTokenRevocationTest.php
           tests/Feature/PrivateSocialBoundaryTest.php
           tests/Feature/PrivateMediaGatewayTest.php

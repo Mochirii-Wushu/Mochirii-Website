@@ -7,6 +7,20 @@ const stateScenarios = [
   ["previous-only", "No raffle is active", "Entries closed", "Previous drawing results", [], ["Previous fixture drawing", "Winner confirmed"]],
   ["scheduled", "A raffle is scheduled", "Entries closed"],
   ["open", "A raffle is active", "Entries open"],
+  [
+    "leaderboard-verified",
+    "A raffle is active",
+    "Entries open",
+    undefined,
+    [],
+    [
+      "Monthly leaderboard",
+      "Each point is one raffle entry.",
+      "Moonlit Lotus Along the Jade River",
+      "Sya",
+      "10 points",
+    ],
+  ],
   ["open-standard", "A raffle is active", "Standard entries open"],
   ["closed", "Submissions are closed", "Entries closed"],
   ["drawing", "Drawing in progress", "Entries closed"],
@@ -117,6 +131,27 @@ async function verifyGeometryMatrix(browser) {
       if (!inspected) continue;
       if (inspected.horizontalOverflow > 1) failures.push(`${label}: document overflowed horizontally by ${inspected.horizontalOverflow}px.`);
       for (const issue of inspected.geometryIssues) failures.push(`${label}: ${issue}`);
+      if (inspected.text.includes("Monthly leaderboard")) {
+        failures.push(`${label}: signed-out fixture exposed the member leaderboard.`);
+      }
+
+      const leaderboardLabel = `chromium ${viewport.name} leaderboard geometry`;
+      const leaderboard = await inspectFixture(
+        context,
+        "leaderboard-verified",
+        leaderboardLabel,
+        { geometry: true },
+      );
+      if (!leaderboard) continue;
+      if (!leaderboard.text.includes("Monthly leaderboard")) {
+        failures.push(`${leaderboardLabel}: verified standings are missing.`);
+      }
+      if (leaderboard.horizontalOverflow > 1) {
+        failures.push(`${leaderboardLabel}: document overflowed horizontally by ${leaderboard.horizontalOverflow}px.`);
+      }
+      for (const issue of leaderboard.geometryIssues) {
+        failures.push(`${leaderboardLabel}: ${issue}`);
+      }
 
       const winnerLabel = `chromium ${viewport.name} winner geometry`;
       const winner = await inspectFixture(context, "results-signed-out", winnerLabel, { geometry: true });
@@ -142,6 +177,16 @@ async function verifyGeometryMatrix(browser) {
     layout.geometryIssues.forEach((issue) => failures.push(`chromium phone 200%-text: ${issue}`));
     const winnerState = await page.locator(".raffle-monthly-winner").getAttribute("data-member-name-visible");
     if (winnerState !== "true") failures.push("chromium phone 200%-text: verified winner name is not visible.");
+    await navigate(page, "leaderboard-verified", "chromium leaderboard 200%-text");
+    await page.addStyleTag({ content: "html{font-size:200% !important}" });
+    await page.waitForTimeout(100);
+    const leaderboardLayout = await readGeometry(page);
+    if (leaderboardLayout.horizontalOverflow > 1) {
+      failures.push("chromium leaderboard 200%-text: document overflowed horizontally.");
+    }
+    leaderboardLayout.geometryIssues.forEach((issue) =>
+      failures.push(`chromium leaderboard 200%-text: ${issue}`)
+    );
     reportErrors("chromium phone 200%-text", errors);
   } finally {
     await closeContext(context);
@@ -307,6 +352,7 @@ async function readGeometry(page) {
 
     for (const element of document.querySelectorAll(".raffle-public-layout .glass-card,.raffle-public-layout li,.raffle-public-layout p,.raffle-public-layout h1,.raffle-public-layout h2,.raffle-public-layout h3,.raffle-public-layout a,.raffle-public-layout dt,.raffle-public-layout dd")) {
       if (!(element instanceof HTMLElement)) continue;
+      if (element.matches(".sr-only,.visually-hidden") || element.closest(".sr-only,.visually-hidden")) continue;
       const style = getComputedStyle(element);
       if (["hidden", "clip"].includes(style.overflowX) && element.scrollWidth - element.clientWidth > 1) {
         issues.push(`${element.tagName.toLowerCase()} content clips horizontally`);
@@ -322,6 +368,17 @@ async function readGeometry(page) {
       const overflowX = getComputedStyle(element).overflowX;
       if (!["hidden", "clip"].includes(overflowX) && element.scrollWidth - element.clientWidth > 1) {
         issues.push(`${element.tagName.toLowerCase()} visibly overflows horizontally`);
+      }
+    }
+
+    for (const row of document.querySelectorAll(".raffle-leaderboard-row")) {
+      if (!(row instanceof HTMLElement)) continue;
+      const rect = row.getBoundingClientRect();
+      if (rect.left < -1 || rect.right > innerWidth + 1 || rect.width <= 0) {
+        issues.push("leaderboard row is outside the viewport or collapsed");
+      }
+      if (row.scrollWidth - row.clientWidth > 1) {
+        issues.push("leaderboard row overflows horizontally");
       }
     }
 

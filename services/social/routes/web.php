@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\RaffleLeaderboardController;
 use App\Http\Controllers\RemoteOidcController;
 use Illuminate\Support\Facades\Route;
 
@@ -31,6 +32,9 @@ Route::domain(config('pixelfed.domain.app'))->group(function () {
 Route::domain(config('pixelfed.domain.app'))->middleware(['validemail', 'twofactor', 'localization'])->group(function () {
     Route::get('/', 'SiteController@home')->name('timeline.personal');
     Route::redirect('/home', '/')->name('home');
+    Route::get('guild/raffle', RaffleLeaderboardController::class)
+        ->middleware('throttle:30,1')
+        ->name('guild.raffle');
     Route::get('web/directory', 'LandingController@directoryRedirect');
     Route::get('web/explore', 'LandingController@exploreRedirect');
     Route::get('authorize_interaction', 'AuthorizeInteractionController@get');

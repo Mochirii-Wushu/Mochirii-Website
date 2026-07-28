@@ -148,4 +148,17 @@ return [
         'secret' => env('MOCHIRII_SOCIAL_SYNC_SECRET', ''),
         'timeout' => max(1, min(10, (int) env('MOCHIRII_SOCIAL_SYNC_TIMEOUT', 5))),
     ],
+
+    'raffle_leaderboard' => [
+        /*
+         * Private Mōchirīī raffle leaderboard reader
+         *
+         * The host signs each request with a dedicated HMAC secret. The
+         * secret never leaves the host and must not be reused by account sync
+         * or any browser-facing surface.
+         */
+        'endpoint' => env('MOCHIRII_RAFFLE_LEADERBOARD_URL', ''),
+        'secret' => env('MOCHIRII_RAFFLE_LEADERBOARD_SECRET', ''),
+        'timeout' => max(1, min(10, (int) env('MOCHIRII_RAFFLE_LEADERBOARD_TIMEOUT', 5))),
+    ],
 ];
