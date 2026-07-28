@@ -69,7 +69,7 @@ console.log("Rendered raffle fixture smoke OK.");
 console.log(`- All ${stateScenarios.length} public state/entry variants passed in Chromium, Firefox, and WebKit.`);
 console.log(`- Active-state geometry passed at ${commonViewports.length} representative viewports, including the 980px breakpoint.`);
 console.log("- The signed-out and verified-member winner feature passed reflow, privacy, and reduced-motion checks.");
-console.log("- UTC+8 server time, visitor localization, no-JavaScript output, missing-data rejection, and alternating render-fixture isolation passed.");
+console.log("- UTC+8 governing time, visitor localization, no-JavaScript output, missing-data rejection, and alternating render-fixture isolation passed.");
 console.log("- Authenticated session and shared-cache isolation remain part of the server-integrated core track.");
 
 async function launch(browserName, browserType) {
