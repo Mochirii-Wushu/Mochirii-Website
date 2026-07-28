@@ -10,6 +10,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { LightboxImage } from "@/components/LightboxImage";
+import { ResponsiveGalleryMedia } from "@/components/ResponsiveGalleryMedia";
 import { useBodyPortalRoot, useBodyScrollLock } from "@/components/useLightboxOverlay";
 import {
   listApprovedGallerySubmissions,
@@ -34,6 +35,7 @@ type GalleryItem = {
 };
 
 type SortMode = "random" | "newest" | "oldest";
+type ApprovedFeedState = "loading" | "ready" | "error";
 type NormalizedGalleryItem = Omit<GalleryItem, "alt" | "caption" | "categories" | "full" | "thumb"> & {
   alt: string;
   caption: string;
@@ -245,6 +247,8 @@ export function GalleryBrowser({
   const [activeCategory, setActiveCategory] = useState(allCategory);
   const [activeSort, setActiveSort] = useState<SortMode>(defaultSort);
   const [approvedItems, setApprovedItems] = useState<GalleryItem[]>([]);
+  const [approvedFeedState, setApprovedFeedState] = useState<ApprovedFeedState>("loading");
+  const [approvedFeedAttempt, setApprovedFeedAttempt] = useState(0);
   const [renderWindow, setRenderWindow] = useState({ key: "", limit: galleryRenderBatchSize });
   const [shareStatus, setShareStatus] = useState("");
   const [openItemKey, setOpenItemKey] = useState<string | null>(null);
@@ -285,17 +289,31 @@ export function GalleryBrowser({
     listApprovedGallerySubmissions(controller.signal)
       .then((result) => {
         if (canceled) return;
-        const submissions = result.ok && Array.isArray(result.data?.submissions) ? result.data.submissions : [];
+        if (!result.ok || !Array.isArray(result.data?.submissions)) {
+          setApprovedItems([]);
+          setApprovedFeedState("error");
+          return;
+        }
+
+        const submissions = result.data.submissions;
         setApprovedItems(submissions.map(approvedSubmissionToGalleryItem).filter((item): item is GalleryItem => Boolean(item)));
+        setApprovedFeedState("ready");
       })
       .catch(() => {
-        if (!canceled) setApprovedItems([]);
+        if (canceled) return;
+        setApprovedItems([]);
+        setApprovedFeedState("error");
       });
 
     return () => {
       canceled = true;
       controller.abort();
     };
+  }, [approvedFeedAttempt]);
+
+  const retryApprovedFeed = useCallback(() => {
+    setApprovedFeedState("loading");
+    setApprovedFeedAttempt((attempt) => attempt + 1);
   }, []);
 
   const filterCategories = useMemo(() => {
@@ -365,8 +383,8 @@ export function GalleryBrowser({
   const activeLabel = filterCategories.find((category) => category.slug === activeCategory)?.label || "All";
   const countText =
     activeLabel === "All"
-      ? `Showing ${renderedItems.length} of ${usableItems.length} ${usableItems.length === 1 ? "image" : "images"}.`
-      : `Showing ${renderedItems.length} of ${visibleItems.length} ${visibleItems.length === 1 ? "image" : "images"} in ${activeLabel}.`;
+      ? `Showing ${renderedItems.length} of ${usableItems.length} ${usableItems.length === 1 ? "image" : "images"}${approvedFeedState === "ready" ? "" : " currently available"}.`
+      : `Showing ${renderedItems.length} of ${visibleItems.length} ${visibleItems.length === 1 ? "image" : "images"}${approvedFeedState === "ready" ? "" : " currently available"} in ${activeLabel}.`;
 
   const closeModal = useCallback(() => {
     setOpenItemKey(null);
@@ -566,6 +584,35 @@ export function GalleryBrowser({
         </p>
       </div>
 
+      <div className="gallery-feed-state" data-state={approvedFeedState}>
+        <p
+          id="galleryMemberFeedStatus"
+          className="gallery-feed-status"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          aria-busy={approvedFeedState === "loading"}
+        >
+          {approvedFeedState === "loading"
+            ? "Loading member-submitted images…"
+            : approvedFeedState === "error"
+              ? "Member-submitted images are temporarily unavailable. The rest of the gallery is still available."
+              : approvedItems.length > 0
+                ? "Member-submitted images loaded."
+                : "No member-submitted images are available yet."}
+        </p>
+        {approvedFeedState === "error" ? (
+          <button
+            className="gallery-feed-retry"
+            type="button"
+            aria-describedby="galleryMemberFeedStatus"
+            onClick={retryApprovedFeed}
+          >
+            Try again
+          </button>
+        ) : null}
+      </div>
+
       <p id="galleryEmpty" className="gallery-empty" role="status" hidden={visibleItems.length > 0}>
         No images in this category yet.
       </p>
@@ -573,7 +620,7 @@ export function GalleryBrowser({
       <div id="galleryGrid" className="gallery-grid" aria-live="polite" hidden={visibleItems.length === 0}>
         {renderedItems.map((item) => (
           <button
-            className="gallery-thumb"
+            className="gallery-thumb responsive-gallery-frame"
             type="button"
             data-full={item.full}
             data-caption={item.caption}
@@ -581,7 +628,7 @@ export function GalleryBrowser({
             key={item.stableKey}
             onClick={(event) => openModal(item, event.currentTarget)}
           >
-            <img src={item.thumb} alt={item.alt} width={16} height={10} loading="lazy" decoding="async" />
+            <ResponsiveGalleryMedia src={item.thumb} alt={item.alt} />
           </button>
         ))}
       </div>
