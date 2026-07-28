@@ -10,6 +10,8 @@ const currentGamePrefix = ["mochi", "pets"].join("_");
 const requiredIndexSnippets = [
   "gallery_submissions_user_id_idx",
   "gallery_submissions_reviewed_by_idx",
+  "gallery_submissions_public_feed_order_idx",
+  "gallery_submissions_public_feed_category_order_idx",
   "gallery_instagram_publish_jobs_queued_by_idx",
   "gallery_instagram_publish_jobs_published_by_idx",
   "gallery_instagram_publish_events_actor_id_idx",
@@ -225,6 +227,15 @@ assertIncludes("check-all", checkAll, "check:supabase-security-performance");
 for (const snippet of requiredIndexSnippets) {
   assertIncludes("Supabase FK index migrations", migrationText, snippet);
 }
+
+[
+  "revoke all on function public.gallery_public_feed_page_v2(integer, timestamptz, timestamptz, timestamptz, uuid, text, text, text)",
+  "grant execute on function public.gallery_public_feed_page_v2(integer, timestamptz, timestamptz, timestamptz, uuid, text, text, text)",
+  "revoke all on function public.gallery_public_original_v2(uuid)",
+  "grant execute on function public.gallery_public_original_v2(uuid)",
+  "from public, anon, authenticated;",
+  "to service_role;",
+].forEach((snippet) => assertIncludes("Gallery service-only function grants", migrationText, snippet));
 
 for (const table of extractCreatedPublicTables(migrationText)) {
   if (!hasRlsEnableForTable(migrationText, table)) {

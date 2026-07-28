@@ -10,7 +10,7 @@ const force = args.includes("--force");
 const selfTest = args.includes("--self-test");
 const width = 96;
 const height = 96;
-const maxBytes = 50 * 1024 * 1024;
+const maxBytes = 8 * 1024 * 1024;
 
 function argValue(name) {
   const match = args.find((value) => value.startsWith(`${name}=`));

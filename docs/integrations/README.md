@@ -27,3 +27,7 @@ machine-checked offline-workstation boundary and its remaining readbacks.
 
 See [Mochirii Social delivery](mochirii-social-delivery.md) for the private
 container, protected environment, deployment, and recovery contract.
+
+See [Gallery public media delivery](gallery-public-media-delivery.md) for the
+versioned thumbnail-only list, opaque-ID original resolution, keyset snapshot,
+and private Storage boundary.

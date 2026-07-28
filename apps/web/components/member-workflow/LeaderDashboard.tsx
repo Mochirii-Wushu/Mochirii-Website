@@ -23,9 +23,16 @@ import {
   markInstagramGallerySubmissionShared,
   moderateGallerySubmission,
   publishInstagramGallerySubmission,
+  prepareGalleryReviewPreview,
   reviewMemberVerification,
 } from "@/lib/supabase/moderation";
-import { createGalleryThumbnail } from "@/lib/gallery-thumbnail";
+import {
+  createGalleryPublicationMedia,
+  createGalleryThumbnail,
+  gallerySourceMaximumEdge,
+  gallerySourceMaximumPixels,
+  type GalleryModerationMedia,
+} from "@/lib/gallery-thumbnail";
 import {
   text,
   type GalleryReviewQueue,
@@ -55,6 +62,13 @@ import { WorkflowEmptyState, WorkflowNotice } from "./WorkflowState";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 type GalleryThumbnailState = "all" | "missing" | "ready";
+type GalleryPreviewSelection = {
+  submissionId: string;
+  sourceUrl: string;
+  sourceWidth: number;
+  sourceHeight: number;
+  blob: Blob | null;
+};
 
 export function LeaderDashboard() {
   const [busy, setBusy] = useState(true);
@@ -69,6 +83,7 @@ export function LeaderDashboard() {
   const [reasons, setReasons] = useState<Record<string, string>>({});
   const [cleanupConfirmations, setCleanupConfirmations] = useState<Record<string, boolean | undefined>>({});
   const [cleanupBusyId, setCleanupBusyId] = useState("");
+  const [galleryPreview, setGalleryPreview] = useState<GalleryPreviewSelection | null>(null);
   const [instagramActiveStatus, setInstagramActiveStatus] = useState("queued");
   const [instagramQueue, setInstagramQueue] = useState<InstagramPublishQueue | null>(null);
   const [instagramApiStatus, setInstagramApiStatus] = useState<InstagramApiStatus | null>(null);
@@ -98,6 +113,34 @@ export function LeaderDashboard() {
   const [spinnerLaunchMessage, setSpinnerLaunchMessage] = useState("");
   const leaderLoadGenerationRef = useRef(0);
 
+  const retainGalleryPreviewBlob = useCallback((
+    submissionId: string,
+    sourceUrl: string,
+    blob: Blob | null,
+  ) => {
+    setGalleryPreview((current) => {
+      if (
+        !current ||
+        current.submissionId !== submissionId ||
+        current.sourceUrl !== sourceUrl ||
+        current.blob === blob
+      ) {
+        return current;
+      }
+      return { ...current, blob };
+    });
+  }, []);
+
+  const rejectGalleryPreview = useCallback((submissionId: string, sourceUrl: string) => {
+    setGalleryPreview((current) =>
+      current?.submissionId === submissionId && current.sourceUrl === sourceUrl
+        ? null
+        : current
+    );
+    setReviewError("The safe Gallery preview could not be loaded. Prepare it again before reviewing this image.");
+    setReviewStatus("");
+  }, []);
+
   const clearModeratorState = useCallback(() => {
     setQueue(null);
     setReviewStatus("");
@@ -106,6 +149,7 @@ export function LeaderDashboard() {
     setReasons({});
     setCleanupConfirmations({});
     setCleanupBusyId("");
+    setGalleryPreview(null);
     setInstagramQueue(null);
     setInstagramApiStatus(null);
     setInstagramBusy(false);
@@ -152,6 +196,7 @@ export function LeaderDashboard() {
     setActiveStatus(nextStatus);
     setQueuePage(nextPage);
     setQueueThumbnailState(nextThumbnailState);
+    setGalleryPreview(null);
     setBusy(true);
     setReviewError("");
     setReviewStatus(`Loading ${config.label.toLowerCase()} submissions.`);
@@ -342,6 +387,12 @@ export function LeaderDashboard() {
   async function moderate(item: GalleryReviewSubmission, action: "approved" | "rejected" | "thumbnail") {
     const submissionId = text(item.id);
     const reason = text(reasons[submissionId]);
+    const expectedUpdatedAt = text(item.updatedAt);
+
+    if (!expectedUpdatedAt) {
+      setReviewError("Refresh the moderation queue before reviewing this submission.");
+      return;
+    }
 
     if (action === "rejected" && reason.length < 2) {
       setReviewError("Add a decline reason before rejecting this submission.");
@@ -358,18 +409,25 @@ export function LeaderDashboard() {
           : "Preparing the gallery thumbnail before approval.",
     );
 
-    let thumbnail = null;
+    let publicationMedia: GalleryModerationMedia | null = null;
     if (action !== "rejected") {
-      const previewUrl = text(item.signedPreviewUrl);
-      if (!previewUrl) {
-        setReviewError("The image preview must be available before preparing its gallery thumbnail.");
+      const previewBlob = galleryPreview?.submissionId === submissionId
+        ? galleryPreview.blob
+        : null;
+      if (!previewBlob) {
+        setReviewError("Prepare the safe preview and wait for it to load before reviewing this image.");
         setReviewStatus("");
         setBusy(false);
         return;
       }
 
       try {
-        thumbnail = await createGalleryThumbnail(previewUrl);
+        publicationMedia = action === "thumbnail" && item.publicationReady
+          ? {
+            display: null,
+            thumbnail: await createGalleryThumbnail(previewBlob),
+          }
+          : await createGalleryPublicationMedia(previewBlob);
       } catch (error) {
         setReviewError(error instanceof Error ? error.message : "The gallery thumbnail could not be prepared.");
         setReviewStatus("");
@@ -378,7 +436,13 @@ export function LeaderDashboard() {
       }
     }
 
-    const result = await moderateGallerySubmission(submissionId, action, reason, thumbnail);
+    const result = await moderateGallerySubmission(
+      submissionId,
+      action,
+      reason,
+      publicationMedia,
+      expectedUpdatedAt,
+    );
     if (!result.ok) {
       setReviewError(result.message || "The submission could not be moderated.");
       setReviewStatus("");
@@ -395,6 +459,65 @@ export function LeaderDashboard() {
     if (action === "approved") {
       await loadInstagramQueue({ status: instagramActiveStatus });
     }
+  }
+
+  async function prepareReviewPreview(item: GalleryReviewSubmission) {
+    const requestGeneration = leaderLoadGenerationRef.current;
+    const submissionId = text(item.id);
+    const expectedUpdatedAt = text(item.updatedAt);
+    if (!submissionId || !expectedUpdatedAt) {
+      setReviewError("Refresh the moderation queue before preparing this preview.");
+      return;
+    }
+
+    setBusy(true);
+    setGalleryPreview(null);
+    setReviewError("");
+    setReviewStatus("Validating one private Gallery source before preview.");
+    const result = await prepareGalleryReviewPreview(submissionId, expectedUpdatedAt);
+    if (!isCurrentAuthLoadGeneration(leaderLoadGenerationRef, requestGeneration)) return;
+    if (!result.ok) {
+      setReviewError(result.message || "The private Gallery preview could not be prepared safely.");
+      setReviewStatus("");
+      setBusy(false);
+      return;
+    }
+
+    const preview = result.data;
+    const sourceUrl = text(preview?.signedPreviewUrl);
+    const sourceWidth = Number(preview?.sourceWidth || 0);
+    const sourceHeight = Number(preview?.sourceHeight || 0);
+    const sourceValidatedAt = text(preview?.sourceValidatedAt);
+    const dimensionsAreValid =
+      Number.isSafeInteger(sourceWidth) &&
+      Number.isSafeInteger(sourceHeight) &&
+      sourceWidth > 0 &&
+      sourceHeight > 0 &&
+      sourceWidth <= gallerySourceMaximumEdge &&
+      sourceHeight <= gallerySourceMaximumEdge &&
+      sourceWidth * sourceHeight <= gallerySourceMaximumPixels;
+    if (
+      text(preview?.submissionId) !== submissionId ||
+      !sourceUrl ||
+      !dimensionsAreValid ||
+      !sourceValidatedAt ||
+      !Number.isFinite(Date.parse(sourceValidatedAt))
+    ) {
+      setReviewError("The private Gallery preview response could not be verified.");
+      setReviewStatus("");
+      setBusy(false);
+      return;
+    }
+
+    setGalleryPreview({
+      submissionId,
+      sourceUrl,
+      sourceWidth,
+      sourceHeight,
+      blob: null,
+    });
+    setReviewStatus(result.message || "Safe Gallery preview prepared.");
+    setBusy(false);
   }
 
   function armRejectedCleanup(item: GalleryReviewSubmission) {
@@ -755,6 +878,9 @@ export function LeaderDashboard() {
         {submissions.length ? (
           submissions.map((item) => {
             const id = text(item.id, "unknown");
+            const selectedPreview = galleryPreview?.submissionId === id
+              ? galleryPreview
+              : null;
             return (
               <SubmissionCard
                 item={item}
@@ -762,9 +888,16 @@ export function LeaderDashboard() {
                 busy={busy || cleanupBusyId === id}
                 reason={reasons[id] || ""}
                 cleanupArmed={Boolean(cleanupConfirmations[id])}
+                previewSourceUrl={selectedPreview?.sourceUrl || ""}
+                previewSourceWidth={selectedPreview?.sourceWidth || 0}
+                previewSourceHeight={selectedPreview?.sourceHeight || 0}
+                previewReady={Boolean(selectedPreview?.blob)}
                 key={id}
                 onReasonChange={(value) => setReasons((current) => ({ ...current, [id]: value.slice(0, 500) }))}
                 onModerate={moderate}
+                onPreparePreview={prepareReviewPreview}
+                onPreviewBlobChange={retainGalleryPreviewBlob}
+                onPreviewError={rejectGalleryPreview}
                 onArmCleanup={armRejectedCleanup}
                 onCancelCleanup={cancelRejectedCleanup}
                 onDeleteRejected={cleanupRejectedSubmission}

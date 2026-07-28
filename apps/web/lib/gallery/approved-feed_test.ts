@@ -1,0 +1,317 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import {
+  fetchWithGalleryTimeout,
+  listApprovedGallerySubmissions,
+  parseApprovedGalleryAsset,
+  parseApprovedGalleryPage,
+  refreshApprovedGalleryThumbnail,
+  resolveApprovedGalleryOriginal,
+} from "./approved-feed.ts";
+
+const submissionId = "10000000-0000-4000-8000-000000000001";
+const mediaOrigin = "https://deyvmtncimmcinldjyqe.supabase.co";
+
+function mediaUrl(kind: "full" | "thumbnail", id = submissionId) {
+  return `${mediaOrigin}/functions/v1/list-approved-gallery-submissions?asset=${kind}&id=${id}`;
+}
+
+function validItem() {
+  return {
+    id: submissionId,
+    title: "Cloud terrace",
+    caption: "Members gather above the valley.",
+    category: "gatherings",
+    categories: ["member-submissions", "gatherings"],
+    mime_type: "image/webp",
+    size_bytes: 123_456,
+    created_at: "2026-07-27T12:00:00.000Z",
+    reviewed_at: "2026-07-28T12:00:00.000Z",
+    thumbnail_url: mediaUrl("thumbnail"),
+    thumbnail_size_bytes: 42_000,
+    thumbnail_width: 720,
+    thumbnail_height: 450,
+  };
+}
+
+function validPage() {
+  return {
+    schemaVersion: 2,
+    items: [validItem()],
+    count: 1,
+    totalEligible: 31,
+    facets: {
+      "member-submissions": 31,
+      portraits: 3,
+      gatherings: 9,
+      action: 7,
+      scenery: 6,
+      companions: 5,
+    },
+    hasMore: true,
+    nextCursor: "ZXhhbXBsZV9jdXJzb3I",
+    partial: false,
+    complete: false,
+    deliveryFailures: 0,
+    delivery: "bounded-edge-media",
+    cacheSeconds: 15,
+  };
+}
+
+test("the Gallery page parser accepts the strict schema-v2 public DTO", () => {
+  const parsed = parseApprovedGalleryPage(validPage());
+  assert.equal(parsed?.schemaVersion, 2);
+  assert.equal(parsed?.items[0]?.thumbnail_width, 720);
+  assert.deepEqual(parsed?.items[0]?.categories, ["member-submissions", "gatherings"]);
+  assert.equal(parsed?.facets.gatherings, 9);
+});
+
+test("malformed or expanded item DTOs fail closed", () => {
+  const leaked = validPage();
+  leaked.items = [{ ...validItem(), storage_path: "private/original.png" } as ReturnType<typeof validItem>];
+  assert.equal(parseApprovedGalleryPage(leaked), null);
+
+  const leakedIdentity = validPage();
+  leakedIdentity.items = [{ ...validItem(), uploader_display_name: "Private Member" } as ReturnType<typeof validItem>];
+  assert.equal(parseApprovedGalleryPage(leakedIdentity), null);
+
+  const invalidGeometry = validPage();
+  invalidGeometry.items[0].thumbnail_width = 721;
+  assert.equal(parseApprovedGalleryPage(invalidGeometry), null);
+
+  const missingAggregate = validPage();
+  missingAggregate.items[0].categories = ["gatherings"];
+  assert.equal(parseApprovedGalleryPage(missingAggregate), null);
+
+  const duplicateIds = validPage();
+  duplicateIds.items = [validItem(), validItem()];
+  duplicateIds.count = 2;
+  assert.equal(parseApprovedGalleryPage(duplicateIds), null);
+
+  const invalidDisplay = validPage();
+  invalidDisplay.items[0].mime_type = "image/jpeg";
+  assert.equal(parseApprovedGalleryPage(invalidDisplay), null);
+
+  const unclassified = validPage();
+  unclassified.items[0].category = "";
+  assert.equal(parseApprovedGalleryPage(unclassified), null);
+});
+
+test("cursor, totals, and partial delivery invariants fail closed", () => {
+  assert.equal(parseApprovedGalleryPage({ ...validPage(), nextCursor: null }), null);
+  assert.equal(parseApprovedGalleryPage({ ...validPage(), totalEligible: 0 }), null);
+  assert.equal(parseApprovedGalleryPage({ ...validPage(), partial: true, deliveryFailures: 0 }), null);
+  assert.equal(parseApprovedGalleryPage({ ...validPage(), partial: true, deliveryFailures: 1 }), null);
+  assert.equal(parseApprovedGalleryPage({ ...validPage(), complete: true }), null);
+
+  const finalPage = { ...validPage(), hasMore: false, nextCursor: null, complete: true };
+  delete (finalPage as Partial<typeof finalPage>).nextCursor;
+  assert.equal(parseApprovedGalleryPage(finalPage), null);
+});
+
+test("asset parsing accepts only the requested id and requested URL field", () => {
+  assert.deepEqual(
+    parseApprovedGalleryAsset({
+      schemaVersion: 2,
+      id: submissionId,
+      full_url: mediaUrl("full"),
+    }, submissionId, "full_url"),
+    {
+      schemaVersion: 2,
+      id: submissionId,
+      mediaUrl: mediaUrl("full"),
+    },
+  );
+  assert.equal(parseApprovedGalleryAsset({
+    schemaVersion: 2,
+    id: submissionId,
+    full_url: mediaUrl("full"),
+    thumbnail_url: mediaUrl("thumbnail"),
+  }, submissionId, "full_url"), null);
+
+  assert.equal(parseApprovedGalleryAsset({
+    schemaVersion: 2,
+    id: submissionId,
+    full_url: `https://media.example.test/functions/v1/list-approved-gallery-submissions?asset=full&id=${submissionId}`,
+  }, submissionId, "full_url"), null);
+  assert.equal(parseApprovedGalleryAsset({
+    schemaVersion: 2,
+    id: submissionId,
+    full_url: `${mediaOrigin}/functions/v1/another-function?asset=full&id=${submissionId}`,
+  }, submissionId, "full_url"), null);
+  assert.equal(parseApprovedGalleryAsset({
+    schemaVersion: 2,
+    id: submissionId,
+    full_url: `${mediaOrigin}/functions/v1/list-approved-gallery-submissions?id=${submissionId}`,
+  }, submissionId, "full_url"), null);
+  assert.equal(parseApprovedGalleryAsset({
+    schemaVersion: 2,
+    id: submissionId,
+    full_url: `${mediaOrigin}/functions/v1/list-approved-gallery-submissions?asset=thumbnail&id=${submissionId}`,
+  }, submissionId, "full_url"), null);
+  assert.equal(parseApprovedGalleryAsset({
+    schemaVersion: 2,
+    id: submissionId,
+    full_url: `${mediaUrl("full")}&extra=unexpected`,
+  }, submissionId, "full_url"), null);
+  assert.equal(parseApprovedGalleryAsset({
+    schemaVersion: 2,
+    id: submissionId,
+    full_url: mediaUrl("full", "10000000-0000-4000-8000-000000000002"),
+  }, submissionId, "full_url"), null);
+});
+
+test("list, full-image, and thumbnail requests use the credential-free versioned envelope", async () => {
+  const originalFetch = globalThis.fetch;
+  const requests: Array<{
+    url: string;
+    method: string | undefined;
+    headers: Record<string, string>;
+    cache: RequestCache | undefined;
+    credentials: RequestCredentials | undefined;
+    body: Record<string, unknown>;
+  }> = [];
+  globalThis.fetch = async (input, init) => {
+    const body = JSON.parse(String(init?.body || "{}")) as Record<string, unknown>;
+    requests.push({
+      url: String(input),
+      method: init?.method,
+      headers: Object.fromEntries(new Headers(init?.headers).entries()),
+      cache: init?.cache,
+      credentials: init?.credentials,
+      body,
+    });
+    const data = body.action === "full"
+      ? {
+        schemaVersion: 2,
+        id: submissionId,
+        full_url: mediaUrl("full"),
+      }
+      : body.action === "thumbnail"
+        ? {
+          schemaVersion: 2,
+          id: submissionId,
+          thumbnail_url: mediaUrl("thumbnail"),
+        }
+      : validPage();
+    return new Response(JSON.stringify({ ok: true, data }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  try {
+    const page = await listApprovedGallerySubmissions({
+      sort: "oldest",
+      category: "gatherings",
+      query: "  Cloud  ",
+      cursor: "ZXhhbXBsZV9jdXJzb3I",
+    });
+    assert.equal(page.ok, true);
+    assert.equal(await resolveApprovedGalleryOriginal(submissionId), mediaUrl("full"));
+    assert.equal(await resolveApprovedGalleryOriginal(submissionId), mediaUrl("full"));
+    assert.equal(await refreshApprovedGalleryThumbnail(submissionId), mediaUrl("thumbnail"));
+    assert.deepEqual(requests.map((request) => request.body), [
+      {
+        action: "list",
+        pageSize: 24,
+        cursor: "ZXhhbXBsZV9jdXJzb3I",
+        sort: "oldest",
+        category: "gatherings",
+        query: "Cloud",
+      },
+      { action: "full", id: submissionId },
+      { action: "full", id: submissionId },
+      { action: "thumbnail", id: submissionId },
+    ]);
+    for (const request of requests) {
+      assert.equal(request.url, `${mediaOrigin}/functions/v1/list-approved-gallery-submissions`);
+      assert.equal(request.method, "POST");
+      assert.deepEqual(request.headers, { "content-type": "application/json" });
+      assert.equal(request.cache, "no-store");
+      assert.equal(request.credentials, "omit");
+      assert.equal("authorization" in request.headers, false);
+      assert.equal("apikey" in request.headers, false);
+    }
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("the internal timeout bounds a hung fetch and caller cancellation wins promptly", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (() => new Promise<Response>(() => {})) as typeof fetch;
+  try {
+    const startedAt = Date.now();
+    await assert.rejects(
+      fetchWithGalleryTimeout("https://example.test/hung", {}, undefined, 15),
+      { name: "GalleryRequestTimeoutError" },
+    );
+    assert.ok(Date.now() - startedAt < 500);
+
+    const caller = new AbortController();
+    const pending = fetchWithGalleryTimeout("https://example.test/hung", {}, caller.signal, 500);
+    caller.abort();
+    await assert.rejects(pending, { name: "AbortError" });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("identical in-flight and fresh list requests are deduplicated by request context", async () => {
+  const originalFetch = globalThis.fetch;
+  let fetchCount = 0;
+  globalThis.fetch = async () => {
+    fetchCount += 1;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    return new Response(JSON.stringify({ ok: true, data: validPage() }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  try {
+    const request = { sort: "newest" as const, category: "portraits" as const, query: "Cache proof" };
+    const [first, second] = await Promise.all([
+      listApprovedGallerySubmissions(request),
+      listApprovedGallerySubmissions(request),
+    ]);
+    assert.equal(first.ok, true);
+    assert.equal(second.ok, true);
+    assert.equal(fetchCount, 1);
+    assert.equal((await listApprovedGallerySubmissions(request)).ok, true);
+    assert.equal(fetchCount, 1);
+
+    assert.equal((await listApprovedGallerySubmissions({ ...request, cursor: "YW5vdGhlcl9wYWdl" })).ok, true);
+    assert.equal(fetchCount, 2);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("cached list responses honor the bounded public cache contract", async () => {
+  const originalFetch = globalThis.fetch;
+  let fetchCount = 0;
+  globalThis.fetch = async () => {
+    fetchCount += 1;
+    return new Response(JSON.stringify({
+      ok: true,
+      data: { ...validPage(), cacheSeconds: 1 },
+    }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  try {
+    const request = { sort: "newest" as const, query: "Expiry proof" };
+    assert.equal((await listApprovedGallerySubmissions(request)).ok, true);
+    assert.equal((await listApprovedGallerySubmissions(request)).ok, true);
+    assert.equal(fetchCount, 1);
+    await new Promise((resolve) => setTimeout(resolve, 1_050));
+    assert.equal((await listApprovedGallerySubmissions(request)).ok, true);
+    assert.equal(fetchCount, 2);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

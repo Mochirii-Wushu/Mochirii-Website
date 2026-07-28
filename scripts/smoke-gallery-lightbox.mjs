@@ -1,7 +1,7 @@
-import { mkdir } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { enforceProductionGalleryMatrixGuard } from "./lib/live-gallery-media-smoke-guard.mjs";
-import { SITE_ORIGIN } from "./lib/public-urls.mjs";
+import { SITE_ORIGIN, SUPABASE_PROJECT_URL } from "./lib/public-urls.mjs";
 
 const baseUrl = process.env.SMOKE_BASE_URL || "http://127.0.0.1:8765";
 enforceProductionGalleryMatrixGuard({ baseUrl, siteOrigin: SITE_ORIGIN });
@@ -108,6 +108,25 @@ const vercelAnalyticsScriptPaths = new Set([
   "/_vercel/speed-insights/script.js",
 ]);
 const approvedGalleryFeedFixturePattern = "**/functions/v1/list-approved-gallery-submissions*";
+const approvedGalleryFixtureId = "11111111-1111-4111-8111-111111111111";
+const approvedGalleryThumbnailUrl = `${SUPABASE_PROJECT_URL}/functions/v1/list-approved-gallery-submissions?asset=thumbnail&id=${approvedGalleryFixtureId}`;
+const approvedGalleryFullUrl = `${SUPABASE_PROJECT_URL}/functions/v1/list-approved-gallery-submissions?asset=full&id=${approvedGalleryFixtureId}`;
+const approvedGalleryThumbnailBody = await readFile(new URL("../apps/web/public/assets/img/gallery/thumbs/shot-05.webp", import.meta.url));
+const approvedGalleryFullBody = await readFile(new URL("../apps/web/public/assets/img/gallery/shot-05.webp", import.meta.url));
+const approvedGalleryFixtureFacets = {
+  "member-submissions": 1,
+  portraits: 1,
+  gatherings: 0,
+  action: 0,
+  scenery: 0,
+  companions: 0,
+};
+const approvedGalleryFixtureHeaders = {
+  "access-control-allow-origin": "*",
+  "access-control-allow-headers": "content-type",
+  "access-control-allow-methods": "GET, POST, OPTIONS",
+  "cache-control": "no-store",
+};
 
 let playwright;
 try {
@@ -152,17 +171,155 @@ async function stubVercelAnalyticsScripts(context, appBaseUrl = baseUrl) {
 }
 
 async function stubEmptyApprovedGalleryFeed(context) {
-  await context.route(approvedGalleryFeedFixturePattern, (route) =>
-    route.fulfill({
+  await context.route(approvedGalleryFeedFixturePattern, async (route) => {
+    if (route.request().method() === "OPTIONS") {
+      await route.fulfill({ status: 204, headers: approvedGalleryFixtureHeaders, body: "" });
+      return;
+    }
+    await route.fulfill({
       status: 200,
       contentType: "application/json",
+      headers: approvedGalleryFixtureHeaders,
       body: JSON.stringify({
         ok: true,
-        data: { submissions: [] },
+        data: {
+          schemaVersion: 2,
+          items: [],
+          count: 0,
+          totalEligible: 0,
+          facets: Object.fromEntries(Object.keys(approvedGalleryFixtureFacets).map((key) => [key, 0])),
+          hasMore: false,
+          nextCursor: null,
+          partial: false,
+          complete: true,
+          deliveryFailures: 0,
+          delivery: "bounded-edge-media",
+          cacheSeconds: 15,
+        },
         message: "Deterministic universal-lightbox smoke fixture.",
       }),
-    }),
-  );
+    });
+  });
+}
+
+async function stubApprovedGalleryFeedSuccess(context, requests) {
+  await context.route(approvedGalleryFeedFixturePattern, async (route) => {
+    const request = route.request();
+    if (request.method() === "OPTIONS") {
+      await route.fulfill({ status: 204, headers: approvedGalleryFixtureHeaders, body: "" });
+      return;
+    }
+
+    if (request.method() === "GET") {
+      const url = new URL(request.url());
+      const asset = url.searchParams.get("asset");
+      assert(
+        url.origin === SUPABASE_PROJECT_URL
+          && url.pathname === "/functions/v1/list-approved-gallery-submissions"
+          && [...url.searchParams.keys()].sort().join(",") === "asset,id"
+          && url.searchParams.get("id") === approvedGalleryFixtureId
+          && (asset === "full" || asset === "thumbnail"),
+        "Schema-v2 Gallery media request drifted from the exact bounded Edge URL.",
+      );
+      await route.fulfill({
+        status: 200,
+        contentType: "image/webp",
+        headers: {
+          "cache-control": "private, max-age=300, stale-while-revalidate=60",
+          "x-content-type-options": "nosniff",
+        },
+        body: asset === "thumbnail" ? approvedGalleryThumbnailBody : approvedGalleryFullBody,
+      });
+      return;
+    }
+
+    assert(request.method() === "POST", `Schema-v2 Gallery fixture received ${request.method()}.`);
+    let body;
+    try {
+      body = JSON.parse(request.postData() || "null");
+    } catch {
+      throw new Error("Schema-v2 Gallery request body was not valid JSON.");
+    }
+    assert(body && typeof body === "object" && !Array.isArray(body), "Schema-v2 Gallery request body was not an object.");
+    requests.push(body);
+
+    if (body.action === "full") {
+      assert(
+        JSON.stringify(Object.keys(body).sort()) === JSON.stringify(["action", "id"])
+          && body.id === approvedGalleryFixtureId,
+        "Schema-v2 Gallery full request did not use only its opaque submission ID.",
+      );
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        headers: approvedGalleryFixtureHeaders,
+        body: JSON.stringify({
+          ok: true,
+          data: {
+            schemaVersion: 2,
+            id: approvedGalleryFixtureId,
+            full_url: approvedGalleryFullUrl,
+          },
+          message: "Full image ready.",
+        }),
+      });
+      return;
+    }
+
+    assert(
+      JSON.stringify(Object.keys(body).sort())
+        === JSON.stringify(["action", "category", "cursor", "pageSize", "query", "sort"]),
+      "Schema-v2 Gallery list request shape drifted.",
+    );
+    assert(
+      body.action === "list"
+        && body.category === "member-submissions"
+        && body.cursor === null
+        && body.pageSize === 24
+        && body.query === null
+        && body.sort === "newest",
+      "Schema-v2 Gallery list request context drifted.",
+    );
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      headers: approvedGalleryFixtureHeaders,
+      body: JSON.stringify({
+        ok: true,
+        data: {
+          schemaVersion: 2,
+          items: [{
+            id: approvedGalleryFixtureId,
+            title: "Cross-browser approved Gallery fixture",
+            caption: "A reviewed member image used only for browser verification.",
+            category: "portraits",
+            categories: ["member-submissions", "portraits"],
+            mime_type: "image/webp",
+            size_bytes: 27890,
+            created_at: "2030-01-01T03:04:05.000Z",
+            reviewed_at: "2030-01-01T04:04:05.000Z",
+            thumbnail_url: approvedGalleryThumbnailUrl,
+            thumbnail_size_bytes: 6626,
+            thumbnail_width: 640,
+            thumbnail_height: 400,
+          }],
+          count: 1,
+          totalEligible: 1,
+          facets: approvedGalleryFixtureFacets,
+          hasMore: false,
+          nextCursor: null,
+          partial: false,
+          complete: true,
+          deliveryFailures: 0,
+          delivery: "bounded-edge-media",
+          cacheSeconds: 15,
+        },
+        message: "Member-submitted images loaded.",
+      }),
+    });
+  });
+
+  return { thumbnailUrl: approvedGalleryThumbnailUrl, fullUrl: approvedGalleryFullUrl };
 }
 
 function navigationBaseUrl(engine) {
@@ -526,6 +683,9 @@ async function bodyState(page) {
       paddingRight: document.body.style.paddingRight,
       computedPaddingRight: Number.parseFloat(getComputedStyle(document.body).paddingRight) || 0,
       scrollbarWidth: Math.max(0, window.innerWidth - document.documentElement.clientWidth),
+      modalManagedBackgroundCount: Array.from(document.body.children).filter((element) =>
+        element.inert === true && element.getAttribute("aria-hidden") === "true"
+      ).length,
       reference: referenceRect
         ? { left: referenceRect.left, right: referenceRect.right, width: referenceRect.width }
         : null,
@@ -646,12 +806,16 @@ async function waitForClosed(page, surface, before, context = surface.label) {
     const bodyRestored = Object.keys(actualBody).every((key) => actualBody[key] === previous[key]);
     const focusRestored = document.activeElement?.getAttribute(marker) === "true";
     const scrollRestored = Math.abs(window.scrollY - previous.scrollY) <= 1;
+    const modalBackgroundRestored = Array.from(document.body.children).filter((element) =>
+      element.inert === true && element.getAttribute("aria-hidden") === "true"
+    ).length === previous.modalManagedBackgroundCount;
     return {
-      ready: closed && bodyRestored && focusRestored && scrollRestored,
+      ready: closed && bodyRestored && focusRestored && scrollRestored && modalBackgroundRestored,
       closed,
       bodyRestored,
       focusRestored,
       scrollRestored,
+      modalBackgroundRestored,
       actualBody,
       expectedScrollY: previous.scrollY,
       actualScrollY: window.scrollY,
@@ -676,7 +840,10 @@ async function waitForClosed(page, surface, before, context = surface.label) {
           && style.paddingRight === previous.paddingRight;
         const focusRestored = document.activeElement?.getAttribute(marker) === "true";
         const scrollRestored = Math.abs(window.scrollY - previous.scrollY) <= 1;
-        return closed && bodyRestored && focusRestored && scrollRestored;
+        const modalBackgroundRestored = Array.from(document.body.children).filter((element) =>
+          element.inert === true && element.getAttribute("aria-hidden") === "true"
+        ).length === previous.modalManagedBackgroundCount;
+        return closed && bodyRestored && focusRestored && scrollRestored && modalBackgroundRestored;
       },
       argumentsForPage,
     );
@@ -712,6 +879,7 @@ async function measure(page, surface) {
     const cardStyle = getComputedStyle(card);
     const imageStyle = getComputedStyle(image);
     const closeStyle = getComputedStyle(close);
+    const backgroundSiblings = Array.from(document.body.children).filter((element) => element !== dialog);
 
     return {
       viewport: { width: innerWidth, height: innerHeight },
@@ -740,6 +908,9 @@ async function measure(page, surface) {
       semantics: {
         role: dialog.getAttribute("role"),
         ariaModal: dialog.getAttribute("aria-modal"),
+        backgroundSiblingCount: backgroundSiblings.length,
+        backgroundInert: backgroundSiblings.every((element) => element.inert === true),
+        backgroundAriaHidden: backgroundSiblings.every((element) => element.getAttribute("aria-hidden") === "true"),
       },
       contract: {
         dialogPadding: [
@@ -843,6 +1014,9 @@ function assertGeometry(engineLabel, surface, viewport, state) {
   assert(overlapWidth * overlapHeight <= 0.5, `${context}: close target overlaps the image.`);
   assert(state.semantics.role === "dialog", `${context}: dialog role is missing.`);
   assert(state.semantics.ariaModal === "true", `${context}: aria-modal is not true.`);
+  assert(state.semantics.backgroundSiblingCount > 0, `${context}: no modal background siblings were found.`);
+  assert(state.semantics.backgroundInert, `${context}: modal background content is not inert.`);
+  assert(state.semantics.backgroundAriaHidden, `${context}: modal background content is not hidden from assistive technology.`);
   assert(state.body.overflow === "hidden", `${context}: body scroll was not locked.`);
   assert(state.body.position === "fixed", `${context}: body position was not fixed during scroll lock.`);
   assert(state.pageScrollWidth <= viewport.width + geometryTolerance, `${context}: page has horizontal overflow.`);
@@ -1497,6 +1671,60 @@ async function verifyLoadingLifecycle(browser) {
   }
 }
 
+async function verifyApprovedSchemaV2Success(browser, engine, resolvedBaseUrl) {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const requests = [];
+  await bridgeWebKitLocalHttps(context, resolvedBaseUrl);
+  await stubVercelAnalyticsScripts(context, resolvedBaseUrl);
+  const fixture = await stubApprovedGalleryFeedSuccess(context, requests);
+
+  try {
+    const surface = surfaces.find(({ key }) => key === "gallery");
+    assert(surface, "Gallery surface is missing from the universal lightbox matrix.");
+    const page = await context.newPage();
+    const assertNoBrowserErrors = watchBrowserErrors(page, "Gallery schema v2", engine.label);
+    try {
+      await page.goto(
+        `${resolvedBaseUrl}/gallery?category=member-submissions&sort=newest`,
+        { waitUntil: "domcontentloaded" },
+      );
+      await page.waitForSelector('.gallery-feed-state[data-state="ready"]');
+      const trigger = page.locator(surface.trigger);
+      await trigger.waitFor({ state: "visible" });
+      assert(await trigger.count() === 1, `${engine.label} schema-v2 Gallery did not render exactly one approved item.`);
+      const source = await trigger.evaluate((element) => ({
+        full: element.getAttribute("data-full") || "",
+        thumbnail: element.querySelector("img")?.getAttribute("src") || "",
+        alt: element.querySelector("img")?.getAttribute("alt") || "",
+      }));
+      assert(!source.full, `${engine.label} schema-v2 approved card exposed data-full before viewer opening.`);
+      assert(source.thumbnail === fixture.thumbnailUrl, `${engine.label} schema-v2 approved card did not use its thumbnail URL.`);
+      assert(source.alt === "Cross-browser approved Gallery fixture", `${engine.label} schema-v2 approved card lost its title alt text.`);
+      assert(requests.filter(({ action }) => action === "list").length === 1, `${engine.label} schema-v2 Gallery made an unexpected list request count.`);
+      assert(requests.every(({ action }) => action !== "full"), `${engine.label} schema-v2 Gallery requested a display image before opening.`);
+
+      await trigger.evaluate((element, marker) => element.setAttribute(marker, "true"), triggerMarker);
+      await trigger.focus();
+      await trigger.click();
+      await waitForOpen(page, surface);
+      assert(requests.filter(({ action }) => action === "full").length === 1, `${engine.label} schema-v2 Gallery did not make exactly one full request.`);
+      assert(await page.locator(surface.image).getAttribute("src") === fixture.fullUrl, `${engine.label} schema-v2 viewer did not render the resolved display image.`);
+      await page.keyboard.press("Escape");
+      await waitForProbeClosed(page, surface);
+      await page.waitForFunction(
+        ({ selector, marker }) => document.activeElement === document.querySelector(`${selector}[${marker}="true"]`),
+        { selector: surface.trigger, marker: triggerMarker },
+      );
+      assertNoBrowserErrors();
+      console.log(`${engine.label} schema-v2 approved Gallery success path OK.`);
+    } finally {
+      await page.close();
+    }
+  } finally {
+    await context.close();
+  }
+}
+
 async function verifyEngine(engine) {
   let browser;
   try {
@@ -1506,9 +1734,10 @@ async function verifyEngine(engine) {
   }
 
   const viewports = engineViewports(engine);
-  if (engine.key === "chromium") await verifyLoadingLifecycle(browser);
-  const context = await browser.newContext({ viewport: viewportSize(viewports[0]) });
   const resolvedBaseUrl = navigationBaseUrl(engine);
+  if (engine.key === "chromium") await verifyLoadingLifecycle(browser);
+  await verifyApprovedSchemaV2Success(browser, engine, resolvedBaseUrl);
+  const context = await browser.newContext({ viewport: viewportSize(viewports[0]) });
   await bridgeWebKitLocalHttps(context, resolvedBaseUrl);
   await stubVercelAnalyticsScripts(context, resolvedBaseUrl);
   await stubEmptyApprovedGalleryFeed(context);

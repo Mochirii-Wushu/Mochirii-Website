@@ -11,8 +11,10 @@ import Link from "next/link";
 import homeData from "@/public/data/home.json";
 import galleryData from "@/public/data/gallery.json";
 import guildScheduleData from "@/public/data/guild-schedule.json";
-import { HomeGallerySpotlight } from "@/components/HomeGallerySpotlight";
-import { type GallerySpotlightItem } from "@/components/HomeGalleryLightbox";
+import {
+  HomeGalleryLightbox,
+  type GallerySpotlightItem,
+} from "@/components/HomeGalleryLightbox";
 import { BodyPageMarker } from "@/components/public-pages/BodyPageMarker";
 import { SpotlightWinnerTitle } from "@/components/public-pages/SpotlightWinnerTitle";
 import { StaticImage } from "@/components/public-pages/common";
@@ -27,6 +29,8 @@ type GalleryData = typeof galleryData;
 type Bulletin = HomeData["bulletins"][number];
 type DoorTile = HomeData["tiles"][number];
 type GalleryAlbumItem = GalleryData["albums"][number]["items"][number];
+
+const gallerySpotlightLimit = 4;
 
 const organizationId = `${SITE_ORIGIN}/#organization`;
 const websiteId = `${SITE_ORIGIN}/#website`;
@@ -225,6 +229,22 @@ function getFallbackGallerySpotlightItems(fallback: HomeData["gallery"]): Galler
     .filter((item) => item.image && item.full);
 }
 
+function getStableGallerySpotlightItems(
+  candidates: GallerySpotlightItem[],
+  fallbackItems: GallerySpotlightItem[],
+) {
+  const seen = new Set<string>();
+
+  return [...candidates, ...fallbackItems]
+    .filter((item) => {
+      const identity = item.full || item.image || item.key;
+      if (!identity || seen.has(identity)) return false;
+      seen.add(identity);
+      return true;
+    })
+    .slice(0, gallerySpotlightLimit);
+}
+
 function Descriptor({ lines }: { lines: string[] }) {
   if (!lines.length) {
     return <p className="muted">No description provided.</p>;
@@ -314,6 +334,7 @@ export default function Home() {
   const secondaryBulletins = homeData.bulletins.filter((item) => item !== featured);
   const galleryItems = getGallerySpotlightCandidates(galleryData);
   const fallbackGalleryItems = getFallbackGallerySpotlightItems(homeData.gallery);
+  const gallerySpotlightItems = getStableGallerySpotlightItems(galleryItems, fallbackGalleryItems);
   const spotlight = homeData.spotlight;
   const featuredDate = featured ? monthlyScheduleDate(guildScheduleData, optionalText(featured, "scheduleId"), featured.date) : "";
 
@@ -538,7 +559,7 @@ export default function Home() {
             <p className="muted" id="galleryIntro">
               {homeData.copy.galleryIntro}
             </p>
-            <HomeGallerySpotlight candidates={galleryItems} fallbackItems={fallbackGalleryItems} />
+            <HomeGalleryLightbox items={gallerySpotlightItems} />
           </section>
         </div>
       </main>

@@ -22,11 +22,13 @@ const files = {
   reaperSpinnerDispatch: "supabase/functions/reaper-spinner-dispatch/index.ts",
   spinnerDiscordOutbox: "supabase/functions/_shared/spinner-discord-outbox.ts",
   approvedFeed: "supabase/functions/list-approved-gallery-submissions/index.ts",
+  approvedFeedHelper: "supabase/functions/_shared/gallery-public-feed.ts",
   visibleProfileCards: "supabase/functions/list-visible-profile-cards/index.ts",
   mochiPetsAlphaShared: "supabase/functions/_shared/mochi-pets-alpha.ts",
   mochiPetsAlphaAction: "supabase/functions/mochi-pets-alpha-action/index.ts",
   mochiPetsAlphaProgress: "supabase/functions/mochi-pets-alpha-progress/index.ts",
   discordIngest: "supabase/functions/submit-discord-gallery-image/index.ts",
+  discordIngestHelper: "supabase/functions/_shared/gallery-discord-ingest.ts",
   voteReminder: "supabase/functions/send-vote-reminder/index.ts",
   spotlightPollShared: "supabase/functions/_shared/spotlight-polls.ts",
   spotlightPollSender: "supabase/functions/send-member-spotlight-poll/index.ts",
@@ -92,11 +94,19 @@ const reaperSpinnerDispatch = read(files.reaperSpinnerDispatch);
 const spinnerDiscordOutbox = read(files.spinnerDiscordOutbox);
 const reaperSpinnerSecuritySource = `${reaperSpinnerDispatch}\n${spinnerDiscordOutbox}`;
 const approvedFeed = read(files.approvedFeed);
+const approvedFeedHelper = read(files.approvedFeedHelper);
+const approvedFeedSecuritySource = `${approvedFeed}\n${approvedFeedHelper}`;
+const approvedFeedListResponseStart = approvedFeed.lastIndexOf("return jsonResponse({\n    ok: true,");
+const approvedFeedListResponse = approvedFeedListResponseStart >= 0
+  ? approvedFeed.slice(approvedFeedListResponseStart)
+  : "";
 const visibleProfileCards = read(files.visibleProfileCards);
 const mochiPetsAlphaShared = read(files.mochiPetsAlphaShared);
 const mochiPetsAlphaAction = read(files.mochiPetsAlphaAction);
 const mochiPetsAlphaProgress = read(files.mochiPetsAlphaProgress);
 const discordIngest = read(files.discordIngest);
+const discordIngestHelper = read(files.discordIngestHelper);
+const discordIngestSecuritySource = `${discordIngest}\n${discordIngestHelper}`;
 const voteReminder = read(files.voteReminder);
 const spotlightPollShared = read(files.spotlightPollShared);
 const spotlightPollSender = read(files.spotlightPollSender);
@@ -206,6 +216,15 @@ if (nextConfig.includes("'unsafe-eval'")) {
 ].forEach((snippet) => assertIncludes("CSP policy", nextConfig, snippet));
 
 const verifyJwtFalseFunctions = extractVerifyJwtFalseFunctions(supabaseConfig);
+const configuredFunctions = extractConfiguredFunctions(supabaseConfig);
+if (configuredFunctions.length !== 33) {
+  failures.push(`supabase/config.toml: expected 33 configured functions, found ${configuredFunctions.length}.`);
+}
+if (configuredFunctions.length - verifyJwtFalseFunctions.length !== 20) {
+  failures.push(
+    `supabase/config.toml: expected 20 verify_jwt=true functions, found ${configuredFunctions.length - verifyJwtFalseFunctions.length}.`,
+  );
+}
 const expectedUnauthenticatedFunctions = [
   "list-approved-gallery-submissions",
   "list-visible-profile-cards",
@@ -236,7 +255,7 @@ const quarantinedFunctions = new Set([
   "submit-mochi-pets-feedback",
 ]);
 
-for (const name of extractConfiguredFunctions(supabaseConfig)) {
+for (const name of configuredFunctions) {
   if (quarantinedFunctions.has(name)) continue;
   const targetDeclaration = new RegExp(`(?:name:\\s*|const name = )"${name}"`);
   assertMatches(
@@ -281,14 +300,19 @@ for (const name of verifyJwtFalseFunctions) {
 
 const unauthenticatedFunctionGuardSpecs = {
   "list-approved-gallery-submissions": {
-    source: approvedFeed,
-    kind: "public read-only signed gallery DTO",
+    source: approvedFeedSecuritySource,
+    kind: "public read-only thumbnail DTO with globally bounded Edge-media delivery",
     snippets: [
       '"Access-Control-Allow-Origin": "*"',
-      'adminClient.rpc(\n    "gallery_publishable_submissions"',
-      "createSignedUrls",
-      "thumbnail_signed_url",
-      "full_signed_url",
+      '"Access-Control-Allow-Methods": "GET, POST, OPTIONS"',
+      '"gallery_public_feed_page_v2"',
+      '"gallery_public_original_v2"',
+      '"gallery_reserve_public_delivery"',
+      'request.action === "full" || request.action === "thumbnail"',
+      'keys === "asset,id"',
+      "publicMediaUrl(supabaseUrl, request.action, request.id)",
+      ".download(storagePath)",
+      "await sha256Hex(mediaBytes) !== mediaSha256",
     ],
   },
   "list-visible-profile-cards": {
@@ -297,9 +321,14 @@ const unauthenticatedFunctionGuardSpecs = {
     snippets: [".eq(\"profile_public_enabled\", true)", ".eq(\"member_status\", \"active\")", "recentVerification(profile.discord_verified_at)", "signedMediaUrl"],
   },
   "submit-discord-gallery-image": {
-    source: discordIngest,
+    source: discordIngestSecuritySource,
     kind: "shared-secret Reaper ingest",
-    snippets: ["DISCORD_GALLERY_INGEST_SECRET", "x-mochirii-reaper-secret", "bearerOrHeaderSecret(req) !== ingestSecret"],
+    snippets: [
+      "DISCORD_GALLERY_INGEST_SECRET",
+      "x-mochirii-reaper-secret",
+      "constantTimeSecretEquals(bearerOrHeaderSecret(req), ingestSecret)",
+      "crypto.subtle.digest(\"SHA-256\"",
+    ],
   },
   "reaper-discord-interactions": {
     source: reaperSecuritySource,
@@ -448,9 +477,10 @@ assertMatches(
 [
   "DISCORD_GALLERY_INGEST_SECRET",
   "x-mochirii-reaper-secret",
-  "bearerOrHeaderSecret(req) !== ingestSecret",
+  "constantTimeSecretEquals(bearerOrHeaderSecret(req), ingestSecret)",
+  "crypto.subtle.digest(\"SHA-256\"",
   "invalid_ingest_secret",
-].forEach((snippet) => assertIncludes("submit-discord-gallery-image", discordIngest, snippet));
+].forEach((snippet) => assertIncludes("submit-discord-gallery-image", discordIngestSecuritySource, snippet));
 
 [
   "VOTE_REMINDER_CRON_SECRET",
@@ -494,14 +524,64 @@ assertMatches(
 });
 
 [
-  'adminClient.rpc(\n    "gallery_publishable_submissions"',
-  "createSignedUrls",
-  "SIGNED_URL_SECONDS",
-  "thumbnail_signed_url",
-  "full_signed_url",
+  '"gallery_public_feed_page_v2"',
+  '"gallery_public_original_v2"',
+  '"gallery_reserve_public_delivery"',
+  'request.action === "full" || request.action === "thumbnail"',
+  'keys === "asset,id"',
+  "publicMediaUrl(supabaseUrl, request.action, request.id)",
+  "p_reserved_bytes: mediaSize",
+  ".download(storagePath)",
+  "mediaBlob.size !== mediaSize",
+  "await sha256Hex(mediaBytes) !== mediaSha256",
+  '"Cache-Control": "private, max-age=300, stale-while-revalidate=60"',
+  '"X-Content-Type-Options": "nosniff"',
+  "thumbnail_url",
+  "full_url",
   "thumbnail_size_bytes",
-  "signedUrlSeconds",
-].forEach((snippet) => assertIncludes("list-approved-gallery-submissions", approvedFeed, snippet));
+  "thumbnail_width",
+  "thumbnail_height",
+  'delivery: "bounded-edge-media"',
+  "cacheSeconds: 15",
+].forEach((snippet) => assertIncludes("list-approved-gallery-submissions", approvedFeedSecuritySource, snippet));
+
+[
+  '"storage_path"',
+  '"storage_bucket"',
+  '"thumbnail_storage_path"',
+  '"user_id"',
+  '"reviewed_by"',
+  '"rejection_reason"',
+  '"uploader_display_name"',
+].forEach((snippet) => {
+  if (approvedFeed.includes(snippet)) {
+    failures.push(`list-approved-gallery-submissions: public response source must not emit private key ${snippet}.`);
+  }
+});
+
+assertMatches(
+  "list-approved-gallery-submissions list response",
+  approvedFeedListResponse,
+  /data:\s*\{[\s\S]*?items,[\s\S]*?nextCursor\s*,[\s\S]*?delivery:\s*"bounded-edge-media",[\s\S]*?cacheSeconds:\s*15[\s\S]*?\}/,
+  "list action must return bounded Edge thumbnail-page metadata.",
+);
+
+assertNotMatches(
+  "list-approved-gallery-submissions list response",
+  approvedFeedListResponse,
+  /full_url|signedUrlSeconds|thumbnailStoragePath|storagePath|uploader/i,
+  "list action must not return a display-image URL.",
+);
+
+[
+  /createSignedUrls?\(/,
+  /thumbnail_signed_url|full_signed_url|signedUrlSeconds/,
+].forEach((pattern) => assertNotMatches(
+  "list-approved-gallery-submissions bearer capability posture",
+  approvedFeed,
+  pattern,
+  "public Gallery delivery must not mint or expose bearer URLs.",
+));
 
 [
   "CORS_HEADERS",
@@ -540,8 +620,8 @@ assertMatches(
 assertMatches(
   "list-approved-gallery-submissions",
   approvedFeed,
-  /const item:\s*JsonRecord\s*=\s*\{(?:(?!storage_path|storage_bucket|user_id)[\s\S])*thumbnail_signed_url[\s\S]*full_signed_url/s,
-  "public approved feed item must not expose raw storage path, bucket, or user_id fields.",
+  /return jsonResponse\(\{[\s\S]*?data:\s*\{[\s\S]*?schemaVersion:\s*GALLERY_PUBLIC_SCHEMA_VERSION,[\s\S]*?items,[\s\S]*?\}/,
+  "public approved feed list must emit the sanitized versioned item collection.",
 );
 
 [

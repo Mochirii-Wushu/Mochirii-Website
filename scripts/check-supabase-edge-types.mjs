@@ -42,6 +42,14 @@ const functions = [
   "submit-mochi-pets-feedback",
   "sync-pixelfed-social-account",
 ];
+const committedLockFunctions = [
+  "list-approved-gallery-submissions",
+  "list-gallery-review-queue",
+  "moderate-gallery-submission",
+  "reaper-spinner-dispatch",
+  "spinner-live-session",
+  "submit-discord-gallery-image",
+];
 
 function denoBinary() {
   if (process.env.DENO_BIN) return process.env.DENO_BIN;
@@ -67,6 +75,18 @@ if (JSON.stringify(discoveredFunctions) !== JSON.stringify(expectedFunctions)) {
   console.error("Supabase Edge Function manifest inventory does not match the reviewed function list.");
   console.error(`Expected: ${expectedFunctions.join(", ")}`);
   console.error(`Found: ${discoveredFunctions.join(", ")}`);
+}
+
+const discoveredCommittedLockFunctions = readdirSync(functionRoot, { withFileTypes: true })
+  .filter((entry) => entry.isDirectory() && existsSync(path.join(functionRoot, entry.name, "deno.lock")))
+  .map((entry) => entry.name)
+  .sort();
+const expectedCommittedLockFunctions = [...committedLockFunctions].sort();
+if (JSON.stringify(discoveredCommittedLockFunctions) !== JSON.stringify(expectedCommittedLockFunctions)) {
+  failed = true;
+  console.error("Committed Supabase Edge Function lock inventory does not match the reviewed list.");
+  console.error(`Expected: ${expectedCommittedLockFunctions.join(", ")}`);
+  console.error(`Found: ${discoveredCommittedLockFunctions.join(", ")}`);
 }
 
 for (const name of functions) {
@@ -161,6 +181,26 @@ try {
       runDeno(
         ["audit", "--quiet", `--lock=${resolutionLock}`, "--frozen=true"],
         `${name} resolved dependency audit`,
+      );
+    }
+
+    if (committedLockFunctions.includes(name)) {
+      const committedLock = `supabase/functions/${name}/deno.lock`;
+      runDeno(
+        [
+          "check",
+          "--quiet",
+          "--node-modules-dir=auto",
+          `--config=${config}`,
+          `--lock=${committedLock}`,
+          "--frozen=true",
+          entrypoint,
+        ],
+        `${name} committed dependency lock`,
+      );
+      runDeno(
+        ["audit", "--quiet", `--lock=${committedLock}`, "--frozen=true"],
+        `${name} committed dependency audit`,
       );
     }
   }

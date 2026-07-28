@@ -54,7 +54,7 @@ Supabase usage comes from the member workflows:
 - Database: `member_profiles`, `gallery_submissions`, `gallery_moderation_events`, `discord_resources`, and `discord_sync_log`.
 - Storage: private `member-gallery` image objects for pending, approved, rejected, and archived submissions.
 - Edge Functions: `verify-discord-member`, `list-gallery-review-queue`, `moderate-gallery-submission`, `list-approved-gallery-submissions`, `submit-discord-gallery-image`, `list-instagram-publish-queue`, `mark-instagram-gallery-submission-shared`, and `publish-instagram-gallery-submission`.
-- Egress: Auth/API responses, Edge Function responses, and Storage signed URL image delivery.
+- Egress: Auth/API responses and Edge Function responses, including bounded Gallery media proxied from private Storage.
 - Logs: function logs, moderation troubleshooting, and dashboard observability.
 
 Expected normal use is small, human-paced, and tied to guild activity. Runaway use usually looks like sudden public approved-feed traffic, repeated verification attempts, automated upload attempts, Instagram queue retries, unexpected Storage growth, or repeated function errors.
@@ -70,7 +70,10 @@ an original is requested:
 - the browser does not request an approved original until a visitor opens its
   viewer;
 - pending, rejected, and archived objects remain outside the public feed;
-- the private bucket and short-lived signed URL model remain unchanged; and
+- the private bucket remains unchanged, while public delivery uses stable Edge
+  URLs with exact object-size/hash verification and no signed bearer URL;
+- the database-serialized global budget caps combined Gallery delivery at 64
+  MiB per UTC day, with per-kind minute and daily request ceilings; and
 - local and Preview gallery/browser matrices intercept the approved feed with
   deterministic fixtures.
 
@@ -88,9 +91,9 @@ The active upload policy from the repo and production review is:
 
 - Bucket: `member-gallery`
 - Bucket visibility: private
-- Browser and bucket upload cap: `50 MB` / `52428800` bytes
+- Browser and bucket Gallery submission cap: `8 MB` / `8388608` bytes
 - Allowed MIME types: `image/jpeg`, `image/png`, `image/webp`
-- Public Gallery delivery: approved submissions only, through short-lived signed URLs returned by the approved-feed function
+- Public Gallery delivery: approved immutable publications only, through stable credential-free Edge media URLs; the service reserves expected bytes globally before each private-object download
 - Pending, rejected, and archived submissions: not listed in the public Gallery
 
 Do not make the bucket public to reduce complexity. That would change the privacy model and must be handled as a separate security-reviewed branch.
@@ -108,7 +111,7 @@ Check these at least monthly, and immediately after high-traffic guild events:
 - Edge Function metrics: invocations, errors, latency, and unusually noisy routes.
 - Auth usage: Monthly Active Users and OAuth sign-in volume.
 - Database size: table growth for member and moderation tables.
-- Logs: repeated `401`, `403`, `429`, `5xx`, or signed URL failures.
+- Logs: repeated `401`, `403`, `429`, `5xx`, quota-reservation failures, or media integrity failures.
 
 Safe dashboard actions:
 
@@ -153,7 +156,7 @@ Watch:
 - `list-approved-gallery-submissions` invocations jump after public sharing.
 - `publish-instagram-gallery-submission` retries repeat after a Meta or credential failure.
 - `verify-discord-member` calls spike without a matching guild event.
-- Function `429`, `5xx`, or signed URL errors repeat.
+- Function `429`, `5xx`, quota-reservation, or media-integrity errors repeat.
 - Egress rises without a matching public traffic explanation.
 - Billing dashboard shows quota or overage warnings.
 - Current-cycle egress reaches `2.5 GB`, projected cycle use reaches `3.75 GB`,
@@ -162,7 +165,7 @@ Watch:
 
 Stop and escalate:
 
-- A secret, service role key, bot token, private Storage path, or long-lived signed URL appears in a public place.
+- A secret, service role key, bot token, private Storage path, or bearer-capability URL appears in a public place.
 - Storage grows from unknown prefixes or unknown users.
 - The private bucket becomes public.
 - Protected functions accept anonymous mutation requests.
@@ -179,7 +182,9 @@ unreviewed containment shortcut.
 
 ## Cleanup Implications
 
-Storage cleanup must be planned carefully because database rows, private objects, moderation events, and public signed URL behavior are linked.
+Storage cleanup must be planned carefully because database rows, private
+objects, immutable publication evidence, moderation events, and bounded Edge
+delivery are linked.
 
 - Deleting a `gallery_submissions` row alone does not prove the Storage object was removed.
 - Deleting a Storage object alone can leave a row whose preview or approved feed no longer works.
@@ -265,8 +270,9 @@ The member Gallery cost posture is healthy when:
 
 - the site remains static and browser-safe
 - the `member-gallery` bucket remains private
-- uploads stay capped at 50 MB and image-only MIME types
-- approved public images are served through short-lived signed URLs
+- Gallery submissions stay capped at 8 MB and image-only MIME types
+- approved public images are served through stable, credential-free Edge URLs
+  backed by exact immutable media evidence and the global delivery budget
 - protected functions fail closed for anonymous users
 - usage growth matches member activity
 - broad gallery/browser matrices use local or reviewed Preview fixtures unless a bounded live canary has exact approval

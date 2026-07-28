@@ -4,7 +4,9 @@ Date checked: 2026-07-06
 
 This plan defines how to think about cleanup of private member Gallery uploads. It does not authorize data deletion, change retention, alter migrations, deploy Edge Functions, or mutate Supabase.
 
-Cleanup work must stay evidence-led because the public Gallery feed, private Storage objects, database rows, moderation events, signed URLs, and member expectations are connected.
+Cleanup work must stay evidence-led because the public Gallery feed, private
+Storage objects, immutable publication revisions, database rows, moderation
+events, bounded Edge delivery, and member expectations are connected.
 
 ## References
 
@@ -25,11 +27,11 @@ Current member Gallery behavior:
 
 - Storage bucket: `member-gallery`
 - Bucket visibility: private
-- Upload cap: `50 MB` / `52428800` bytes
+- Upload cap: `8 MB` / `8388608` bytes
 - Allowed MIME types: `image/jpeg`, `image/png`, `image/webp`
 - Submission statuses: `pending`, `approved`, `rejected`, `archived`
 - Review queue signed preview lifetime: 10 minutes
-- Public approved-feed signed URL lifetime: 1 hour
+- Public media retention overlap: at least 1 hour for in-progress immutable snapshot delivery; successful browser media caches remain private for 5 minutes
 - Public Gallery reads approved member submissions through `list-approved-gallery-submissions`
 - Leader Dashboard reads queue states through `list-gallery-review-queue`
 - Moderation actions are expected to create `gallery_moderation_events`
@@ -57,7 +59,7 @@ These are planning targets, not active automation.
 | State | Proposed retention posture | Cleanup trigger | Notes |
 | --- | --- | --- | --- |
 | Pending | Keep until reviewed. Review weekly when active. | Escalate if pending longer than a review cycle or preview cannot load. | Do not delete while a member reasonably expects review. |
-| Approved | Keep while public Gallery display is desired. | Archive first if removal is needed. Delete only after a separate owner-approved cleanup task. | Approved images may be visible through signed URLs until status/feed refresh. |
+| Approved | Keep while public Gallery display is desired. | Archive first if removal is needed. Delete only after a separate owner-approved cleanup task. | Approved images may remain visible in a private browser cache for up to five minutes; retained revisions support an in-progress snapshot only while the source remains approved. |
 | Rejected | Keep short-term for member context and audit. | Consider cleanup after the appeal/resubmit window expires, or immediately for smoke-test artifacts. | Focused admin cleanup deletes the private object and rejected row; do not use it for unresolved member disputes. |
 | Archived | Keep as non-public retained material until an owner-approved cleanup window. | Candidate for future cleanup after inventory confirms no public dependency. | Archive is the safest pre-delete state. |
 | Orphaned object | Investigate before any action. | Candidate only when Storage object has no matching valid submission row and owner approves. | Confirm object owner/path/date before deletion. |
@@ -177,8 +179,8 @@ Moderators should:
 Signed URLs are temporary access links, not permanent public assets.
 
 - Review queue previews should be treated as private operational links.
-- Public approved-feed signed URLs should expire and be refreshed by the feed function.
-- Cleanup reports should not include signed URL values.
+- Stable public Edge media URLs must fail closed once the source is no longer approved; private browser cache expiry remains bounded to five minutes.
+- Cleanup reports should not include private paths, object evidence, or media-response contents.
 - If a preview fails, refresh once. If it still fails, leave the item unapproved and escalate.
 - After archiving or deleting an approved item, verify the public Gallery feed no longer renders it after normal refresh.
 
