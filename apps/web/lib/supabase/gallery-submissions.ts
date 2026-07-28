@@ -2,6 +2,8 @@ import { requireBrowserSupabaseClient } from "./client";
 import {
   ACCEPTED_IMAGE_TYPES,
   INSTAGRAM_WEBSITE_OPT_IN_COPY_VERSION,
+  MAX_GALLERY_SOURCE_EDGE,
+  MAX_GALLERY_SOURCE_PIXELS,
   MAX_UPLOAD_BYTES,
   MEMBER_GALLERY_BUCKET,
   SUBMISSION_FIELDS,
@@ -55,7 +57,24 @@ export function validateGalleryFile(file: File | null | undefined) {
   if (!file) throw new Error("Choose an image file before uploading.");
   if (!acceptedTypes.has(file.type)) throw new Error("Upload a JPEG, PNG, or WebP image.");
   if (file.size <= 0) throw new Error("The selected file is empty.");
-  if (file.size > MAX_UPLOAD_BYTES) throw new Error("Images must be 50 MB or smaller.");
+  if (file.size > MAX_UPLOAD_BYTES) throw new Error("Images must be 8 MB or smaller.");
+}
+
+async function validateGalleryFileDimensions(file: File) {
+  if (typeof createImageBitmap !== "function") return;
+  const image = await createImageBitmap(file, { imageOrientation: "from-image" });
+  try {
+    if (
+      image.width < 1 || image.height < 1 ||
+      image.width > MAX_GALLERY_SOURCE_EDGE ||
+      image.height > MAX_GALLERY_SOURCE_EDGE ||
+      image.width * image.height > MAX_GALLERY_SOURCE_PIXELS
+    ) {
+      throw new Error("Images must be no larger than 4096 pixels per edge and 12.6 megapixels.");
+    }
+  } finally {
+    image.close();
+  }
 }
 
 export function cleanSubmissionMetadata(metadata: GallerySubmissionMetadata = {}) {
@@ -76,6 +95,7 @@ export async function uploadMemberGalleryImage(file: File | null | undefined, me
     const client = requireBrowserSupabaseClient();
     validateGalleryFile(file);
     const validFile = file as File;
+    await validateGalleryFileDimensions(validFile);
 
     const access = await requireActiveMember({ refresh: true });
     if (!access.ok || !access.data?.user) return access;

@@ -40,7 +40,7 @@ Renderer notes:
 - `apps/web/app/page.tsx` imports `home.json`, `gallery.json`, and `guild-schedule.json` at build time and renders the canonical `/` route.
 - Monthly gathering and raffle dates come from `guild-schedule.json` when a bulletin has `scheduleId`.
 - `SpotlightWinnerTitle` may replace the configured fallback title with the finalized monthly Discord poll winner name from `get-current-spotlight-winner`; the path is name-only and must not expose Discord handles, profile links, avatars, vote counts, or candidate lists.
-- `HomeGallerySpotlight` and `HomeGalleryLightboxModal` own Screenshot Spotlight selection and dialog behavior.
+- The Home server route selects exactly four stable Screenshot Spotlight items, and `HomeGalleryLightbox` opens them through the same shared viewer used by `/gallery`.
 - Home descriptor strings render as paragraphs, badges render as plain spans, and bulletin dates use the UTC formatter in `page.tsx`.
 - Door, bulletin, spotlight, and gallery media render from controlled data fields through owned image components or elements.
 - Inline HTML and Markdown are not supported in Home JSON copy.
@@ -156,7 +156,7 @@ Home image behavior:
 - Hero image: `./assets/img/hero/hero.webp`
 - Background image: `./assets/bg/wuxia-bg.webp`
 - Seal image: `./assets/img/brand/emblem.webp`
-- Bulletin, door, and spotlight images render from `apps/web/public/data/home.json`; Home Gallery candidates come from `apps/web/public/data/gallery.json`, with `home.json` gallery entries retained only as fallback.
+- Bulletin, door, and spotlight images render from `apps/web/public/data/home.json`; Home Gallery candidates come from `apps/web/public/data/gallery.json`, with `home.json` gallery entries retained only as fallback. The server selects one stable, deduplicated set of four so hydration never reorders visible images.
 - Home gallery thumbnails should use thumbnail paths where intended, and `full` should point to the full image used by the lightbox.
 - Home Screenshot Spotlight uses the same fluid, proportional lightbox geometry as `/gallery`; shared sizing belongs in `apps/web/app/styles/shell-lightbox.css`, not Home- or Gallery-only CSS.
 

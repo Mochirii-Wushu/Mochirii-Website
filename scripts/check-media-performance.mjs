@@ -102,10 +102,12 @@ assert(
 );
 
 const galleryBrowser = read("apps/web/components/public-pages/GalleryBrowser.tsx");
+const galleryBrowserState = read("apps/web/lib/gallery/browser-state.ts");
 const homeGalleryLightbox = read("apps/web/components/HomeGalleryLightbox.tsx");
-const homeGalleryLightboxModal = read("apps/web/components/HomeGalleryLightboxModal.tsx");
+const universalImageLightbox = read("apps/web/components/UniversalImageLightbox.tsx");
 const approvedGalleryFeed = read("apps/web/lib/gallery/approved-feed.ts");
 const approvedFunction = read("supabase/functions/list-approved-gallery-submissions/index.ts");
+const approvedPublicHelper = read("supabase/functions/_shared/gallery-public-feed.ts");
 const thumbnailParser = read("supabase/functions/_shared/gallery-thumbnail.ts");
 const thumbnailDecoder = read("supabase/functions/_shared/gallery-webp-decoder.ts");
 const thumbnailValidatorSource = read("supabase/functions/_shared/gallery-webp-validator.c");
@@ -133,38 +135,48 @@ const homeDoorsStyles = read("apps/web/app/styles/public-home-doors.css");
 const publicGalleryStyles = read("apps/web/app/styles/public-gallery.css");
 
 [
-  "lazy(() =>",
-  'import("@/components/HomeGalleryLightboxModal")',
-  "<HomeGalleryLightboxFallback",
+  'import { UniversalImageLightbox } from "@/components/UniversalImageLightbox";',
+  "<UniversalImageLightbox",
+  "previewSrc: openItem.image",
+  "fullSrc: openItem.full",
   "{openItem && portalRoot ? (",
   "useBodyScrollLock(openItem !== null && portalRoot !== null);",
-].forEach((snippet) => assertIncludes("Home gallery deferred lightbox", homeGalleryLightbox, snippet));
-assertIncludes("Home gallery immediate loading portal", homeGalleryLightbox, "return createPortal(");
-assert(!homeGalleryLightbox.includes("<Suspense fallback={null}>"), "Home gallery first-open loading state must not be blank.");
+].forEach((snippet) => assertIncludes("Home gallery shared lightbox", homeGalleryLightbox, snippet));
+[
+  "function getStableGallerySpotlightItems(",
+  ".slice(0, gallerySpotlightLimit);",
+  "<HomeGalleryLightbox items={gallerySpotlightItems} />",
+].forEach((snippet) => assertIncludes("Home stable Gallery Spotlight", homePage, snippet));
+assert(!homeGalleryLightbox.includes("lazy("), "Home Gallery must not defer the shared viewer behind a weaker fallback.");
+assert(!homeGalleryLightbox.includes("HomeGalleryLightboxFallback"), "Home Gallery must not maintain a second modal implementation.");
 [
   'import { createPortal } from "react-dom";',
   'role="dialog"',
   'aria-modal="true"',
-  'src={item.full}',
-].forEach((snippet) => assertIncludes("Home gallery deferred modal", homeGalleryLightboxModal, snippet));
-assert(!homeGalleryLightboxModal.includes("useBodyScrollLock("), "Home gallery lazy modal must not replace the parent-owned scroll lock.");
+  "<LightboxImage",
+  "src={item.fullSrc}",
+  "previewSrc={item.previewSrc}",
+].forEach((snippet) => assertIncludes("universal deferred lightbox", universalImageLightbox, snippet));
 
 [
-  "const galleryRenderBatchSize = 24;",
+  "const galleryRenderBatchSize = APPROVED_GALLERY_PAGE_SIZE;",
   "const renderedItems = useMemo(() => visibleItems.slice(0, effectiveRenderLimit)",
   'id="galleryLoadMore"',
-  "src={openItem.full}",
-  "const fullSignedUrl = text(submission.full_signed_url);",
-  "const thumbnailSignedUrl = text(submission.thumbnail_signed_url);",
-  "full: fullSignedUrl,",
-  "thumb: thumbnailSignedUrl,",
-  "fullSignedUrl === thumbnailSignedUrl",
-  "thumbnailSizeBytes > 80 * 1024",
-  "function stableMixOrder(items: NormalizedGalleryItem[], seed: number)",
-  "const randomSeed = useMemo(",
-  "stableMixSeed(",
-  "submission.preview_error",
+  "src: submission.thumbnail_url,",
+  "thumb: submission.thumbnail_url,",
+  "submission.categories",
+  "nextCursor",
+  "hasMore",
+  "const randomSeed = useMemo(() => stableGalleryMixSeed(staticItems)",
+  "orderGalleryPresentation({",
 ].forEach((snippet) => assertIncludes("GalleryBrowser media contract", galleryBrowser, snippet));
+[
+  "stableGalleryMixOrder",
+  "stableGalleryMixSeed",
+  "return [...stableGalleryMixOrder(staticItems, randomSeed), ...runtimeItems]",
+].forEach((snippet) => assertIncludes("Gallery stable presentation contract", galleryBrowserState, snippet));
+assert(!galleryBrowser.includes("submission.full_url"), "GalleryBrowser list conversion must not receive an original URL.");
+assert(!galleryBrowser.includes("submission.uploader_display_name"), "GalleryBrowser must not receive member identity attribution.");
 
 assertFileExists("shared Gallery media component", responsiveGalleryMediaPath);
 assertFileExists("shared Gallery media styles", sharedGalleryMediaStylesPath);
@@ -225,38 +237,52 @@ assert(!galleryBrowser.includes("storage_path"), "GalleryBrowser must not read r
 assert(!galleryBrowser.includes("storage_bucket"), "GalleryBrowser must not read raw Supabase storage buckets.");
 assertIncludes("approved gallery client", approvedGalleryFeed, "list-approved-gallery-submissions");
 assertIncludes("approved gallery client", approvedGalleryFeed, "method: \"POST\"");
+assertIncludes("approved gallery client", approvedGalleryFeed, 'action: "list"');
+assertIncludes("approved gallery client", approvedGalleryFeed, 'action: "full"');
+assertIncludes("approved gallery client", approvedGalleryFeed, 'action: "full" | "thumbnail"');
+assertIncludes("approved gallery client", approvedGalleryFeed, "refreshApprovedGalleryThumbnail");
+assertIncludes("approved gallery client", approvedGalleryFeed, "nextCursor");
 
 const approvedTypeMatch = approvedGalleryFeed.match(/export type ApprovedGallerySubmission = \{[\s\S]*?\n\};/);
 assert(Boolean(approvedTypeMatch), "ApprovedGallerySubmission type was not found.");
 if (approvedTypeMatch) {
   const approvedType = approvedTypeMatch[0];
-  assertIncludes("ApprovedGallerySubmission", approvedType, "full_signed_url?: string | null;");
-  assertIncludes("ApprovedGallerySubmission", approvedType, "thumbnail_signed_url?: string | null;");
-  assertIncludes("ApprovedGallerySubmission", approvedType, "thumbnail_size_bytes?: number | null;");
+  assertIncludes("ApprovedGallerySubmission", approvedType, "thumbnail_url: string;");
+  assertIncludes("ApprovedGallerySubmission", approvedType, "thumbnail_size_bytes: number;");
+  assertIncludes("ApprovedGallerySubmission", approvedType, "thumbnail_width: number;");
+  assertIncludes("ApprovedGallerySubmission", approvedType, "thumbnail_height: number;");
+  assert(!approvedType.includes("full_url"), "ApprovedGallerySubmission list DTO must not expose an original URL.");
+  assert(!approvedType.includes("uploader"), "ApprovedGallerySubmission must not expose member identity attribution.");
   assert(!approvedType.includes("storage_path"), "ApprovedGallerySubmission must not expose storage_path.");
   assert(!approvedType.includes("storage_bucket"), "ApprovedGallerySubmission must not expose storage_bucket.");
 }
 
-const responseItemMatch = approvedFunction.match(/const item: JsonRecord = \{[\s\S]*?\n    \};/);
-assert(Boolean(responseItemMatch), "list-approved-gallery-submissions response item was not found.");
-if (responseItemMatch) {
-  const responseItem = responseItemMatch[0];
-  assertIncludes("approved gallery response item", responseItem, "thumbnail_signed_url: thumbnailSignedUrl,");
-  assertIncludes("approved gallery response item", responseItem, "full_signed_url: fullSignedUrl,");
-  assertIncludes("approved gallery response item", responseItem, "thumbnail_size_bytes: thumbnailSizeBytes,");
-  assert(!responseItem.includes("storage_path"), "Approved gallery response item must not expose storage_path.");
-  assert(!responseItem.includes("storage_bucket"), "Approved gallery response item must not expose storage_bucket.");
-}
-
 [
-  'adminClient.rpc(\n    "gallery_publishable_submissions"',
-  "const SIGNING_PATH_BATCH = 40;",
-  "Promise.all(",
-  ".createSignedUrls(paths, SIGNED_URL_SECONDS)",
-  "thumbnailSizeBytes > 80 * 1024",
-  'thumbnailMimeType !== "image/webp"',
-  "if (!thumbnailSignedUrl || !fullSignedUrl)",
-].forEach((snippet) => assertIncludes("approved gallery derivative contract", approvedFunction, snippet));
+  '"gallery_public_feed_page_v2"',
+  '"gallery_public_original_v2"',
+  'request.action === "full" || request.action === "thumbnail"',
+  "publicMediaUrl(supabaseUrl, request.action, request.id)",
+  '"gallery_reserve_public_delivery"',
+  ".download(storagePath)",
+  "mediaBlob.size !== mediaSize",
+  "await sha256Hex(mediaBytes) !== mediaSha256",
+  '"Cache-Control": "private, max-age=300, stale-while-revalidate=60"',
+].forEach((snippet) => assertIncludes("approved Gallery derivative contract", approvedFunction, snippet));
+[
+  "createSignedUrl(",
+  "createSignedUrls(",
+  "thumbnail_signed_url",
+  "full_signed_url",
+  "uploader_display_name",
+].forEach((snippet) => assert(!approvedFunction.includes(snippet), `Approved Gallery endpoint retained retired capability ${snippet}.`));
+[
+  "thumbnail_width: thumbnailWidth",
+  "thumbnail_height: thumbnailHeight",
+].forEach((snippet) => assertIncludes("approved Gallery public thumbnail DTO", approvedPublicHelper, snippet));
+assert(
+  !approvedFunction.includes('"gallery_publishable_submissions"'),
+  "Approved Gallery endpoint must not retain the fixed-limit v1 database function.",
+);
 
 const generatedValidatorDigest = createHash("sha256").update(thumbnailValidatorModule).digest("hex");
 assert(
@@ -284,7 +310,10 @@ assert(
 [
   'GALLERY_THUMBNAIL_MAX_BYTES = 80 * 1024',
   'GALLERY_THUMBNAIL_MAX_EDGE = 720',
-  'return `_approved/thumbs/${submissionId}/${revisionId}.webp`;',
+  'GALLERY_DISPLAY_MAX_BYTES = 2 * 1024 * 1024',
+  'GALLERY_DISPLAY_MAX_EDGE = 2560',
+  'return `_approved/publications/${publicationId}/display.webp`;',
+  'return `_approved/publications/${publicationId}/revisions/${revisionId}/thumbnail.webp`;',
 ].forEach((snippet) => assertIncludes("gallery thumbnail parser", thumbnailParser, snippet));
 [
   'LIBWEBP_VERSION="1.6.0"',

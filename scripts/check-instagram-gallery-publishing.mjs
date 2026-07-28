@@ -9,6 +9,7 @@ const files = {
   config: "supabase/config.toml",
   migrationHistory: "supabase/migrations/20260607094500_restore_instagram_gallery_publishing_history.sql",
   migration: "supabase/migrations/20260607125027_add_instagram_gallery_publishing.sql",
+  publicationMigration: "supabase/migrations/20260728132000_add_gallery_publication_revisions.sql",
   manualMigrationHistory: "supabase/migrations/20260608093407_restore_manual_instagram_share_history.sql",
   discordIngest: "supabase/functions/submit-discord-gallery-image/index.ts",
   moderation: "supabase/functions/moderate-gallery-submission/index.ts",
@@ -71,6 +72,7 @@ const checkAll = read(files.checkAll);
 const config = read(files.config);
 const migrationHistory = read(files.migrationHistory);
 const migration = read(files.migration);
+const publicationMigration = read(files.publicationMigration);
 const manualMigrationHistory = read(files.manualMigrationHistory);
 const discordIngest = read(files.discordIngest);
 const moderation = read(files.moderation);
@@ -159,13 +161,27 @@ assertNotMatches(
 );
 
 [
-  "gallery_instagram_publish_jobs",
-  "gallery_instagram_publish_events",
-  'new Set(["image/jpeg"])',
-  "ineligible",
-  "buildInstagramCaption",
-  "buildInstagramAltText",
+  '"gallery_commit_moderation"',
+  "const instagramJob = commit.instagramJob",
+  "instagramJob,",
 ].forEach((snippet) => assertIncludes("moderate-gallery-submission", moderation, snippet));
+
+[
+  "insert into public.gallery_instagram_publish_jobs",
+  "insert into public.gallery_instagram_publish_events",
+  "updated_submission.mime_type = 'image/jpeg'",
+  "else 'ineligible'",
+  "Shared from the Mōchirīī guild gallery.",
+  "Mōchirīī guild gallery submission:",
+  "'instagramJob'",
+].forEach((snippet) => assertIncludes("atomic Instagram moderation outbox", publicationMigration, snippet));
+
+assertNotMatches(
+  "moderate-gallery-submission",
+  moderation,
+  /\.from\(["']gallery_instagram_publish_(?:jobs|events)["']\)\s*\n?\s*\.(?:insert|upsert)\(/,
+  "Instagram outbox writes must stay inside the atomic gallery_commit_moderation transaction.",
+);
 
 [
   "requireModeratorAccess(req)",

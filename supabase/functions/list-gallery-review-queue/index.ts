@@ -8,6 +8,7 @@ import {
   requireModeratorAccess,
   safeString,
 } from "../_shared/gallery-moderation.ts";
+import { validateGallerySourceBytes } from "../_shared/gallery-source-image.ts";
 
 const SIGNED_URL_SECONDS = 10 * 60;
 const DEFAULT_PAGE_SIZE = 25;
@@ -17,14 +18,27 @@ const MEMBER_GALLERY_BUCKET = "member-gallery";
 const VALID_STATUSES = new Set(["pending", "approved", "rejected", "archived"]);
 const VALID_THUMBNAIL_STATES = new Set(["all", "missing", "ready"]);
 
+function asRecord(value: unknown): JsonRecord {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as JsonRecord
+    : {};
+}
+
 function normalizeStatus(value: unknown): string {
   const status = safeString(value, 20)?.toLowerCase() || "pending";
   return VALID_STATUSES.has(status) ? status : "pending";
 }
 
-function boundedInteger(value: unknown, fallback: number, minimum: number, maximum: number): number {
+function boundedInteger(
+  value: unknown,
+  fallback: number,
+  minimum: number,
+  maximum: number,
+): number {
   const parsed = Number(value);
-  return Number.isSafeInteger(parsed) ? Math.min(maximum, Math.max(minimum, parsed)) : fallback;
+  return Number.isSafeInteger(parsed)
+    ? Math.min(maximum, Math.max(minimum, parsed))
+    : fallback;
 }
 
 function normalizeThumbnailState(value: unknown): string {
@@ -54,7 +68,9 @@ function displayName(profile: JsonRecord | null | undefined): string {
   );
 }
 
-function profileSummary(profile: JsonRecord | null | undefined): JsonRecord | null {
+function profileSummary(
+  profile: JsonRecord | null | undefined,
+): JsonRecord | null {
   if (!profile) return null;
 
   return {
@@ -94,9 +110,177 @@ async function handleRequest(req: Request): Promise<Response> {
     });
   }
 
+  if (bodyResult.body.action === "prepare_preview") {
+    const submissionId = safeString(bodyResult.body.submission_id, 80);
+    const expectedUpdatedAt = safeString(
+      bodyResult.body.expected_updated_at,
+      80,
+    );
+    if (
+      !submissionId ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+        .test(submissionId) ||
+      !expectedUpdatedAt ||
+      !Number.isFinite(Date.parse(expectedUpdatedAt))
+    ) {
+      return jsonResponse(
+        {
+          ok: false,
+          error: "invalid_preview_request",
+          message:
+            "Refresh the moderation queue before preparing this preview.",
+        },
+        400,
+      );
+    }
+
+    const { data: candidateData, error: candidateError } = await access
+      .adminClient.rpc(
+        "gallery_source_validation_candidate",
+        { p_submission_id: submissionId },
+      );
+    const candidate = asRecord(candidateData);
+    const candidateUpdatedAt = safeString(candidate.submission_updated_at, 80);
+    const storageBucket = safeString(candidate.storage_bucket, 80);
+    const storagePath = safeString(candidate.storage_path, 1000);
+    const sourceMimeType =
+      safeString(candidate.source_mime_type, 80)?.toLowerCase() || null;
+    const sourceSizeBytes = Number(candidate.source_size_bytes || 0);
+    const storageObjectId = safeString(candidate.storage_object_id, 80);
+    const storageObjectVersion = safeString(
+      candidate.storage_object_version,
+      255,
+    );
+    const storageObjectUpdatedAt = safeString(
+      candidate.storage_object_updated_at,
+      80,
+    );
+    if (
+      candidateError || candidate.ok !== true ||
+      !candidateUpdatedAt ||
+      Date.parse(candidateUpdatedAt) !== Date.parse(expectedUpdatedAt) ||
+      storageBucket !== MEMBER_GALLERY_BUCKET || !storagePath ||
+      !storageObjectId || !storageObjectUpdatedAt ||
+      !sourceMimeType || !Number.isSafeInteger(sourceSizeBytes)
+    ) {
+      return jsonResponse(
+        {
+          ok: false,
+          error: candidateError
+            ? "source_validation_lookup_failed"
+            : safeString(candidate.reason, 80) || "stale_submission_revision",
+          message:
+            "The private Gallery source changed or cannot be validated. Refresh the queue and review it again.",
+        },
+        candidateError ? 500 : 409,
+      );
+    }
+
+    const { data: sourceBlob, error: sourceDownloadError } = await access
+      .adminClient.storage
+      .from(MEMBER_GALLERY_BUCKET)
+      .download(storagePath);
+    if (
+      sourceDownloadError || !sourceBlob || sourceBlob.size !== sourceSizeBytes
+    ) {
+      return jsonResponse(
+        {
+          ok: false,
+          error: "source_download_failed",
+          message: "The private Gallery source could not be validated safely.",
+        },
+        409,
+      );
+    }
+
+    const validation = await validateGallerySourceBytes(
+      new Uint8Array(await sourceBlob.arrayBuffer()),
+      sourceMimeType,
+    );
+    if (!validation.ok) {
+      console.warn("list-gallery-review-queue source validation rejected", {
+        submissionId,
+        reason: validation.error,
+      });
+      return jsonResponse(
+        {
+          ok: false,
+          error: "source_validation_failed",
+          message:
+            "This image cannot be opened safely for moderation. Ask the member to upload a smaller static image.",
+        },
+        422,
+      );
+    }
+
+    const { data: commitData, error: commitError } = await access.adminClient
+      .rpc(
+        "gallery_commit_source_validation",
+        {
+          p_submission_id: submissionId,
+          p_expected_submission_updated_at: expectedUpdatedAt,
+          p_expected_storage_object_id: storageObjectId,
+          p_expected_storage_object_version: storageObjectVersion,
+          p_expected_storage_object_updated_at: storageObjectUpdatedAt,
+          p_source_mime_type: validation.source.mimeType,
+          p_source_size_bytes: validation.source.sizeBytes,
+          p_source_width: validation.source.width,
+          p_source_height: validation.source.height,
+          p_source_sha256: validation.source.sha256,
+        },
+      );
+    const commit = asRecord(commitData);
+    if (commitError || commit.committed !== true) {
+      return jsonResponse(
+        {
+          ok: false,
+          error: commitError
+            ? "source_validation_commit_failed"
+            : safeString(commit.reason, 80) || "source_validation_conflict",
+          message:
+            "The private Gallery source changed during validation. Refresh the queue and review it again.",
+        },
+        commitError ? 500 : 409,
+      );
+    }
+
+    const { data: signedPreview, error: signedPreviewError } = await access
+      .adminClient.storage
+      .from(MEMBER_GALLERY_BUCKET)
+      .createSignedUrl(storagePath, SIGNED_URL_SECONDS);
+    const signedPreviewUrl = safeString(signedPreview?.signedUrl, 4000);
+    if (signedPreviewError || !signedPreviewUrl) {
+      return jsonResponse(
+        {
+          ok: false,
+          error: "preview_signing_failed",
+          message: "The validated Gallery preview is temporarily unavailable.",
+        },
+        503,
+      );
+    }
+
+    return jsonResponse({
+      ok: true,
+      data: {
+        submissionId,
+        signedPreviewUrl,
+        sourceWidth: validation.source.width,
+        sourceHeight: validation.source.height,
+        sourceValidatedAt: new Date().toISOString(),
+      },
+      message: "Safe Gallery preview prepared.",
+    });
+  }
+
   const requestedStatus = normalizeStatus(bodyResult.body.status);
   const requestedPage = boundedInteger(bodyResult.body.page, 1, 1, 10000);
-  const requestedPageSize = boundedInteger(bodyResult.body.page_size, DEFAULT_PAGE_SIZE, 1, MAX_PAGE_SIZE);
+  const requestedPageSize = boundedInteger(
+    bodyResult.body.page_size,
+    DEFAULT_PAGE_SIZE,
+    1,
+    MAX_PAGE_SIZE,
+  );
   const thumbnailState = requestedStatus === "approved"
     ? normalizeThumbnailState(bodyResult.body.thumbnail_state)
     : "all";
@@ -134,11 +318,12 @@ async function handleRequest(req: Request): Promise<Response> {
     summary.total += count;
   }
 
-  const { count: missingThumbnailCount, error: missingThumbnailCountError } = await access.adminClient
-    .from("gallery_submissions")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "approved")
-    .is("thumbnail_revision_id", null);
+  const { count: missingThumbnailCount, error: missingThumbnailCountError } =
+    await access.adminClient
+      .from("gallery_submissions")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "approved")
+      .is("thumbnail_revision_id", null);
 
   if (missingThumbnailCountError) {
     console.error("list-gallery-review-queue thumbnail count failed", {
@@ -158,7 +343,10 @@ async function handleRequest(req: Request): Promise<Response> {
 
   let submissionQuery = access.adminClient
     .from("gallery_submissions")
-    .select("id,user_id,storage_bucket,storage_path,thumbnail_revision_id,thumbnail_storage_path,thumbnail_mime_type,thumbnail_size_bytes,original_filename,mime_type,size_bytes,title,caption,category,status,rejection_reason,reviewed_by,reviewed_at,created_at,updated_at,submission_source,discord_guild_id,discord_channel_id,discord_message_id,discord_attachment_id,discord_user_id,instagram_opt_in,instagram_opt_in_at,instagram_opt_in_source,instagram_opt_in_copy_version", { count: "exact" })
+    .select(
+      "id,user_id,storage_bucket,storage_path,gallery_publication_id,thumbnail_revision_id,thumbnail_storage_path,thumbnail_mime_type,thumbnail_size_bytes,thumbnail_width,thumbnail_height,original_filename,mime_type,size_bytes,title,caption,category,status,rejection_reason,reviewed_by,reviewed_at,created_at,updated_at,submission_source,discord_guild_id,discord_channel_id,discord_message_id,discord_attachment_id,discord_user_id,instagram_opt_in,instagram_opt_in_at,instagram_opt_in_source,instagram_opt_in_copy_version",
+      { count: "exact" },
+    )
     .eq("status", requestedStatus);
 
   if (thumbnailState === "missing") {
@@ -176,9 +364,13 @@ async function handleRequest(req: Request): Promise<Response> {
   }
 
   const pageOffset = (requestedPage - 1) * requestedPageSize;
-  submissionQuery = submissionQuery.range(pageOffset, pageOffset + requestedPageSize - 1);
+  submissionQuery = submissionQuery.range(
+    pageOffset,
+    pageOffset + requestedPageSize - 1,
+  );
 
-  const { data: submissionData, error: submissionError, count: filteredCount } = await submissionQuery;
+  const { data: submissionData, error: submissionError, count: filteredCount } =
+    await submissionQuery;
 
   if (submissionError) {
     console.error("list-gallery-review-queue submission lookup failed", {
@@ -196,15 +388,66 @@ async function handleRequest(req: Request): Promise<Response> {
     );
   }
 
-  const submissions = Array.isArray(submissionData) ? submissionData as JsonRecord[] : [];
+  const submissions = Array.isArray(submissionData)
+    ? submissionData as JsonRecord[]
+    : [];
+  const submissionIds = [
+    ...new Set(
+      submissions
+        .map((submission) => safeString(submission.id, 80))
+        .filter((value): value is string => Boolean(value)),
+    ),
+  ];
+  const sourceValidationsBySubmissionId = new Map<string, JsonRecord>();
+  if (submissionIds.length > 0) {
+    const { data: validationData, error: validationError } = await access
+      .adminClient.rpc(
+        "gallery_source_validation_states",
+        { p_submission_ids: submissionIds },
+      );
+    if (validationError || !Array.isArray(validationData)) {
+      console.error(
+        "list-gallery-review-queue source validation lookup failed",
+        {
+          code: validationError?.code,
+          message: validationError?.message ||
+            "Invalid source validation response",
+        },
+      );
+      return jsonResponse(
+        {
+          ok: false,
+          error: "source_validation_lookup_failed",
+          message: "Gallery source validation status could not be loaded.",
+        },
+        500,
+      );
+    }
+    for (const value of validationData) {
+      const validation = asRecord(value);
+      const submissionId = safeString(validation.submission_id, 80);
+      if (submissionId) {
+        sourceValidationsBySubmissionId.set(submissionId, validation);
+      }
+    }
+  }
   const previewPaths = submissions
-    .filter((submission) => safeString(submission.storage_bucket, 80) === MEMBER_GALLERY_BUCKET)
+    .filter((submission) => {
+      const submissionId = safeString(submission.id, 80);
+      return Boolean(
+        submissionId && sourceValidationsBySubmissionId.has(submissionId),
+      );
+    })
+    .filter((submission) =>
+      safeString(submission.storage_bucket, 80) === MEMBER_GALLERY_BUCKET
+    )
     .map((submission) => safeString(submission.storage_path, 1000))
     .filter((value): value is string => Boolean(value));
   const signedPreviewsByPath = new Map<string, string>();
 
   if (previewPaths.length > 0) {
-    const { data: signedPreviewData, error: signedPreviewError } = await access.adminClient.storage
+    const { data: signedPreviewData, error: signedPreviewError } = await access
+      .adminClient.storage
       .from(MEMBER_GALLERY_BUCKET)
       .createSignedUrls(previewPaths, SIGNED_URL_SECONDS);
 
@@ -220,13 +463,6 @@ async function handleRequest(req: Request): Promise<Response> {
       }
     }
   }
-  const submissionIds = [
-    ...new Set(
-      submissions
-        .map((submission) => safeString(submission.id, 80))
-        .filter((value): value is string => Boolean(value)),
-    ),
-  ];
   const eventsBySubmissionId = new Map<string, JsonRecord[]>();
   const moderationEvents: JsonRecord[] = [];
 
@@ -254,7 +490,9 @@ async function handleRequest(req: Request): Promise<Response> {
       );
     }
 
-    moderationEvents.push(...(Array.isArray(eventData) ? eventData as JsonRecord[] : []));
+    moderationEvents.push(
+      ...(Array.isArray(eventData) ? eventData as JsonRecord[] : []),
+    );
     moderationEvents.forEach((event) => {
       const submissionId = safeString(event.submission_id, 80);
       if (!submissionId) return;
@@ -268,7 +506,9 @@ async function handleRequest(req: Request): Promise<Response> {
     ...new Set(
       [
         ...submissions.map((submission) => safeString(submission.user_id, 80)),
-        ...submissions.map((submission) => safeString(submission.reviewed_by, 80)),
+        ...submissions.map((submission) =>
+          safeString(submission.reviewed_by, 80)
+        ),
         ...moderationEvents.map((event) => safeString(event.moderator_id, 80)),
       ]
         .filter((value): value is string => Boolean(value)),
@@ -279,7 +519,9 @@ async function handleRequest(req: Request): Promise<Response> {
   if (userIds.length > 0) {
     const { data: profileData, error: profileError } = await access.adminClient
       .from("member_profiles")
-      .select("id,display_name,discord_username,discord_global_name,discord_user_id")
+      .select(
+        "id,display_name,discord_username,discord_global_name,discord_user_id",
+      )
       .in("id", userIds);
 
     if (profileError) {
@@ -298,28 +540,39 @@ async function handleRequest(req: Request): Promise<Response> {
       );
     }
 
-    (Array.isArray(profileData) ? profileData as JsonRecord[] : []).forEach((profile) => {
-      const id = safeString(profile.id, 80);
-      if (id) profilesById.set(id, profile);
-    });
+    (Array.isArray(profileData) ? profileData as JsonRecord[] : []).forEach(
+      (profile) => {
+        const id = safeString(profile.id, 80);
+        if (id) profilesById.set(id, profile);
+      },
+    );
   }
 
   const queue = [];
 
   for (const submission of submissions) {
-    const bucket = safeString(submission.storage_bucket, 80) || MEMBER_GALLERY_BUCKET;
+    const bucket = safeString(submission.storage_bucket, 80) ||
+      MEMBER_GALLERY_BUCKET;
     const storagePath = safeString(submission.storage_path, 1000);
     const submissionId = safeString(submission.id, 80);
+    const sourceValidation = submissionId
+      ? sourceValidationsBySubmissionId.get(submissionId) || null
+      : null;
     let signedPreviewUrl: string | null = null;
     let previewError: string | null = null;
 
     if (bucket !== MEMBER_GALLERY_BUCKET || !storagePath) {
-      console.warn("list-gallery-review-queue skipped invalid storage reference", {
-        submissionId,
-        bucket,
-        hasStoragePath: Boolean(storagePath),
-      });
+      console.warn(
+        "list-gallery-review-queue skipped invalid storage reference",
+        {
+          submissionId,
+          bucket,
+          hasStoragePath: Boolean(storagePath),
+        },
+      );
       previewError = "invalid_storage_reference";
+    } else if (!sourceValidation) {
+      previewError = "source_validation_required";
     } else {
       signedPreviewUrl = signedPreviewsByPath.get(storagePath) || null;
       if (!signedPreviewUrl) previewError = "preview_unavailable";
@@ -329,16 +582,20 @@ async function handleRequest(req: Request): Promise<Response> {
     const profile = profilesById.get(userId) || {};
     const reviewerId = safeString(submission.reviewed_by, 80);
     const reviewer = reviewerId ? profilesById.get(reviewerId) || null : null;
-    const events = (eventsBySubmissionId.get(submissionId || "") || []).map((event) => {
-      const moderatorId = safeString(event.moderator_id, 80);
-      return {
-        id: safeString(event.id, 80),
-        action: safeString(event.action, 20),
-        reason: safeString(event.reason, 500),
-        createdAt: safeString(event.created_at, 80),
-        moderator: moderatorId ? profileSummary(profilesById.get(moderatorId) || null) : null,
-      };
-    });
+    const events = (eventsBySubmissionId.get(submissionId || "") || []).map(
+      (event) => {
+        const moderatorId = safeString(event.moderator_id, 80);
+        return {
+          id: safeString(event.id, 80),
+          action: safeString(event.action, 20),
+          reason: safeString(event.reason, 500),
+          createdAt: safeString(event.created_at, 80),
+          moderator: moderatorId
+            ? profileSummary(profilesById.get(moderatorId) || null)
+            : null,
+        };
+      },
+    );
 
     queue.push({
       id: submissionId,
@@ -374,12 +631,24 @@ async function handleRequest(req: Request): Promise<Response> {
       thumbnailStoragePath: safeString(submission.thumbnail_storage_path, 1000),
       thumbnailMimeType: safeString(submission.thumbnail_mime_type, 80),
       thumbnailSizeBytes: Number(submission.thumbnail_size_bytes || 0) || null,
+      thumbnailWidth: Number(submission.thumbnail_width || 0) || null,
+      thumbnailHeight: Number(submission.thumbnail_height || 0) || null,
+      publicationReady: Boolean(
+        safeString(submission.gallery_publication_id, 80),
+      ),
+      sourceValidationState: sourceValidation ? "validated" : "required",
+      sourceWidth: Number(sourceValidation?.width || 0) || null,
+      sourceHeight: Number(sourceValidation?.height || 0) || null,
+      sourceValidatedAt: safeString(sourceValidation?.validated_at, 80),
       signedPreviewUrl,
       previewError,
       instagramOptIn: submission.instagram_opt_in === true,
       instagramOptInAt: safeString(submission.instagram_opt_in_at, 80),
       instagramOptInSource: safeString(submission.instagram_opt_in_source, 80),
-      instagramOptInCopyVersion: safeString(submission.instagram_opt_in_copy_version, 80),
+      instagramOptInCopyVersion: safeString(
+        submission.instagram_opt_in_copy_version,
+        80,
+      ),
       moderationEvents: events,
     });
   }
