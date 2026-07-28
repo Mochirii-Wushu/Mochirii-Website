@@ -23,14 +23,20 @@ on:
         options:
           - NONE
           - MIGRATIONS APPROVED
-      private_media_approval:
-        description: Confirm anonymous object/CDN denial and private-media cutover readback
+      deployment_mode:
+        description: Select the one-time closed staging mode or the verified permanent release gate
         required: true
-        default: NOT VERIFIED
+        default: NOT AUTHORIZED
         type: choice
         options:
-          - NOT VERIFIED
+          - NOT AUTHORIZED
+          - STAGE_PRIVATE_MEDIA_GATEWAY_UNDER_MAINTENANCE
+          - FINALIZE_PRIVATE_MEDIA_GATEWAY_AFTER_VERIFIED_CUTOVER
           - ANONYMOUS DENIAL AND CUTOVER VERIFIED
+      operation_id:
+        description: Canonical lowercase UUIDv4; durable uniqueness is enforced for private-media cutover operations
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -51,11 +57,13 @@ jobs:
     permissions:
       contents: read
       packages: read
+      attestations: read
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ inputs.commit }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -66,25 +74,40 @@ jobs:
           RELEASE_DIGEST: ${{ inputs.image_digest }}
           RELEASE_CONFIRMATION: ${{ inputs.confirmation }}
           MIGRATION_APPROVAL: ${{ inputs.migration_approval }}
-          PRIVATE_MEDIA_APPROVAL: ${{ inputs.private_media_approval }}
+          DEPLOYMENT_MODE: ${{ inputs.deployment_mode }}
+          OPERATION_ID: ${{ inputs.operation_id }}
         shell: bash
         run: |
           set -Eeuo pipefail
           [[ "$RELEASE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
           [[ "$RELEASE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
           [[ "$RELEASE_CONFIRMATION" == "DEPLOY social.mochirii.com" ]]
+          [[ "$OPERATION_ID" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$ ]]
           [[ "$MIGRATION_APPROVAL" == "NONE" || "$MIGRATION_APPROVAL" == "MIGRATIONS APPROVED" ]]
-          [[ "$PRIVATE_MEDIA_APPROVAL" == "ANONYMOUS DENIAL AND CUTOVER VERIFIED" ]]
-          git cat-file -e "$RELEASE_COMMIT^{commit}"
-          git merge-base --is-ancestor "$RELEASE_COMMIT" origin/main
+          case "$DEPLOYMENT_MODE" in
+            STAGE_PRIVATE_MEDIA_GATEWAY_UNDER_MAINTENANCE)
+              [[ "$MIGRATION_APPROVAL" == "NONE" ]]
+              ;;
+            FINALIZE_PRIVATE_MEDIA_GATEWAY_AFTER_VERIFIED_CUTOVER)
+              [[ "$MIGRATION_APPROVAL" == "NONE" ]]
+              ;;
+            "ANONYMOUS DENIAL AND CUTOVER VERIFIED")
+              ;;
+            *)
+              echo "A reviewed deployment mode is required." >&2
+              exit 1
+              ;;
+          esac
+          [[ "$(git rev-parse HEAD)" == "$RELEASE_COMMIT" ]]
 
           migration_token="${MIGRATION_APPROVAL// /_}"
-          private_media_token="${PRIVATE_MEDIA_APPROVAL// /_}"
+          deployment_mode_token="${DEPLOYMENT_MODE// /_}"
           {
             echo "commit=$RELEASE_COMMIT"
             echo "digest=$RELEASE_DIGEST"
             echo "migration_token=$migration_token"
-            echo "private_media_token=$private_media_token"
+            echo "deployment_mode_token=$deployment_mode_token"
+            echo "operation_id=$OPERATION_ID"
           } >> "$GITHUB_OUTPUT"
 
       - name: Log in to GitHub Container Registry
@@ -105,6 +128,29 @@ jobs:
           )"
           [[ "$published_digest" == "$RELEASE_DIGEST" ]]
 
+      - name: Verify image provenance and SBOM attestations
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_COMMIT: ${{ steps.release.outputs.commit }}
+          RELEASE_DIGEST: ${{ steps.release.outputs.digest }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          image="oci://$REGISTRY_IMAGE@$RELEASE_DIGEST"
+          common=(
+            --repo Mochirii-Wushu/Mochirii
+            --bundle-from-oci
+            --source-digest "$RELEASE_COMMIT"
+            --source-ref refs/heads/main
+            --signer-workflow Mochirii-Wushu/Mochirii/.github/workflows/validate-social.yml
+            --signer-digest "$RELEASE_COMMIT"
+            --deny-self-hosted-runners
+          )
+          gh attestation verify "$image" "${common[@]}" \
+            --predicate-type https://slsa.dev/provenance/v1 >/dev/null
+          gh attestation verify "$image" "${common[@]}" \
+            --predicate-type https://spdx.dev/Document/v2.3 >/dev/null
+
       - name: Build no-secret release bundle
         env:
           RELEASE_COMMIT: ${{ steps.release.outputs.commit }}
@@ -116,10 +162,45 @@ jobs:
           install -m 0644 \
             services/social/docker-compose.production.yml \
             release-bundle/docker-compose.production.yml
+          migration_tree_sha256="$(
+            cd services/social
+            find database/migrations -type f -print0 |
+              LC_ALL=C sort -z |
+              xargs -0 sha256sum |
+              sha256sum |
+              cut -d' ' -f1
+          )"
+          runtime_sources=(
+            services/social/scripts/production-runtime-lib.sh
+            services/social/scripts/deploy-production-runtime.sh
+            services/social/scripts/backup-production-runtime.sh
+            services/social/scripts/restore-production-runtime.sh
+            services/social/scripts/deploy-production-entrypoint.sh
+          )
+          runtime_targets=(
+            /usr/local/lib/mochirii-social/production-runtime-lib.sh
+            /usr/local/sbin/mochirii-social-deploy
+            /usr/local/sbin/mochirii-social-backup
+            /usr/local/sbin/mochirii-social-restore
+            /usr/local/sbin/mochirii-social-deploy-entry
+          )
+          : > release-bundle/runtime-contract.manifest
+          for index in "${!runtime_sources[@]}"; do
+            printf '%s  %s\n' \
+              "$(sha256sum "${runtime_sources[$index]}" | cut -d' ' -f1)" \
+              "${runtime_targets[$index]}" \
+              >> release-bundle/runtime-contract.manifest
+          done
+          runtime_contract_sha256="$(sha256sum release-bundle/runtime-contract.manifest | cut -d' ' -f1)"
+          rm -f release-bundle/runtime-contract.manifest
+          [[ "$migration_tree_sha256" =~ ^[0-9a-f]{64}$ ]]
+          [[ "$runtime_contract_sha256" =~ ^[0-9a-f]{64}$ ]]
           {
             printf 'commit=%s\n' "$RELEASE_COMMIT"
             printf 'digest=%s\n' "$RELEASE_DIGEST"
             printf '%s\n' 'repository=Mochirii-Wushu/Mochirii-Website'
+            printf 'migration_tree_sha256=%s\n' "$migration_tree_sha256"
+            printf 'runtime_contract_sha256=%s\n' "$runtime_contract_sha256"
           } > release-bundle/release.meta
           tar -czf release-bundle.tar.gz -C release-bundle \
             docker-compose.production.yml release.meta
@@ -142,13 +223,36 @@ jobs:
           RELEASE_COMMIT: ${{ steps.release.outputs.commit }}
           RELEASE_DIGEST: ${{ steps.release.outputs.digest }}
           MIGRATION_TOKEN: ${{ steps.release.outputs.migration_token }}
-          PRIVATE_MEDIA_TOKEN: ${{ steps.release.outputs.private_media_token }}
+          DEPLOYMENT_MODE_TOKEN: ${{ steps.release.outputs.deployment_mode_token }}
+          OPERATION_ID: ${{ steps.release.outputs.operation_id }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DEPLOY_HOST: ${{ vars.SOCIAL_DEPLOY_HOST }}
           DEPLOY_USER: ${{ vars.SOCIAL_DEPLOY_USER }}
         shell: bash
         run: |
           set -Eeuo pipefail
           [[ -n "$DEPLOY_HOST" && -n "$DEPLOY_USER" ]]
+          [[ "$(git rev-parse HEAD)" == "$RELEASE_COMMIT" ]]
+          remote_main="$(gh api repos/Mochirii-Wushu/Mochirii/commits/main --jq .sha)"
+          if [[ "$DEPLOYMENT_MODE_TOKEN" == "FINALIZE_PRIVATE_MEDIA_GATEWAY_AFTER_VERIFIED_CUTOVER" ]]; then
+            ssh \
+              -i ~/.ssh/social_deploy_key \
+              -o BatchMode=yes \
+              -o IdentitiesOnly=yes \
+              -o StrictHostKeyChecking=yes \
+              -o UserKnownHostsFile=~/.ssh/known_hosts \
+              "$DEPLOY_USER@$DEPLOY_HOST" \
+              "verify-finalization $OPERATION_ID $RELEASE_COMMIT $RELEASE_DIGEST VERIFY_PRIVATE_MEDIA_FINALIZATION"
+            comparison_status="$(
+              gh api \
+                "repos/Mochirii-Wushu/Mochirii/compare/$RELEASE_COMMIT...$remote_main" \
+                --jq .status
+            )"
+            [[ "$comparison_status" == "ahead" || "$comparison_status" == "identical" ]]
+          else
+            [[ "$remote_main" == "$RELEASE_COMMIT" ]]
+          fi
+          [[ "$(gh api repos/Mochirii-Wushu/Mochirii/commits/main --jq .sha)" == "$remote_main" ]]
           ssh \
             -i ~/.ssh/social_deploy_key \
             -o BatchMode=yes \
@@ -156,21 +260,44 @@ jobs:
             -o StrictHostKeyChecking=yes \
             -o UserKnownHostsFile=~/.ssh/known_hosts \
             "$DEPLOY_USER@$DEPLOY_HOST" \
-            "deploy $RELEASE_COMMIT $RELEASE_DIGEST DEPLOY_social.mochirii.com $MIGRATION_TOKEN $PRIVATE_MEDIA_TOKEN" \
+            "deploy $RELEASE_COMMIT $RELEASE_DIGEST DEPLOY_social.mochirii.com $MIGRATION_TOKEN $DEPLOYMENT_MODE_TOKEN $OPERATION_ID" \
             < release-bundle.tar.gz
 
       - name: Verify public edge
+        env:
+          DEPLOYMENT_MODE_TOKEN: ${{ steps.release.outputs.deployment_mode_token }}
         shell: bash
         run: |
           set -Eeuo pipefail
           headers="$(mktemp)"
           trap 'rm -f "$headers"' EXIT
           status="$(
-            curl --silent --show-error --location --retry 6 --retry-all-errors \
+            curl --silent --show-error --max-redirs 0 --retry 6 --retry-all-errors \
               --retry-delay 5 --max-time 30 --dump-header "$headers" \
-              --output /dev/null --write-out '%{http_code}' \
+              --output /dev/null --write-out '%{http_code}:%{size_download}' \
               https://social.mochirii.com/
           )"
+          if [[ "$DEPLOYMENT_MODE_TOKEN" == "STAGE_PRIVATE_MEDIA_GATEWAY_UNDER_MAINTENANCE" ]]; then
+            response_status="${status%%:*}"
+            response_size="${status#*:}"
+            [[ "$response_status" == "503" ]] || {
+              echo "The staged gateway did not remain behind the approved maintenance boundary." >&2
+              exit 1
+            }
+            [[ "$response_size" =~ ^[0-9]+$ && "$response_size" -le 65536 ]]
+            if grep -Eiq '^(location|set-cookie):' "$headers"; then
+              echo "The maintenance response returned a redirect or cookie." >&2
+              exit 1
+            fi
+            grep -Eiq '^cache-control:[[:space:]]*([^\r]*,)?[[:space:]]*no-store([,;[:space:]]|\r?$)' "$headers" || {
+              echo "The maintenance response must be no-store." >&2
+              exit 1
+            }
+            exit 0
+          fi
+
+          status="${status%%:*}"
+
           case "$status" in
             2?? | 3??) ;;
             403)

@@ -84,7 +84,15 @@ requireIncludes(deployWorkflowPath, deployWorkflow, [
   "persist-credentials: false",
   "DEPLOY social.mochirii.com",
   "MIGRATIONS APPROVED",
+  "STAGE_PRIVATE_MEDIA_GATEWAY_UNDER_MAINTENANCE",
   "ANONYMOUS DENIAL AND CUTOVER VERIFIED",
+  "gh attestation verify",
+  "--source-digest",
+  "--source-ref refs/heads/main",
+  "--signer-workflow Mochirii-Wushu/Mochirii/.github/workflows/validate-social.yml",
+  '--signer-digest "$RELEASE_COMMIT"',
+  "--predicate-type https://spdx.dev/Document/v2.3",
+  "--deny-self-hosted-runners",
   "StrictHostKeyChecking=yes",
   "UserKnownHostsFile=~/.ssh/known_hosts",
   "docker buildx imagetools inspect",
@@ -93,7 +101,7 @@ requireIncludes(deployWorkflowPath, deployWorkflow, [
   "The public edge blocked the GitHub runner after the hosted public health gates passed.",
 ]);
 rejectIncludes(deployWorkflowPath, deployWorkflow, [
-  "self-hosted",
+  "runs-on: self-hosted",
   "StrictHostKeyChecking=no",
   "ssh-keyscan",
   "pull_request_target",
@@ -137,7 +145,23 @@ requireIncludes(deployScriptPath, deployScript, [
   '"--verify-online-hosting"',
   "verify_online_hosting",
   "The release Compose file does not match the approved host template.",
-  "Deployment requires anonymous object/CDN denial and private-media cutover readback.",
+  "Private-media gateway staging permits only migration approval NONE.",
+  "require_private_media_maintenance_proof",
+  "verify_public_maintenance_boundary",
+  "captured_horizon_state",
+  "captured_scheduler_state",
+  "write_private_media_cutover_state",
+  "transition_private_media_cutover_phase intent staged",
+  "transition_private_media_cutover_phase staged finalizing",
+  "transition_private_media_cutover_phase finalizing completed",
+  "compose_release \"$current_release\" stop --timeout 90 horizon scheduler",
+  "horizon:terminate",
+  "verify_staged_private_media_gateway",
+  "stage_rollback_armed=true",
+  "rollback_private_media_stage",
+  "recovery_required",
+  "verify_private_media_migration_tree_parity",
+  "Cutover finalization failed; finalizing state remains for forward recovery.",
 ]);
 
 const runtimeLibraryPath = "scripts/production-runtime-lib.sh";
@@ -157,6 +181,29 @@ requireIncludes(runtimeLibraryPath, runtimeLibrary, [
   "verify_spaces_round_trip",
   'Storage::disk("s3")',
   "Spaces write, read, and delete gates passed.",
+  'PRIVATE_MEDIA_MAINTENANCE_PROOF="$PRIVATE_MEDIA_STATE_ROOT/maintenance.proof"',
+  'PRIVATE_MEDIA_CUTOVER_STATE="$PRIVATE_MEDIA_STATE_ROOT/cutover.state"',
+  "root:root:700",
+  "root:root:600",
+  "expected_status=503",
+  "validate_private_media_cutover_state",
+  "write_private_media_cutover_state",
+  "reject_active_private_media_cutover_state",
+  "verify_installed_deploy_runtime_contract",
+  "verify_candidate_migration_tree",
+  "verify_private_media_migration_tree_parity",
+  "container_runtime_state",
+  "wait_for_container_stopped",
+  "verify_staged_private_media_gateway_local",
+  "Staged private-media gateway gates passed behind maintenance.",
+]);
+rejectIncludes(runtimeLibraryPath, runtimeLibrary, [
+  "PRIVATE_MEDIA_PENDING_MARKER",
+  "PRIVATE_MEDIA_COMPLETED_MARKER",
+  "gateway-stage.pending",
+  "cutover.completed",
+  "reject_private_media_bootstrap_replay",
+  "write_private_media_pending_marker",
 ]);
 
 const entrypointPath = "scripts/deploy-production-entrypoint.sh";
@@ -169,6 +216,8 @@ requireIncludes(entrypointPath, entrypoint, [
   "head -c 1048577",
   "sudo -n /usr/local/sbin/mochirii-social-deploy",
   "ANONYMOUS_DENIAL_AND_CUTOVER_VERIFIED",
+  "STAGE_PRIVATE_MEDIA_GATEWAY_UNDER_MAINTENANCE",
+  "A reviewed deployment mode is required.",
 ]);
 
 const healthControllerPath = "app/Http/Controllers/HealthCheckController.php";
@@ -199,8 +248,35 @@ requireIncludes(installerPath, installer, [
   "github-deploy",
   'restrict,command=\"/usr/local/sbin/mochirii-social-deploy-entry\"',
   '"$runtime_root/shared/docker-compose.production.yml"',
+  '"$runtime_root/shared/private-media-cutover"',
   "passwd --lock",
   "visudo -cf",
+  "require_clean_installer_checkout",
+  "status --porcelain=v1 --untracked-files=all",
+  "ls-files --error-unmatch",
+  "ls-tree",
+  "hash-object --",
+  "regular non-symlink file",
+]);
+
+const deploymentRuntimeUpdaterPath = "scripts/install-production-deploy-runtime-update.sh";
+const deploymentRuntimeUpdater = read(deploymentRuntimeUpdaterPath);
+requireIncludes(deploymentRuntimeUpdaterPath, deploymentRuntimeUpdater, [
+  "expected_commit",
+  "require_exact_updater_checkout",
+  'git -C "$checkout_root" rev-parse HEAD',
+  'status --porcelain=v1 --untracked-files=all',
+  "ls-files --error-unmatch",
+  "ls-tree",
+  "hash-object --",
+  "regular non-symlink file",
+  "bash -n",
+  "root:root:700",
+  "deploy-runtime-$expected_commit",
+  "mktemp",
+  "mv -T",
+  "rollback",
+  "no service was restarted or reloaded",
 ]);
 
 const migrationPath = "scripts/migrate-production-runtime.sh";

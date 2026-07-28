@@ -734,7 +734,11 @@ requireIncludes(".github/workflows/deploy-social-production.yml", deploymentWork
   "services/social/docker-compose.production.yml",
   "repository=Mochirii-Wushu/Mochirii-Website",
   "DEPLOY social.mochirii.com",
+  "STAGE_PRIVATE_MEDIA_GATEWAY_UNDER_MAINTENANCE",
   "ANONYMOUS DENIAL AND CUTOVER VERIFIED",
+  "gh attestation verify",
+  "--source-digest",
+  "--predicate-type https://spdx.dev/Document/v2.3",
   "persist-credentials: false",
 ]);
 
@@ -866,12 +870,13 @@ if (guestLayout.includes("maximum-scale=1") || guestLayout.includes("user-scalab
 
 const runtimeLibrary = read("scripts/production-runtime-lib.sh");
 requireIncludes("scripts/production-runtime-lib.sh", runtimeLibrary, [
-  "redact_runtime_diagnostics",
   "emit_container_diagnostics",
-  "authorization_id|code|code_verifier|state|access_token|refresh_token",
+  "Container logs can contain signed object URLs",
+  "state={{.State.Status}}",
+  "restart_count={{.RestartCount}}",
 ]);
-if ((runtimeLibrary.match(/docker logs --tail/g) || []).length !== 1) {
-  failures.push("scripts/production-runtime-lib.sh must emit container logs only through the redaction helper");
+if (runtimeLibrary.includes("docker logs")) {
+  failures.push("scripts/production-runtime-lib.sh must not emit container logs into deployment diagnostics");
 }
 
 const webRoutes = read("routes/web.php");

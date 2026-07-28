@@ -33,6 +33,8 @@ flock -n 9 || {
   echo "Another Mochirii Social deployment or restore is active." >&2
   exit 1
 }
+verify_installed_deploy_runtime_contract
+reject_active_private_media_cutover_state "Production restore"
 
 stage_dir="$(mktemp -d "$BACKUP_ROOT/.restore.XXXXXX")"
 cleanup() {
@@ -41,38 +43,102 @@ cleanup() {
   fi
   rm -f "$payload_path"
 }
-trap cleanup EXIT
 
-mapfile -t payload_entries < <(tar -tf "$payload_path")
-expected_entries=(database.sql.gz configuration.tar.gz manifest)
-[[ "${#payload_entries[@]}" -eq "${#expected_entries[@]}" ]] || {
-  echo "The recovery payload contains unexpected entries." >&2
-  exit 1
+restore_mutation_armed=false
+restore_failure_handled=false
+restore_fail_closed_once() {
+  local close_failed=false
+  [[ "$restore_mutation_armed" == true && "$restore_failure_handled" == false ]] || return 0
+  restore_failure_handled=true
+  if ! enforce_fail_closed_runtime "$current_release" restore; then
+    close_failed=true
+  fi
+  write_restore_state \
+    recovery_required \
+    "$restore_operation_id" \
+    "$restore_release_commit" \
+    "$restore_release_digest" \
+    "$restore_database_sha256" \
+    "$restore_configuration_sha256" \
+    "$restore_started_utc" \
+    NONE || close_failed=true
+  if [[ "$close_failed" == true ]]; then
+    echo "The database restore failed and the closed application boundary could not be fully proven; operator recovery is required." >&2
+  else
+    echo "The database restore failed; the application and workers remain closed for operator recovery." >&2
+  fi
 }
-for expected_entry in "${expected_entries[@]}"; do
-  printf '%s\n' "${payload_entries[@]}" | grep -Fxq "$expected_entry" || {
-    echo "The recovery payload is incomplete." >&2
-    exit 1
-  }
-done
-tar -xf "$payload_path" --no-same-owner --no-same-permissions -C "$stage_dir"
-gzip -t "$stage_dir/database.sql.gz"
-tar -tzf "$stage_dir/configuration.tar.gz" >/dev/null
-grep -Fxq 'format=1' "$stage_dir/manifest"
-grep -Eq '^release_commit=[0-9a-f]{40}$' "$stage_dir/manifest"
-grep -Eq '^release_digest=sha256:[0-9a-f]{64}$' "$stage_dir/manifest"
 
-/usr/local/sbin/mochirii-social-backup "pre-restore-$(date -u +%Y%m%dT%H%M%SZ)"
+restore_exit_handler() {
+  local exit_code=$?
+  trap - EXIT HUP INT TERM
+  set +e
+  if [[ "$exit_code" -ne 0 ]]; then
+    restore_fail_closed_once
+  fi
+  cleanup
+  exit "$exit_code"
+}
+trap restore_exit_handler EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+extract_validated_recovery_payload "$payload_path" "$stage_dir"
+validated_manifest="$stage_dir/validated.manifest"
+validate_recovery_payload_manifest "$stage_dir" "$validated_manifest"
+restore_manifest_format="$(sed -n 's/^format=//p' "$validated_manifest")"
+[[ "$restore_manifest_format" == 1 || "$restore_manifest_format" == 2 ]]
+restore_release_commit="$(sed -n 's/^release_commit=//p' "$validated_manifest")"
+restore_release_digest="$(sed -n 's/^release_digest=//p' "$validated_manifest")"
+restore_database_sha256="$(sed -n 's/^database_sha256=//p' "$validated_manifest")"
+restore_configuration_sha256="$(sed -n 's/^configuration_sha256=//p' "$validated_manifest")"
+
+configuration_root="$stage_dir/configuration"
+mkdir -m 0700 "$configuration_root"
+validate_recovery_configuration_archive \
+  "$stage_dir/configuration.tar.gz" \
+  "${RUNTIME_ROOT#/}" \
+  "$restore_release_commit" \
+  "$restore_manifest_format" \
+  "$configuration_root"
+validate_recovery_configuration_bindings \
+  "$configuration_root" \
+  "$validated_manifest" \
+  "${RUNTIME_ROOT#/}"
+
+restore_phase="$(restore_state_phase)"
+case "$restore_phase" in
+  intent | recovery_required)
+    [[ "$(restore_state_value release_commit)" == "$restore_release_commit" ]]
+    [[ "$(restore_state_value release_digest)" == "$restore_release_digest" ]]
+    [[ "$(restore_state_value database_sha256)" == "$restore_database_sha256" ]]
+    [[ "$(restore_state_value configuration_sha256)" == "$restore_configuration_sha256" ]]
+    restore_operation_id="$(restore_state_value operation_id)"
+    restore_started_utc="$(restore_state_value started_utc)"
+    ;;
+  absent | completed)
+    MOCHIRII_SOCIAL_DEPLOY_LOCK_HELD=1 \
+      /usr/local/sbin/mochirii-social-backup "pre-restore-$(date -u +%Y%m%dT%H%M%SZ)"
+    restore_operation_id="$(tr '[:upper:]' '[:lower:]' </proc/sys/kernel/random/uuid)"
+    validate_operation_id "$restore_operation_id"
+    restore_started_utc="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    ;;
+esac
 current_release="$(readlink -f "$CURRENT_LINK")"
 compose_release "$current_release" config --quiet
-
+write_restore_state \
+  intent \
+  "$restore_operation_id" \
+  "$restore_release_commit" \
+  "$restore_release_digest" \
+  "$restore_database_sha256" \
+  "$restore_configuration_sha256" \
+  "$restore_started_utc" \
+  NONE
+restore_mutation_armed=true
 docker exec pixelfed-app php artisan down --retry=60 --no-ansi
 compose_release "$current_release" stop horizon scheduler pixelfed
-
-restore_failed() {
-  echo "The database restore failed; maintenance mode remains active for forward recovery." >&2
-}
-trap restore_failed ERR
 
 docker exec pixelfed-db sh -ec '
   MYSQL_PWD="$MARIADB_ROOT_PASSWORD" exec mariadb --user=root --execute="
@@ -98,11 +164,27 @@ for table_name in users statuses media oauth_clients; do
   ' sh "SELECT COUNT(*) FROM \`$table_name\`;" >/dev/null
 done
 
-compose_release "$current_release" up --detach --no-build pixelfed horizon scheduler
+compose_release "$current_release" up --detach --no-build pixelfed
 wait_for_container_running pixelfed-app 120
 docker exec pixelfed-app php artisan optimize:clear --no-ansi >/dev/null
 docker exec pixelfed-app php artisan up --no-ansi
+current_digest="$(release_metadata_value "$current_release" digest)"
+validate_digest "$current_digest"
+verify_permanent_private_media_runtime_local "$current_digest"
+verify_permanent_private_media_runtime "$current_digest"
+compose_release "$current_release" up --detach --no-build --no-deps horizon scheduler
 verify_runtime
+verify_exact_runtime_images "$current_digest"
+verify_permanent_private_media_runtime "$current_digest"
+write_restore_state \
+  completed \
+  "$restore_operation_id" \
+  "$restore_release_commit" \
+  "$restore_release_digest" \
+  "$restore_database_sha256" \
+  "$restore_configuration_sha256" \
+  "$restore_started_utc" \
+  "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+restore_mutation_armed=false
 
-trap - ERR
 echo "Production database restore completed and runtime gates passed."

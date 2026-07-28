@@ -3,10 +3,6 @@ name: Verify or restore Mochirii Social backup
 on:
   workflow_dispatch:
     inputs:
-      object_key:
-        description: Exact private backup object key
-        required: true
-        type: string
       mode:
         description: Validate in isolation, or restore production
         required: true
@@ -42,12 +38,13 @@ jobs:
 
       - name: Validate recovery inputs
         env:
-          OBJECT_KEY: ${{ inputs.object_key }}
+          OBJECT_KEY: ${{ secrets.BACKUP_RECOVERY_OBJECT_KEY }}
           RECOVERY_MODE: ${{ inputs.mode }}
           CONFIRMATION: ${{ inputs.confirmation }}
         shell: bash
         run: |
           set -Eeuo pipefail
+          [[ -n "$OBJECT_KEY" ]]
           [[ "$OBJECT_KEY" =~ ^(daily|weekly|monthly|manual)/[0-9]{8}T[0-9]{6}Z-[A-Za-z0-9._-]+[.]tar[.]age$ ]]
           if [[ "$RECOVERY_MODE" == "validate-only" ]]; then
             [[ "$CONFIRMATION" == "VERIFY social backup" ]]
@@ -93,32 +90,97 @@ jobs:
 
       - name: Download and decrypt recovery point
         env:
-          OBJECT_KEY: ${{ inputs.object_key }}
+          OBJECT_KEY: ${{ secrets.BACKUP_RECOVERY_OBJECT_KEY }}
           BACKUP_S3_BUCKET: ${{ vars.BACKUP_S3_BUCKET }}
         shell: bash
         run: |
           set -Eeuo pipefail
-          rclone --config /dev/null --quiet copyto --s3-no-check-bucket \
-            "MOCHIRII_BACKUP:$BACKUP_S3_BUCKET/$OBJECT_KEY" \
-            recovery/recovery.tar.age
-          age --decrypt --identity recovery/identity \
-            --output recovery/recovery.tar recovery/recovery.tar.age
+          source services/social/scripts/production-runtime-lib.sh
+          [[ -n "$OBJECT_KEY" ]]
+          [[ "$OBJECT_KEY" =~ ^(daily|weekly|monthly|manual)/[0-9]{8}T[0-9]{6}Z-[A-Za-z0-9._-]+[.]tar[.]age$ ]]
+          remote_object="MOCHIRII_BACKUP:$BACKUP_S3_BUCKET/$OBJECT_KEY"
+          remote_metadata="recovery/remote-object-size.json"
+          rclone_error="$(mktemp recovery/rclone-error.XXXXXX)"
+          chmod 0600 "$rclone_error"
+          trap 'rm -f -- "$rclone_error" "$remote_metadata"' EXIT
+          if ! rclone --config /dev/null --quiet size --json --s3-no-check-bucket \
+            "$remote_object" >"$remote_metadata" 2>"$rclone_error"; then
+            echo "The private recovery object metadata could not be read." >&2
+            exit 1
+          fi
+          remote_bytes="$(python3 - "$remote_metadata" \
+            "$RECOVERY_ENCRYPTED_MAX_BYTES" <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          metadata_path = pathlib.Path(sys.argv[1])
+          maximum_bytes = int(sys.argv[2])
+          metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+          count = metadata.get("count")
+          byte_count = metadata.get("bytes")
+          if type(count) is not int or count != 1:
+              raise SystemExit("The recovery object lookup did not resolve exactly one object.")
+          if type(byte_count) is not int or not 0 < byte_count <= maximum_bytes:
+              raise SystemExit("The encrypted recovery object exceeds its bounded transport limit.")
+          print(byte_count)
+          PY
+          )"
+          rm -f -- "$remote_metadata"
+          if ! rclone --config /dev/null --quiet copyto --s3-no-check-bucket \
+            "$remote_object" \
+            recovery/recovery.tar.age 2>"$rclone_error"; then
+            echo "The private recovery object could not be downloaded." >&2
+            exit 1
+          fi
+          rm -f -- "$rclone_error"
+          trap 'rm -f -- "$remote_metadata"' EXIT
+          verify_bounded_encrypted_recovery_file \
+            recovery/recovery.tar.age "$remote_bytes"
+          plaintext_candidate="recovery/recovery.tar.candidate"
+          if ! age --decrypt --identity recovery/identity recovery/recovery.tar.age \
+            | head -c "$((RECOVERY_PAYLOAD_MAX_BYTES + 1))" \
+              >"$plaintext_candidate"; then
+            rm -f -- "$plaintext_candidate"
+            echo "Recovery decryption failed within the bounded transport." >&2
+            exit 1
+          fi
+          plaintext_bytes="$(stat -c '%s' "$plaintext_candidate")"
+          [[ "$plaintext_bytes" -gt 0 && \
+            "$plaintext_bytes" -le "$RECOVERY_PAYLOAD_MAX_BYTES" ]] || {
+            rm -f -- "$plaintext_candidate"
+            echo "The decrypted recovery payload exceeds its 512 MiB limit." >&2
+            exit 1
+          }
+          mv -T "$plaintext_candidate" recovery/recovery.tar
+          trap - EXIT
 
       - name: Validate payload and isolated restore
         shell: bash
         run: |
           set -Eeuo pipefail
-          mapfile -t entries < <(tar -tf recovery/recovery.tar)
-          expected=(database.sql.gz configuration.tar.gz manifest)
-          [[ "${#entries[@]}" -eq "${#expected[@]}" ]]
-          for name in "${expected[@]}"; do
-            printf '%s\n' "${entries[@]}" | grep -Fxq "$name"
-          done
-          tar -xf recovery/recovery.tar --no-same-owner --no-same-permissions -C recovery
-          gzip -t recovery/database.sql.gz
-          grep -Fxq 'format=1' recovery/manifest
-          grep -Eq '^release_commit=[0-9a-f]{40}$' recovery/manifest
-          grep -Eq '^release_digest=sha256:[0-9a-f]{64}$' recovery/manifest
+          # Use the exact host restore parser and limits so isolated validation
+          # cannot accept a payload that production would reject.
+          source services/social/scripts/production-runtime-lib.sh
+          install -d -m 0700 recovery/extracted
+          extract_validated_recovery_payload recovery/recovery.tar recovery/extracted
+          validate_recovery_payload_manifest recovery/extracted \
+            recovery/extracted/validated.manifest
+          recovery_format="$(sed -n 's/^format=//p' \
+            recovery/extracted/validated.manifest)"
+          recovery_commit="$(sed -n 's/^release_commit=//p' \
+            recovery/extracted/validated.manifest)"
+          install -d -m 0700 recovery/configuration
+          validate_recovery_configuration_archive \
+            recovery/extracted/configuration.tar.gz \
+            "${RUNTIME_ROOT#/}" \
+            "$recovery_commit" \
+            "$recovery_format" \
+            recovery/configuration
+          validate_recovery_configuration_bindings \
+            recovery/configuration \
+            recovery/extracted/validated.manifest \
+            "${RUNTIME_ROOT#/}"
 
           restore_password="$(od -An -N32 -tx1 /dev/urandom | tr -d ' \n')"
           docker run --detach --rm --name mochirii-recovery-verify \
@@ -144,7 +206,7 @@ jobs:
             echo "The isolated restore database did not become ready." >&2
             exit 1
           }
-          gzip -dc recovery/database.sql.gz | docker exec --interactive \
+          gzip -dc recovery/extracted/database.sql.gz | docker exec --interactive \
             --env MYSQL_PWD="$restore_password" mochirii-recovery-verify \
             mariadb --user=root restore_check
           for table_name in users statuses media oauth_clients; do

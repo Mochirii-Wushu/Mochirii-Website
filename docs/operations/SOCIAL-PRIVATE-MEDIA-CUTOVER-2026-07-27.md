@@ -38,6 +38,14 @@ The source change does **not** make existing objects private. Production must
 remain closed during the cutover until every existing object and every cache
 surface passes the anonymous-denial checks below.
 
+The reviewed delivery source also provides one narrowly bounded bootstrap mode
+that can stage the gateway while an external maintenance boundary is already
+proven active. It does not change an ACL, CDN entry, database, secret, or
+provider setting. The host-installed forced entrypoint, runtime, and library
+must first be aligned atomically from the exact clean merged commit under a
+separately approved host packet; merging this source does not update those
+root-owned files.
+
 ## Exact object boundary
 
 The conversion inventory is limited to existing member-generated objects under
@@ -71,10 +79,16 @@ Stop before any write unless all of the following are true:
    have been captured.
 3. The current encrypted backup has been restored in an isolated validation
    environment and matched to the captured object inventory without exposing
-   member data.
+   member data. Recipient-only `age` encryption is not producer authentication,
+   so production recovery also requires a separately trusted signed/MACed
+   manifest or immutable archive digest. The database/configuration archive
+   does not back up private Spaces media; an independent object backup and
+   restore/readback must pass before the cutover.
 4. Registration and ActivityPub remain disabled and the hostname is placed in
    an approved maintenance boundary that does not present the private-media
    claim while anonymous object access is still possible.
+   The root-owned maintenance proof and a live no-store `503` must both pass;
+   the proof file by itself is insufficient.
 5. The reviewed image supports both browser-session and native bearer media
    requests, and no migration or secret change is included.
 6. The bucket's listing policy is private. An anonymous list request must be
@@ -85,52 +99,139 @@ Stop before any write unless all of the following are true:
 Each step is fail-closed. Record only counts, hashes, status, and redacted route
 categories; never retain object signatures or authentication headers.
 
-1. Re-read the bucket into a second immutable manifest and require an exact
-   match with the approved key allowlist. Stop on any new, missing, or
-   out-of-prefix key.
-2. Deploy the exact reviewed immutable GHCR digest while the maintenance
-   boundary remains closed. Do not change the database, OAuth clients,
-   Droplet size, DNS, Cloudflare rules, or secrets.
-3. Verify the source image starts healthy and that one controlled browser
+**P2 production-runtime activation blocker:** the reviewed scripts close on
+catchable nonzero exit, `HUP`, `INT`, and `TERM`, but this source-only preview
+does not install a boot or container-prestart visibility guard. `SIGKILL`, host
+power loss, or Docker restart after `php artisan up` and before final durable
+acceptance can restart an unaccepted application image publicly. Caddy still
+denies the reviewed raw private-media roots, but that does not close the full
+application. Do not install the runtime updater or dispatch staging,
+finalization, ordinary deployment, or production restore until a separately
+reviewed boot visibility guard is active or the release owner gives exact
+written risk acceptance.
+
+1. Under a separate rollback-safe host prerequisite packet, align only the
+   root-owned deployment library, deploy/backup/restore runtimes, runtime byte
+   contract, and forced entrypoint from the exact clean merged commit using the
+   reviewed atomic updater and a unique UUIDv4 operation ID. Its durable update
+   state, canonical root-owned backup, exact five-path contract, preimage
+   verification, entrypoint-last install, fsync transitions, and consumed-ID
+   rules must pass; restart or reload nothing. A source PR or preview must not
+   run it. Install the reviewed Caddy raw-storage denial only through its own
+   rollback-safe host packet: capture and checksum the active file, validate an
+   allowlisted diff, run `caddy validate`, atomically install and reload, then
+   prove every exact storage root and descendant with GET and HEAD before
+   staging.
+2. Prove the external maintenance boundary, dispatch
+   `STAGE_PRIVATE_MEDIA_GATEWAY_UNDER_MAINTENANCE` with migration approval
+   `NONE`, and require exact commit/digest provenance plus SPDX SBOM
+   attestations. The runtime captures the prior image and worker states, places
+   Laravel in maintenance, stops Horizon and the scheduler, starts only the
+   candidate application, proves its private-media gateway contract, and
+   atomically transitions one root-owned v2 state record from `intent` to
+   `staged`. The record binds the operation ID, both immutable image identities,
+   captured worker/Laravel states, maintenance proof, runtime byte contract,
+   and migration tree. The candidate and currently running image must expose
+   the exact same reviewed migration-tree hash before staging may continue. A
+   staging failure verifies restoration of the exact
+   prior digest and captured states; incomplete recovery retains
+   `recovery_required` and blocks automation.
+3. With all writers still quiesced, re-read the bucket into a second immutable
+   manifest and require an exact match with the approved key allowlist. Stop on
+   any new, missing, or out-of-prefix key.
+4. Verify the staged exact reviewed immutable GHCR digest while the maintenance
+   boundary remains closed. Do not change the database, OAuth clients, Droplet
+   size, DNS, Cloudflare rules, or secrets.
+5. Verify the source image starts healthy and that one controlled browser
    session and one reviewed native bearer token can read an allowlisted test
    image and a byte range from a test video through `/media/private/...`.
-4. Confirm the effective cloud-disk default is private. If production
+6. Confirm the effective cloud-disk default is private. If production
    explicitly overrides it as public, stop unless the same exact approval also
    names the change to `AWS_VISIBILITY=private`.
-5. Change only the manifest-listed member objects to private ACLs. DigitalOcean
+7. Change only the manifest-listed member objects to private ACLs. DigitalOcean
    documents private ACLs and S3-compatible signed URLs; use its current
    official API or an approved pinned S3-compatible client. Do not use a bucket
    wildcard, make the bucket public, or change the excluded static objects.
-6. If a Spaces CDN is enabled, purge only the affected reviewed member-object
+8. If a Spaces CDN is enabled, purge only the affected reviewed member-object
    URLs/prefixes using the approved cache-purge target. Private origin ACLs do
    not prove that an earlier public CDN response is gone. Stop if targeted
    invalidation and anonymous denial cannot be demonstrated.
-7. Clear the application caches that can contain prior serialized avatar,
+9. Clear the application caches that can contain prior serialized avatar,
    status, story, or group URLs. Do not flush unrelated databases or alter
    persistent member records.
-8. From an anonymous client, require denial for:
+10. From an anonymous client, require denial for:
    - GET and HEAD to one object in every converted prefix at the Spaces origin;
    - the same GET and HEAD through every configured CDN/custom endpoint;
-   - direct local `/storage/m`, `/_esm.t3`, `/g`, `/g1`, `/avatars`, and
-     `/cache/avatars` member paths;
+   - direct local `/storage/m`, `/storage/_esm.t3`, `/storage/g`,
+     `/storage/g1`, `/storage/avatars`, and `/storage/cache/avatars` roots and
+     member descendants;
    - bucket-root and list-objects requests.
-9. From authenticated clients, require successful browser-session and native
+11. From authenticated clients, require successful browser-session and native
    bearer reads for an avatar, public/unlisted post, permitted private post,
    direct-message attachment, active follower story, and permitted group
    media. Require opaque 404 responses for signed-out, suspended, blocked,
    non-follower, non-participant, expired-story, private-group nonmember,
    draft, archived, deleted-parent, orphan, unsafe-path, and remote-media cases.
-10. Scan rendered HTML, JSON, accessibility text, console output, logs, and
+12. Scan rendered HTML, JSON, accessibility text, console output, logs, and
     network requests. No raw storage key, object endpoint, CDN media hostname,
     signed query, or upstream platform branding may appear before a gateway
     authorization decision. Application diagnostics must not contain bearer
     tokens, cookies, signed URLs, or object keys.
-11. Re-read the exact object inventory. Every converted member object must be
+13. Re-read the exact object inventory. Every converted member object must be
     private, every excluded static object must retain its approved state, the
     bucket must remain non-listable, and the byte/checksum inventory must be
     unchanged.
-12. Remove the maintenance boundary only after all checks pass and the live
-    copy accurately describes the proven behavior.
+14. Remove the external maintenance boundary only after all checks pass while
+    leaving Laravel maintenance active, then dispatch
+    `FINALIZE_PRIVATE_MEDIA_GATEWAY_AFTER_VERIFIED_CUTOVER` for the exact staged operation,
+    commit, digest, runtime contract, and migration tree. The runtime resumes
+    only the captured workers, runs full production acceptance, moves the
+    current release, and atomically transitions `finalizing` to `completed`.
+    The finalization preflight accepts the exact closed stage, a publicly
+    policy-proven live `finalizing` candidate, or a fully accepted exact
+    `completed` replay. The current link may be either the prior or candidate
+    release across a crash boundary. Public gateway and raw-storage denials are
+    proven before either writer resumes. Only then may the live copy present the
+    proven behavior. A safely closed failure retains retryable `finalizing`;
+    an unprovable closure becomes `recovery_required`.
+
+## Backup and restore continuity
+
+Encrypted backups use recovery manifest format 2. They bind the database and
+configuration hashes, release identity, independently validated historical
+cutover state/proof when present, and the current exact five-file deployment
+runtime contract. A later legitimate runtime update does not rewrite the
+historical bootstrap contract recorded in `cutover.state`.
+
+Restore accepts only bounded regular archive members and validates every hash
+in a private staging directory. Encrypted objects are capped at 513 MiB before
+upload or download; exact remote object count and size, downloaded ciphertext
+size, and a 512 MiB plus one-byte streaming decryption bound are all checked.
+One end-to-end plaintext transport contract applies at backup creation,
+isolated GitHub validation, restricted SSH input, and host restore: 512 MiB
+total, including at most 480 MiB for `database.sql.gz`, 16 MiB
+for `configuration.tar.gz`, and 4 KiB for the manifest. The remaining archive
+framing margin exceeds 12 MiB. Every consumer uses the same bounded
+regular-member parser and exact format-2 manifest validation; raw `tar`
+inspection or extraction is not accepted. Restore does not automatically
+install archived host configuration. Before destructive database replacement
+it atomically writes root-owned `restore.state`; `intent` and
+`recovery_required` block backup, deploy, deploy-runtime update, and online
+verification after a managed/catchable process failure. Without the separately
+required boot visibility guard they do not by themselves prevent Docker from
+restarting an app after uncatchable host loss. The same bound payload may resume
+recovery. Only full application, worker, exact-image, private-gateway, and
+raw-storage acceptance changes the restore phase to `completed`.
+
+All new recovery points use the exact ten-line format-2 manifest. Existing
+format-1 points that successfully decrypt from the protected private object
+boundary remain recoverable only through their exact four-line schema. They
+receive the same archive/path/size validation, and their
+database and configuration hashes are computed into a root-private normalized
+manifest before durable restore state is written. Mixed, extra, duplicate, or
+reordered schemas are rejected. Format 1 contains no archived deploy-runtime or
+cutover binding, so recovery retains the currently installed verified
+five-file runtime as authority and never applies archived host configuration.
 
 ## Rollback
 

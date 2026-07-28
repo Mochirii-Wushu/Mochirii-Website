@@ -16,6 +16,29 @@ At 03:15 UTC, `/usr/local/sbin/mochirii-social-backup nightly`:
 5. uploads it privately to the regional backup Space with a dedicated key; and
 6. retains 14 daily, 8 weekly, and 6 monthly recovery points.
 
+The encrypted object is capped at 513 MiB and the decrypted format-2 archive
+has one end-to-end 512 MiB transport ceiling. Recovery checks the exact remote
+object count and byte size before download, verifies the downloaded ciphertext
+against that metadata, and streams decryption through a 512 MiB plus one-byte
+capture so neither ciphertext nor successfully decrypted plaintext can grow runner disk
+use without bound.
+`database.sql.gz` is limited to 480 MiB, `configuration.tar.gz` to 16 MiB, and
+the manifest to 4 KiB, leaving more than 12 MiB for archive framing. Backup
+creation, isolated GitHub validation, the restricted SSH entrypoint, and host
+restore all use the same bounded regular-member extractor and exact manifest
+hash checks. Raw `tar` listing or extraction is not a validation path.
+
+All newly created backups use exact ten-line manifest format 2. During the
+runtime transition, historical format-1 backups that successfully decrypt from
+the protected private object boundary remain recoverable through an exact
+four-line legacy schema only. They use the same
+three-member archive parser and size limits; database and configuration hashes
+are computed locally into a private normalized companion manifest and bind
+durable restore replay state. Mixed, reordered, duplicate, or extra fields are
+rejected. Because format 1 predates archived deployment-runtime and cutover
+bindings, the currently installed verified five-file runtime remains
+authoritative; archived host configuration is still never installed silently.
+
 Manual pre-deploy and pre-restore points use a separate eight-object retention
 class. Pruning validates every exact object name before deleting it. The
 versioned bucket lifecycle remains the provider-side second boundary.
@@ -24,6 +47,27 @@ The Droplet stores only the encryption recipient. The matching identity belongs
 in a `social-recovery` environment secret and in one offline copy inside the
 approved credentials boundary. Backup, media, and temporary administrative
 Spaces keys remain separate.
+
+The recipient file is a non-symlink regular file owned `root:root` with mode
+`0600` or `0644`. Backup creation fails closed on ownership, group/other-write
+mode, or link drift so an untrusted local user cannot redirect future recovery
+encryption.
+
+`age` provides recipient confidentiality and authenticated-ciphertext integrity;
+it does not authenticate the producer. Anyone who knows the public recipient
+and can write to the recovery object boundary can create a different archive
+that decrypts successfully. Private Spaces IAM, an exact object key and byte
+count, strict archive schemas, and protected workflow evidence are therefore
+operational controls, not cryptographic proof of origin. A production recovery
+must not be called sender-authenticated until the manifest is signed or MACed
+by a separately protected producer identity, or its immutable digest is bound
+through an independently trusted approval record.
+
+The current recovery archive contains the database and reviewed host/runtime
+configuration. It neither backs up nor independently reads back the primary
+private member-media objects stored in Spaces. A separately approved,
+independent object-media backup plus restore/readback exercise is required
+before claiming full Social recovery or activating the private-media cutover.
 
 ## Pinned Recovery Tools
 
@@ -98,12 +142,22 @@ The canonical repository is public. Store recovery credentials only as
 `main`, and retain any required-reviewer rule confirmed through GitHub provider
 readback. Repository-wide credentials are not the recovery boundary.
 
-The protected `Verify or restore Mochirii Social backup` workflow accepts one
-exact private object key. `validate-only` decrypts and restores it into an
-isolated GitHub-hosted MariaDB container. `restore-production` additionally
-requires the typed confirmation `RESTORE social.mochirii.com` and streams only
-the validated plaintext payload over strict-host-key SSH to the locked,
-forced-command `github-recovery` account.
+The protected `Verify or restore Mochirii Social backup` workflow obtains the
+exact private object key only from the protected `social-recovery` environment
+secret `BACKUP_RECOVERY_OBJECT_KEY`; it is not retained in workflow-dispatch
+inputs. Configuring or changing that secret is a separate exact provider
+approval, and a missing or malformed value fails closed. `validate-only`
+decrypts and restores it into an isolated GitHub-hosted MariaDB container.
+`restore-production` additionally requires the typed confirmation
+`RESTORE social.mochirii.com` and streams only the validated, at-most-512-MiB
+plaintext payload over strict-host-key SSH to the locked, forced-command
+`github-recovery` account.
+
+`validate-only` may be used for source and recovery-point evidence. Do not
+dispatch `restore-production` or install its reviewed host runtime until the
+[production activation blocker](online-hosted-runtime.md#production-activation-blocker-uncatchable-process-or-host-loss)
+is cleared by a separately reviewed boot visibility guard or exact written risk
+acceptance. A successful validation does not clear that blocker.
 
 The host creates a new verified encrypted pre-restore point before replacing the
 database. A failed production restore stays in maintenance mode for a forward
