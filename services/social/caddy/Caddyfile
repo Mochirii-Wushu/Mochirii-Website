@@ -10,10 +10,15 @@ social.mochirii.com {
 	header @dependencyReadiness Cache-Control "private, no-store"
 	respond @dependencyReadiness 404
 	@privateMemberStorage {
-		path /storage/m/* /storage/_esm.t3/* /storage/g/* /storage/g1/* /storage/avatars/* /storage/cache/avatars/*
+		path /storage/m /storage/m/* /storage/_esm.t3 /storage/_esm.t3/* /storage/g /storage/g/* /storage/g1 /storage/g1/* /storage/avatars /storage/avatars/* /storage/cache/avatars /storage/cache/avatars/*
 		not path /storage/avatars/default.jpg /storage/avatars/default.png
 	}
-	respond @privateMemberStorage 404
+	header @privateMemberStorage {
+		Cache-Control "private, no-store"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+	}
+	respond @privateMemberStorage "" 404
 	reverse_proxy 127.0.0.1:8080 {
 		header_up X-Request-ID {http.request.uuid}
 		header_down X-Request-ID {http.request.uuid}

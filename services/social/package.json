@@ -4,7 +4,7 @@
     "scripts": {
         "check:mochirii-ops": "node scripts/check-mochirii-ops-readiness.mjs && npm run check:production-runtime && npm run check:production-backups && npm run check:public-js-syntax && npm run check:public-js-cache-bust",
         "check:production-backups": "node scripts/check-production-backups.mjs",
-        "check:production-runtime": "node scripts/check-production-runtime.mjs",
+        "check:production-runtime": "node scripts/check-production-runtime.mjs && node scripts/check-private-media-bootstrap-contract.mjs",
         "check:public-js-cache-bust": "node scripts/bust-public-js-cache.mjs --check",
         "check:public-js-syntax": "node scripts/check-public-js-syntax.mjs",
         "development": "mix",

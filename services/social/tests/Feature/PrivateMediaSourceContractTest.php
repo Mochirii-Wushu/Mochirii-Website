@@ -78,8 +78,24 @@ class PrivateMediaSourceContractTest extends TestCase
     {
         $source = file_get_contents(base_path('caddy/Caddyfile'));
 
-        $this->assertStringContainsString('respond @privateMemberStorage 404', $source);
-        foreach (['/storage/m/*', '/storage/_esm.t3/*', '/storage/g/*', '/storage/g1/*', '/storage/avatars/*'] as $path) {
+        $this->assertStringContainsString('respond @privateMemberStorage "" 404', $source);
+        $this->assertStringContainsString('Cache-Control "private, no-store"', $source);
+        $this->assertStringContainsString('X-Content-Type-Options "nosniff"', $source);
+        $this->assertStringContainsString('Referrer-Policy "no-referrer"', $source);
+        foreach ([
+            '/storage/m',
+            '/storage/m/*',
+            '/storage/_esm.t3',
+            '/storage/_esm.t3/*',
+            '/storage/g',
+            '/storage/g/*',
+            '/storage/g1',
+            '/storage/g1/*',
+            '/storage/avatars',
+            '/storage/avatars/*',
+            '/storage/cache/avatars',
+            '/storage/cache/avatars/*',
+        ] as $path) {
             $this->assertStringContainsString($path, $source);
         }
         $this->assertStringContainsString('/storage/avatars/default.jpg', $source);

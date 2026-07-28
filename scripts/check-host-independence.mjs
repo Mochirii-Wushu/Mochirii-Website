@@ -129,7 +129,7 @@ const reviewedLoopbacks = new Map([
     [
       { value: "http://127.0.0.1:8080/", count: 2 },
       { value: "http://127.0.0.1:8080/api/service/readiness-check", count: 1 },
-      { value: "social.mochirii.com:443:127.0.0.1", count: 1 },
+      { value: "social.mochirii.com:443:127.0.0.1", count: 2 },
     ],
   ],
   [
@@ -230,7 +230,8 @@ for (const relativePath of listFiles()) {
   if (!existsSync(absolutePath)) continue;
   const content = readFileSync(absolutePath, "utf8");
 
-  if (normalizedPath.startsWith(".github/workflows/") && /\bself-hosted\b/i.test(content)) {
+  const workflowRunnerContent = content.replaceAll("--deny-self-hosted-runners", "");
+  if (normalizedPath.startsWith(".github/workflows/") && /\bself-hosted\b/i.test(workflowRunnerContent)) {
     failures.push(`${normalizedPath}: self-hosted runner is forbidden`);
   }
   if (/(?:\b[A-Za-z]:\\(?:Users|Github Repo's)\\|\/mnt\/[a-z]\/(?:Users|Github Repo's)\/)/i.test(content)) {

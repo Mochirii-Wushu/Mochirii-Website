@@ -97,6 +97,10 @@ jobs:
         working-directory: services/social
         run: npm run check:mochirii-ops
 
+      - name: Exercise private-media state helpers and archive guards
+        if: steps.changes.outputs.changed == 'true'
+        run: sudo bash services/social/scripts/test-private-media-bootstrap-runtime.sh
+
       - name: Install Composer dependencies
         if: steps.changes.outputs.changed == 'true'
         working-directory: services/social
@@ -201,12 +205,30 @@ jobs:
           bash -n \
             services/social/scripts/install-pinned-recovery-tools.sh \
             services/social/scripts/install-production-backups.sh \
-            services/social/scripts/backup-production-runtime.sh
+            services/social/scripts/install-production-caddy.sh \
+            services/social/scripts/backup-production-runtime.sh \
+            services/social/scripts/deploy-production-entrypoint.sh \
+            services/social/scripts/deploy-production-runtime.sh \
+            services/social/scripts/install-production-runtime.sh \
+            services/social/scripts/install-production-deploy-runtime-update.sh \
+            services/social/scripts/production-runtime-lib.sh \
+            services/social/scripts/restore-production-entrypoint.sh \
+            services/social/scripts/restore-production-runtime.sh \
+            services/social/scripts/test-private-media-bootstrap-runtime.sh
           if [[ "$RECOVERY_ARCHITECTURE" == "amd64" ]]; then
             shellcheck \
               services/social/scripts/install-pinned-recovery-tools.sh \
               services/social/scripts/install-production-backups.sh \
-              services/social/scripts/backup-production-runtime.sh
+              services/social/scripts/install-production-caddy.sh \
+              services/social/scripts/backup-production-runtime.sh \
+              services/social/scripts/deploy-production-entrypoint.sh \
+              services/social/scripts/deploy-production-runtime.sh \
+              services/social/scripts/install-production-runtime.sh \
+              services/social/scripts/install-production-deploy-runtime-update.sh \
+              services/social/scripts/production-runtime-lib.sh \
+              services/social/scripts/restore-production-entrypoint.sh \
+              services/social/scripts/restore-production-runtime.sh \
+              services/social/scripts/test-private-media-bootstrap-runtime.sh
           fi
 
       - name: Install and exercise pinned recovery tools

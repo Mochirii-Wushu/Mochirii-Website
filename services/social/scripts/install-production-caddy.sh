@@ -135,6 +135,60 @@ for path in "${retired_paths[@]}"; do
   }
 done
 
+verify_private_storage_denial() {
+  local method="$1"
+  local path="$2"
+  local headers
+  local body
+  local result
+  local -a method_args=(--request "$method")
+  [[ "$method" == HEAD ]] && method_args=(--head)
+  headers="$(mktemp)"
+  body="$(mktemp)"
+  result="$(curl \
+    --silent \
+    --show-error \
+    --max-time 20 \
+    --max-redirs 0 \
+    --noproxy '*' \
+    --resolve social.mochirii.com:443:127.0.0.1 \
+    "${method_args[@]}" \
+    --dump-header "$headers" \
+    --output "$body" \
+    --write-out '%{http_code}:%{size_download}' \
+    "https://social.mochirii.com${path}")"
+  [[ "$result" == 404:0 ]]
+  [[ ! -s "$body" ]]
+  if grep -Eiq '^(location|set-cookie):' "$headers"; then
+    echo "A private-storage denial returned a redirect or cookie." >&2
+    return 1
+  fi
+  grep -Eiq '^cache-control:[^\r]*private[^\r]*no-store|^cache-control:[^\r]*no-store[^\r]*private' "$headers"
+  grep -Eiq '^x-content-type-options:[[:space:]]*nosniff\r?$' "$headers"
+  grep -Eiq '^referrer-policy:[[:space:]]*no-referrer\r?$' "$headers"
+  rm -f "$headers" "$body"
+}
+
+private_storage_paths=(
+  /storage/m
+  /storage/m/private-media-probe
+  /storage/_esm.t3
+  /storage/_esm.t3/private-media-probe
+  /storage/g
+  /storage/g/private-media-probe
+  /storage/g1
+  /storage/g1/private-media-probe
+  /storage/avatars
+  /storage/avatars/private-media-probe
+  /storage/cache/avatars
+  /storage/cache/avatars/private-media-probe
+)
+for method in GET HEAD; do
+  for path in "${private_storage_paths[@]}"; do
+    verify_private_storage_denial "$method" "$path"
+  done
+done
+
 for path in /oauth/token /oauth/authorize; do
   status="$(curl \
     --silent \
