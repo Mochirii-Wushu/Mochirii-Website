@@ -1,6 +1,11 @@
 export const GALLERY_THUMBNAIL_MIME_TYPE = "image/webp";
 export const GALLERY_THUMBNAIL_MAX_BYTES = 80 * 1024;
 export const GALLERY_THUMBNAIL_MAX_EDGE = 720;
+export const GALLERY_DISPLAY_MAX_BYTES = 2 * 1024 * 1024;
+export const GALLERY_DISPLAY_MAX_EDGE = 2560;
+
+const STATIC_WEBP_CHUNKS = new Set(["VP8X", "ALPH", "VP8 ", "VP8L"]);
+const VP8X_ALPHA_FLAG = 0x10;
 
 type JsonRecord = Record<string, unknown>;
 
@@ -16,6 +21,11 @@ export type GalleryThumbnailParseResult =
   | { ok: true; thumbnail: GalleryThumbnail }
   | { ok: false; error: string };
 
+export type GalleryDisplayImage = GalleryThumbnail;
+export type GalleryDisplayParseResult =
+  | { ok: true; display: GalleryDisplayImage }
+  | { ok: false; error: string };
+
 function asRecord(value: unknown): JsonRecord {
   return value && typeof value === "object" && !Array.isArray(value)
     ? value as JsonRecord
@@ -27,9 +37,9 @@ function integer(value: unknown): number | null {
   return Number.isSafeInteger(number) ? number : null;
 }
 
-function decodeBase64(value: unknown): Uint8Array | null {
+function decodeBase64(value: unknown, maximumBytes: number): Uint8Array | null {
   const encoded = String(value ?? "").trim();
-  const maximumEncodedLength = Math.ceil(GALLERY_THUMBNAIL_MAX_BYTES / 3) * 4;
+  const maximumEncodedLength = Math.ceil(maximumBytes / 3) * 4;
 
   if (
     !encoded || encoded.length > maximumEncodedLength ||
@@ -44,7 +54,7 @@ function decodeBase64(value: unknown): Uint8Array | null {
       binary,
       (character) => character.charCodeAt(0),
     );
-    return bytes.length <= GALLERY_THUMBNAIL_MAX_BYTES ? bytes : null;
+    return bytes.length <= maximumBytes ? bytes : null;
   } catch {
     return null;
   }
@@ -73,6 +83,9 @@ function webpDimensions(
 
   let canvasDimensions: { width: number; height: number } | null = null;
   let imageDimensions: { width: number; height: number } | null = null;
+  let vp8xFlags: number | null = null;
+  let alphaChunkPresent = false;
+  let imageChunk: "VP8 " | "VP8L" | null = null;
   let offset = 12;
 
   while (offset < bytes.length) {
@@ -83,21 +96,29 @@ function webpDimensions(
     const dataEnd = dataOffset + chunkSize;
     if (dataEnd > bytes.length) return null;
 
-    if (chunk === "ANIM" || chunk === "ANMF") return null;
+    if (!STATIC_WEBP_CHUNKS.has(chunk) || imageDimensions) return null;
 
     if (chunk === "VP8X") {
       if (
-        canvasDimensions || imageDimensions || chunkSize !== 10 ||
-        (bytes[dataOffset] & 0xc3) !== 0
+        offset !== 12 || canvasDimensions || chunkSize !== 10 ||
+        (bytes[dataOffset] & ~VP8X_ALPHA_FLAG) !== 0
       ) return null;
+      vp8xFlags = bytes[dataOffset];
       canvasDimensions = {
         width: uint24le(bytes, dataOffset + 4) + 1,
         height: uint24le(bytes, dataOffset + 7) + 1,
       };
+    } else if (chunk === "ALPH") {
+      if (
+        !canvasDimensions || alphaChunkPresent || chunkSize < 1 ||
+        vp8xFlags === null || (vp8xFlags & VP8X_ALPHA_FLAG) === 0
+      ) return null;
+      alphaChunkPresent = true;
     } else if (chunk === "VP8L") {
-      if (imageDimensions || chunkSize < 5 || bytes[dataOffset] !== 0x2f) {
+      if (alphaChunkPresent || chunkSize < 5 || bytes[dataOffset] !== 0x2f) {
         return null;
       }
+      imageChunk = chunk;
       imageDimensions = {
         width: 1 + bytes[dataOffset + 1] +
           ((bytes[dataOffset + 2] & 0x3f) << 8),
@@ -110,6 +131,7 @@ function webpDimensions(
         imageDimensions || chunkSize < 10 || bytes[dataOffset + 3] !== 0x9d ||
         bytes[dataOffset + 4] !== 0x01 || bytes[dataOffset + 5] !== 0x2a
       ) return null;
+      imageChunk = chunk;
       imageDimensions = {
         width: (bytes[dataOffset + 6] | (bytes[dataOffset + 7] << 8)) &
           0x3fff,
@@ -123,6 +145,10 @@ function webpDimensions(
 
   if (offset !== bytes.length || !imageDimensions) return null;
   if (
+    vp8xFlags !== null && (vp8xFlags & VP8X_ALPHA_FLAG) !== 0 &&
+    imageChunk === "VP8 " && !alphaChunkPresent
+  ) return null;
+  if (
     canvasDimensions &&
     (canvasDimensions.width !== imageDimensions.width ||
       canvasDimensions.height !== imageDimensions.height)
@@ -131,15 +157,17 @@ function webpDimensions(
   return canvasDimensions || imageDimensions;
 }
 
-export function parseGalleryThumbnailPayload(
+function parseGalleryWebpPayload(
   value: unknown,
+  maximumBytes: number,
+  maximumEdge: number,
 ): GalleryThumbnailParseResult {
   const payload = asRecord(value);
   const mimeType = String(payload.mime_type ?? "").trim().toLowerCase();
   const claimedSize = integer(payload.size_bytes);
   const claimedWidth = integer(payload.width);
   const claimedHeight = integer(payload.height);
-  const bytes = decodeBase64(payload.base64);
+  const bytes = decodeBase64(payload.base64, maximumBytes);
 
   if (mimeType !== GALLERY_THUMBNAIL_MIME_TYPE) {
     return { ok: false, error: "thumbnail_mime_type_invalid" };
@@ -159,7 +187,7 @@ export function parseGalleryThumbnailPayload(
 
   if (
     dimensions.width < 1 || dimensions.height < 1 ||
-    Math.max(dimensions.width, dimensions.height) > GALLERY_THUMBNAIL_MAX_EDGE
+    Math.max(dimensions.width, dimensions.height) > maximumEdge
   ) {
     return { ok: false, error: "thumbnail_dimensions_out_of_bounds" };
   }
@@ -176,9 +204,36 @@ export function parseGalleryThumbnailPayload(
   };
 }
 
+export function parseGalleryThumbnailPayload(
+  value: unknown,
+): GalleryThumbnailParseResult {
+  return parseGalleryWebpPayload(
+    value,
+    GALLERY_THUMBNAIL_MAX_BYTES,
+    GALLERY_THUMBNAIL_MAX_EDGE,
+  );
+}
+
+export function parseGalleryDisplayPayload(
+  value: unknown,
+): GalleryDisplayParseResult {
+  const parsed = parseGalleryWebpPayload(
+    value,
+    GALLERY_DISPLAY_MAX_BYTES,
+    GALLERY_DISPLAY_MAX_EDGE,
+  );
+  return parsed.ok ? { ok: true, display: parsed.thumbnail } : parsed;
+}
+
+export function galleryPublicationDisplayStoragePath(
+  publicationId: string,
+): string {
+  return `_approved/publications/${publicationId}/display.webp`;
+}
+
 export function galleryThumbnailStoragePath(
-  submissionId: string,
+  publicationId: string,
   revisionId: string,
 ): string {
-  return `_approved/thumbs/${submissionId}/${revisionId}.webp`;
+  return `_approved/publications/${publicationId}/revisions/${revisionId}/thumbnail.webp`;
 }

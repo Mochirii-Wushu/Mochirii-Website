@@ -1,135 +1,81 @@
 begin;
-select plan(45);
+select plan(60);
 
-select has_column('public', 'gallery_submissions', 'thumbnail_revision_id', 'thumbnail revision exists');
-select has_column('public', 'gallery_submissions', 'thumbnail_storage_path', 'thumbnail storage path exists');
-select has_column('public', 'gallery_submissions', 'thumbnail_mime_type', 'thumbnail MIME type exists');
-select has_column('public', 'gallery_submissions', 'thumbnail_size_bytes', 'thumbnail byte size exists');
-
-select col_type_is('public', 'gallery_submissions', 'thumbnail_revision_id', 'uuid', 'thumbnail revision uses uuid');
-select col_type_is('public', 'gallery_submissions', 'thumbnail_storage_path', 'text', 'thumbnail path uses text');
-select col_type_is('public', 'gallery_submissions', 'thumbnail_mime_type', 'text', 'thumbnail MIME uses text');
-select col_type_is('public', 'gallery_submissions', 'thumbnail_size_bytes', 'bigint', 'thumbnail size uses bigint');
+select has_column('public', 'gallery_submissions', 'thumbnail_width', 'thumbnail width exists');
+select has_column('public', 'gallery_submissions', 'thumbnail_height', 'thumbnail height exists');
+select has_table('private', 'gallery_publication_revisions', 'publication revision ledger exists');
+select has_table('private', 'gallery_source_validations', 'trusted source validation ledger exists');
 
 select ok(
-  exists (select 1 from pg_constraint where conrelid = 'public.gallery_submissions'::regclass and contype = 'c' and conname = 'gallery_submissions_thumbnail_path_length'),
-  'thumbnail path length is constrained'
+  exists (select 1 from pg_constraint where conrelid = 'public.gallery_submissions'::regclass and conname = 'gallery_submissions_thumbnail_dimensions_check'),
+  'thumbnail dimensions remain bounded'
 );
 select ok(
-  exists (select 1 from pg_constraint where conrelid = 'public.gallery_submissions'::regclass and contype = 'c' and conname = 'gallery_submissions_thumbnail_service_path_check'),
-  'thumbnail stays under its service-owned revision path'
+  exists (select 1 from pg_constraint where conrelid = 'public.gallery_submissions'::regclass and conname = 'gallery_submissions_thumbnail_service_path_check'),
+  'legacy and publication thumbnail paths are constrained'
 );
 select ok(
-  exists (select 1 from pg_constraint where conrelid = 'public.gallery_submissions'::regclass and contype = 'c' and conname = 'gallery_submissions_thumbnail_mime_type_check'),
-  'thumbnail MIME is constrained'
+  not exists (select 1 from pg_constraint where conrelid = 'public.gallery_submissions'::regclass and conname in ('gallery_submissions_thumbnail_complete_check', 'gallery_submissions_approved_thumbnail_check', 'gallery_submissions_public_category_check')),
+  'strict historical closeout constraints stay deferred until reconciliation'
 );
 select ok(
-  exists (select 1 from pg_constraint where conrelid = 'public.gallery_submissions'::regclass and contype = 'c' and conname = 'gallery_submissions_thumbnail_size_bytes_check'),
-  'thumbnail bytes are bounded'
-);
-select ok(
-  exists (select 1 from pg_constraint where conrelid = 'public.gallery_submissions'::regclass and contype = 'c' and conname = 'gallery_submissions_thumbnail_complete_check'),
-  'thumbnail metadata is all-or-none'
-);
-select ok(
-  exists (select 1 from pg_constraint where conrelid = 'public.gallery_submissions'::regclass and contype = 'c' and conname = 'gallery_submissions_approved_thumbnail_check'),
-  'new approvals require a thumbnail'
+  not (select convalidated from pg_constraint where conrelid = 'public.gallery_submissions'::regclass and conname = 'gallery_submissions_thumbnail_service_path_check'),
+  'legacy path transition remains not validated'
 );
 
 select ok(
-  not (select convalidated from pg_constraint
-    where conrelid = 'public.gallery_submissions'::regclass
-      and conname = 'gallery_submissions_approved_thumbnail_check'),
-  'historical approved rows remain available for explicit thumbnail backfill'
+  (select relrowsecurity from pg_class where oid = 'private.gallery_publication_revisions'::regclass),
+  'publication ledger has RLS enabled'
+);
+select ok(
+  not has_table_privilege('anon', 'private.gallery_publication_revisions', 'select')
+  and not has_table_privilege('authenticated', 'private.gallery_publication_revisions', 'select')
+  and not has_table_privilege('service_role', 'private.gallery_publication_revisions', 'select'),
+  'publication rows have no direct API grants'
+);
+select ok(
+  (select relrowsecurity from pg_class where oid = 'private.gallery_source_validations'::regclass)
+  and not has_table_privilege('anon', 'private.gallery_source_validations', 'select')
+  and not has_table_privilege('authenticated', 'private.gallery_source_validations', 'select')
+  and not has_table_privilege('service_role', 'private.gallery_source_validations', 'select'),
+  'source validation evidence has RLS and no direct API grants'
+);
+select ok(
+  exists (select 1 from pg_indexes where schemaname = 'private' and tablename = 'gallery_publication_revisions' and indexname = 'gallery_publication_one_active_per_submission_idx'),
+  'one active publication per submission is indexed'
+);
+select ok(
+  exists (select 1 from pg_indexes where schemaname = 'private' and tablename = 'gallery_publication_revisions' and indexname = 'gallery_publication_submission_fk_idx'),
+  'publication revision foreign-key columns are indexed'
+);
+select ok(
+  exists (select 1 from pg_trigger where tgrelid = 'private.gallery_publication_revisions'::regclass and tgname = 'enforce_gallery_publication_immutability' and tgenabled <> 'D'),
+  'publication immutability trigger is enabled'
+);
+select ok(
+  exists (select 1 from pg_trigger where tgrelid = 'public.gallery_submissions'::regclass and tgname = 'retire_gallery_publication_on_status_change' and tgenabled <> 'D'),
+  'status changes retire active publications'
 );
 
 select ok(
-  position('thumbnail_refreshed' in pg_get_constraintdef(
-    (select oid from pg_constraint
-      where conrelid = 'public.gallery_moderation_events'::regclass
-        and conname = 'gallery_moderation_events_action_check')
-  )) > 0,
-  'moderation audit accepts thumbnail refresh events'
+  not has_function_privilege('anon', 'public.gallery_commit_moderation(uuid,uuid,text,text,uuid,text,text,bigint,integer,integer,text,uuid,text,text,bigint,integer,integer,text,uuid,timestamptz)', 'execute')
+  and not has_function_privilege('authenticated', 'public.gallery_commit_moderation(uuid,uuid,text,text,uuid,text,text,bigint,integer,integer,text,uuid,text,text,bigint,integer,integer,text,uuid,timestamptz)', 'execute')
+  and has_function_privilege('service_role', 'public.gallery_commit_moderation(uuid,uuid,text,text,uuid,text,text,bigint,integer,integer,text,uuid,text,text,bigint,integer,integer,text,uuid,timestamptz)', 'execute'),
+  'atomic publication commit is service-role only'
 );
-
 select ok(
-  exists (
-    select 1 from pg_indexes
-    where schemaname = 'public'
-      and tablename = 'gallery_submissions'
-      and indexname = 'gallery_submissions_thumbnail_backfill_idx'
-  ),
-  'missing approved thumbnails have a deterministic backfill index'
+  not has_function_privilege('anon', 'public.gallery_source_validation_candidate(uuid)', 'execute')
+  and not has_function_privilege('authenticated', 'public.gallery_source_validation_candidate(uuid)', 'execute')
+  and has_function_privilege('service_role', 'public.gallery_source_validation_candidate(uuid)', 'execute')
+  and not has_function_privilege('anon', 'public.gallery_commit_source_validation(uuid,timestamptz,uuid,text,timestamptz,text,bigint,integer,integer,text)', 'execute')
+  and has_function_privilege('service_role', 'public.gallery_commit_source_validation(uuid,timestamptz,uuid,text,timestamptz,text,bigint,integer,integer,text)', 'execute')
+  and not has_function_privilege('authenticated', 'public.gallery_source_validation_states(uuid[])', 'execute')
+  and has_function_privilege('service_role', 'public.gallery_source_validation_states(uuid[])', 'execute'),
+  'source validation RPCs are service-role only'
 );
-
 select ok(
-  exists (
-    select 1 from pg_trigger
-    where tgrelid = 'public.gallery_submissions'::regclass
-      and tgname = 'enforce_gallery_original_immutability'
-      and tgenabled <> 'D'
-  ),
-  'moderated original immutability trigger is enabled'
-);
-
-select ok(
-  exists (
-    select 1 from pg_policies
-    where schemaname = 'storage'
-      and tablename = 'objects'
-      and policyname = 'Members update own pending gallery originals'
-  ),
-  'members have a pending-original-only update policy'
-);
-
-select ok(
-  exists (
-    select 1 from pg_policies
-    where schemaname = 'storage'
-      and tablename = 'objects'
-      and policyname = 'Members delete own pending or orphaned gallery originals'
-  ),
-  'members have a pending-or-orphaned-original-only delete policy'
-);
-
-select ok(
-  not exists (
-    select 1 from pg_policies
-    where schemaname = 'storage'
-      and tablename = 'objects'
-      and policyname in ('Members update own gallery objects', 'Members delete own gallery objects')
-  ),
-  'superseded mutable-object policies are absent'
-);
-
-select ok(
-  not has_function_privilege('anon', 'public.gallery_commit_moderation(uuid,uuid,text,text,uuid,text,text,bigint,uuid)', 'execute')
-  and not has_function_privilege('authenticated', 'public.gallery_commit_moderation(uuid,uuid,text,text,uuid,text,text,bigint,uuid)', 'execute')
-  and has_function_privilege('service_role', 'public.gallery_commit_moderation(uuid,uuid,text,text,uuid,text,text,bigint,uuid)', 'execute'),
-  'atomic moderation is service-role only'
-);
-
-select ok(
-  not has_function_privilege('anon', 'public.gallery_publishable_submissions(integer,integer)', 'execute')
-  and not has_function_privilege('authenticated', 'public.gallery_publishable_submissions(integer,integer)', 'execute')
-  and has_function_privilege('service_role', 'public.gallery_publishable_submissions(integer,integer)', 'execute'),
-  'publishable feed selection is service-role only'
-);
-
-select ok(
-  pg_get_constraintdef((select oid from pg_constraint
-    where conrelid = 'public.gallery_submissions'::regclass
-      and conname = 'gallery_submissions_thumbnail_service_path_check'))
-    like '%_approved/thumbs/%thumbnail_revision_id%',
-  'selected derivatives use immutable revision paths'
-);
-
-select ok(
-  pg_get_constraintdef((select oid from pg_constraint
-    where conrelid = 'public.gallery_submissions'::regclass
-      and conname = 'gallery_submissions_thumbnail_size_bytes_check'))
-    like '%81920%',
-  'database thumbnail ceiling is 80 KiB'
+  to_regprocedure('public.gallery_publishable_submissions(integer,integer)') is null,
+  'fixed-limit v1 feed function is retired'
 );
 
 insert into auth.users (
@@ -141,26 +87,28 @@ insert into auth.users (
 update public.member_profiles
 set member_status = 'active',
     has_required_discord_roles = true,
-    discord_verified_at = now()
+    discord_verified_at = now(),
+    display_name = 'Gallery Member'
 where id = '11111111-1111-4111-8111-111111111111';
 
 insert into storage.objects (id, bucket_id, name, owner, metadata) values
   ('10000000-0000-4000-8000-000000000001', 'member-gallery', '11111111-1111-4111-8111-111111111111/original-one.webp', '11111111-1111-4111-8111-111111111111', '{"size":1000,"mimetype":"image/webp"}'),
   ('10000000-0000-4000-8000-000000000002', 'member-gallery', '11111111-1111-4111-8111-111111111111/pending.webp', '11111111-1111-4111-8111-111111111111', '{"size":1100,"mimetype":"image/webp"}'),
-  ('10000000-0000-4000-8000-000000000003', 'member-gallery', '11111111-1111-4111-8111-111111111111/atomic.webp', '11111111-1111-4111-8111-111111111111', '{"size":1200,"mimetype":"image/webp"}'),
-  ('10000000-0000-4000-8000-000000000004', 'member-gallery', '11111111-1111-4111-8111-111111111111/mismatch.webp', '11111111-1111-4111-8111-111111111111', '{"size":"invalid","mimetype":"image/webp"}'),
-  ('30000000-0000-4000-8000-000000000001', 'member-gallery', '_approved/thumbs/22222222-2222-4222-8222-222222222221/33333333-3333-4333-8333-333333333331.webp', null, '{"size":70000,"mimetype":"image/webp"}'),
-  ('30000000-0000-4000-8000-000000000002', 'member-gallery', '_approved/thumbs/22222222-2222-4222-8222-222222222221/44444444-4444-4444-8444-444444444441.webp', null, '{"size":71000,"mimetype":"image/webp"}'),
-  ('30000000-0000-4000-8000-000000000003', 'member-gallery', '_approved/thumbs/22222222-2222-4222-8222-222222222221/55555555-5555-4555-8555-555555555551.webp', null, '{"size":72000,"mimetype":"image/webp"}'),
-  ('30000000-0000-4000-8000-000000000004', 'member-gallery', '_approved/thumbs/22222222-2222-4222-8222-222222222223/33333333-3333-4333-8333-333333333333.webp', null, '{"size":73000,"mimetype":"image/webp"}');
+  ('10000000-0000-4000-8000-000000000003', 'member-gallery', '11111111-1111-4111-8111-111111111111/unclassified.webp', '11111111-1111-4111-8111-111111111111', '{"size":1200,"mimetype":"image/webp"}'),
+  ('20000000-0000-4000-8000-000000000001', 'member-gallery', '_approved/publications/30000000-0000-4000-8000-000000000001/display.webp', null, '{"size":900000,"mimetype":"image/webp"}'),
+  ('20000000-0000-4000-8000-000000000002', 'member-gallery', '_approved/publications/30000000-0000-4000-8000-000000000001/revisions/31000000-0000-4000-8000-000000000001/thumbnail.webp', null, '{"size":70000,"mimetype":"image/webp"}'),
+  ('20000000-0000-4000-8000-000000000004', 'member-gallery', '_approved/publications/30000000-0000-4000-8000-000000000001/revisions/31000000-0000-4000-8000-000000000002/thumbnail.webp', null, '{"size":71000,"mimetype":"image/webp"}'),
+  ('20000000-0000-4000-8000-000000000005', 'member-gallery', '_approved/publications/30000000-0000-4000-8000-000000000003/display.webp', null, '{"size":800000,"mimetype":"image/webp"}'),
+  ('20000000-0000-4000-8000-000000000006', 'member-gallery', '_approved/publications/30000000-0000-4000-8000-000000000003/revisions/31000000-0000-4000-8000-000000000003/thumbnail.webp', null, '{"size":72000,"mimetype":"image/webp"}');
 
 insert into public.gallery_submissions (
-  id, user_id, storage_path, mime_type, size_bytes, title
+  id, user_id, storage_path, mime_type, size_bytes, title, category,
+  instagram_opt_in, instagram_opt_in_at, instagram_opt_in_source,
+  instagram_opt_in_copy_version
 ) values
-  ('22222222-2222-4222-8222-222222222221', '11111111-1111-4111-8111-111111111111', '11111111-1111-4111-8111-111111111111/original-one.webp', 'image/webp', 1000, 'Approval fixture'),
-  ('22222222-2222-4222-8222-222222222222', '11111111-1111-4111-8111-111111111111', '11111111-1111-4111-8111-111111111111/pending.webp', 'image/webp', 1100, 'Pending policy fixture'),
-  ('22222222-2222-4222-8222-222222222223', '11111111-1111-4111-8111-111111111111', '11111111-1111-4111-8111-111111111111/atomic.webp', 'image/webp', 1200, 'Atomic failure fixture'),
-  ('22222222-2222-4222-8222-222222222224', '11111111-1111-4111-8111-111111111111', '11111111-1111-4111-8111-111111111111/mismatch.webp', 'image/webp', 1300, 'Object mismatch fixture');
+  ('22222222-2222-4222-8222-222222222221', '11111111-1111-4111-8111-111111111111', '11111111-1111-4111-8111-111111111111/original-one.webp', 'image/webp', 1000, 'Approval fixture', 'scenery', true, now(), 'website_upload', 'gallery-instagram-opt-in-v1'),
+  ('22222222-2222-4222-8222-222222222222', '11111111-1111-4111-8111-111111111111', '11111111-1111-4111-8111-111111111111/pending.webp', 'image/webp', 1100, 'Pending fixture', 'action', false, null, null, null),
+  ('22222222-2222-4222-8222-222222222223', '11111111-1111-4111-8111-111111111111', '11111111-1111-4111-8111-111111111111/unclassified.webp', 'image/webp', 1200, 'Unclassified fixture', null, false, null, null, null);
 
 set local "request.jwt.claim.role" = 'service_role';
 
@@ -169,235 +117,394 @@ select is(
     '22222222-2222-4222-8222-222222222221',
     '99999999-9999-4999-8999-999999999999',
     'approved', null,
-    '33333333-3333-4333-8333-333333333331',
-    '_approved/thumbs/22222222-2222-4222-8222-222222222221/33333333-3333-4333-8333-333333333331.webp',
-    'image/webp', 70000, null
+    '30000000-0000-4000-8000-000000000001',
+    '_approved/publications/30000000-0000-4000-8000-000000000001/display.webp',
+    'image/webp', 900000, 1920, 1080, repeat('c', 64),
+    '31000000-0000-4000-8000-000000000001',
+    '_approved/publications/30000000-0000-4000-8000-000000000001/revisions/31000000-0000-4000-8000-000000000001/thumbnail.webp',
+    'image/webp', 70000, 640, 360, repeat('d', 64), null,
+    '2000-01-01T00:00:00Z'::timestamptz
+  ) ->> 'reason'),
+  'stale_submission_revision',
+  'a stale reviewed row snapshot cannot be published'
+);
+select is(
+  (select count(*)::bigint from private.gallery_publication_revisions where submission_id = '22222222-2222-4222-8222-222222222221'),
+  0::bigint,
+  'a stale reviewed row snapshot creates no publication evidence'
+);
+select is(
+  (select count(*)::bigint from public.gallery_instagram_publish_jobs where submission_id = '22222222-2222-4222-8222-222222222221'),
+  0::bigint,
+  'a failed approval creates no social publishing outbox record'
+);
+
+select throws_ok(
+  $$update public.gallery_submissions set storage_path = '11111111-1111-4111-8111-111111111111/replaced.webp' where id = '22222222-2222-4222-8222-222222222222'$$,
+  '23514',
+  'A referenced gallery original is immutable.',
+  'a pending submission cannot change its reviewed source identity'
+);
+
+select is(
+  (public.gallery_source_validation_candidate('22222222-2222-4222-8222-222222222221') ->> 'ok')::boolean,
+  true,
+  'the trusted validator can resolve the exact review source candidate'
+);
+select is(
+  (public.gallery_commit_source_validation(
+    '22222222-2222-4222-8222-222222222221',
+    (select updated_at from public.gallery_submissions where id = '22222222-2222-4222-8222-222222222221'),
+    '10000000-0000-4000-8000-000000000002',
+    (select version from storage.objects where id = '10000000-0000-4000-8000-000000000002'),
+    (select updated_at from storage.objects where id = '10000000-0000-4000-8000-000000000002'),
+    'image/webp', 1000, 1920, 1080,
+    repeat('a', 64)
+  ) ->> 'reason'),
+  'stale_source_object',
+  'validation cannot bind a different Storage object'
+);
+select is(
+  (public.gallery_commit_source_validation(
+    '22222222-2222-4222-8222-222222222221',
+    (select updated_at from public.gallery_submissions where id = '22222222-2222-4222-8222-222222222221'),
+    '10000000-0000-4000-8000-000000000001',
+    (select version from storage.objects where id = '10000000-0000-4000-8000-000000000001'),
+    (select updated_at from storage.objects where id = '10000000-0000-4000-8000-000000000001'),
+    'image/webp', 1000, 1920, 1080,
+    repeat('a', 64)
   ) ->> 'committed')::boolean,
   true,
-  'approval and derivative selection commit together'
+  'trusted source dimensions and object identity commit once'
+);
+select is(
+  (public.gallery_commit_source_validation(
+    '22222222-2222-4222-8222-222222222221',
+    (select updated_at from public.gallery_submissions where id = '22222222-2222-4222-8222-222222222221'),
+    '10000000-0000-4000-8000-000000000001',
+    (select version from storage.objects where id = '10000000-0000-4000-8000-000000000001'),
+    (select updated_at from storage.objects where id = '10000000-0000-4000-8000-000000000001'),
+    'image/webp', 1000, 1920, 1080,
+    repeat('b', 64)
+  ) ->> 'reason'),
+  'source_validation_conflict',
+  'trusted source evidence cannot be rewritten after validation'
+);
+select is(
+  jsonb_array_length(public.gallery_source_validation_states(array['22222222-2222-4222-8222-222222222221'::uuid])),
+  1,
+  'only a current object-bound source validation resolves for preview signing'
 );
 
+select is(
+  (public.gallery_commit_moderation(
+    '22222222-2222-4222-8222-222222222222',
+    '99999999-9999-4999-8999-999999999999',
+    'approved', null,
+    '30000000-0000-4000-8000-000000000002',
+    '_approved/publications/30000000-0000-4000-8000-000000000002/display.webp',
+    'image/webp', 900000, 1920, 1080, repeat('c', 64),
+    '31000000-0000-4000-8000-000000000004',
+    '_approved/publications/30000000-0000-4000-8000-000000000002/revisions/31000000-0000-4000-8000-000000000004/thumbnail.webp',
+    'image/webp', 70000, 640, 360, repeat('d', 64), null,
+    (select updated_at from public.gallery_submissions where id = '22222222-2222-4222-8222-222222222222')
+  ) ->> 'reason'),
+  'source_not_validated',
+  'an unvalidated source can never enter the publication transaction'
+);
+
+select is(
+  (public.gallery_commit_moderation(
+    '22222222-2222-4222-8222-222222222221',
+    '99999999-9999-4999-8999-999999999999',
+    'approved', null,
+    '30000000-0000-4000-8000-000000000001',
+    '_approved/publications/30000000-0000-4000-8000-000000000001/display.webp',
+    'image/webp', 900000, 1920, 1080, repeat('c', 64),
+    '31000000-0000-4000-8000-000000000001',
+    '_approved/publications/30000000-0000-4000-8000-000000000001/revisions/31000000-0000-4000-8000-000000000001/thumbnail.webp',
+    'image/webp', 70000, 640, 360, repeat('d', 64), null,
+    (select updated_at from public.gallery_submissions where id = '22222222-2222-4222-8222-222222222221')
+  ) ->> 'committed')::boolean,
+  true,
+  'approval and first public revision commit atomically'
+);
+select is(
+  (select status from public.gallery_submissions where id = '22222222-2222-4222-8222-222222222221'),
+  'approved',
+  'approval updates the moderation source row'
+);
+select is(
+  (select count(*)::bigint from private.gallery_publication_revisions where submission_id = '22222222-2222-4222-8222-222222222221' and visible_until is null),
+  1::bigint,
+  'approval creates exactly one active public revision'
+);
 select ok(
-  (select status = 'approved'
-    and thumbnail_revision_id = '33333333-3333-4333-8333-333333333331'
-    and thumbnail_size_bytes = 70000
-    from public.gallery_submissions
-    where id = '22222222-2222-4222-8222-222222222221'),
-  'approval stores the selected immutable derivative metadata'
+  (select original_width = 1920 and original_height = 1080 and thumbnail_width = 640 and thumbnail_height = 360 from private.gallery_publication_revisions where id = '31000000-0000-4000-8000-000000000001'),
+  'decoded display and thumbnail geometry is frozen'
 );
-
+select ok(
+  (
+    select original_storage_object_id = '20000000-0000-4000-8000-000000000001'::uuid
+      and thumbnail_storage_object_id = '20000000-0000-4000-8000-000000000002'::uuid
+      and original_sha256 = repeat('c', 64)
+      and thumbnail_sha256 = repeat('d', 64)
+    from private.gallery_publication_revisions
+    where id = '31000000-0000-4000-8000-000000000001'
+  ),
+  'publication evidence freezes exact Storage object identities and content hashes'
+);
 select is(
-  (select count(*)::bigint from public.gallery_moderation_events
-    where submission_id = '22222222-2222-4222-8222-222222222221'
-      and action = 'approved'),
-  1::bigint,
-  'approval writes exactly one audit event'
+  (select public_category from private.gallery_publication_revisions where id = '31000000-0000-4000-8000-000000000001'),
+  'scenery',
+  'canonical category is frozen in the publication'
 );
-
 select is(
-  (select count(*)::bigint from public.gallery_publishable_submissions(80, 0)
-    where id = '22222222-2222-4222-8222-222222222221'),
+  (select uploader_display_name from private.gallery_publication_revisions where id = '31000000-0000-4000-8000-000000000001'),
+  'Gallery Member',
+  'public display identity is frozen'
+);
+select is(
+  (select count(*)::bigint from public.gallery_moderation_events where submission_id = '22222222-2222-4222-8222-222222222221' and action = 'approved'),
   1::bigint,
-  'complete rows with matching original and derivative objects are publishable'
+  'approval records one moderation event'
+);
+select is(
+  (select count(*)::bigint from public.gallery_instagram_publish_jobs where submission_id = '22222222-2222-4222-8222-222222222221'),
+  1::bigint,
+  'opted-in approval atomically creates one social publishing outbox job'
+);
+select is(
+  (select status from public.gallery_instagram_publish_jobs where submission_id = '22222222-2222-4222-8222-222222222221'),
+  'ineligible',
+  'unsupported source media is recorded as ineligible without an external publish attempt'
+);
+select is(
+  (
+    select count(*)::bigint
+    from public.gallery_instagram_publish_events as event
+    join public.gallery_instagram_publish_jobs as job on job.id = event.job_id
+    where job.submission_id = '22222222-2222-4222-8222-222222222221'
+      and event.action = 'ineligible'
+  ),
+  1::bigint,
+  'outbox job and its audit event commit with the approval transaction'
 );
 
-set local "request.jwt.claim.role" = 'authenticated';
 select throws_ok(
-  $$select public.gallery_publishable_submissions(1, 0)$$,
-  '42501',
-  'Service role required.',
-  'non-service claims cannot use publishable feed selection'
-);
-
-set local "request.jwt.claim.role" = 'service_role';
-select throws_ok(
-  $$update public.gallery_submissions
-    set storage_path = '11111111-1111-4111-8111-111111111111/replaced.webp'
-    where id = '22222222-2222-4222-8222-222222222221'$$,
+  $$update private.gallery_publication_revisions set title = 'Changed' where id = '31000000-0000-4000-8000-000000000001'$$,
   '23514',
-  'A moderated gallery original is immutable.',
-  'moderated originals cannot be rebound in the database'
+  'Gallery publication revisions are immutable.',
+  'frozen publication fields cannot change'
 );
-
-set local "request.jwt.claim.sub" = '11111111-1111-4111-8111-111111111111';
-set local "request.jwt.claim.role" = 'authenticated';
-set local role authenticated;
-
-with changed as (
-  update storage.objects set metadata = '{"size":999,"mimetype":"image/webp"}'
-  where bucket_id = 'member-gallery'
-    and name = '11111111-1111-4111-8111-111111111111/original-one.webp'
-  returning 1
-)
-select is(
-  (select count(*)::bigint from changed),
-  0::bigint,
-  'member sessions cannot overwrite an approved original'
+select throws_ok(
+  $$delete from private.gallery_publication_revisions where id = '31000000-0000-4000-8000-000000000001'$$,
+  '23514',
+  'Gallery publication revisions cannot be deleted.',
+  'publication evidence cannot be deleted'
 );
-
-select is(
-  private.member_gallery_original_mutation_allowed(
-    auth.uid(),
-    'member-gallery',
-    '11111111-1111-4111-8111-111111111111/original-one.webp',
-    true
-  ),
-  false,
-  'member sessions cannot delete an approved original'
-);
-
-select is(
-  (select count(*)::bigint from storage.objects
-    where bucket_id = 'member-gallery'
-      and name like '_approved/thumbs/%'),
-  0::bigint,
-  'service-owned derivatives are not readable to member sessions'
-);
-
-with changed as (
-  update storage.objects set metadata = '{"size":1100,"mimetype":"image/webp","tested":true}'
-  where bucket_id = 'member-gallery'
-    and name = '11111111-1111-4111-8111-111111111111/pending.webp'
-  returning 1
-)
-select is(
-  (select count(*)::bigint from changed),
-  1::bigint,
-  'member sessions may update their own pending original'
-);
-
-select ok(
-  private.member_gallery_original_mutation_allowed(
-    auth.uid(),
-    'member-gallery',
-    '11111111-1111-4111-8111-111111111111/pending.webp',
-    true
-  ),
-  'member deletion policy is limited to owned pending or orphaned originals'
-);
-
-reset role;
-set local "request.jwt.claim.role" = 'service_role';
 
 select is(
   (public.gallery_commit_moderation(
     '22222222-2222-4222-8222-222222222221',
     '99999999-9999-4999-8999-999999999999',
     'thumbnail', null,
-    '44444444-4444-4444-8444-444444444441',
-    '_approved/thumbs/22222222-2222-4222-8222-222222222221/44444444-4444-4444-8444-444444444441.webp',
-    'image/webp', 71000,
-    '33333333-3333-4333-8333-333333333331'
+    '30000000-0000-4000-8000-000000000001',
+    null, null, null, null, null, null,
+    '31000000-0000-4000-8000-000000000002',
+    '_approved/publications/30000000-0000-4000-8000-000000000001/revisions/31000000-0000-4000-8000-000000000002/thumbnail.webp',
+    'image/webp', 71000, 640, 360, repeat('e', 64),
+    '31000000-0000-4000-8000-000000000001',
+    (select updated_at from public.gallery_submissions where id = '22222222-2222-4222-8222-222222222221')
   ) ->> 'committed')::boolean,
   true,
-  'thumbnail refresh accepts the current compare-and-swap revision'
+  'refresh atomically publishes a new immutable revision'
 );
-
 select is(
-  public.gallery_commit_moderation(
+  (select count(*)::bigint from private.gallery_publication_revisions where submission_id = '22222222-2222-4222-8222-222222222221'),
+  2::bigint,
+  'refresh retains the prior revision for snapshot continuity'
+);
+select ok(
+  (select visible_until is not null from private.gallery_publication_revisions where id = '31000000-0000-4000-8000-000000000001')
+  and (select visible_until is null from private.gallery_publication_revisions where id = '31000000-0000-4000-8000-000000000002'),
+  'refresh retires only the prior revision'
+);
+select is(
+  (select count(distinct original_storage_path)::bigint from private.gallery_publication_revisions where submission_id = '22222222-2222-4222-8222-222222222221'),
+  1::bigint,
+  'thumbnail refresh reuses the immutable display derivative'
+);
+select ok(
+  (
+    select count(distinct original_storage_object_id) = 1
+      and count(distinct original_sha256) = 1
+      and max(thumbnail_sha256) filter (where id = '31000000-0000-4000-8000-000000000002') = repeat('e', 64)
+    from private.gallery_publication_revisions
+    where submission_id = '22222222-2222-4222-8222-222222222221'
+  ),
+  'thumbnail refresh retains the display object binding and records the new derivative hash'
+);
+select is(
+  (select gallery_publication_id from public.gallery_submissions where id = '22222222-2222-4222-8222-222222222221'),
+  '30000000-0000-4000-8000-000000000001'::uuid,
+  'the source row retains one opaque publication identity across revisions'
+);
+select is(
+  (public.gallery_commit_moderation(
     '22222222-2222-4222-8222-222222222221',
     '99999999-9999-4999-8999-999999999999',
     'thumbnail', null,
-    '55555555-5555-4555-8555-555555555551',
-    '_approved/thumbs/22222222-2222-4222-8222-222222222221/55555555-5555-4555-8555-555555555551.webp',
-    'image/webp', 72000,
-    '33333333-3333-4333-8333-333333333331'
-  ) ->> 'reason',
+    '30000000-0000-4000-8000-000000000001',
+    null, null, null, null, null, null,
+    '31000000-0000-4000-8000-000000000003',
+    '_approved/publications/30000000-0000-4000-8000-000000000001/revisions/31000000-0000-4000-8000-000000000003/thumbnail.webp',
+    'image/webp', 72000, 640, 360, repeat('f', 64),
+    '31000000-0000-4000-8000-000000000001',
+    (select updated_at from public.gallery_submissions where id = '22222222-2222-4222-8222-222222222221')
+  ) ->> 'reason'),
   'stale_thumbnail_revision',
-  'a losing concurrent refresh is rejected by compare-and-swap'
+  'losing compare-and-swap refresh is rejected'
+);
+select is(
+  (select count(*)::bigint from private.gallery_publication_revisions where id = '31000000-0000-4000-8000-000000000003'),
+  0::bigint,
+  'stale refresh cannot create a publication row'
 );
 
 select is(
-  (select thumbnail_revision_id from public.gallery_submissions
-    where id = '22222222-2222-4222-8222-222222222221'),
-  '44444444-4444-4444-8444-444444444441'::uuid,
-  'a losing refresh cannot replace the winning revision'
-);
-
-select throws_ok(
-  $$select public.gallery_commit_moderation(
+  (public.gallery_commit_moderation(
     '22222222-2222-4222-8222-222222222223',
     '99999999-9999-4999-8999-999999999999',
-    'rejected', repeat('x', 501), null, null, null, null, null
-  )$$,
-  '23514',
-  'new row for relation "gallery_moderation_events" violates check constraint "gallery_moderation_events_reason_length"',
-  'audit constraint failure aborts the atomic moderation statement'
-);
-
-select is(
-  (select status from public.gallery_submissions
-    where id = '22222222-2222-4222-8222-222222222223'),
-  'pending',
-  'an audit failure rolls back the submission update'
-);
-
-select is(
-  public.gallery_commit_moderation(
-    '22222222-2222-4222-8222-222222222224',
-    '99999999-9999-4999-8999-999999999999',
     'approved', null,
-    '33333333-3333-4333-8333-333333333334',
-    '_approved/thumbs/22222222-2222-4222-8222-222222222224/33333333-3333-4333-8333-333333333334.webp',
-    'image/webp', 74000, null
-  ) ->> 'reason',
-  'original_object_mismatch',
-  'invalid original object metadata fails closed without a cast error'
+    '30000000-0000-4000-8000-000000000003',
+    '_approved/publications/30000000-0000-4000-8000-000000000003/display.webp',
+    'image/webp', 800000, 1440, 810, repeat('c', 64),
+    '31000000-0000-4000-8000-000000000003',
+    '_approved/publications/30000000-0000-4000-8000-000000000003/revisions/31000000-0000-4000-8000-000000000003/thumbnail.webp',
+    'image/webp', 72000, 640, 360, repeat('f', 64), null,
+    (select updated_at from public.gallery_submissions where id = '22222222-2222-4222-8222-222222222223')
+  ) ->> 'reason'),
+  'category_unclassified',
+  'unclassified submissions fail closed before publication'
+);
+select is(
+  (select status from public.gallery_submissions where id = '22222222-2222-4222-8222-222222222223'),
+  'pending',
+  'failed publication leaves moderation state unchanged'
 );
 
-select throws_ok(
-  $$update public.gallery_submissions
-    set status = 'approved'
-    where id = '22222222-2222-4222-8222-222222222223'$$,
-  '23514',
-  'new row for relation "gallery_submissions" violates check constraint "gallery_submissions_approved_thumbnail_check"',
-  'new approved rows cannot omit derivative metadata'
+update public.gallery_submissions
+set status = 'archived'
+where id = '22222222-2222-4222-8222-222222222221';
+
+select ok(
+  (select visible_until is not null from private.gallery_publication_revisions where id = '31000000-0000-4000-8000-000000000002'),
+  'archiving immediately retires the active publication'
+);
+select is(
+  public.gallery_public_original_v2('30000000-0000-4000-8000-000000000001'),
+  null::jsonb,
+  'archiving immediately blocks display resolution'
 );
 
-alter table public.gallery_submissions
-  drop constraint gallery_submissions_approved_thumbnail_check;
-
-insert into storage.objects (id, bucket_id, name, owner, metadata)
-values (
-  '10000000-0000-4000-8000-000000000005',
-  'member-gallery',
-  '11111111-1111-4111-8111-111111111111/historical.webp',
-  '11111111-1111-4111-8111-111111111111',
-  '{"size":1400,"mimetype":"image/webp"}'
-);
+insert into storage.objects (id, bucket_id, name, owner, metadata) values
+  ('10000000-0000-4000-8000-000000000004', 'member-gallery', '11111111-1111-4111-8111-111111111111/legacy-null.webp', '11111111-1111-4111-8111-111111111111', '{"size":1300,"mimetype":"image/webp"}'),
+  ('10000000-0000-4000-8000-000000000005', 'member-gallery', '11111111-1111-4111-8111-111111111111/legacy-four.webp', '11111111-1111-4111-8111-111111111111', '{"size":1400,"mimetype":"image/webp"}'),
+  ('20000000-0000-4000-8000-000000000007', 'member-gallery', '_approved/thumbs/22222222-2222-4222-8222-222222222225/40000000-0000-4000-8000-000000000001.webp', null, '{"size":70000,"mimetype":"image/webp"}');
 
 insert into public.gallery_submissions (
   id, user_id, storage_path, mime_type, size_bytes, title, status, reviewed_at
 ) values (
+  '22222222-2222-4222-8222-222222222224',
+  '11111111-1111-4111-8111-111111111111',
+  '11111111-1111-4111-8111-111111111111/legacy-null.webp',
+  'image/webp', 1300, 'Legacy null shape', 'approved', now()
+);
+
+insert into public.gallery_submissions (
+  id, user_id, storage_path, mime_type, size_bytes, title, status, reviewed_at,
+  thumbnail_revision_id, thumbnail_storage_path, thumbnail_mime_type, thumbnail_size_bytes
+) values (
   '22222222-2222-4222-8222-222222222225',
   '11111111-1111-4111-8111-111111111111',
-  '11111111-1111-4111-8111-111111111111/historical.webp',
-  'image/webp', 1400, 'Historical incomplete fixture', 'approved', now() + interval '1 day'
+  '11111111-1111-4111-8111-111111111111/legacy-four.webp',
+  'image/webp', 1400, 'Legacy four-field shape', 'approved', now(),
+  '40000000-0000-4000-8000-000000000001',
+  '_approved/thumbs/22222222-2222-4222-8222-222222222225/40000000-0000-4000-8000-000000000001.webp',
+  'image/webp', 70000
 );
 
-alter table public.gallery_submissions
-  add constraint gallery_submissions_approved_thumbnail_check
-  check (
-    status <> 'approved'
-    or (
-      thumbnail_revision_id is not null
-      and thumbnail_storage_path is not null
-      and thumbnail_mime_type = 'image/webp'
-      and thumbnail_size_bytes between 1 and 81920
-    )
-  ) not valid;
-
-select is(
-  (select count(*)::bigint from public.gallery_publishable_submissions(1, 0)),
-  1::bigint,
-  'incomplete historical rows are filtered before the public limit'
+update public.gallery_submissions set category = 'portraits'
+where id in (
+  '22222222-2222-4222-8222-222222222224',
+  '22222222-2222-4222-8222-222222222225'
 );
 
 select is(
-  (select id from public.gallery_publishable_submissions(1, 0)),
-  '22222222-2222-4222-8222-222222222221'::uuid,
-  'the bounded public result contains the complete row behind an incomplete newer row'
+  (select count(*)::bigint from public.gallery_submissions where id in ('22222222-2222-4222-8222-222222222224', '22222222-2222-4222-8222-222222222225') and category = 'portraits'),
+  2::bigint,
+  'fully-null and four-field legacy rows can be classified without constraint deadlock'
 );
+select is(
+  (select count(*)::bigint from private.gallery_publication_revisions where submission_id in ('22222222-2222-4222-8222-222222222224', '22222222-2222-4222-8222-222222222225')),
+  0::bigint,
+  'legacy rows remain private until explicitly republished'
+);
+
+select throws_ok(
+  $$update public.gallery_submissions
+    set thumbnail_revision_id = '40000000-0000-4000-8000-000000000002',
+        thumbnail_storage_path = '_approved/not-a-valid-publication-path.webp'
+    where id = '22222222-2222-4222-8222-222222222224'$$,
+  '23514',
+  'new row for relation "gallery_submissions" violates check constraint "gallery_submissions_thumbnail_service_path_check"',
+  'a null publication id cannot bypass the thumbnail path constraint'
+);
+
+insert into storage.objects (id, bucket_id, name, owner, metadata) values
+  ('10000000-0000-4000-8000-000000000006', 'member-gallery', '11111111-1111-4111-8111-111111111111/orphan.webp', '11111111-1111-4111-8111-111111111111', '{"size":900,"mimetype":"image/webp"}');
+
+set local "request.jwt.claim.sub" = '11111111-1111-4111-8111-111111111111';
+set local "request.jwt.claim.role" = 'authenticated';
+set local role authenticated;
+with changed as (
+  update storage.objects
+  set metadata = metadata || '{"attempted":true}'::jsonb
+  where id = '10000000-0000-4000-8000-000000000002'
+  returning 1
+)
+select is(
+  (select count(*)::bigint from changed),
+  0::bigint,
+  'members cannot replace or mutate a referenced pending source object'
+);
+select is(
+  private.member_gallery_original_mutation_allowed(
+    '11111111-1111-4111-8111-111111111111',
+    'member-gallery',
+    '11111111-1111-4111-8111-111111111111/pending.webp',
+    true
+  ),
+  false,
+  'members cannot delete a referenced pending source object'
+);
+select is(
+  private.member_gallery_original_mutation_allowed(
+    '11111111-1111-4111-8111-111111111111',
+    'member-gallery',
+    '11111111-1111-4111-8111-111111111111/orphan.webp',
+    true
+  ),
+  true,
+  'members may remove only their own unreferenced source object'
+);
+select is(
+  (select count(*)::bigint from storage.objects where bucket_id = 'member-gallery' and name like '_approved/publications/%'),
+  0::bigint,
+  'member sessions cannot read service-owned publication objects'
+);
+reset role;
 
 select * from finish();
 rollback;

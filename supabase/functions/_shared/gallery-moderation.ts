@@ -84,17 +84,61 @@ export async function readOptionalJsonBody(req: Request): Promise<{ ok: true; bo
   }
 }
 
-export async function readRequiredJsonBody(req: Request): Promise<{ ok: true; body: JsonRecord } | ModeratorAccessFailure> {
+export async function readRequiredJsonBody(
+  req: Request,
+  maximumBytes = 64 * 1024,
+): Promise<{ ok: true; body: JsonRecord } | ModeratorAccessFailure> {
+  const contentType = req.headers.get("content-type")?.split(";", 1)[0]
+    .trim().toLowerCase();
+  const contentLength = Number(req.headers.get("content-length") || 0);
+  if (
+    contentType !== "application/json" ||
+    (Number.isFinite(contentLength) && contentLength > maximumBytes)
+  ) {
+    return {
+      ok: false,
+      response: jsonResponse(
+        {
+          ok: false,
+          error: "invalid_request",
+          message: "Request body must be bounded JSON.",
+        },
+        400,
+      ),
+    };
+  }
+
   try {
-    return { ok: true, body: asRecord(await req.json()) };
+    if (!req.body) throw new Error("missing_body");
+    const reader = req.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let totalBytes = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      totalBytes += value.byteLength;
+      if (totalBytes > maximumBytes) {
+        await reader.cancel("request_too_large");
+        throw new Error("request_too_large");
+      }
+      chunks.push(value);
+    }
+    const bytes = new Uint8Array(totalBytes);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    const raw = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    return { ok: true, body: asRecord(JSON.parse(raw)) };
   } catch {
     return {
       ok: false,
       response: jsonResponse(
         {
           ok: false,
-          error: "invalid_json",
-          message: "Request body must be valid JSON.",
+          error: "invalid_request",
+          message: "Request body must be bounded JSON.",
         },
         400,
       ),

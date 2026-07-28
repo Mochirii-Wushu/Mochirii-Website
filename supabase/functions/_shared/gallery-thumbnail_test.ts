@@ -1,6 +1,9 @@
 import {
+  GALLERY_DISPLAY_MAX_BYTES,
   GALLERY_THUMBNAIL_MAX_BYTES,
+  galleryPublicationDisplayStoragePath,
   galleryThumbnailStoragePath,
+  parseGalleryDisplayPayload,
   parseGalleryThumbnailPayload,
 } from "./gallery-thumbnail.ts";
 import {
@@ -23,6 +26,46 @@ function base64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
+function fromBase64(value: string): Uint8Array {
+  return Uint8Array.from(
+    atob(value),
+    (character) => character.charCodeAt(0),
+  );
+}
+
+function appendRiffChunk(
+  bytes: Uint8Array,
+  fourcc: string,
+  data: Uint8Array,
+): Uint8Array {
+  assert(fourcc.length === 4, "RIFF chunk names must contain four characters");
+  const padding = data.length % 2;
+  const result = new Uint8Array(bytes.length + 8 + data.length + padding);
+  result.set(bytes);
+  result.set(new TextEncoder().encode(fourcc), bytes.length);
+  const view = new DataView(result.buffer);
+  view.setUint32(bytes.length + 4, data.length, true);
+  result.set(data, bytes.length + 8);
+  view.setUint32(4, result.length - 8, true);
+  return result;
+}
+
+function withVp8x(bytes: Uint8Array, flags: number): Uint8Array {
+  const vp8x = new Uint8Array(18);
+  vp8x.set(new TextEncoder().encode("VP8X"), 0);
+  new DataView(vp8x.buffer).setUint32(4, 10, true);
+  vp8x[8] = flags;
+  vp8x[12] = 1;
+  vp8x[15] = 1;
+
+  const result = new Uint8Array(bytes.length + vp8x.length);
+  result.set(bytes.subarray(0, 12));
+  result.set(vp8x, 12);
+  result.set(bytes.subarray(12), 12 + vp8x.length);
+  new DataView(result.buffer).setUint32(4, result.length - 8, true);
+  return result;
+}
+
 function incompleteVp8x(width: number, height: number): Uint8Array {
   const bytes = new Uint8Array(30);
   bytes.set(new TextEncoder().encode("RIFF"), 0);
@@ -41,13 +84,10 @@ function incompleteVp8x(width: number, height: number): Uint8Array {
 }
 
 const boundedStaticWebp =
-  "UklGRhYCAABXRUJQVlA4WAoAAAAgAAAAAQAAAQAASUNDUMgBAAAAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADZWUDggKAAAAJABAJ0BKgIAAgABQCYliAJ0ugADmAD++ajv7U2Kqed36FGyiXzAAAA=";
+  "UklGRjQAAABXRUJQVlA4ICgAAACQAQCdASoCAAIAAUAmJYgCdLoAA5gA/vmo7+1Niqnnd+hRsol8wAAA";
 
 Deno.test("accepts a bounded static WebP thumbnail", () => {
-  const bytes = Uint8Array.from(
-    atob(boundedStaticWebp),
-    (character) => character.charCodeAt(0),
-  );
+  const bytes = fromBase64(boundedStaticWebp);
   const result = parseGalleryThumbnailPayload({
     base64: base64(bytes),
     mime_type: "image/webp",
@@ -61,10 +101,7 @@ Deno.test("accepts a bounded static WebP thumbnail", () => {
 });
 
 Deno.test("uses the pinned libwebp decoder and fully decodes valid pixels", async () => {
-  const bytes = Uint8Array.from(
-    atob(boundedStaticWebp),
-    (character) => character.charCodeAt(0),
-  );
+  const bytes = fromBase64(boundedStaticWebp);
 
   assert(
     await galleryWebpDecoderVersion() === 0x010600,
@@ -80,10 +117,52 @@ Deno.test("uses the pinned libwebp decoder and fully decodes valid pixels", asyn
   );
 });
 
+Deno.test("accepts bounded display derivatives and enforces their byte ceiling", () => {
+  const bytes = fromBase64(boundedStaticWebp);
+  const accepted = parseGalleryDisplayPayload({
+    base64: base64(bytes),
+    mime_type: "image/webp",
+    size_bytes: bytes.length,
+    width: 2,
+    height: 2,
+  });
+  assert(accepted.ok, "expected bounded display WebP to pass");
+  assert(
+    accepted.display.sizeBytes === bytes.length,
+    "display size was not preserved",
+  );
+
+  const tooLarge = new Uint8Array(GALLERY_DISPLAY_MAX_BYTES + 1);
+  assert(
+    !parseGalleryDisplayPayload({
+      base64: base64(tooLarge),
+      mime_type: "image/webp",
+      size_bytes: tooLarge.length,
+      width: 2,
+      height: 2,
+    }).ok,
+    "display bytes beyond the ceiling should fail",
+  );
+});
+
+Deno.test("enforces the display derivative dimension ceiling", () => {
+  const oversizedDimensions = incompleteVp8x(2561, 1441);
+  assert(
+    !parseGalleryDisplayPayload({
+      base64: base64(oversizedDimensions),
+      mime_type: "image/webp",
+      size_bytes: oversizedDimensions.length,
+      width: 2561,
+      height: 1441,
+    }).ok,
+    "display dimensions beyond the ceiling should fail",
+  );
+});
+
 Deno.test("rejects corrupt VP8 and VP8L payloads after structural parsing", async () => {
   const corruptSamples = [
     "UklGRhYAAABXRUJQVlA4IAoAAAAAAACdASoCAAIA",
-    "UklGRhoAAABXRUJQVlA4TAUAAAAvAUAAAABKVU5LAAAAAA==",
+    "UklGRhYAAABXRUJQVlA4TAkAAAAvAUAAAAAAAAAA",
   ];
 
   for (const encoded of corruptSamples) {
@@ -99,10 +178,61 @@ Deno.test("rejects corrupt VP8 and VP8L payloads after structural parsing", asyn
       height: 2,
     });
 
-    assert(parsed.ok, "corrupt regression fixture must reach the trusted decoder");
+    assert(
+      parsed.ok,
+      "corrupt regression fixture must reach the trusted decoder",
+    );
     assert(
       !await isDecodableGalleryWebp(bytes, 2, 2),
       "corrupt WebP payload must fail full decode",
+    );
+  }
+});
+
+Deno.test("rejects metadata and unknown chunks at the static WebP boundary", () => {
+  const valid = fromBase64(boundedStaticWebp);
+  const forbiddenChunks = ["ICCP", "EXIF", "XMP ", "ANIM", "ANMF", "JUNK"];
+
+  for (const chunk of forbiddenChunks) {
+    const bytes = appendRiffChunk(valid, chunk, new Uint8Array([1, 2]));
+    assert(
+      !parseGalleryThumbnailPayload({
+        base64: base64(bytes),
+        mime_type: "image/webp",
+        size_bytes: bytes.length,
+        width: 2,
+        height: 2,
+      }).ok,
+      `${chunk} chunks must fail the static WebP boundary`,
+    );
+  }
+});
+
+Deno.test("rejects every non-alpha VP8X capability flag", () => {
+  const valid = fromBase64(boundedStaticWebp);
+  const metadataFreeExtended = withVp8x(valid, 0);
+  assert(
+    parseGalleryThumbnailPayload({
+      base64: base64(metadataFreeExtended),
+      mime_type: "image/webp",
+      size_bytes: metadataFreeExtended.length,
+      width: 2,
+      height: 2,
+    }).ok,
+    "metadata-free extended WebP should pass",
+  );
+
+  for (const flags of [0x20, 0x08, 0x04, 0x02, 0x01, 0x40, 0x80]) {
+    const bytes = withVp8x(valid, flags);
+    assert(
+      !parseGalleryThumbnailPayload({
+        base64: base64(bytes),
+        mime_type: "image/webp",
+        size_bytes: bytes.length,
+        width: 2,
+        height: 2,
+      }).ok,
+      `VP8X flags 0x${flags.toString(16)} must fail`,
     );
   }
 });
@@ -120,23 +250,19 @@ Deno.test("rejects oversized, animated, mismatched, and non-WebP payloads", () =
     "oversized dimensions should fail",
   );
 
-  const animated = incompleteVp8x(320, 180);
-  animated[20] = 0x02;
+  const valid = fromBase64(boundedStaticWebp);
+  const animated = withVp8x(valid, 0x02);
   assert(
     !parseGalleryThumbnailPayload({
       base64: base64(animated),
       mime_type: "image/webp",
       size_bytes: animated.length,
-      width: 320,
-      height: 180,
+      width: 2,
+      height: 2,
     }).ok,
     "animated WebP should fail",
   );
 
-  const valid = Uint8Array.from(
-    atob(boundedStaticWebp),
-    (character) => character.charCodeAt(0),
-  );
   assert(
     !parseGalleryThumbnailPayload({
       base64: base64(valid),
@@ -196,13 +322,17 @@ Deno.test("rejects oversized, animated, mismatched, and non-WebP payloads", () =
   );
 });
 
-Deno.test("derives an immutable service-only thumbnail revision path", () => {
+Deno.test("derives immutable service-only publication paths", () => {
+  const publicationId = "33333333-3333-4333-8333-333333333333";
+  const revisionId = "44444444-4444-4444-8444-444444444444";
   assert(
-    galleryThumbnailStoragePath(
-      "22222222-2222-4222-8222-222222222222",
-      "33333333-3333-4333-8333-333333333333",
-    ) ===
-      "_approved/thumbs/22222222-2222-4222-8222-222222222222/33333333-3333-4333-8333-333333333333.webp",
+    galleryPublicationDisplayStoragePath(publicationId) ===
+      `_approved/publications/${publicationId}/display.webp`,
+    "display path was not deterministic",
+  );
+  assert(
+    galleryThumbnailStoragePath(publicationId, revisionId) ===
+      `_approved/publications/${publicationId}/revisions/${revisionId}/thumbnail.webp`,
     "thumbnail path was not deterministic",
   );
 });

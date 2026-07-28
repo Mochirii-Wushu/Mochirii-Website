@@ -1,10 +1,14 @@
+import { existsSync } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
+import { resolve } from "node:path";
 import { enforceProductionGalleryMatrixGuard } from "./lib/live-gallery-media-smoke-guard.mjs";
-import { SITE_ORIGIN } from "./lib/public-urls.mjs";
+import { SITE_ORIGIN, SUPABASE_PROJECT_URL } from "./lib/public-urls.mjs";
 
 const baseUrl = (process.env.SMOKE_BASE_URL || "http://127.0.0.1:8765").replace(/\/+$/, "");
 enforceProductionGalleryMatrixGuard({ baseUrl, siteOrigin: SITE_ORIGIN });
+
 const galleryDataUrl = new URL("../apps/web/public/data/gallery.json", import.meta.url);
+const axePath = resolve(process.cwd(), "node_modules/axe-core/axe.min.js");
 const galleryData = JSON.parse(await readFile(galleryDataUrl, "utf8"));
 const staticItems = (Array.isArray(galleryData?.albums) ? galleryData.albums : []).flatMap((album) =>
   Array.isArray(album?.items) ? album.items : [],
@@ -15,58 +19,91 @@ try {
   ({ chromium } = await import("playwright"));
 } catch {
   console.error("Playwright is required for this optional smoke test.");
-  console.error("Start a local server, then run this in an environment with Playwright available.");
+  console.error("Start a local production server, then run this command with Playwright available.");
   process.exit(1);
 }
 
-const normalizeSlug = (value) =>
-  String(value || "")
-    .trim()
+const canonicalCategories = ["portraits", "gatherings", "action", "scenery", "companions"];
+const publicFilterCategories = ["all", ...canonicalCategories, "member-submissions"];
+const pageSize = 24;
+const fixtureRowCount = 90;
+const approvedFeedPath = "/functions/v1/list-approved-gallery-submissions";
+const approvedFeedRoutePattern = `**${approvedFeedPath}*`;
+const thumbnailAssetPath = "/assets/img/gallery/thumbs/shot-05.webp";
+const displayAssetPath = "/assets/img/gallery/shot-05.webp";
+const thumbnailAssetFile = new URL(`../apps/web/public${thumbnailAssetPath}`, import.meta.url);
+const displayAssetFile = new URL(`../apps/web/public${displayAssetPath}`, import.meta.url);
+const thumbnailAssetBytes = (await stat(thumbnailAssetFile)).size;
+const displayAssetBytes = (await stat(displayAssetFile)).size;
+const thumbnailAssetBody = await readFile(thumbnailAssetFile);
+const displayAssetBody = await readFile(displayAssetFile);
+const vercelAnalyticsScriptPaths = new Set([
+  "/_vercel/insights/script.js",
+  "/_vercel/speed-insights/script.js",
+]);
+const corsHeaders = {
+  "access-control-allow-headers": "content-type",
+  "access-control-allow-methods": "GET, POST, OPTIONS",
+  "access-control-allow-origin": "*",
+  "cache-control": "no-store",
+};
+const uuidV4Pattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function fail(message) {
+  throw new Error(message);
+}
+
+function assert(condition, message) {
+  if (!condition) fail(message);
+}
+
+function text(value, fallback = "") {
+  const clean = String(value ?? "").trim();
+  return clean || fallback;
+}
+
+function normalizeSlug(value) {
+  return text(value)
+    .normalize("NFKC")
     .toLowerCase()
     .replace(/[^a-z0-9-]+/g, "-")
     .replace(/^-+|-+$/g, "");
+}
 
-const getCategories = (item) => {
+function getStaticCategories(item) {
   const values = Array.isArray(item?.categories) && item.categories.length ? item.categories : [item?.category];
   return [...new Set(values.map(normalizeSlug).filter(Boolean))];
-};
+}
 
-const text = (value, fallback = "") => {
-  const clean = String(value ?? "").trim();
-  return clean || fallback;
-};
-
-const sortTime = (item) => {
+function sortTime(item) {
   const time = Date.parse(text(item?.galleryAddedAt));
   return Number.isFinite(time) ? time : 0;
-};
+}
 
-const extractNumericSequence = (value) => {
+function extractNumericSequence(value) {
   const clean = text(value);
   if (!clean) return null;
-
   const named = clean.match(/(?:^|[\\/_-])(?:shot|image|img)[-_]?(\d+)(?=$|[.\\/_-])/i);
   if (named) return Number.parseInt(named[1], 10);
-
   const matches = [...clean.matchAll(/(\d+)/g)];
   const fallback = matches.at(-1)?.[1];
   return fallback ? Number.parseInt(fallback, 10) : null;
-};
+}
 
-const stableSequence = (item, originalIndex) => {
+function stableSequence(item, originalIndex) {
   for (const candidate of [item?.id, item?.full, item?.src, item?.thumb]) {
     const sequence = extractNumericSequence(candidate);
     if (sequence !== null && Number.isFinite(sequence)) return sequence;
   }
-
   return originalIndex + 1;
-};
+}
 
-const stableKey = (item, originalIndex) =>
-  text(item?.id || item?.full || item?.src || item?.thumb, `gallery-${originalIndex}`);
+function stableKey(item, originalIndex) {
+  return text(item?.id || item?.full || item?.src || item?.thumb, `gallery-${originalIndex}`);
+}
 
-const orderItems = (items, mode) =>
-  items
+function orderStaticItems(items, mode) {
+  return items
     .map((item, originalIndex) => ({
       item,
       originalIndex,
@@ -78,174 +115,254 @@ const orderItems = (items, mode) =>
       const direction = mode === "newest" ? -1 : 1;
       const timeDelta = a.sortTimestamp - b.sortTimestamp;
       if (timeDelta !== 0) return direction * timeDelta;
-
       const sequenceDelta = a.stableSequence - b.stableSequence;
       if (sequenceDelta !== 0) return direction * sequenceDelta;
-
       const indexDelta = a.originalIndex - b.originalIndex;
       if (indexDelta !== 0) return direction * indexDelta;
-
       return a.stableKey.localeCompare(b.stableKey);
     })
     .map(({ item }) => item);
+}
 
-const publicPath = (value) => {
+function publicPath(value) {
   const raw = text(value);
   if (!raw) return "";
   if (/^(https?:|\/)/i.test(raw)) return raw;
   if (raw.startsWith("./")) return `/${raw.slice(2)}`;
   return `/${raw}`;
-};
-
-const fullPath = (item) => publicPath(item?.full || item?.src);
-const staticTotal = staticItems.length;
-const portraitsTotal = staticItems.filter((item) => getCategories(item).includes("portraits")).length;
-const galleryBatchSize = 24;
-const initialStaticCount = Math.min(staticTotal, galleryBatchSize);
-const initialPortraitsCount = Math.min(portraitsTotal, galleryBatchSize);
-const newestFirst = fullPath(orderItems(staticItems, "newest")[0]);
-const oldestFirst = fullPath(orderItems(staticItems, "oldest")[0]);
-
-const mockApprovedCount = galleryBatchSize;
-const mockFullSignedUrl = `${baseUrl}/assets/img/gallery/shot-24.webp?mockSignedUrl=approved-member-full-01`;
-const mockThumbnailSignedUrl = `${baseUrl}/assets/img/gallery/thumbs/shot-24.webp?mockSignedUrl=approved-member-thumbnail-01`;
-const mockThumbnailSizeBytes = (await stat(new URL("../apps/web/public/assets/img/gallery/thumbs/shot-24.webp", import.meta.url))).size;
-const mockApprovedTitle = "Approved Smoke Submission";
-const mockApprovedCaption = "Shared from smoke automation";
-const mockUploader = "QA Member";
-const mockApprovedRows = Array.from({ length: mockApprovedCount }, (_, index) => {
-  const sequence = String(index + 1).padStart(2, "0");
-  return {
-    id: `approved-smoke-submission-${sequence}`,
-    status: "approved",
-    full_signed_url: `${baseUrl}/assets/img/gallery/shot-24.webp?mockSignedUrl=approved-member-full-${sequence}`,
-    thumbnail_signed_url: `${baseUrl}/assets/img/gallery/thumbs/shot-24.webp?mockSignedUrl=approved-member-thumbnail-${sequence}`,
-    thumbnail_size_bytes: mockThumbnailSizeBytes,
-    title: index === 0 ? mockApprovedTitle : `${mockApprovedTitle} ${sequence}`,
-    caption: mockApprovedCaption,
-    category: "portraits",
-    uploader_display_name: mockUploader,
-    created_at: new Date(Date.UTC(2030, 0, 31 - index, 3, 4, 5)).toISOString(),
-    reviewed_at: new Date(Date.UTC(2030, 0, 31 - index, 4, 4, 5)).toISOString(),
-  };
-});
-const mockFullSignedUrls = mockApprovedRows.map((submission) => submission.full_signed_url);
-const mockThumbnailSignedUrls = mockApprovedRows.map((submission) => submission.thumbnail_signed_url);
-const mockGalleryBackend = [
-  ...mockApprovedRows,
-  {
-    id: "pending-smoke-submission",
-    status: "pending",
-    full_signed_url: "pending-full-should-not-render",
-    thumbnail_signed_url: "pending-thumbnail-should-not-render",
-    thumbnail_size_bytes: 1,
-    title: "Pending Should Not Render",
-    caption: "Pending hidden caption",
-    category: "portraits",
-    created_at: "2030-01-03T03:04:05.000Z",
-  },
-  {
-    id: "rejected-smoke-submission",
-    status: "rejected",
-    full_signed_url: "rejected-full-should-not-render",
-    thumbnail_signed_url: "rejected-thumbnail-should-not-render",
-    thumbnail_size_bytes: 1,
-    title: "Rejected Should Not Render",
-    caption: "Rejected hidden caption",
-    category: "portraits",
-    created_at: "2030-01-04T03:04:05.000Z",
-  },
-];
-
-const approvedSubmissions = mockGalleryBackend
-  .filter((submission) => submission.status === "approved")
-  .map(({ status: _status, ...submission }) => submission);
-
-const feedFixtures = {
-  empty: {
-    ok: true,
-    data: { submissions: [] },
-    message: "Mock approved feed returned no submissions.",
-  },
-  success: {
-    ok: true,
-    data: { submissions: approvedSubmissions },
-    message: "Mock approved feed returned approved submissions only.",
-  },
-  fail: {
-    ok: false,
-    data: null,
-    message: "Mock approved feed failure.",
-  },
-};
-const approvedFeedRoutePattern = "**/functions/v1/list-approved-gallery-submissions*";
-const vercelAnalyticsScriptPaths = new Set([
-  "/_vercel/insights/script.js",
-  "/_vercel/speed-insights/script.js",
-]);
-const corsHeaders = {
-  "access-control-allow-headers": "content-type",
-  "access-control-allow-methods": "POST, OPTIONS",
-  "access-control-allow-origin": "*",
-};
-
-function fail(message) {
-  throw new Error(message);
 }
 
-function assert(condition, message) {
-  if (!condition) fail(message);
+function fullPath(item) {
+  return publicPath(item?.full || item?.src);
+}
+
+const staticTotal = staticItems.length;
+const portraitsTotal = staticItems.filter((item) => getStaticCategories(item).includes("portraits")).length;
+const initialStaticCount = Math.min(staticTotal, pageSize);
+const initialPortraitsCount = Math.min(portraitsTotal, pageSize);
+const newestStaticFull = fullPath(orderStaticItems(staticItems, "newest")[0]);
+const oldestStaticFull = fullPath(orderStaticItems(staticItems, "oldest")[0]);
+
+function fixtureUuid(index) {
+  return `00000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`;
+}
+
+function thumbnailUrl(publicationId) {
+  return `${SUPABASE_PROJECT_URL}${approvedFeedPath}?asset=thumbnail&id=${publicationId}`;
+}
+
+function displayUrl(publicationId) {
+  return `${SUPABASE_PROJECT_URL}${approvedFeedPath}?asset=full&id=${publicationId}`;
+}
+
+function isFixtureThumbnailUrl(value) {
+  const url = new URL(value);
+  return url.origin === SUPABASE_PROJECT_URL
+    && url.pathname === approvedFeedPath
+    && [...url.searchParams.keys()].sort().join(",") === "asset,id"
+    && url.searchParams.get("asset") === "thumbnail"
+    && uuidV4Pattern.test(url.searchParams.get("id") || "");
+}
+
+function isFixtureDisplayUrl(value) {
+  const url = new URL(value);
+  return url.origin === SUPABASE_PROJECT_URL
+    && url.pathname === approvedFeedPath
+    && [...url.searchParams.keys()].sort().join(",") === "asset,id"
+    && url.searchParams.get("asset") === "full"
+    && uuidV4Pattern.test(url.searchParams.get("id") || "");
+}
+
+const fixtureRows = Array.from({ length: fixtureRowCount }, (_, index) => {
+  const sequence = String(index + 1).padStart(3, "0");
+  const id = fixtureUuid(index).replace(/^00000000-/, "10000000-");
+  const category = canonicalCategories[index % canonicalCategories.length];
+  const title = index >= fixtureRowCount - 2 ? null : `Approved Smoke Submission ${sequence}`;
+  const caption = index === fixtureRowCount - 1
+    ? "Caption-only approved Gallery image."
+    : index === fixtureRowCount - 2
+      ? null
+      : index === 0
+        ? "A deliberately long, factual member-gallery caption used to verify that the shared viewer keeps the full image visible, wraps readable text, and allows vertical scrolling at narrow widths and two-hundred-percent text sizing without horizontal drift."
+        : `Reviewed member gallery fixture ${sequence}.`;
+  return {
+    id,
+    title,
+    caption,
+    category,
+    categories: ["member-submissions", category],
+    mime_type: "image/webp",
+    size_bytes: displayAssetBytes,
+    created_at: new Date(Date.UTC(2030, 0, index + 1, 3, 4, 5)).toISOString(),
+    reviewed_at: new Date(Date.UTC(2030, 1, index + 1, 4, 4, 5)).toISOString(),
+    thumbnail_url: thumbnailUrl(id),
+    thumbnail_size_bytes: thumbnailAssetBytes,
+    thumbnail_width: 640,
+    thumbnail_height: 400,
+  };
+});
+
+assert(fixtureRows.length >= 85, "Gallery v2 fixture must contain at least 85 rows.");
+assert(new Set(fixtureRows.map((item) => item.id)).size === fixtureRows.length, "Gallery v2 fixture IDs must be unique.");
+assert(fixtureRows.every((item) => uuidV4Pattern.test(item.id)), "Gallery v2 fixture IDs must be valid UUID v4 shapes.");
+assert(fixtureRows.every((item) => !("full_url" in item)), "Gallery v2 list fixtures must not contain display URLs.");
+assert(fixtureRows.every((item) => !("uploader_display_name" in item)), "Gallery v2 list fixtures must not contain member identity attribution.");
+assert(fixtureRows.every((item) => item.thumbnail_size_bytes <= 80 * 1024), "Gallery v2 fixture thumbnails exceed 80 KiB.");
+assert(
+  fixtureRows.every((item) => isFixtureThumbnailUrl(item.thumbnail_url)),
+  "Gallery v2 fixture thumbnails must use only the exact opaque Edge-media URL.",
+);
+assert(
+  fixtureRows.every((item) =>
+    new URL(item.thumbnail_url).searchParams.get("id") === item.id
+    && new URL(displayUrl(item.id)).searchParams.get("id") === item.id
+  ),
+  "Gallery v2 media URLs must expose only the opaque publication UUID.",
+);
+
+function normalizedQuery(value) {
+  return text(value).normalize("NFKC").toLowerCase();
+}
+
+function rowsMatchingQuery(query) {
+  const needle = normalizedQuery(query);
+  if (!needle) return fixtureRows;
+  return fixtureRows.filter((item) =>
+    [item.title, item.caption, ...item.categories]
+      .join(" ")
+      .normalize("NFKC")
+      .toLowerCase()
+      .includes(needle),
+  );
+}
+
+function rowsForListRequest(body) {
+  const queryRows = rowsMatchingQuery(body.query);
+  const category = body.category === "all" ? null : body.category;
+  const categoryRows = category && category !== "member-submissions"
+    ? queryRows.filter((item) => item.category === category)
+    : queryRows;
+  const direction = body.sort === "oldest" ? 1 : -1;
+  return [...categoryRows].sort((a, b) => {
+    const reviewedDelta = Date.parse(a.reviewed_at) - Date.parse(b.reviewed_at);
+    if (reviewedDelta !== 0) return direction * reviewedDelta;
+    const createdDelta = Date.parse(a.created_at) - Date.parse(b.created_at);
+    if (createdDelta !== 0) return direction * createdDelta;
+    return direction * a.id.localeCompare(b.id);
+  });
+}
+
+function facetsForQuery(query) {
+  const rows = rowsMatchingQuery(query);
+  return Object.fromEntries([
+    ["member-submissions", rows.length],
+    ...canonicalCategories.map((category) => [category, rows.filter((item) => item.category === category).length]),
+  ]);
+}
+
+function encodeFixtureCursor(offset) {
+  return `fixture_cursor_${String(offset).padStart(3, "0")}`;
+}
+
+function decodeFixtureCursor(cursor) {
+  if (cursor === null || cursor === undefined || cursor === "") return 0;
+  const match = String(cursor).match(/^fixture_cursor_(\d{3})$/);
+  return match ? Number.parseInt(match[1], 10) : -1;
+}
+
+function listResponse(body, options) {
+  const rows = options.empty ? [] : rowsForListRequest(body);
+  const offset = decodeFixtureCursor(body.cursor);
+  if (offset < 0 || !Number.isSafeInteger(body.pageSize) || body.pageSize < 1 || body.pageSize > pageSize) {
+    return {
+      ok: false,
+      data: null,
+      message: "The Gallery request is invalid.",
+    };
+  }
+  const sourcePage = rows.slice(offset, offset + body.pageSize);
+  const items = sourcePage.map((item) => ({ ...item }));
+  const nextOffset = offset + sourcePage.length;
+  const hasMore = nextOffset < rows.length;
+  return {
+    ok: true,
+    data: {
+      schemaVersion: 2,
+      items,
+      count: items.length,
+      totalEligible: rows.length,
+      facets: options.empty ? facetsForQuery("no-fixture-can-match") : facetsForQuery(body.query),
+      hasMore,
+      nextCursor: hasMore ? encodeFixtureCursor(nextOffset) : null,
+      partial: false,
+      complete: !hasMore,
+      deliveryFailures: 0,
+      delivery: "bounded-edge-media",
+      cacheSeconds: 15,
+    },
+    message: items.length
+      ? "Member-submitted images loaded."
+      : "No member-submitted images are available yet.",
+  };
+}
+
+function parseRequestBody(request) {
+  let body;
+  try {
+    body = JSON.parse(request.postData() || "null");
+  } catch {
+    fail("Gallery feed request body was not valid JSON.");
+  }
+  assert(body && typeof body === "object" && !Array.isArray(body), "Gallery feed request body must be an object.");
+  return body;
+}
+
+function assertListRequestShape(body, label) {
+  assert(body.action === "list", `${label}: expected list action.`);
+  assert(
+    JSON.stringify(Object.keys(body).sort()) === JSON.stringify(["action", "category", "cursor", "pageSize", "query", "sort"]),
+    `${label}: list request keys drifted.`,
+  );
+  assert(body.pageSize === pageSize, `${label}: expected pageSize ${pageSize}, got ${body.pageSize}.`);
+  assert(body.cursor === null || /^[A-Za-z0-9_-]{1,512}$/.test(body.cursor), `${label}: cursor was not opaque and bounded.`);
+  assert(["newest", "oldest"].includes(body.sort), `${label}: invalid sort ${body.sort}.`);
+  assert(body.category === null || publicFilterCategories.includes(body.category), `${label}: invalid category ${body.category}.`);
+  assert(body.query === null || (typeof body.query === "string" && body.query.length <= 80), `${label}: invalid query.`);
+}
+
+function assertAssetRequestShape(body, action, label) {
+  assert(body.action === action, `${label}: expected ${action} action.`);
+  assert(JSON.stringify(Object.keys(body).sort()) === JSON.stringify(["action", "id"]), `${label}: asset request leaked extra fields.`);
+  assert(uuidV4Pattern.test(body.id), `${label}: asset request must use one opaque UUID v4 ID.`);
 }
 
 async function stubVercelAnalyticsScripts(context) {
   const appOrigin = new URL(baseUrl).origin;
   await context.route(
     (url) => url.origin === appOrigin && vercelAnalyticsScriptPaths.has(url.pathname),
-    (route) =>
-    route.fulfill({ status: 200, contentType: "application/javascript", body: "" }),
+    (route) => route.fulfill({ status: 200, contentType: "application/javascript", body: "" }),
   );
 }
 
-async function stubApprovedGalleryFeedFixture(page, fixture, feedRequests, onHandled, waitForRelease) {
-  let requestIndex = 0;
-  await page.route(approvedFeedRoutePattern, async (route) => {
-    const request = route.request();
-    if (request.method() === "OPTIONS") {
-      await route.fulfill({ status: 204, headers: corsHeaders, body: "" });
-      return;
-    }
-
-    feedRequests.push({
-      method: request.method(),
-      postData: request.postData() || "",
-      url: request.url(),
-    });
-    await waitForRelease;
-    const selectedFixture = Array.isArray(fixture)
-      ? fixture[Math.min(requestIndex, fixture.length - 1)]
-      : fixture;
-    requestIndex += 1;
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      headers: corsHeaders,
-      body: JSON.stringify(selectedFixture),
-    });
-    onHandled();
-  });
-}
-
-async function prepareContext(browser) {
-  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+async function prepareContext(browser, viewport = { width: 1280, height: 900 }) {
+  const context = await browser.newContext({ viewport });
   await stubVercelAnalyticsScripts(context);
   return context;
 }
 
-async function newCheckedPage(context, feedMode = null, { holdFixture = false } = {}) {
+async function newCheckedPage(context, options = {}) {
   const page = await context.newPage();
   const errors = [];
   const feedRequests = [];
   const galleryAssetRequests = [];
+  const fullActionCounts = new Map();
+  const thumbnailActionCounts = new Map();
+  const corruptAssetAttempts = new Map();
+  let listFailuresRemaining = Number(options.listFailures || 0);
+  let listDeliveryFailuresRemaining = Number(options.listDeliveryFailures || 0);
+  const allowedHttpFailures = new Map();
+  let allowedResourceConsoleErrors = Number(options.listDeliveryFailures || 0);
+
   await page.addInitScript(() => {
     window.__galleryCls = 0;
     if (typeof PerformanceObserver !== "function") return;
@@ -256,193 +373,216 @@ async function newCheckedPage(context, feedMode = null, { holdFixture = false } 
     });
     observer.observe({ type: "layout-shift", buffered: true });
   });
-  let resolveFixture;
-  const fixtureHandled = new Promise((resolve) => {
-    resolveFixture = resolve;
+
+  await page.route(approvedFeedRoutePattern, async (route) => {
+    const request = route.request();
+    if (request.method() === "OPTIONS") {
+      await route.fulfill({ status: 204, headers: corsHeaders, body: "" });
+      return;
+    }
+
+    if (request.method() === "GET") {
+      const requestUrl = request.url();
+      const url = new URL(requestUrl);
+      const asset = url.searchParams.get("asset");
+      const id = url.searchParams.get("id") || "";
+      assert(
+        url.origin === SUPABASE_PROJECT_URL
+          && url.pathname === approvedFeedPath
+          && [...url.searchParams.keys()].sort().join(",") === "asset,id"
+          && uuidV4Pattern.test(id)
+          && (asset === "full" || asset === "thumbnail"),
+        "Gallery media request drifted from the exact bounded Edge URL.",
+      );
+      const corruptFixture = (asset === "thumbnail" && id === options.expireThumbnailId)
+        || (asset === "full" && id === options.expireFullId);
+      const attempt = corruptFixture ? (corruptAssetAttempts.get(requestUrl) || 0) + 1 : 1;
+      if (corruptFixture) corruptAssetAttempts.set(requestUrl, attempt);
+      if (corruptFixture && attempt === 1) {
+        await route.fulfill({
+          status: 200,
+          contentType: "image/webp",
+          headers: { "cache-control": "no-store", "x-content-type-options": "nosniff" },
+          body: "not-an-image",
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "image/webp",
+        headers: {
+          "cache-control": "private, max-age=300, stale-while-revalidate=60",
+          "x-content-type-options": "nosniff",
+        },
+        body: asset === "thumbnail" ? thumbnailAssetBody : displayAssetBody,
+      });
+      return;
+    }
+
+    assert(request.method() === "POST", `Gallery feed used unexpected ${request.method()} method.`);
+    const body = parseRequestBody(request);
+    feedRequests.push({ body, method: request.method(), url: request.url() });
+
+    if ((body.action || "list") === "list") {
+      assertListRequestShape(body, `list request ${feedRequests.length}`);
+      if (listDeliveryFailuresRemaining > 0) {
+        listDeliveryFailuresRemaining -= 1;
+        const key = `503 ${request.method()} ${request.url()}`;
+        allowedHttpFailures.set(key, (allowedHttpFailures.get(key) || 0) + 1);
+        await route.fulfill({
+          status: 503,
+          contentType: "application/json",
+          headers: corsHeaders,
+          body: JSON.stringify({
+            ok: false,
+            error: "approved_thumbnail_delivery_failed",
+            message: "Member-submitted images are temporarily unavailable.",
+          }),
+        });
+        return;
+      }
+      if (listFailuresRemaining > 0) {
+        listFailuresRemaining -= 1;
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          headers: corsHeaders,
+          body: JSON.stringify({ ok: false, data: null, message: "Internal fixture detail must not render." }),
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        headers: corsHeaders,
+        body: JSON.stringify(listResponse(body, options)),
+      });
+      return;
+    }
+
+    if (body.action === "full") {
+      assertAssetRequestShape(body, "full", "full-image request");
+      const count = (fullActionCounts.get(body.id) || 0) + 1;
+      fullActionCounts.set(body.id, count);
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        headers: corsHeaders,
+        body: JSON.stringify({
+          ok: true,
+          data: { schemaVersion: 2, id: body.id, full_url: displayUrl(body.id) },
+          message: "Full image ready.",
+        }),
+      });
+      return;
+    }
+
+    if (body.action === "thumbnail") {
+      assertAssetRequestShape(body, "thumbnail", "thumbnail-refresh request");
+      const count = (thumbnailActionCounts.get(body.id) || 0) + 1;
+      thumbnailActionCounts.set(body.id, count);
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        headers: corsHeaders,
+        body: JSON.stringify({
+          ok: true,
+          data: {
+            schemaVersion: 2,
+            id: body.id,
+            thumbnail_url: thumbnailUrl(body.id),
+          },
+          message: "Gallery image ready.",
+        }),
+      });
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      headers: corsHeaders,
+      body: JSON.stringify({ ok: false, data: null, message: "Invalid fixture action." }),
+    });
   });
-  const fixture = feedMode === "fail-then-success"
-    ? [feedFixtures.fail, feedFixtures.success]
-    : feedFixtures[feedMode || "empty"];
-  assert(fixture, `Unknown approved-feed fixture: ${feedMode}`);
-  let releaseFixture;
-  const fixtureRelease = holdFixture
-    ? new Promise((resolve) => {
-        releaseFixture = resolve;
-      })
-    : Promise.resolve();
 
-  await stubApprovedGalleryFeedFixture(page, fixture, feedRequests, () => resolveFixture?.(), fixtureRelease);
-
-  page.on("pageerror", (err) => errors.push(`Page error: ${err.message}`));
-  page.on("console", (msg) => {
-    if (msg.type() === "error") errors.push(`Console error: ${msg.text()}`);
+  page.on("pageerror", (error) => errors.push(`Page error: ${error.message}`));
+  page.on("console", (message) => {
+    if (message.type() !== "error") return;
+    const text = message.text();
+    if (
+      allowedResourceConsoleErrors > 0
+      && text === "Failed to load resource: the server responded with a status of 503 (Service Unavailable)"
+    ) {
+      allowedResourceConsoleErrors -= 1;
+      return;
+    }
+    errors.push(`Console error: ${text}`);
   });
   page.on("requestfailed", (request) => {
     const url = new URL(request.url());
     const failure = request.failure()?.errorText || "unknown error";
-    const appRouterPrefetchWasCanceled = request.method() === "GET"
+    const canceledAppRouterPrefetch = request.method() === "GET"
       && request.resourceType() === "fetch"
       && url.host === new URL(baseUrl).host
       && url.searchParams.has("_rsc")
       && ["net::ERR_ABORTED", "NS_BINDING_ABORTED", "cancelled"].includes(failure);
-    if (appRouterPrefetchWasCanceled) return;
-    errors.push(
-      `Failed request: ${request.method()} ${request.url()} (${failure})`,
-    );
+    if (canceledAppRouterPrefetch) return;
+    errors.push(`Failed request: ${request.method()} ${request.url()} (${failure})`);
   });
   page.on("request", (request) => {
     const url = new URL(request.url());
-    if (url.pathname.includes("/assets/img/gallery/")) galleryAssetRequests.push(request.url());
+    if (
+      url.pathname.includes("/assets/img/gallery/")
+      || (
+        request.method() === "GET"
+        && url.origin === SUPABASE_PROJECT_URL
+        && url.pathname === approvedFeedPath
+        && ["full", "thumbnail"].includes(url.searchParams.get("asset") || "")
+      )
+    ) {
+      galleryAssetRequests.push(request.url());
+    }
   });
   page.on("response", (response) => {
     if (response.status() >= 400) {
+      const key = `${response.status()} ${response.request().method()} ${response.url()}`;
+      const allowed = allowedHttpFailures.get(key) || 0;
+      if (allowed > 0) {
+        if (allowed === 1) allowedHttpFailures.delete(key);
+        else allowedHttpFailures.set(key, allowed - 1);
+        return;
+      }
       errors.push(`HTTP ${response.status()}: ${response.request().method()} ${response.url()}`);
     }
   });
-
-  const waitForFeedFixture = async (label) => {
-    assert(feedMode, `${label}: no approved-feed fixture was configured.`);
-
-    let timeout;
-    try {
-      await Promise.race([
-        fixtureHandled,
-        new Promise((_, reject) => {
-          timeout = setTimeout(() => reject(new Error(`${label}: approved-feed request timed out.`)), 10000);
-        }),
-      ]);
-    } finally {
-      clearTimeout(timeout);
-    }
-
-    assertFeedRequestContract(feedRequests, label);
-  };
 
   return {
     page,
     errors,
     feedRequests,
     galleryAssetRequests,
-    releaseFeedFixture: () => releaseFixture?.(),
-    waitForFeedFixture,
+    fullActionCounts,
+    thumbnailActionCounts,
+    corruptAssetAttempts,
   };
 }
 
-async function assertGalleryPerformanceEnvelope(page, label, expectedAssetUrls = null) {
-  await page.waitForTimeout(250);
-  const metrics = await page.evaluate((expectedUrls) => {
-    const expected = Array.isArray(expectedUrls) ? new Set(expectedUrls) : null;
-    return {
-      cls: Number(window.__galleryCls || 0),
-      imageTransferBytes: performance
-        .getEntriesByType("resource")
-        .filter((entry) => expected ? expected.has(entry.name) : new URL(entry.name).pathname.includes("/assets/img/gallery/"))
-        .reduce((total, entry) => total + Number(entry.transferSize || entry.encodedBodySize || 0), 0),
-    };
-  }, expectedAssetUrls);
-  assert(metrics.cls <= 0.1, `${label}: Gallery CLS ${metrics.cls} exceeded 0.1.`);
-  assert(metrics.imageTransferBytes < 2 * 1024 * 1024, `${label}: initial Gallery image transfer ${metrics.imageTransferBytes} bytes reached 2 MiB.`);
-}
-
-async function assertSharedThumbnailLifecycle(page, label) {
-  const trigger = page.locator("#galleryGrid .gallery-thumb").first();
-  const media = trigger.locator(".responsive-gallery-media");
-  const image = media.locator(".responsive-gallery-media__image");
-
-  await page.waitForFunction(
-    (selector) => document.querySelector(selector)?.getAttribute("data-image-state") === "ready",
-    "#galleryGrid .gallery-thumb:first-child .responsive-gallery-media",
-  );
-  const before = await trigger.boundingBox();
-  assert(before && before.width > 16 && before.height > 10, `${label}: shared thumbnail trigger collapsed before the error fixture.`);
-
-  await image.evaluate((element) => {
-    element.src = "data:image/webp;base64,AAAA";
-  });
-  await page.waitForFunction(
-    (selector) => document.querySelector(selector)?.getAttribute("data-image-state") === "error",
-    "#galleryGrid .gallery-thumb:first-child .responsive-gallery-media",
-  );
-
-  const errorState = await media.evaluate((element) => {
-    const imageElement = element.querySelector(".responsive-gallery-media__image");
-    const fallbackElement = element.querySelector(".responsive-gallery-media__fallback");
-    return {
-      fallbackDisplay: fallbackElement ? getComputedStyle(fallbackElement).display : "",
-      imageOpacity: imageElement ? getComputedStyle(imageElement).opacity : "",
-      alt: imageElement?.getAttribute("alt") || "",
-    };
-  });
-  const after = await trigger.boundingBox();
-  assert(errorState.fallbackDisplay === "grid", `${label}: failed thumbnail did not expose its fallback.`);
-  assert(errorState.imageOpacity === "0", `${label}: failed thumbnail remained visibly broken.`);
-  assert(Boolean(errorState.alt), `${label}: failed thumbnail lost its accessible text.`);
-  assert(
-    before && after && Math.abs(before.width - after.width) <= 1 && Math.abs(before.height - after.height) <= 1,
-    `${label}: failed thumbnail changed the stable card geometry.`,
-  );
-}
-
-async function assertRepresentativeMemberThumbnailBatch(page, galleryAssetRequests) {
-  const images = page.locator("#galleryGrid .gallery-thumb img");
-  assert(await images.count() === mockApprovedCount, `Representative member batch expected ${mockApprovedCount} images.`);
-
-  for (let index = 0; index < mockApprovedCount; index += 1) {
-    const image = images.nth(index);
-    await image.scrollIntoViewIfNeeded();
-    await image.evaluate((node) => {
-      if (!(node instanceof HTMLImageElement) || !node.complete || node.naturalWidth < 1) {
-        return new Promise((resolve, reject) => {
-          node.addEventListener("load", () => resolve(undefined), { once: true });
-          node.addEventListener("error", () => reject(new Error("Member thumbnail failed to load.")), { once: true });
-        });
-      }
-      return undefined;
-    });
+async function waitUntil(predicate, label, timeoutMs = 10_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (await predicate()) return;
+    await new Promise((resolve) => setTimeout(resolve, 50));
   }
-
-  const requestedThumbnailUrls = new Set(
-    galleryAssetRequests.filter((url) => mockThumbnailSignedUrls.includes(url)),
-  );
-  assert(
-    requestedThumbnailUrls.size === mockApprovedCount,
-    `Representative member batch requested ${requestedThumbnailUrls.size} of ${mockApprovedCount} thumbnails.`,
-  );
-  assert(
-    mockFullSignedUrls.every((url) => !galleryAssetRequests.includes(url)),
-    "Representative member batch requested an original before viewer opening.",
-  );
-
-  const transferBytes = await page.evaluate((expectedUrls) => {
-    const expected = new Set(expectedUrls);
-    return performance
-      .getEntriesByType("resource")
-      .filter((entry) => expected.has(entry.name))
-      .reduce((total, entry) => total + Number(entry.transferSize || entry.encodedBodySize || 0), 0);
-  }, mockThumbnailSignedUrls);
-  assert(
-    transferBytes < 2 * 1024 * 1024,
-    `Representative 24-member thumbnail transfer ${transferBytes} bytes reached 2 MiB.`,
-  );
+  fail(`${label} timed out.`);
 }
 
-function assertFeedRequestContract(feedRequests, label) {
-  assert(feedRequests.length === 1, `${label}: expected exactly one approved-feed POST, got ${feedRequests.length}.`);
-  const [request] = feedRequests;
-  assert(request.method === "POST", `${label}: expected approved-feed POST, got ${request.method}.`);
-  assert(
-    request.url.includes("/functions/v1/list-approved-gallery-submissions"),
-    `${label}: unexpected approved-feed URL ${request.url}.`,
-  );
+function requestsByAction(feedRequests, action) {
+  return feedRequests.filter((request) => (request.body.action || "list") === action);
+}
 
-  let body;
-  try {
-    body = JSON.parse(request.postData || "null");
-  } catch {
-    fail(`${label}: approved-feed request body was not valid JSON.`);
-  }
-  assert(body && typeof body === "object" && !Array.isArray(body), `${label}: approved-feed request body must be an object.`);
-  assert(Object.keys(body).length === 0, `${label}: approved-feed request body must remain empty.`);
+async function waitForActionCount(feedRequests, action, count, label) {
+  await waitUntil(() => requestsByAction(feedRequests, action).length >= count, label);
 }
 
 function normalizeAccessibleText(value) {
@@ -462,77 +602,43 @@ async function assertGalleryFilterAccessibleNames(page) {
   }
 }
 
-async function waitForGalleryState(
-  page,
-  {
-    activeCategory,
-    expectedFirstFull = "",
-    renderedCount,
-    sortValue,
-    totalCount,
-  },
-) {
-  await page.waitForFunction(
-    (expected) => {
-      const thumbs = [...document.querySelectorAll("#galleryGrid .gallery-thumb")];
-      const filters = [...document.querySelectorAll("#galleryFilters .gallery-filter")];
-      const activeFilter = filters.find((filter) => filter.getAttribute("aria-pressed") === "true");
-      const allFilter = filters.find((filter) => filter.dataset.category === "all");
-      const allCount = Number.parseInt(allFilter?.textContent?.match(/(\d+)(?:\s+images?)?\s*$/)?.[1] || "", 10);
-      const firstFull = thumbs[0]?.getAttribute("data-full") || "";
-      const sort = document.querySelector("#gallerySort")?.value || "";
-      const params = new URLSearchParams(window.location.search);
-      const categoryParam = params.get("category") || "";
-      const sortParam = params.get("sort") || "";
-      const categoryUrlMatches = expected.activeCategory === "all"
-        ? categoryParam === ""
-        : categoryParam === expected.activeCategory;
-      const sortUrlMatches = expected.sortValue === "random"
-        ? sortParam === ""
-        : sortParam === expected.sortValue;
-
-      return thumbs.length === expected.renderedCount
-        && allCount === expected.totalCount
-        && sort === expected.sortValue
-        && activeFilter?.dataset.category === expected.activeCategory
-        && categoryUrlMatches
-        && sortUrlMatches
-        && (!expected.expectedFirstFull || firstFull === expected.expectedFirstFull);
-    },
-    { activeCategory, expectedFirstFull, renderedCount, sortValue, totalCount },
-  );
+async function waitForReadyFeed(page) {
+  try {
+    await page.waitForSelector('.gallery-feed-state[data-state="ready"]');
+  } catch (error) {
+    const diagnostic = await page.evaluate(() => ({
+      state: document.querySelector(".gallery-feed-state")?.getAttribute("data-state") || "missing",
+      status: document.querySelector("#galleryMemberFeedStatus")?.textContent?.trim() || "missing",
+      body: document.body.innerText.slice(0, 500),
+    })).catch(() => ({ state: "unavailable", status: "unavailable", body: "unavailable" }));
+    throw new Error(`Gallery feed did not become ready (${JSON.stringify(diagnostic)}).`, { cause: error });
+  }
   await assertGalleryFilterAccessibleNames(page);
 }
 
-async function waitForHomeGallery(page) {
-  let previousSignature = "";
-  let stablePolls = 0;
-
-  for (let poll = 0; poll < 60; poll += 1) {
-    const signature = await page.locator("#galleryGrid .home-thumb img[data-full]").evaluateAll((images) =>
-      images.map((image) => `${image.getAttribute("src") || ""}|${image.getAttribute("data-full") || ""}`).join("||"),
-    );
-
-    if (signature && signature === previousSignature) stablePolls += 1;
-    else stablePolls = 0;
-
-    if (stablePolls >= 3 && signature.split("||").length === 4) return;
-    previousSignature = signature;
-    await page.waitForTimeout(100);
-  }
-
-  fail("Home Gallery Spotlight did not settle after hydration.");
+async function waitForEmptyFeed(page) {
+  await page.waitForSelector('.gallery-feed-state[data-state="empty"]');
+  await assertGalleryFilterAccessibleNames(page);
+  assert(
+    (await page.locator("#galleryMemberFeedStatus").textContent())?.trim()
+      === "No member-submitted images are available yet.",
+    "Confirmed-empty member feed did not render its distinct empty-state copy.",
+  );
+  assert(
+    await page.locator("#galleryMemberFeedStatus").getAttribute("aria-busy") === "false",
+    "Confirmed-empty member feed remained marked busy.",
+  );
 }
 
 async function visibleState(page) {
   return page.evaluate(() => {
     const thumbs = [...document.querySelectorAll("#galleryGrid .gallery-thumb")];
     const filters = [...document.querySelectorAll("#galleryFilters .gallery-filter")];
-
     return {
       count: thumbs.length,
       countText: document.querySelector("#galleryCount")?.textContent?.trim() || "",
       sortValue: document.querySelector("#gallerySort")?.value || "",
+      queryValue: document.querySelector("#gallerySearch")?.value || "",
       bodyText: document.body.innerText,
       fulls: thumbs.map((button) => button.getAttribute("data-full") || ""),
       captions: thumbs.map((button) => button.getAttribute("data-caption") || ""),
@@ -547,301 +653,500 @@ async function visibleState(page) {
   });
 }
 
+async function waitForMemberCount(page, expected) {
+  await page.waitForFunction(
+    (count) => document.querySelectorAll("#galleryGrid .gallery-thumb").length === count,
+    expected,
+  );
+}
+
 async function assertNoErrors(errors, label) {
   if (errors.length) fail(`${label} browser errors: ${errors.join(" | ")}`);
 }
 
-async function waitForLightboxOpen(page) {
-  await page.waitForFunction(() => {
-    const root = document.querySelector("#lightbox");
-    const img = document.querySelector("#lightboxImg");
-    const close = document.querySelector("#lightboxClose");
-    const rect = root?.getBoundingClientRect();
+async function assertNoSeriousAccessibilityViolations(page, label, scopeSelector = "main") {
+  assert(existsSync(axePath), `${label}: axe-core is unavailable.`);
+  await page.addScriptTag({ path: axePath });
+  const violations = await page.evaluate(async ({ selector }) => {
+    const scope = document.querySelector(selector);
+    if (!scope) return ["missing-accessibility-scope"];
+    const result = await window.axe.run(scope, { resultTypes: ["violations"] });
+    return result.violations
+      .filter((violation) => ["critical", "serious"].includes(violation.impact || ""))
+      .map((violation) => violation.id);
+  }, { selector: scopeSelector });
+  assert(violations.length === 0, `${label}: serious accessibility findings: ${violations.join(", ")}.`);
+}
 
+const galleryViewerSelectors = {
+  root: "#lightbox",
+  image: "#lightboxImg",
+  close: "#lightboxClose",
+  card: "#lightbox .lightbox-card",
+  shell: "#lightbox .lightbox-shell",
+  caption: "#lightboxCaption",
+};
+const homeViewerSelectors = {
+  root: "#modalRoot",
+  image: "#modalImage",
+  close: "#modalClose",
+  card: "#modalRoot .lightbox-card",
+  shell: "#modalRoot .lightbox-shell",
+  caption: "#modalCaption",
+};
+
+async function waitForLightboxOpen(page, selectors = galleryViewerSelectors) {
+  await page.waitForFunction((activeSelectors) => {
+    const root = document.querySelector(activeSelectors.root);
+    const image = document.querySelector(activeSelectors.image);
+    const close = document.querySelector(activeSelectors.close);
+    const rect = root?.getBoundingClientRect();
     return Boolean(
-      root &&
-        img instanceof HTMLImageElement &&
-        img.getAttribute("src") &&
-        img.complete &&
-        img.naturalWidth > 0 &&
-        img.naturalHeight > 0 &&
-        !root.classList.contains("hidden") &&
-        root.getAttribute("aria-hidden") === "false" &&
-        rect?.width &&
-        rect?.height &&
-        document.activeElement === close,
+      root
+      && image instanceof HTMLImageElement
+      && image.getAttribute("src")
+      && image.complete
+      && image.naturalWidth > 0
+      && image.naturalHeight > 0
+      && !root.classList.contains("hidden")
+      && root.getAttribute("aria-hidden") !== "true"
+      && root.getAttribute("role") === "dialog"
+      && root.getAttribute("aria-modal") === "true"
+      && rect?.width
+      && rect?.height
+      && document.activeElement === close,
     );
-  });
+  }, selectors);
+}
+
+async function assertSharedLightboxContract(
+  page,
+  label,
+  expectedSourceFragment = "",
+  selectors = galleryViewerSelectors,
+) {
+  await waitForLightboxOpen(page, selectors);
+  const geometry = await page.evaluate((activeSelectors) => {
+    const root = document.querySelector(activeSelectors.root);
+    const shell = document.querySelector(activeSelectors.shell);
+    const card = document.querySelector(activeSelectors.card);
+    const image = document.querySelector(activeSelectors.image);
+    const close = document.querySelector(activeSelectors.close);
+    const caption = document.querySelector(activeSelectors.caption);
+    const rootRect = root?.getBoundingClientRect();
+    const shellRect = shell?.getBoundingClientRect();
+    const imageRect = image?.getBoundingClientRect();
+    const closeRect = close?.getBoundingClientRect();
+    return {
+      rootWidth: rootRect?.width || 0,
+      rootHeight: rootRect?.height || 0,
+      shellWidth: shellRect?.width || 0,
+      cardWidth: card?.getBoundingClientRect().width || 0,
+      imageWidth: imageRect?.width || 0,
+      imageHeight: imageRect?.height || 0,
+      naturalWidth: image instanceof HTMLImageElement ? image.naturalWidth : 0,
+      naturalHeight: image instanceof HTMLImageElement ? image.naturalHeight : 0,
+      closeWidth: closeRect?.width || 0,
+      closeHeight: closeRect?.height || 0,
+      closeLeft: closeRect?.left || 0,
+      closeRight: closeRect?.right || 0,
+      closeTop: closeRect?.top || 0,
+      captionScrollWidth: caption?.scrollWidth || 0,
+      captionClientWidth: caption?.clientWidth || 0,
+      src: image?.getAttribute("src") || "",
+      bodyOverflow: getComputedStyle(document.body).overflow,
+      horizontalOverflow: document.documentElement.scrollWidth > window.innerWidth + 1,
+    };
+  }, selectors);
+  assert(geometry.rootWidth > 0 && geometry.rootHeight > 0, `${label}: viewer root collapsed.`);
+  assert(geometry.shellWidth <= geometry.rootWidth + 2, `${label}: viewer shell escaped the overlay.`);
+  assert(geometry.cardWidth <= Math.min(1160, geometry.rootWidth) + 2, `${label}: viewer card exceeded its shared 1160px cap.`);
+  assert(geometry.cardWidth > 0 && geometry.imageWidth > 0 && geometry.imageHeight > 0, `${label}: viewer image collapsed.`);
+  assert(geometry.closeWidth >= 44 && geometry.closeHeight >= 44, `${label}: close control was smaller than 44x44.`);
+  assert(
+    geometry.closeLeft >= -1 && geometry.closeTop >= -1 && geometry.closeRight <= geometry.rootWidth + 1,
+    `${label}: close control escaped the viewport.`,
+  );
+  assert(geometry.captionScrollWidth <= geometry.captionClientWidth + 1, `${label}: caption overflowed horizontally.`);
+  assert(!geometry.horizontalOverflow, `${label}: viewer introduced horizontal page overflow.`);
+  assert(geometry.bodyOverflow === "hidden", `${label}: viewer did not lock background scrolling.`);
+  assert(
+    Math.abs(geometry.imageWidth / geometry.imageHeight - geometry.naturalWidth / geometry.naturalHeight) <= 0.02,
+    `${label}: full image aspect ratio drifted.`,
+  );
+  if (expectedSourceFragment) {
+    assert(geometry.src.includes(expectedSourceFragment), `${label}: unexpected full source ${geometry.src}.`);
+  }
+}
+
+async function assertCloseAndFocusReturn(page, trigger, label, selectors = galleryViewerSelectors) {
+  await page.keyboard.press("Shift+Tab");
+  assert(
+    await page.locator(selectors.card).evaluate((element) => document.activeElement === element),
+    `${label}: Shift+Tab did not wrap to the last dialog control.`,
+  );
+  await page.keyboard.press("Tab");
+  assert(
+    await page.locator(selectors.close).evaluate((element) => document.activeElement === element),
+    `${label}: Tab did not wrap to the first dialog control.`,
+  );
+  await page.keyboard.press("Escape");
+  await page.waitForFunction((rootSelector) => {
+    const root = document.querySelector(rootSelector);
+    return !root || root.classList.contains("hidden");
+  }, selectors.root);
+  await page.waitForFunction((selector) => document.activeElement === document.querySelector(selector), trigger);
+  assert(
+    await page.evaluate(() => getComputedStyle(document.body).overflow !== "hidden"),
+    `${label}: closing did not restore background scrolling.`,
+  );
+}
+
+async function assertGalleryPerformanceEnvelope(page, label, expectedAssetUrls) {
+  await page.waitForTimeout(250);
+  const metrics = await page.evaluate((expectedUrls) => {
+    const expected = new Set(expectedUrls);
+    return {
+      cls: Number(window.__galleryCls || 0),
+      transferBytes: performance
+        .getEntriesByType("resource")
+        .filter((entry) => expected.has(entry.name))
+        .reduce((total, entry) => total + Number(entry.transferSize || entry.encodedBodySize || 0), 0),
+    };
+  }, expectedAssetUrls);
+  assert(metrics.cls <= 0.1, `${label}: Gallery CLS ${metrics.cls} exceeded 0.1.`);
+  assert(metrics.transferBytes < 2 * 1024 * 1024, `${label}: initial thumbnail transfer reached 2 MiB.`);
+}
+
+async function waitForHomeGallery(page) {
+  let previousSignature = "";
+  let stablePolls = 0;
+  for (let poll = 0; poll < 60; poll += 1) {
+    const signature = await page.locator("#galleryGrid .home-thumb img[data-full]").evaluateAll((images) =>
+      images.map((image) => `${image.getAttribute("src") || ""}|${image.getAttribute("data-full") || ""}`).join("||"),
+    );
+    if (signature && signature === previousSignature) stablePolls += 1;
+    else stablePolls = 0;
+    if (stablePolls >= 3 && signature.split("||").length === 4) return;
+    previousSignature = signature;
+    await page.waitForTimeout(100);
+  }
+  fail("Home Gallery Spotlight did not settle after hydration.");
 }
 
 const browser = await chromium.launch({ headless: true });
+let hydratedHomeSignature = "";
 
 try {
   const context = await prepareContext(browser);
 
+  // Static/no-member state keeps the established Gallery and shared-lightbox behavior.
   {
-    const { page, errors, feedRequests, galleryAssetRequests, waitForFeedFixture } = await newCheckedPage(context, "empty");
+    const checked = await newCheckedPage(context, { empty: true });
+    const { page, errors, feedRequests, galleryAssetRequests } = checked;
     await page.goto(`${baseUrl}/gallery`, { waitUntil: "domcontentloaded" });
-    await waitForFeedFixture("static Gallery");
-    await waitForGalleryState(page, {
-      activeCategory: "all",
-      renderedCount: initialStaticCount,
-      sortValue: "random",
-      totalCount: staticTotal,
-    });
-
+    await waitForEmptyFeed(page);
+    await waitForMemberCount(page, initialStaticCount);
+    await assertNoSeriousAccessibilityViolations(page, "static empty Gallery");
     let state = await visibleState(page);
-    assert(state.count === initialStaticCount, `Static Gallery expected initial ${initialStaticCount} items, got ${state.count}.`);
-    assert(state.countText === `Showing ${initialStaticCount} of ${staticTotal} images.`, `Unexpected static count text: ${state.countText}`);
-    const emptyMemberStatus = page.locator('.gallery-feed-state[data-state="ready"] .gallery-feed-status');
-    assert(await emptyMemberStatus.count() === 1, "Successful empty feed did not expose a distinct ready state.");
+    assert(state.countText === `Showing ${initialStaticCount} of ${staticTotal} images.`, `Unexpected static count: ${state.countText}`);
+    assert(state.imageSrcs.every((src) => src.includes("/thumbs/")), "Static Gallery grid must use thumbnails.");
+    assert(state.fulls.every(Boolean), "Static Gallery triggers must retain full paths.");
     assert(
-      (await emptyMemberStatus.textContent())?.includes("No member-submitted images are available yet."),
-      "Successful empty feed did not expose the reviewed empty-state copy.",
+      state.fulls.every((full) => !galleryAssetRequests.includes(new URL(full, baseUrl).href)),
+      "Static Gallery requested an original before viewer opening.",
     );
-    assert(state.sortValue === "random", `Expected default random sort, got ${state.sortValue}.`);
-    assert(state.imageSrcs.every((src) => src.includes("/thumbs/")), "Static Gallery grid should use thumbnails.");
-    assert(
-      state.fulls.every((full) => !galleryAssetRequests.some((requestUrl) => requestUrl === new URL(full, baseUrl).href)),
-      "Static Gallery requested a full image before the viewer opened.",
-    );
-    await assertGalleryPerformanceEnvelope(page, "static Gallery");
-    await assertSharedThumbnailLifecycle(page, "static Gallery");
-
-    await page.click("#galleryLoadMore");
-    await page.waitForFunction(
-      (expected) => document.querySelectorAll("#galleryGrid .gallery-thumb").length === expected,
-      Math.min(staticTotal, galleryBatchSize * 2),
-    );
+    assert(requestsByAction(feedRequests, "list").length === 1, "Static Gallery should make one empty-feed list request.");
 
     await page.selectOption("#gallerySort", "newest");
-    await waitForGalleryState(page, {
-      activeCategory: "all",
-      expectedFirstFull: newestFirst,
-      renderedCount: initialStaticCount,
-      sortValue: "newest",
-      totalCount: staticTotal,
-    });
-    state = await visibleState(page);
-    assert(state.fulls[0] === newestFirst, `Newest sort first item mismatch. Expected ${newestFirst}, got ${state.fulls[0]}.`);
-
+    await waitUntil(
+      async () => (await visibleState(page)).fulls[0] === newestStaticFull,
+      "static newest sort",
+    );
     await page.selectOption("#gallerySort", "oldest");
-    await waitForGalleryState(page, {
-      activeCategory: "all",
-      expectedFirstFull: oldestFirst,
-      renderedCount: initialStaticCount,
-      sortValue: "oldest",
-      totalCount: staticTotal,
-    });
-    state = await visibleState(page);
-    assert(state.fulls[0] === oldestFirst, `Oldest sort first item mismatch. Expected ${oldestFirst}, got ${state.fulls[0]}.`);
-
+    await waitUntil(
+      async () => (await visibleState(page)).fulls[0] === oldestStaticFull,
+      "static oldest sort",
+    );
     await page.click('#galleryFilters [data-category="portraits"]');
-    await page.waitForURL(/category=portraits/);
-    await waitForGalleryState(page, {
-      activeCategory: "portraits",
-      renderedCount: initialPortraitsCount,
-      sortValue: "oldest",
-      totalCount: staticTotal,
-    });
+    await waitForMemberCount(page, initialPortraitsCount);
     state = await visibleState(page);
-    assert(state.count === initialPortraitsCount, `Portraits filter expected initial ${initialPortraitsCount} items, got ${state.count}.`);
-    assert(state.filters.find((filter) => filter.slug === "portraits")?.pressed === "true", "Portraits filter was not active.");
+    assert(state.filters.find((filter) => filter.slug === "portraits")?.pressed === "true", "Portrait filter was not active.");
 
-    await page.click("#galleryGrid .gallery-thumb");
-    await waitForLightboxOpen(page);
-    const lightbox = await page.evaluate(() => ({
-      src: document.querySelector("#lightboxImg")?.getAttribute("src") || "",
-      focusId: document.activeElement?.id || "",
-    }));
-    assert(lightbox.src && !lightbox.src.includes("/thumbs/"), `Static lightbox should use full image path, got ${lightbox.src}.`);
-    assert(lightbox.focusId === "lightboxClose", `Expected lightbox focus on close button, got ${lightbox.focusId}.`);
-
-    assertFeedRequestContract(feedRequests, "static Gallery");
+    const trigger = "#galleryGrid .gallery-thumb:first-child";
+    await page.click(trigger);
+    await assertSharedLightboxContract(page, "static Gallery");
+    assert(!(await page.locator("#lightboxImg").getAttribute("src"))?.includes("/thumbs/"), "Static lightbox opened a thumbnail.");
+    await assertCloseAndFocusReturn(page, trigger, "static Gallery");
     await assertNoErrors(errors, "static Gallery");
     await page.close();
   }
 
+  // The schema-v2 feed traverses more than 80 items by sequential opaque cursors.
   {
-    const { page, errors, feedRequests, galleryAssetRequests, waitForFeedFixture } = await newCheckedPage(context, "success");
-    await page.goto(`${baseUrl}/gallery?category=member-submissions&sort=newest`, {
-      waitUntil: "domcontentloaded",
-    });
-    await waitForFeedFixture("approved feed success");
-    await waitForGalleryState(page, {
-      activeCategory: "member-submissions",
-      expectedFirstFull: mockFullSignedUrl,
-      renderedCount: mockApprovedCount,
-      sortValue: "newest",
-      totalCount: staticTotal + mockApprovedCount,
-    });
-
+    const checked = await newCheckedPage(context);
+    const { page, errors, feedRequests, galleryAssetRequests, fullActionCounts } = checked;
+    await page.goto(`${baseUrl}/gallery?category=member-submissions&sort=newest`, { waitUntil: "domcontentloaded" });
+    await waitForReadyFeed(page);
+    await waitForMemberCount(page, pageSize);
+    await assertNoSeriousAccessibilityViolations(page, "schema-v2 Gallery");
     let state = await visibleState(page);
-    assert(state.count === mockApprovedCount, `Member Submissions filter expected ${mockApprovedCount} approved items, got ${state.count}.`);
-    assert(state.countText === `Showing ${mockApprovedCount} of ${mockApprovedCount} images in Member Submissions.`, `Unexpected member count text: ${state.countText}`);
-    const memberFilterText = state.filters.find((filter) => filter.slug === "member-submissions")?.text || "";
-    assert(new RegExp(`^Member Submissions\\s+\\D\\s+${mockApprovedCount}\\s+images$`).test(memberFilterText), `Member filter count was not rendered: ${memberFilterText}`);
-    const allFilterText = state.filters.find((filter) => filter.slug === "all")?.text || "";
-    assert(new RegExp(`^All\\s+\\D\\s+${staticTotal + mockApprovedCount}\\s+images$`).test(allFilterText), `All filter did not include the approved items: ${allFilterText}`);
-    assert(state.fulls[0] === mockFullSignedUrl, "Approved item did not use full_signed_url as data-full.");
-    assert(state.imageSrcs[0] === mockThumbnailSignedUrl, "Approved item did not use thumbnail_signed_url as image source.");
-    const renderedPairs = state.fulls.map((full, index) => `${full}|${state.imageSrcs[index] || ""}`);
-    const expectedPairs = approvedSubmissions.map((submission) => `${submission.full_signed_url}|${submission.thumbnail_signed_url}`);
-    assert(new Set(renderedPairs).size === mockApprovedCount, "Representative member batch rendered duplicate URL pairs.");
+    assert(state.countText === `Showing 24 of ${fixtureRowCount} images in Member Submissions.`, `Unexpected member count: ${state.countText}`);
+    assert(state.fulls.every((full) => full === ""), "Approved cards exposed data-full before viewer opening.");
+    assert(state.imageSrcs.every(isFixtureThumbnailUrl), "Approved list rendered a non-thumbnail Edge-media URL.");
     assert(
-      renderedPairs.every((pair) => expectedPairs.includes(pair)),
-      "A representative member card did not bind its matching thumbnail and original URLs.",
+      state.imageAlts[0] === fixtureRows.at(-1).caption,
+      "Approved Gallery alt text did not fall back from an absent title to the caption.",
     );
     assert(
-      approvedSubmissions.reduce((total, submission) => total + Number(submission.thumbnail_size_bytes || 0), 0) < 2 * 1024 * 1024,
-      "The representative 24-member thumbnail contract reached 2 MiB.",
+      state.imageAlts[1] === "Gallery image",
+      "Approved Gallery alt text did not use the generic fallback when title and caption were absent.",
     );
-    assert(state.imageAlts[0] === mockApprovedTitle, "Approved item alt text did not use the submitted title.");
-    assert(state.captions[0].includes(mockApprovedTitle), "Approved caption did not include submitted title.");
-    assert(state.captions[0].includes(mockApprovedCaption), "Approved caption did not include submitted caption.");
-    assert(state.captions[0].includes(mockUploader), "Approved caption did not include uploader display name.");
-    assert(!state.bodyText.includes("Pending Should Not Render"), "Pending mock submission leaked into public Gallery text.");
-    assert(!state.bodyText.includes("Rejected Should Not Render"), "Rejected mock submission leaked into public Gallery text.");
-    await assertRepresentativeMemberThumbnailBatch(page, galleryAssetRequests);
-    await assertGalleryPerformanceEnvelope(page, "approved feed success", mockThumbnailSignedUrls);
+    assert(requestsByAction(feedRequests, "full").length === 0, "Approved list requested a display derivative before opening.");
+    assert(galleryAssetRequests.every((url) => !isFixtureDisplayUrl(url)), "Approved list downloaded a display derivative before opening.");
+    assert(
+      state.filters.map((filter) => filter.slug).every((slug) => publicFilterCategories.includes(slug)),
+      "Gallery rendered a noncanonical category filter.",
+    );
+    assert(!state.filters.some((filter) => filter.slug === "unknown"), "Historical unknown category became a public filter.");
+    assert(
+      state.filters.find((filter) => filter.slug === "member-submissions")?.text.includes(String(fixtureRowCount)),
+      "Member Submissions facet did not represent the complete dataset.",
+    );
+    await assertGalleryPerformanceEnvelope(page, "schema-v2 first page", state.imageSrcs);
 
-    await page.click("#galleryGrid .gallery-thumb");
-    await waitForLightboxOpen(page);
-    const lightbox = await page.evaluate(() => ({
-      src: document.querySelector("#lightboxImg")?.getAttribute("src") || "",
-      caption: document.querySelector("#lightboxCaption")?.textContent?.trim() || "",
-    }));
-    assert(lightbox.src === mockFullSignedUrl, "Approved lightbox did not use full_signed_url as image source.");
-    assert(galleryAssetRequests.includes(mockFullSignedUrl), "Approved original was not requested after the viewer opened.");
+    for (const expected of [48, 72, 90]) {
+      await page.click("#galleryLoadMore");
+      await waitForMemberCount(page, expected);
+    }
+    state = await visibleState(page);
+    assert(state.count === fixtureRowCount, `Sequential cursor traversal rendered ${state.count} of ${fixtureRowCount}.`);
+    assert(new Set(state.imageAlts).size === fixtureRowCount, "Sequential pages rendered duplicate items.");
+    const listRequests = requestsByAction(feedRequests, "list");
+    assert(listRequests.length === 4, `Sequential traversal expected four list pages, got ${listRequests.length}.`);
     assert(
-      new Set(galleryAssetRequests.filter((url) => mockFullSignedUrls.includes(url))).size === 1,
-      "Opening one approved item requested more than its selected original.",
+      JSON.stringify(listRequests.map((request) => request.body.cursor))
+        === JSON.stringify([null, encodeFixtureCursor(24), encodeFixtureCursor(48), encodeFixtureCursor(72)]),
+      "Sequential traversal did not preserve the opaque cursor chain.",
     );
-    assert(lightbox.caption.includes(mockApprovedTitle), "Approved lightbox caption missed title.");
-    assert(lightbox.caption.includes(mockApprovedCaption), "Approved lightbox caption missed caption.");
-    assert(lightbox.caption.includes(mockUploader), "Approved lightbox caption missed uploader.");
+    assert(!(await page.locator("#galleryLoadMore").count()), "Load-more control remained after the terminal page.");
 
-    assertFeedRequestContract(feedRequests, "approved feed success");
-    await assertNoErrors(errors, "approved feed success");
+    const normalTrigger = "#galleryGrid .gallery-thumb:first-child";
+    const selectedId = fixtureRows.at(-1).id;
+    await page.click(normalTrigger);
+    await waitForActionCount(feedRequests, "full", 1, "normal full-image request");
+    await assertSharedLightboxContract(page, "approved Gallery", displayUrl(selectedId));
+    await assertNoSeriousAccessibilityViolations(page, "approved Gallery viewer", "#lightbox");
+    assert(requestsByAction(feedRequests, "full").length === 1, "Opening one approved item did not make exactly one full request.");
+    assert(fullActionCounts.get(selectedId) === 1, "Normal full request did not use the selected opaque ID exactly once.");
+    assert(
+      galleryAssetRequests.filter(isFixtureDisplayUrl).length === 1,
+      "Opening one approved item downloaded more than its selected display derivative.",
+    );
+    await assertCloseAndFocusReturn(page, normalTrigger, "approved Gallery");
+    await assertNoErrors(errors, "schema-v2 sequential Gallery");
     await page.close();
   }
 
+  // One expired thumbnail is refreshed once and never loops.
   {
-    const {
-      page,
-      errors,
-      feedRequests,
-      galleryAssetRequests,
-      releaseFeedFixture,
-      waitForFeedFixture,
-    } = await newCheckedPage(context, "success", { holdFixture: true });
-    await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto(`${baseUrl}/gallery`, { waitUntil: "domcontentloaded" });
-    await waitForGalleryState(page, {
-      activeCategory: "all",
-      renderedCount: initialStaticCount,
-      sortValue: "random",
-      totalCount: staticTotal,
-    });
-    const beforeFeed = await visibleState(page);
-    const loadingStatus = page.locator('.gallery-feed-state[data-state="loading"] .gallery-feed-status');
-    const loadingState = await loadingStatus.textContent();
-    assert(
-      loadingState?.includes("Loading member-submitted images…"),
-      "Delayed approved feed did not expose its customer-facing loading status.",
+    const expiredId = fixtureRows.at(-1).id;
+    const checked = await newCheckedPage(context, { expireThumbnailId: expiredId });
+    const { page, errors, feedRequests, thumbnailActionCounts, corruptAssetAttempts } = checked;
+    await page.goto(`${baseUrl}/gallery?category=member-submissions&sort=newest`, { waitUntil: "domcontentloaded" });
+    await waitForReadyFeed(page);
+    await page.waitForFunction(
+      () => document.querySelector("#galleryGrid .gallery-thumb:first-child .responsive-gallery-media")?.getAttribute("data-image-state") === "ready",
     );
-    assert(await loadingStatus.getAttribute("aria-busy") === "true", "Delayed approved feed was not marked busy.");
-
-    releaseFeedFixture();
-    await waitForFeedFixture("delayed approved feed");
-    await waitForGalleryState(page, {
-      activeCategory: "all",
-      renderedCount: initialStaticCount,
-      sortValue: "random",
-      totalCount: staticTotal + mockApprovedCount,
-    });
-    const afterFeed = await visibleState(page);
-    const readyStatus = page.locator('.gallery-feed-state[data-state="ready"] .gallery-feed-status');
-    assert(await readyStatus.count() === 1, "Successful approved feed did not enter the ready state.");
-    assert((await readyStatus.textContent())?.includes("Member-submitted images loaded."), "Successful approved feed did not announce completion.");
-
+    await waitForActionCount(feedRequests, "thumbnail", 1, "expired thumbnail refresh");
+    await page.waitForTimeout(400);
+    assert(thumbnailActionCounts.get(expiredId) === 1, "Expired thumbnail retried more than once.");
+    assert(requestsByAction(feedRequests, "thumbnail").length === 1, "Expired thumbnail triggered an unbounded retry loop.");
     assert(
-      JSON.stringify(afterFeed.fulls) === JSON.stringify(beforeFeed.fulls),
-      "A delayed approved feed response reshuffled or displaced the existing first Gallery batch.",
+      corruptAssetAttempts.get(thumbnailUrl(expiredId)) === 2,
+      "Identical refreshed thumbnail URL was not requested exactly twice across its bounded retry.",
     );
-    assert(
-      mockFullSignedUrls.every((url) => !galleryAssetRequests.includes(url)),
-      "Delayed feed requested an approved original before viewer opening.",
-    );
-    await assertGalleryPerformanceEnvelope(page, "delayed approved feed");
-    await assertNoErrors(errors, "delayed approved feed");
+    assert(requestsByAction(feedRequests, "full").length === 0, "Thumbnail refresh requested an original.");
+    await assertNoErrors(errors, "expired thumbnail");
     await page.close();
   }
 
+  // One expired full-image capability is resolved exactly once more, then stops.
   {
-    const { page, errors, feedRequests, waitForFeedFixture } = await newCheckedPage(context, "fail-then-success");
-    await page.setViewportSize({ width: 320, height: 568 });
+    const expiredId = fixtureRows.at(-1).id;
+    const checked = await newCheckedPage(context, { expireFullId: expiredId });
+    const { page, errors, feedRequests, fullActionCounts, corruptAssetAttempts } = checked;
+    await page.goto(`${baseUrl}/gallery?category=member-submissions&sort=newest`, { waitUntil: "domcontentloaded" });
+    await waitForReadyFeed(page);
+    await page.click("#galleryGrid .gallery-thumb:first-child");
+    await waitForActionCount(feedRequests, "full", 2, "expired full-image refresh");
+    await assertSharedLightboxContract(page, "expired full image", displayUrl(expiredId));
+    await page.waitForTimeout(400);
+    assert(fullActionCounts.get(expiredId) === 2, "Expired full image did not stop after one bounded refresh.");
+    assert(requestsByAction(feedRequests, "full").length === 2, "Expired full-image refresh entered a retry loop.");
+    assert(
+      corruptAssetAttempts.get(displayUrl(expiredId)) === 2,
+      "Identical refreshed full URL was not requested exactly twice across its bounded retry.",
+    );
+    await assertNoErrors(errors, "expired full image");
+    await page.close();
+  }
+
+  // A list-delivery failure is all-or-nothing, exposes no cursor, and retries
+  // only from the unchanged first-page boundary after user activation.
+  {
+    const checked = await newCheckedPage(context, { listDeliveryFailures: 1 });
+    const { page, errors, feedRequests } = checked;
     await page.goto(`${baseUrl}/gallery?sort=newest`, { waitUntil: "domcontentloaded" });
-    await page.addStyleTag({ content: "html{font-size:200%}" });
-    await waitForFeedFixture("approved feed failure fallback");
-    await waitForGalleryState(page, {
-      activeCategory: "all",
-      expectedFirstFull: newestFirst,
-      renderedCount: initialStaticCount,
-      sortValue: "newest",
-      totalCount: staticTotal,
-    });
-
-    const state = await visibleState(page);
-    assert(state.count === initialStaticCount, `Approved-feed failure should fall back to initial ${initialStaticCount} static items, got ${state.count}.`);
-    assert(state.filters.every((filter) => filter.slug !== "member-submissions"), "Member Submissions filter should not render when approved feed fails.");
-    assert(state.fulls[0] === newestFirst, "Approved-feed failure should preserve static newest sort.");
-    const errorState = page.locator('.gallery-feed-state[data-state="error"]');
-    const errorStatus = errorState.locator(".gallery-feed-status");
-    assert(await errorStatus.count() === 1, "Approved-feed failure did not expose a visible error status.");
+    await page.waitForSelector('.gallery-feed-state[data-state="error"]');
+    await assertNoSeriousAccessibilityViolations(page, "Gallery delivery-error state");
     assert(
-      (await errorStatus.textContent())?.includes("Member-submitted images are temporarily unavailable. The rest of the gallery is still available."),
-      "Approved-feed failure exposed incorrect customer-facing status copy.",
+      (await page.locator("#galleryMemberFeedStatus").textContent())?.includes("Member-submitted images are temporarily unavailable."),
+      "All-or-nothing delivery failure did not render customer-safe copy.",
     );
-    assert(!(await page.locator("body").innerText()).includes("Mock approved feed failure."), "Approved-feed failure leaked internal response copy.");
-    assert(
-      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1),
-      "Approved-feed failure status overflowed at 320px with 200% text.",
-    );
-    const retryResponse = page.waitForResponse((response) =>
-      response.request().method() === "POST"
-        && new URL(response.url()).pathname.endsWith("/functions/v1/list-approved-gallery-submissions"),
-    );
-    const retryButton = errorState.locator(".gallery-feed-retry");
-    await retryButton.focus();
-    assert(await retryButton.evaluate((element) => document.activeElement === element), "Approved-feed retry did not receive keyboard focus.");
+    assert(!(await page.locator("body").innerText()).includes("approved_thumbnail_delivery_failed"), "Delivery failure leaked an internal error code.");
+    await page.waitForTimeout(300);
+    let listRequests = requestsByAction(feedRequests, "list");
+    assert(listRequests.length === 1, "Delivery failure retried without user activation.");
+    assert(listRequests[0].body.cursor === null, "Failed first page unexpectedly carried a cursor.");
+    await page.locator(".gallery-feed-retry").focus();
     await page.keyboard.press("Enter");
-    await retryResponse;
-    await page.waitForFunction(() => document.querySelector('.gallery-feed-state[data-state="ready"]'));
-    assert(feedRequests.length === 2, `Approved-feed retry expected two requests, got ${feedRequests.length}.`);
-    await waitForGalleryState(page, {
-      activeCategory: "all",
-      expectedFirstFull: mockFullSignedUrl,
-      renderedCount: initialStaticCount,
-      sortValue: "newest",
-      totalCount: staticTotal + mockApprovedCount,
-    });
+    await waitForReadyFeed(page);
+    listRequests = requestsByAction(feedRequests, "list");
+    assert(listRequests.length === 2, "User-activated delivery retry did not run exactly once.");
+    assert(listRequests.every((request) => request.body.cursor === null), "Delivery failure advanced the cursor before retry.");
     assert(
-      await page.locator('#galleryFilters [data-category="member-submissions"]').count() === 1,
-      "Approved-feed retry success did not restore the member-submissions filter.",
+      (await page.locator("#galleryMemberFeedStatus").textContent())?.includes("Member-submitted images loaded."),
+      "Successful delivery retry did not restore the feed.",
     );
-
-    feedRequests.forEach((request, index) => assertFeedRequestContract([request], `approved feed failure attempt ${index + 1}`));
-    await assertNoErrors(errors, "approved feed failure fallback");
+    await assertNoErrors(errors, "all-or-nothing Gallery delivery failure");
     await page.close();
   }
 
+  // Search, category, and sort are URL-backed, with exactly five canonical
+  // visual facets plus Member Submissions.
   {
-    const { page, errors, feedRequests } = await newCheckedPage(context);
+    const checked = await newCheckedPage(context);
+    const { page, errors, feedRequests } = checked;
+    await page.goto(`${baseUrl}/gallery?category=member-submissions&sort=newest`, { waitUntil: "domcontentloaded" });
+    await waitForReadyFeed(page);
+
+    await page.selectOption("#gallerySort", "oldest");
+    await page.waitForURL(/sort=oldest/);
+    await waitUntil(
+      () => requestsByAction(feedRequests, "list").some((request) => request.body.sort === "oldest"),
+      "oldest list request",
+    );
+
+    await page.click('#galleryFilters [data-category="action"]');
+    await page.waitForURL(/category=action/);
+    await waitUntil(
+      () => requestsByAction(feedRequests, "list").some((request) => request.body.category === "action"),
+      "action category request",
+    );
+
+    await page.fill("#gallerySearch", "Approved Smoke Submission 003");
+    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await page.waitForURL(/q=Approved\+Smoke\+Submission\+003/);
+    await waitForReadyFeed(page);
+    await waitForMemberCount(page, 1);
+    let state = await visibleState(page);
+    assert(state.imageAlts[0] === "Approved Smoke Submission 003", "URL-backed search returned the wrong item.");
+
+    await page.getByRole("button", { name: "Clear", exact: true }).click();
+    await page.waitForURL((url) => !url.searchParams.has("q"));
+
+    const portraitRow = fixtureRows.find((item) => item.category === "portraits");
+    assert(portraitRow, "Fixture must include a portrait publication.");
+    await page.click('#galleryFilters [data-category="portraits"]');
+    await page.fill("#gallerySearch", portraitRow.title);
+    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await waitForReadyFeed(page);
+    await waitForMemberCount(page, 1);
+    state = await visibleState(page);
+    assert(state.imageAlts[0] === portraitRow.title, "Canonical category search returned the wrong publication.");
+
+    await page.click('#galleryFilters [data-category="scenery"]');
+    await waitForEmptyFeed(page);
+    await page.waitForSelector("#galleryEmpty:not([hidden])");
+    state = await visibleState(page);
+    assert(state.count === 0, "A portrait publication leaked into the scenery category.");
+    assert(state.bodyText.includes("No images match this search."), "Zero-result search state was not rendered.");
+    assert(!state.filters.some((filter) => !publicFilterCategories.includes(filter.slug)), "Noncanonical filter leaked into the zero state.");
+    await assertNoErrors(errors, "URL state and category contract");
+    await page.close();
+  }
+
+  // Explicit feed error stays customer-safe and retries only after user activation.
+  {
+    const checked = await newCheckedPage(context, { listFailures: 1 });
+    const { page, errors, feedRequests } = checked;
+    await page.goto(`${baseUrl}/gallery?sort=newest`, { waitUntil: "domcontentloaded" });
+    await page.waitForSelector('.gallery-feed-state[data-state="error"]');
+    await assertNoSeriousAccessibilityViolations(page, "Gallery feed-error state");
+    assert(
+      (await page.locator("#galleryMemberFeedStatus").textContent())?.includes("Member-submitted images are temporarily unavailable."),
+      "Feed error did not render customer-safe copy.",
+    );
+    assert(!(await page.locator("body").innerText()).includes("Internal fixture detail"), "Feed error leaked internal response text.");
+    await page.waitForTimeout(300);
+    assert(requestsByAction(feedRequests, "list").length === 1, "Feed error retried without user action.");
+    await page.locator(".gallery-feed-retry").focus();
+    await page.keyboard.press("Enter");
+    await waitForReadyFeed(page);
+    assert(requestsByAction(feedRequests, "list").length === 2, "User-activated feed retry did not run exactly once.");
+    await assertNoErrors(errors, "feed failure and retry");
+    await page.close();
+  }
+
+  // WCAG reflow and the shared short-height viewer contract at 320 CSS px and 200% text.
+  {
+    const narrowContext = await prepareContext(browser, { width: 320, height: 256 });
+    try {
+      const checked = await newCheckedPage(narrowContext);
+      const { page, errors, feedRequests } = checked;
+      await page.goto(`${baseUrl}/gallery?category=member-submissions&sort=newest&q=Approved%20Smoke%20Submission%20001`, {
+        waitUntil: "domcontentloaded",
+      });
+      await page.addStyleTag({ content: "html{font-size:200%}" });
+      await waitForReadyFeed(page);
+      await waitForMemberCount(page, 1);
+      await assertNoSeriousAccessibilityViolations(page, "320px and 200% Gallery");
+      assert(
+        await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1),
+        "Gallery overflowed horizontally at 320px and 200% text.",
+      );
+      const card = await page.locator("#galleryGrid .gallery-thumb").boundingBox();
+      assert(card && card.x >= -1 && card.x + card.width <= 321, "Gallery card escaped the 320px viewport.");
+      await page.click("#galleryGrid .gallery-thumb");
+      await waitForActionCount(feedRequests, "full", 1, "narrow full-image request");
+      await assertSharedLightboxContract(page, "320px/200% Gallery", displayUrl(fixtureRows[0].id));
+      const reachable = await page.evaluate(() => {
+        const root = document.querySelector("#lightbox");
+        const card = document.querySelector("#lightbox .lightbox-card");
+        const caption = document.querySelector("#lightboxCaption");
+        if (!(root instanceof HTMLElement) || !(card instanceof HTMLElement) || !(caption instanceof HTMLElement)) return false;
+        card.scrollTop = card.scrollHeight;
+        const rootRect = root.getBoundingClientRect();
+        const captionRect = caption.getBoundingClientRect();
+        return captionRect.bottom <= rootRect.bottom + 2 && (card.scrollHeight <= card.clientHeight + 1 || card.scrollTop > 0);
+      });
+      assert(reachable, "Long lightbox caption was not reachable by vertical scrolling.");
+      await page.click("#lightboxClose");
+      await assertNoErrors(errors, "320px and 200% Gallery");
+      await page.close();
+    } finally {
+      await narrowContext.close();
+    }
+  }
+
+  // Home Screenshot Spotlight remains static and uses the same accessible viewer behavior.
+  {
+    const checked = await newCheckedPage(context);
+    const { page, errors, feedRequests } = checked;
     await page.goto(`${baseUrl}/`, { waitUntil: "domcontentloaded" });
     await waitForHomeGallery(page);
-
-    const state = await page.evaluate(() => {
+    const home = await page.evaluate(() => {
       const buttons = [...document.querySelectorAll("#galleryGrid .home-thumb")];
       return {
         count: buttons.length,
@@ -849,67 +1154,127 @@ try {
         fulls: buttons.map((button) => button.querySelector("img")?.getAttribute("data-full") || ""),
       };
     });
-
-    assert(state.count === 4, `Home Gallery Spotlight expected 4 buttons, got ${state.count}.`);
-    assert(new Set(state.srcs).size === 4, "Home Gallery Spotlight should not render duplicate images.");
-    assert(new Set(state.fulls).size === 4, "Home Gallery Spotlight should not render duplicate full images.");
-    assert(state.srcs.every((src) => src.includes("/thumbs/")), "Home Gallery Spotlight should use thumbnails.");
-    assert(state.fulls.every((full) => full && !full.includes("/thumbs/")), "Home Gallery Spotlight should open full images.");
+    assert(home.count === 4, `Home Gallery Spotlight expected four images, got ${home.count}.`);
+    assert(new Set(home.srcs).size === 4 && home.srcs.every((src) => src.includes("/thumbs/")), "Home Spotlight must use four distinct thumbnails.");
+    assert(new Set(home.fulls).size === 4 && home.fulls.every((full) => full && !full.includes("/thumbs/")), "Home Spotlight must map to four distinct originals.");
+    hydratedHomeSignature = JSON.stringify(home.fulls);
+    await page.waitForTimeout(400);
     assert(
-      state.fulls.every((full) => !mockFullSignedUrls.includes(full)),
-      "Home Gallery Spotlight should remain static-data based.",
+      JSON.stringify(await page.locator("#galleryGrid .home-thumb img[data-full]").evaluateAll((images) =>
+        images.map((image) => image.getAttribute("data-full") || ""),
+      )) === hydratedHomeSignature,
+      "Home Spotlight reordered after hydration.",
     );
-    assert(feedRequests.length === 0, "Home Gallery Spotlight should not request the approved member feed.");
-
-    await assertNoErrors(errors, "Home Gallery Spotlight");
+    assert(feedRequests.length === 0, "Home Spotlight requested the member Gallery feed.");
+    const trigger = "#galleryGrid .home-thumb:first-child";
+    await page.click(trigger);
+    await assertSharedLightboxContract(page, "Home Spotlight", "", homeViewerSelectors);
+    await assertNoSeriousAccessibilityViolations(page, "Home Spotlight viewer", "#modalRoot");
+    await assertCloseAndFocusReturn(page, trigger, "Home Spotlight", homeViewerSelectors);
+    await assertNoErrors(errors, "Home Spotlight");
     await page.close();
   }
 
   await context.close();
 
+  // The server-rendered static Gallery remains useful without JavaScript or private requests.
   const noJavaScriptContext = await browser.newContext({
     javaScriptEnabled: false,
     viewport: { width: 390, height: 844 },
   });
   try {
+    await stubVercelAnalyticsScripts(noJavaScriptContext);
     const page = await noJavaScriptContext.newPage();
+    const errors = [];
+    const noJavaScriptFeedRequests = [];
+    page.on("pageerror", (error) => errors.push(`Page error: ${error.message}`));
+    page.on("console", (message) => {
+      if (message.type() === "error") errors.push(`Console error: ${message.text()}`);
+    });
+    page.on("requestfailed", (request) => {
+      if (request.resourceType() === "script") return;
+      errors.push(`Failed request: ${request.method()} ${request.url()}`);
+    });
+    page.on("request", (request) => {
+      if (new URL(request.url()).pathname.endsWith(approvedFeedPath)) noJavaScriptFeedRequests.push(request.url());
+    });
+    page.on("response", (response) => {
+      if (response.status() >= 400) errors.push(`HTTP ${response.status()}: ${response.url()}`);
+    });
     await page.goto(`${baseUrl}/gallery`, { waitUntil: "load" });
-    const trigger = page.locator("#galleryGrid .gallery-thumb").first();
-    await trigger.scrollIntoViewIfNeeded();
-    const image = trigger.locator(".responsive-gallery-media__image");
+    const image = page.locator("#galleryGrid .gallery-thumb:first-child .responsive-gallery-media__image");
+    await image.scrollIntoViewIfNeeded();
     await image.evaluate((element) => new Promise((resolve) => {
-      if (element.complete) {
-        resolve();
-        return;
+      if (element.complete) resolve();
+      else {
+        element.addEventListener("load", resolve, { once: true });
+        element.addEventListener("error", resolve, { once: true });
       }
-      element.addEventListener("load", resolve, { once: true });
-      element.addEventListener("error", resolve, { once: true });
     }));
     const state = await image.evaluate((element) => {
-      const imageRect = element.getBoundingClientRect();
-      const triggerRect = element.closest(".gallery-thumb")?.getBoundingClientRect();
+      const routeRoot = document.querySelector(".gallery-page[data-gallery-page]");
+      const grid = element.closest(".gallery-grid");
+      const trigger = element.closest(".gallery-thumb");
+      const routeStyles = routeRoot ? getComputedStyle(routeRoot) : null;
+      const gridStyles = grid ? getComputedStyle(grid) : null;
+      const gridRect = grid?.getBoundingClientRect();
+      const triggerRect = trigger?.getBoundingClientRect();
       return {
         naturalWidth: element.naturalWidth,
         opacity: getComputedStyle(element).opacity,
         objectFit: getComputedStyle(element).objectFit,
-        imageWidth: imageRect.width,
-        imageHeight: imageRect.height,
+        horizontalOverflow: document.documentElement.scrollWidth > window.innerWidth + 1,
+        triggerTag: trigger?.tagName || "",
+        triggerHref: trigger?.getAttribute("href") || "",
+        noJavaScriptCopy: document.body.innerText.replace(/\s+/g, " ").trim(),
+        routeRootPresent: Boolean(routeRoot),
+        bodyPage: document.body.dataset.page || "",
+        galleryThemeToken: routeStyles?.getPropertyValue("--gallery-frost").trim() || "",
+        gridDisplay: gridStyles?.display || "",
+        gridColumns: gridStyles?.gridTemplateColumns || "",
+        gridWidth: gridRect?.width || 0,
         triggerWidth: triggerRect?.width || 0,
         triggerHeight: triggerRect?.height || 0,
+        triggerLeft: triggerRect?.left || 0,
+        triggerRight: triggerRect?.right || 0,
       };
     });
     assert(state.naturalWidth > 0, "JavaScript-disabled Gallery did not load its static thumbnail.");
-    assert(state.opacity === "1", "JavaScript-disabled Gallery kept its loaded thumbnail transparent.");
-    assert(state.objectFit === "cover", "JavaScript-disabled Gallery lost the shared cover contract.");
+    assert(state.opacity === "1" && state.objectFit === "cover", "JavaScript-disabled Gallery lost its shared thumbnail contract.");
+    assert(!state.horizontalOverflow, "JavaScript-disabled Gallery overflowed horizontally.");
+    assert(state.triggerTag === "A" && state.triggerHref && !state.triggerHref.includes("/thumbs/"), "JavaScript-disabled Gallery did not expose a direct original-image link.");
+    assert(state.routeRootPresent, "JavaScript-disabled Gallery did not render its route style scope on the server.");
+    assert(state.bodyPage !== "gallery", "No-JavaScript geometry test unexpectedly depended on the client body marker.");
+    assert(state.galleryThemeToken, "JavaScript-disabled Gallery did not receive its route theme variables before hydration.");
+    assert(state.gridDisplay === "grid", "JavaScript-disabled Gallery lost its grid layout before hydration.");
+    assert(state.gridColumns.trim().split(/\s+/).length === 2, `JavaScript-disabled Gallery expected two columns at 390px, got ${state.gridColumns}.`);
     assert(
-      state.imageWidth >= state.triggerWidth - 3 && state.imageHeight >= state.triggerHeight - 3,
-      "JavaScript-disabled Gallery thumbnail did not fill its stable card.",
+      state.gridWidth > 0 && state.triggerWidth > 100 && state.triggerHeight > 0
+        && state.triggerLeft >= -1 && state.triggerRight <= 391,
+      "JavaScript-disabled Gallery card geometry collapsed or escaped the viewport before hydration.",
+    );
+    assert(
+      state.noJavaScriptCopy.includes("Interactive filters and member-submitted images require JavaScript.")
+        && state.noJavaScriptCopy.includes("The published images below remain available as direct links."),
+      "JavaScript-disabled Gallery did not explain its truthful static fallback.",
+    );
+    assert(noJavaScriptFeedRequests.length === 0, "JavaScript-disabled Gallery made a private member-feed request.");
+    await assertNoErrors(errors, "JavaScript-disabled Gallery");
+
+    await page.goto(`${baseUrl}/`, { waitUntil: "load" });
+    const noJavaScriptHomeFulls = await page.locator("#galleryGrid .home-thumb img[data-full]").evaluateAll((images) =>
+      images.map((image) => image.getAttribute("data-full") || ""),
+    );
+    assert(noJavaScriptHomeFulls.length === 4, "JavaScript-disabled Home did not server-render exactly four Spotlight images.");
+    assert(
+      JSON.stringify(noJavaScriptHomeFulls) === hydratedHomeSignature,
+      "Home Spotlight server and hydrated image order diverged.",
     );
   } finally {
     await noJavaScriptContext.close();
   }
 
-  console.log("Gallery approved feed smoke OK.");
+  console.log("Gallery approved feed schema-v2 smoke OK (90 immutable publications, bounded Edge media, cursor traversal, deferred display derivatives, bounded retries, and reflow).");
 } finally {
   await browser.close();
 }

@@ -9,7 +9,7 @@ import {
   type ModerationStatus,
   type RejectedGalleryCleanupResponse,
 } from "./types";
-import type { GalleryThumbnailPayload } from "@/lib/gallery-thumbnail";
+import type { GalleryModerationMedia } from "@/lib/gallery-thumbnail";
 
 export async function checkLeaderGalleryModerationAccess() {
   return invokeEdgeFunction<{ hasAccess?: boolean; moderatorId?: string }>("list-gallery-review-queue", {
@@ -32,11 +32,35 @@ export async function listGalleryReviewQueue(options: {
   });
 }
 
+export async function prepareGalleryReviewPreview(
+  submissionId: string,
+  expectedUpdatedAt: string,
+) {
+  const cleanSubmissionId = String(submissionId || "").trim();
+  const cleanExpectedUpdatedAt = String(expectedUpdatedAt || "").trim();
+  if (!cleanSubmissionId || !cleanExpectedUpdatedAt) {
+    return failedResult("Refresh the moderation queue before preparing this preview.");
+  }
+
+  return invokeEdgeFunction<{
+    submissionId?: string;
+    signedPreviewUrl?: string;
+    sourceWidth?: number;
+    sourceHeight?: number;
+    sourceValidatedAt?: string;
+  }>("list-gallery-review-queue", {
+    action: "prepare_preview",
+    submission_id: cleanSubmissionId,
+    expected_updated_at: cleanExpectedUpdatedAt,
+  });
+}
+
 export async function moderateGallerySubmission(
   submissionId: string,
   action: string,
   reason = "",
-  thumbnail: GalleryThumbnailPayload | null = null,
+  publicationMedia: GalleryModerationMedia | null = null,
+  expectedUpdatedAt = "",
 ) {
   const cleanSubmissionId = String(submissionId || "").trim();
   const cleanAction = String(action || "").trim().toLowerCase();
@@ -46,12 +70,18 @@ export async function moderateGallerySubmission(
   if (!cleanSubmissionId) {
     return failedResult("Choose a gallery submission before moderating.");
   }
+  const cleanExpectedUpdatedAt = String(expectedUpdatedAt || "").trim();
+  if (!cleanExpectedUpdatedAt || !Number.isFinite(Date.parse(cleanExpectedUpdatedAt))) {
+    return failedResult("Refresh the moderation queue before reviewing this submission.");
+  }
 
   return invokeEdgeFunction("moderate-gallery-submission", {
     submission_id: cleanSubmissionId,
     action: cleanAction,
     reason: String(reason || "").trim().slice(0, 500),
-    thumbnail,
+    expected_updated_at: cleanExpectedUpdatedAt,
+    display: publicationMedia?.display || null,
+    thumbnail: publicationMedia?.thumbnail || null,
   });
 }
 

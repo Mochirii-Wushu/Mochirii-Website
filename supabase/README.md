@@ -528,11 +528,29 @@ The website does not assign Discord roles in this phase.
 - upload source (`website` or `discord`)
 - Discord guild/channel/message/attachment/user IDs for Discord submissions
 - Instagram opt-in boolean, timestamp, source, and copy version
-- private bounded WebP derivative path, MIME type, and byte size
+- stable Gallery publication ID plus the currently selected thumbnail-revision metadata
 - moderation status
 - review fields for moderator approval or decline actions
 
-Uploads stay `pending` and do not appear in the public Gallery in this phase.
+Uploads stay private while `pending`. Approval alone does not make a legacy row
+public: the moderation transaction must also create a complete immutable
+publication revision.
+
+`private.gallery_source_validations` stores immutable trusted evidence for the
+exact private source selected by a moderator or accepted through the trusted
+Discord ingest. Evidence is bound to the submission revision and Storage
+object ID, version, timestamp, MIME type, byte size, dimensions, SHA-256, and
+`gallery-source-v1` validator. Direct table privileges are revoked, and a
+publication commit fails closed unless current matching evidence exists.
+
+`private.gallery_publication_revisions` is the service-only public-delivery
+ledger. Each immutable revision freezes the reviewed title, caption, category,
+internal attribution, source timestamps, stable publication ID, exact
+Storage object identities/versions/timestamps and SHA-256 digests, bounded
+metadata-stripped display image, and per-revision thumbnail. Only
+`visible_until` may move once from null to a retirement timestamp. Browser roles
+receive no table privileges, and anonymous public responses expose neither
+attribution nor either Storage path.
 
 `gallery_moderation_events` stores privileged moderation audit records:
 
@@ -566,7 +584,7 @@ member-gallery
 The bucket is restricted to image uploads only:
 
 ```text
-file_size_limit = 52428800
+file_size_limit = 8388608
 allowed_mime_types = image/jpeg, image/png, image/webp
 ```
 
@@ -603,6 +621,20 @@ No public read access is granted.
 - RLS is enabled.
 - anon and authenticated browser clients receive no direct table privileges.
 - service_role can manage rows from trusted Edge Functions.
+
+`private.gallery_publication_revisions`:
+
+- RLS is enabled as defense in depth.
+- `public`, `anon`, `authenticated`, and direct `service_role` table privileges are revoked.
+- only reviewed service-only functions may create or query immutable publication revisions.
+- approved legacy rows without a publication revision remain private until an explicit moderator republication.
+
+`private.gallery_source_validations`:
+
+- RLS is enabled as defense in depth.
+- `public`, `anon`, `authenticated`, and direct `service_role` table privileges are revoked.
+- service-only validation functions accept static JPEG, PNG, or WebP sources no larger than 8 MiB, 4096 pixels per edge, or 12.6 megapixels.
+- only evidence matching the current submission and Storage object can authorize a preview or publication.
 
 `gallery_instagram_publish_jobs` and `gallery_instagram_publish_events`:
 
@@ -643,7 +675,8 @@ Storage `member-gallery`:
 
 - authenticated active verified members can upload only into their own first path segment.
 - authenticated users can read only their own objects.
-- authenticated active verified members can update/delete only their own objects.
+- referenced source objects are immutable; authenticated members cannot replace them.
+- authenticated members may delete only an orphaned object in their own path before a submission references it.
 - anon receives no access.
 - bucket remains private.
 
@@ -656,13 +689,13 @@ Leader moderation uses two Edge Functions:
 
 Both functions require a signed-in Supabase user JWT and then verify Discord server membership against guild `1078630751077142608`. The moderator check requires role ID `1078630751165222984` from `DISCORD_MODERATOR_ROLE_IDS`. The role name secret is documentation only; role names are never trusted for enforcement. If moderation secrets are missing or do not match the expected guild or role ID, the functions fail closed.
 
-`list-gallery-review-queue` is moderator-only. It supports `pending`, `approved`, `rejected`, and `archived` queue filters, returns dashboard counts, joins safe uploader/moderator profile display fields, includes recent `gallery_moderation_events`, and creates short-lived signed URLs for private `member-gallery` objects. The Storage bucket stays private and no public read policy is added.
+`list-gallery-review-queue` is moderator-only. It supports `pending`, `approved`, `rejected`, and `archived` queue filters, returns dashboard counts, joins safe uploader/moderator profile display fields, and includes recent `gallery_moderation_events`. It does not bulk-sign raw sources. A moderator explicitly prepares one selected preview; the function downloads that exact object, performs bounded structural validation, commits current service-only evidence, and only then issues a short-lived preview capability. Normal queue responses sign previews only for sources whose object identity still matches trusted evidence. The Storage bucket stays private and no public read policy is added.
 
-`moderate-gallery-submission` accepts `approved` or `rejected` for a pending submission and `thumbnail` for an approved historical submission. Approval requires a client-prepared WebP derivative that the function validates structurally and fully decodes with pinned libwebp 1.6.0. It must be static, at most 720 pixels on either edge, and at most 80 KiB. Each attempt uses a unique immutable revision under the service-only `_approved/thumbs/{submission}/{revision}.webp` prefix. The row change and `gallery_moderation_events` insert commit through one service-only database function, so an audit failure rolls back moderation. Approved submissions with a validated derivative become eligible for the approved public Gallery feed; they are not written into `data/gallery.json`.
+`moderate-gallery-submission` accepts `approved` or `rejected` for a pending submission and `thumbnail` for explicit republication of an approved historical submission. Approval re-encodes the signed private review image into two metadata-stripped WebP assets: a display image no larger than 2560 pixels on either edge and 2 MiB, and a thumbnail no larger than 720 pixels on either edge and 80 KiB. The function structurally validates and fully decodes both with pinned libwebp 1.6.0. The display image uses the stable `_approved/publications/{publication}/display.webp` path; each immutable thumbnail revision uses `_approved/publications/{publication}/revisions/{revision}/thumbnail.webp`. The source-row change, moderation event, prior-revision retirement, and new immutable publication revision commit through one service-only database function, so an audit or evidence failure rolls back the database transition. Published submissions are not written into `data/gallery.json`.
 
-`list-gallery-review-queue` paginates and filters historical approved rows by thumbnail state. `list-approved-gallery-submissions` asks a service-only database function to filter complete rows and matching Storage metadata before applying its limit, then signs paths in bounded batches. Member policies allow updates and deletes only for pending originals; moderated originals and the service-owned derivative prefix are immutable to member sessions.
+`list-gallery-review-queue` paginates and filters historical approved rows by publication-media state. `list-approved-gallery-submissions` asks service-only database functions to read a stable ten-minute snapshot from `private.gallery_publication_revisions`, reconcile exact Storage object evidence, and apply a 24-item keyset page. It returns stable credential-free thumbnail Edge URLs and never a bearer capability. A media `GET` reserves the request and immutable byte count in the serialized global budget, downloads the private derivative, verifies exact size and SHA-256, and then returns WebP with a five-minute private browser cache. The member-owned source original remains private and is never a public viewer asset. Member policies allow updates and deletes only for pending source originals; members cannot access the service-owned publication prefix.
 
-The website Leader Dashboard uses those functions to show queue tabs, submission details, signed private previews, source metadata, rejection reasons, and compact moderation history. Regular browser clients still do not receive direct privileges to update review fields or insert moderation events.
+The website Leader Dashboard uses those functions to show queue tabs, submission details, explicitly prepared private previews, source metadata, rejection reasons, and compact moderation history. The browser reuses its single validated preview download when creating the bounded publication derivatives. Regular browser clients still do not receive direct privileges to update review fields or insert moderation events.
 
 For the human moderator workflow, see `docs/member-gallery-moderation-runbook.md`.
 
@@ -747,7 +780,7 @@ The database stores:
 
 All three tables have RLS enabled and service-role-only grants. Browser clients receive no direct candidate, Discord ID, voter, or vote-count access. The website Home and Spotlight pages may replace the configured fallback title with the finalized winner name only; they do not expose the winner's Discord handle, profile link, avatar, raw vote totals, or candidate list.
 
-Discord uploads are idempotent by message/attachment ID. They go through the same moderator approval queue as website uploads and do not appear publicly until approved. Discord attachment `content_type` is advisory because Discord may omit or mislabel it; `submit-discord-gallery-image` downloads the approved Discord CDN URL and accepts only JPEG, PNG, or WebP byte signatures under 50 MB before storing the sniffed MIME type.
+Discord uploads are idempotent by message/attachment ID. They go through the same moderator approval queue as website uploads and do not appear publicly until approved. Discord attachment `content_type` is advisory because Discord may omit or mislabel it; `submit-discord-gallery-image` streams the approved Discord CDN URL through an 8 MiB hard ceiling, structurally validates a static JPEG, PNG, or WebP within the 4096-edge and 12.6-megapixel limits, stores the sniffed MIME type, and commits matching trusted source evidence. A missing or conflicting evidence commit removes the inserted row and object and fails closed.
 
 The private Reaper source repo is `Mochirii-Wushu/Reaper-Discord-Bot`, which remains the command/contract helper and rollback runtime reference. Production Reaper is Supabase-hosted Discord Interactions. Its gallery slash command requires only `image`; `title`, `subtitle`, and the Discord boolean opt-in stay optional:
 
@@ -831,21 +864,32 @@ V1 supports single-image Instagram feed posts only. Reels, Stories, carousels, h
 
 ## Approved Public Gallery Feed
 
-Approved member submissions appear on `gallery.html` through the public Edge Function:
+Approved member submissions appear on canonical `/gallery` through the public Edge Function:
 
 - `list-approved-gallery-submissions`
 
-This Gallery Edge Function also has `verify_jwt = false`. It is publicly callable because the public Gallery page needs to load without sign-in, but it uses server-side credentials only inside the Edge runtime and queries only `gallery_submissions` rows where `status = 'approved'`.
+This Gallery Edge Function has the reviewed `verify_jwt = false` classification because `/gallery` loads without sign-in. It uses service credentials only inside the Edge runtime and exposes a public-safe, read-only DTO. The migration revokes the two `security definer` helper functions from `public`, `anon`, and `authenticated`, then grants them only to `service_role`; PostgreSQL function execution must never rely on default `PUBLIC` privileges.
 
-The function returns public-safe fields, safe uploader display names, and distinct short-lived URLs for the private bounded thumbnail and original `member-gallery` object. The grid receives the derivative and the viewer receives the original. The Storage bucket remains private; no public bucket or anonymous Storage read policy is added.
+Schema version 2 returns public-safe text, decoded thumbnail geometry, totals/facets, and one stable credential-free thumbnail Edge URL per item. It deliberately omits uploader identity. The item identity is the stable opaque publication ID; refreshing a thumbnail creates a new immutable revision without changing that public identity. A list response never contains a display URL. When a visitor opens one runtime item, the function rechecks that publication and delivers only its bounded metadata-stripped display derivative through the same Edge boundary. The member-owned source original is never delivered for public viewing. The Storage bucket remains private; no public bucket or anonymous Storage read policy is added.
 
-Pending, rejected, archived, and historical approved submissions without a validated derivative are not returned by the approved feed. If either private object cannot receive a signed URL, the function returns a safe per-item preview error and the browser skips that item.
+Pending, rejected, archived, and historical approved submissions without an active immutable publication revision are not returned by the feed. Legacy null, noncanonical, incomplete, or source-only rows remain private until a moderator explicitly reviews and republishes them. A publishable revision requires complete display/thumbnail geometry plus exact object identity, version, timestamp, size, MIME, and digest evidence. Malformed database evidence and delivery-budget denial fail closed. The function never partially delivers a page, skips an item, advances a cursor past a failed item, or exposes object paths or provider errors.
 
-The Next Gallery browser normalizes approved member submissions into the same item model as the static `data/gallery.json` Gallery before rendering. The default Random mix keeps its server-rendered static order stable and appends runtime submissions, preventing a late feed response from reshuffling cards already on screen. Newest and Oldest sort all matching static and member items together, while the Member Submissions filter provides the direct runtime album. Member submissions use their submitted title and/or caption in the existing lightbox, followed by the uploader's public Discord display name when available. Existing static Gallery captions remain owned by `data/gallery.json` and should not be edited to publish member submissions.
+The Next Gallery browser normalizes published member submissions into the same item model as the static `data/gallery.json` Gallery before rendering. It traverses sequential opaque cursors instead of applying a fixed 80-row cap. The first page establishes a stable snapshot over immutable revisions; later publications and revisions wait for the next traversal. Retired revisions remain available for at least the cursor delivery overlap so an in-flight snapshot does not drift. Server totals and facets represent the complete filtered snapshot. Every runtime item belongs to Member Submissions and one moderator-reviewed canonical visual category. Historical null or noncanonical source categories never create a public category or item; source fields are not fallbacks.
+
+The default Random mix keeps its server-rendered static order stable and appends runtime submissions, preventing a late feed response from reshuffling cards already on screen. Newest and Oldest combine sources only through the runtime keyset prefix proven complete. Member submissions use their reviewed title and/or caption in the existing lightbox without public uploader attribution. Existing static Gallery captions remain owned by `data/gallery.json` and should not be edited to publish member submissions.
 
 If an older approved `gallery_submissions` row has blank `title` and `caption` values, the public lightbox will use the `Member submission` fallback until a Moderator or operator updates that row in Supabase. Future uploads preserve non-empty title and caption values from `gallery-submit.html` into `gallery_submissions`.
 
-Public Gallery ordering uses one normalized timestamp model. Static curated images use `galleryAddedAt` in `data/gallery.json`; approved member uploads use their Supabase `created_at` value. The default Gallery order is `Random mix`, using a deterministic content-derived seed so server output and hydration do not reshuffle after paint. Visitors may choose `Newest first` or `Oldest first`; static images and approved member submissions are sorted together. Approved member submissions still render through signed URLs from the private `member-gallery` bucket, and pending or rejected submissions remain hidden.
+Public Gallery ordering uses one normalized timestamp model. Static curated images use `galleryAddedAt` in `data/gallery.json`; published member items use their frozen reviewed and created timestamps with the stable publication ID as the final key. The default Gallery order is computed before first paint and runtime cards append without moving rendered static cards. Visitors may choose `Newest first` or `Oldest first`; cross-source results are exposed only through the proven keyset boundary. Runtime thumbnails and display derivatives use stable credential-free Edge URLs backed by private, immutable media evidence; source originals and unpublished submissions remain private.
+
+The source contract keeps the existing inventory at exactly 33 configured Edge Functions with 20 `verify_jwt=true` and 13 false. It reuses `list-approved-gallery-submissions`; no 34th function is introduced. Recalculate that parity at the final exact release head before provider approval.
+
+Before release, run `operations/reconcile_gallery_public_feed_v2.sql` from a
+trusted read-only session. It reports only public-safe counts and verifies that
+eligible totals, category facets, and complete keyset traversal reconcile; it
+does not expose object paths or mutate data.
+
+See [`../docs/integrations/gallery-public-media-delivery.md`](../docs/integrations/gallery-public-media-delivery.md) for the versioned DTO, keyset cursor, bounded Edge media, global quota, retry, and rollout boundaries.
 
 ## Local Testing Flow
 

@@ -1,3 +1,15 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import {
+  fetchBoundedGallerySource,
+  gallerySourceMaximumEdge,
+  gallerySourceMaximumPixels,
+} from "@/lib/gallery-thumbnail";
+import {
+  startGalleryPreviewRequest,
+  type GalleryPreviewLease,
+} from "@/lib/gallery/safe-preview";
 import {
   text,
   type GalleryReviewQueue,
@@ -103,14 +115,150 @@ export function QueueSummary({ queue, shown }: { queue: GalleryReviewQueue | nul
   );
 }
 
+type ValidatedGalleryPreviewState =
+  | { status: "loading"; objectUrl: ""; blob: null }
+  | ({ status: "decoding" | "ready" } & GalleryPreviewLease)
+  | { status: "error"; objectUrl: ""; blob: null };
+
+function ValidatedGalleryPreview({
+  submissionId,
+  title,
+  sourceUrl,
+  sourceWidth,
+  sourceHeight,
+  sourceMimeType,
+  sourceSizeBytes,
+  onBlobChange,
+  onError,
+}: {
+  submissionId: string;
+  title: string;
+  sourceUrl: string;
+  sourceWidth: number;
+  sourceHeight: number;
+  sourceMimeType: string;
+  sourceSizeBytes: number;
+  onBlobChange: (submissionId: string, sourceUrl: string, blob: Blob | null) => void;
+  onError: (submissionId: string, sourceUrl: string) => void;
+}) {
+  const [preview, setPreview] = useState<ValidatedGalleryPreviewState>({
+    status: "loading",
+    objectUrl: "",
+    blob: null,
+  });
+
+  useEffect(() => {
+    let mounted = true;
+    onBlobChange(submissionId, sourceUrl, null);
+
+    const request = startGalleryPreviewRequest((signal) =>
+      fetchBoundedGallerySource(
+        sourceUrl,
+        { mimeType: sourceMimeType, sizeBytes: sourceSizeBytes },
+        signal,
+      )
+    );
+    void request.ready.then((lease) => {
+      if (!mounted || !lease) return;
+      setPreview({ status: "decoding", ...lease });
+    }).catch((error) => {
+      if (!mounted || error instanceof DOMException && error.name === "AbortError") return;
+      setPreview({ status: "error", objectUrl: "", blob: null });
+      onError(submissionId, sourceUrl);
+    });
+
+    return () => {
+      mounted = false;
+      request.dispose();
+      onBlobChange(submissionId, sourceUrl, null);
+    };
+  }, [
+    onBlobChange,
+    onError,
+    sourceMimeType,
+    sourceSizeBytes,
+    sourceUrl,
+    submissionId,
+  ]);
+
+  function confirmDecodedImage(image: HTMLImageElement) {
+    if (preview.status !== "decoding") return;
+    const naturalWidth = image.naturalWidth;
+    const naturalHeight = image.naturalHeight;
+    const dimensionsMatch =
+      naturalWidth === sourceWidth && naturalHeight === sourceHeight ||
+      naturalWidth === sourceHeight && naturalHeight === sourceWidth;
+    const dimensionsAreBounded =
+      naturalWidth > 0 &&
+      naturalHeight > 0 &&
+      naturalWidth <= gallerySourceMaximumEdge &&
+      naturalHeight <= gallerySourceMaximumEdge &&
+      naturalWidth * naturalHeight <= gallerySourceMaximumPixels;
+    if (!dimensionsMatch || !dimensionsAreBounded) {
+      preview.release();
+      setPreview({ status: "error", objectUrl: "", blob: null });
+      onBlobChange(submissionId, sourceUrl, null);
+      onError(submissionId, sourceUrl);
+      return;
+    }
+    setPreview({ ...preview, status: "ready" });
+    onBlobChange(submissionId, sourceUrl, preview.blob);
+  }
+
+  function rejectDecodedImage() {
+    if (preview.status === "decoding" || preview.status === "ready") {
+      preview.release();
+    }
+    setPreview({ status: "error", objectUrl: "", blob: null });
+    onBlobChange(submissionId, sourceUrl, null);
+    onError(submissionId, sourceUrl);
+  }
+
+  return (
+    <div
+      className="review-preview__validated"
+      aria-busy={preview.status === "loading" || preview.status === "decoding"}
+    >
+      {preview.status === "loading" ? (
+        <div className="review-preview__empty" role="status">
+          <span>Loading safe preview</span>
+        </div>
+      ) : null}
+      {preview.status === "decoding" || preview.status === "ready" ? (
+        <img
+          src={preview.objectUrl}
+          alt={`${title} preview`}
+          width={sourceWidth}
+          height={sourceHeight}
+          decoding="async"
+          onLoad={(event) => confirmDecodedImage(event.currentTarget)}
+          onError={rejectDecodedImage}
+        />
+      ) : null}
+      {preview.status === "error" ? (
+        <div className="review-preview__empty" role="alert">
+          <span>Safe preview unavailable</span>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function SubmissionCard({
   item,
   activeStatus,
   busy,
   reason,
   cleanupArmed,
+  previewSourceUrl,
+  previewSourceWidth,
+  previewSourceHeight,
+  previewReady,
   onReasonChange,
   onModerate,
+  onPreparePreview,
+  onPreviewBlobChange,
+  onPreviewError,
   onArmCleanup,
   onCancelCleanup,
   onDeleteRejected,
@@ -120,8 +268,15 @@ export function SubmissionCard({
   busy: boolean;
   reason: string;
   cleanupArmed: boolean;
+  previewSourceUrl: string;
+  previewSourceWidth: number;
+  previewSourceHeight: number;
+  previewReady: boolean;
   onReasonChange: (value: string) => void;
   onModerate: (item: GalleryReviewSubmission, action: "approved" | "rejected" | "thumbnail") => void;
+  onPreparePreview: (item: GalleryReviewSubmission) => void;
+  onPreviewBlobChange: (submissionId: string, sourceUrl: string, blob: Blob | null) => void;
+  onPreviewError: (submissionId: string, sourceUrl: string) => void;
   onArmCleanup: (item: GalleryReviewSubmission) => void;
   onCancelCleanup: (item: GalleryReviewSubmission) => void;
   onDeleteRejected: (item: GalleryReviewSubmission) => void;
@@ -130,12 +285,24 @@ export function SubmissionCard({
   const title = text(item.title || item.originalFilename, "Untitled image");
   const events = Array.isArray(item.moderationEvents) ? item.moderationEvents : [];
   const sourceLabel = text(item.source, "website").toLowerCase() === "discord" ? "Discord" : "Website";
+  const sourceValidated = item.sourceValidationState === "validated" || Boolean(previewSourceUrl);
 
   return (
     <article className={`review-item review-item--${status}`} data-submission-id={item.id || ""}>
       <div className="review-preview">
-        {item.signedPreviewUrl ? (
-          <img src={item.signedPreviewUrl} alt={`${title} preview`} loading="lazy" decoding="async" />
+        {previewSourceUrl ? (
+          <ValidatedGalleryPreview
+            key={`${text(item.id)}:${previewSourceUrl}`}
+            submissionId={text(item.id)}
+            title={title}
+            sourceUrl={previewSourceUrl}
+            sourceWidth={previewSourceWidth}
+            sourceHeight={previewSourceHeight}
+            sourceMimeType={text(item.mimeType)}
+            sourceSizeBytes={Number(item.sizeBytes || 0)}
+            onBlobChange={onPreviewBlobChange}
+            onError={onPreviewError}
+          />
         ) : (
           <div className="review-preview__empty">
             <span>Preview unavailable</span>
@@ -159,6 +326,9 @@ export function SubmissionCard({
             ["Category", item.category || "Uncategorized"],
             ["Type", item.mimeType || "Unknown"],
             ["Size", formatBytes(item.sizeBytes)],
+            ["Safe preview", sourceValidated && (previewSourceWidth || item.sourceWidth) && (previewSourceHeight || item.sourceHeight)
+              ? `${previewSourceWidth || item.sourceWidth} × ${previewSourceHeight || item.sourceHeight}`
+              : "Review required"],
             ["Gallery thumbnail", item.thumbnailSizeBytes ? formatBytes(item.thumbnailSizeBytes) : "Not prepared"],
             ["Submitted", formatDate(item.createdAt, "Not set")],
             ["Reviewed", item.reviewedAt ? formatDate(item.reviewedAt, "Not reviewed") : "Not reviewed"],
@@ -193,6 +363,19 @@ export function SubmissionCard({
             <p className="muted">No moderation history recorded yet.</p>
           )}
         </section>
+        {(status === "pending" || status === "approved") && !previewSourceUrl ? (
+          <section className="review-history" aria-label="Safe source preview preparation">
+            <h4>Safe Preview</h4>
+            <p className="review-action-note">
+              Validate this one private image before it is loaded in the moderation browser.
+            </p>
+            <div className="auth-actions">
+              <button className="hero-cta" type="button" onClick={() => onPreparePreview(item)} disabled={busy}>
+                Prepare safe preview
+              </button>
+            </div>
+          </section>
+        ) : null}
         {status === "pending" ? (
           <>
             <label className="form-field review-reason">
@@ -208,7 +391,7 @@ export function SubmissionCard({
               />
             </label>
             <div className="auth-actions">
-              <button className="hero-cta hero-cta--primary" type="button" onClick={() => onModerate(item, "approved")} disabled={busy}>Approve</button>
+              <button className="hero-cta hero-cta--primary" type="button" onClick={() => onModerate(item, "approved")} disabled={busy || !previewReady}>Approve</button>
               <button className="hero-cta" type="button" onClick={() => onModerate(item, "rejected")} disabled={busy}>Decline</button>
             </div>
           </>
@@ -222,7 +405,7 @@ export function SubmissionCard({
                 : "Prepare the bounded gallery image before this submission can appear in the public album."}
             </p>
             <div className="auth-actions">
-              <button className="hero-cta" type="button" onClick={() => onModerate(item, "thumbnail")} disabled={busy}>
+              <button className="hero-cta" type="button" onClick={() => onModerate(item, "thumbnail")} disabled={busy || !previewReady}>
                 {item.thumbnailStoragePath ? "Refresh gallery thumbnail" : "Prepare gallery thumbnail"}
               </button>
             </div>

@@ -124,6 +124,8 @@ export type GallerySubmission = {
   instagram_opt_in_at?: string | null;
   instagram_opt_in_source?: string | null;
   instagram_opt_in_copy_version?: string | null;
+  thumbnail_width?: number | null;
+  thumbnail_height?: number | null;
 };
 
 export type GallerySubmissionMetadata = {
@@ -229,6 +231,13 @@ export type GalleryReviewSubmission = {
   thumbnailStoragePath?: string | null;
   thumbnailMimeType?: string | null;
   thumbnailSizeBytes?: number | null;
+  thumbnailWidth?: number | null;
+  thumbnailHeight?: number | null;
+  publicationReady?: boolean;
+  sourceValidationState?: "required" | "validated" | string | null;
+  sourceWidth?: number | null;
+  sourceHeight?: number | null;
+  sourceValidatedAt?: string | null;
   signedPreviewUrl?: string | null;
   previewError?: string | null;
   instagramOptIn?: boolean | null;

@@ -155,14 +155,14 @@ expectIncludes("spotlight lookup", spotlightLookup, 'import "server-only";');
 expectIncludes("spotlight lookup", spotlightLookup, "next: { revalidate: 3600 }");
 
 const lightbox = read("apps/web/components/HomeGalleryLightbox.tsx");
-const lightboxModal = read("apps/web/components/HomeGalleryLightboxModal.tsx");
-expectIncludes("home gallery", lightbox, "lazy(() =>");
-expectIncludes("home gallery", lightbox, "<HomeGalleryLightboxFallback");
-expectIncludes("home gallery", lightbox, "return createPortal(");
+const universalLightbox = read("apps/web/components/UniversalImageLightbox.tsx");
+expectIncludes("home gallery", lightbox, "<UniversalImageLightbox");
 expectIncludes("home gallery", lightbox, "useBodyScrollLock(openItem !== null && portalRoot !== null);");
-expectExcludes("home gallery", lightbox, "<Suspense fallback={null}>");
-expectIncludes("home gallery modal", lightboxModal, "createPortal");
-expectExcludes("home gallery modal", lightboxModal, "useBodyScrollLock(");
+expectExcludes("home gallery", lightbox, "lazy(");
+expectExcludes("home gallery", lightbox, "HomeGalleryLightboxFallback");
+expectIncludes("home Gallery selection", homePage, "function getStableGallerySpotlightItems(");
+expectIncludes("home Gallery selection", homePage, "<HomeGalleryLightbox items={gallerySpotlightItems} />");
+expectIncludes("universal image lightbox", universalLightbox, "createPortal");
 
 if (failures.length) {
   console.error(`Next route delivery validation failed (${failures.length} issue${failures.length === 1 ? "" : "s"}).`);
