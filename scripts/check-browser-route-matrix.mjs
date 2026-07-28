@@ -26,7 +26,6 @@ const allRoutes = [
   { route: "/join", label: "Join", expectMain: true, expectNoIframe: true, requireOpaquePanels: [".hero-intro", ".page-main .glass-card"] },
   { route: "/events", label: "Events", expectMain: true, expectNoIframe: true, requireOpaquePanels: [".hero-intro", ".page-main .glass-card"] },
   { route: "/raffle", label: "Raffle", expectMain: true, expectNoIframe: true, expectNoForm: true, requireOpaquePanels: [".hero-intro", ".page-main .glass-card"] },
-  { route: "/raffle/rules", label: "Raffle Rules Status", expectMain: true, expectNoIframe: true, expectNoForm: true, requireOpaquePanels: [".page-main .glass-card"] },
   { route: "/gallery", label: "Gallery", expectMain: true, expectLiveRegion: true },
   { route: "/tome", label: "Tome", expectMain: true, requireOpaquePanels: [".hero-intro", ".page-main .glass-card"] },
   { route: "/auth", label: "Auth", expectMain: true, expectLiveRegion: true, expectAlert: true },

@@ -23,7 +23,6 @@ const routes = [
   { route: "/recruitment", label: "Recruitment", file: "apps/web/app/recruitment/page.tsx", type: "public", workflow: "recruiting copy", expectsDescribedBy: true },
   { route: "/announcements", label: "Announcements", file: "apps/web/app/announcements/page.tsx", type: "public", workflow: "updates" },
   { route: "/raffle", label: "Raffle", file: "apps/web/app/raffle/page.tsx", type: "public", workflow: "monthly raffle program and inactive drawing status", componentFiles: ["apps/web/components/public-pages/route-pages/RafflePage.tsx"] },
-  { route: "/raffle/rules", label: "Raffle Rules", file: "apps/web/app/raffle/rules/page.tsx", type: "public", workflow: "standing, current, and archived raffle rules" },
   { route: "/spotify", label: "Spotify", file: "apps/web/app/spotify/page.tsx", type: "public", workflow: "embedded playlists", componentFiles: ["apps/web/components/public-pages/SpotifyBrowser.tsx"], expectsIframe: true },
   { route: "/spotlight", label: "Spotlight", file: "apps/web/app/spotlight/page.tsx", type: "public", workflow: "member spotlight" },
   { route: "/twills", label: "Twills", file: "apps/web/app/twills/page.tsx", type: "public", workflow: "profile reference", componentFiles: ["apps/web/components/public-pages/ProfileDisplay.tsx"] },

@@ -7,8 +7,6 @@ const failures = [];
 
 const files = {
   page: "apps/web/app/raffle/page.tsx",
-  rules: "apps/web/app/raffle/rules/page.tsx",
-  ruleVersion: "apps/web/app/raffle/rules/[version]/page.tsx",
   renderFixtureRoute: "apps/web/app/raffle-render-fixtures-internal/[scenario]/page.tsx",
   renderFixtureData: "apps/web/lib/raffle/public-render-fixtures.ts",
   component: "apps/web/components/public-pages/route-pages/RafflePage.tsx",
@@ -32,6 +30,8 @@ const files = {
 };
 
 const forbiddenOperationalSurfaces = [
+  "apps/web/app/raffle/rules/page.tsx",
+  "apps/web/app/raffle/rules/[version]/page.tsx",
   "apps/web/app/raffle/claim",
   "apps/web/app/leader-dashboard/raffle",
   "apps/web/app/raffles/page.tsx",
@@ -86,11 +86,18 @@ for (const key of ["opensAt", "closesAt", "drawAt", "claimEndsAt", "publicReward
 }
 assert(data.publicView?.publicResult === "none", "raffle data: inactive public result must be none");
 
-assert(data.publicView?.baseEntries === 5, "raffle data: standard entry count must be five");
-assert(data.publicView?.maximumBonusEntries === 5, "raffle data: bonus entry maximum must be five");
+assert(data.publicView?.baseEntries === 1, "raffle data: standard entry count must be one");
+assert(data.publicView?.maximumBonusEntries === 9, "raffle data: bonus entry maximum must be nine");
 assert(data.publicView?.maximumEntries === 10, "raffle data: total entry maximum must be ten");
+for (const phrase of ["No purchase necessary", "purchases", "payments", "donations", "subscriptions", "never improve eligibility, entry counts, or odds"]) {
+  assert(data.entryModel?.noPurchaseNotice?.includes(phrase), `raffle data: consolidated free-entry notice missing ${phrase}`);
+}
+assert(
+  !/\b(?:purchases?|payments?|donations?|subscriptions?)\b/i.test((data.entryModel?.noAdvantageRules || []).join(" ")),
+  "raffle data: purchase and payment safeguards must appear only in the conspicuous free-entry notice",
+);
 assert(Array.isArray(data.entryModel?.permanentBonusMethods), "raffle data: permanent bonus methods must be an array");
-assert(data.entryModel?.permanentBonusMethods?.length === 5, "raffle data: exactly five permanent bonus methods are required");
+assert(data.entryModel?.permanentBonusMethods?.length === 9, "raffle data: exactly nine permanent bonus methods are required");
 const methodTitles = new Set();
 for (const [index, method] of (data.entryModel?.permanentBonusMethods || []).entries()) {
   assert(typeof method.title === "string" && method.title.trim(), `raffle data: method ${index + 1} requires a title`);
@@ -104,13 +111,13 @@ for (const [index, method] of (data.entryModel?.permanentBonusMethods || []).ent
 for (const phrase of ["Verified Mōchirīī guild member in good standing", "age 18 or older", "country approved for that drawing", "one account and one opt-in per person per cycle"]) {
   assert(data.eligibility?.includes(phrase), `raffle data: standing eligibility missing ${phrase}`);
 }
-assert(data.rewards?.categories?.length >= 4, "raffle data: electronic, in-game, and two community-honor concepts are required");
-for (const phrase of ["Electronic gifts", "In-game gifts", "Guild commendation", "Hall record"]) {
+assert(data.rewards?.categories?.length >= 6, "raffle data: gift card, prepaid, membership, in-game, and two community-honor concepts are required");
+for (const phrase of ["Digital gift cards", "Virtual prepaid rewards", "Community membership upgrades", "In-game gifts", "Guild commendation", "Hall record"]) {
   assert(JSON.stringify(data.rewards).includes(phrase), `raffle data: missing reward concept ${phrase}`);
 }
 assert(data.results?.current === null, "raffle data: inactive release must not invent a current result");
 assertDeepEqual(data.results?.previous, [], "raffle data: completed results must not be invented");
-assert(data.rules?.standingRulesUrl === "/raffle/rules", "raffle data: standing rules route must remain local");
+assert(data.rules?.standingRulesUrl === "/raffle#rules", "raffle data: standing rules must use the consolidated on-page anchor");
 assert(data.rules?.currentRulesState === "inactive", "raffle data: current rules must remain inactive");
 assertDeepEqual(data.rules?.archive, [], "raffle data: archived rules must not be invented");
 assertDeepEqual(data.rules?.versions, [], "raffle data: immutable rule versions must not be invented");
@@ -131,8 +138,6 @@ const raffleMetadataSource = raffleMetadataStart >= 0 && raffleMetadataEnd > raf
   : "";
 const publicSource = [
   read(files.page),
-  read(files.rules),
-  read(files.ruleVersion),
   read(files.component),
   read(files.contract),
   read(files.data),
@@ -164,10 +169,12 @@ for (const phrase of [
   "Bonus entries",
   "No submissions are being accepted",
   "No purchase necessary",
-  "five standard entries",
-  "five optional bonus entries",
-  "maximum is ten entries",
-  "electronic gifts",
+  "one standard entry",
+  "nine optional bonus entries",
+  "maximum:",
+  "digital gift cards",
+  "virtual prepaid rewards",
+  "community membership upgrades",
   "in-game gifts",
   "community honors",
   "No active drawing rules",
@@ -188,6 +195,8 @@ assertIncludes("verified-viewer name selection", contractSource, "viewerResultNa
 assert(!/\bmemberDisplayName\s*:/.test(contractSource), "raffle contract: public result contract must not define a member display-name field");
 assertIncludes("runtime model validation", contractSource, "parseRafflePageModel(raffleData)");
 assertIncludes("reviewed immutable rule lookup", contractSource, "getRaffleRuleVersion");
+assertIncludes("consolidated standing rules anchor", contractSource, 'standingRulesUrl: "/raffle#rules"');
+assertIncludes("consolidated version anchor", contractSource, "`/raffle#drawing-rules-${slug}`");
 assertIncludes("strict chronological contract", contractSource, "opensAt < closesAt < drawAt < claimEndsAt");
 assertIncludes("drawing-evidence parity", contractSource, "public drawing evidence time must equal the current drawing time");
 const renderFixtureSource = read(files.renderFixtureRoute);
@@ -219,15 +228,30 @@ assertIncludes("official winner narrow reflow", read(files.sideStyles), "@media 
 const nextConfig = read(files.nextConfig);
 assertIncludes("Next redirects", nextConfig, '["/raffles", "/raffle"]');
 assertIncludes("Next redirects", nextConfig, '["/raffles.html", "/raffle"]');
+assert(!nextConfig.includes('["/raffle/rules",'), "Next redirects: retired raffle rules root must not redirect");
+assert(!nextConfig.includes('["/raffle/rules/:path*",'), "Next redirects: retired raffle rules versions must not redirect");
 assertIncludes("navigation", read(files.navigation), 'href: "/raffle", label: "Raffle", nav: "raffle"');
 assertIncludes("footer", read(files.footer), '{ href: "/raffle", label: "Raffle" }');
 assertIncludes("home bulletin", read(files.home), '"href": "/raffle"');
 assertIncludes("Tome raffle guidance", read(files.tome), "the current raffle status stays public & clearly labeled");
 assertIncludes("website event cards", read(files.scheduleHelper), '.filter((item) => item.id !== "monthly-raffle")');
 assertIncludes("metadata", metadataSource, 'path: "/raffle"');
-assertIncludes("metadata", metadataSource, 'path: "/raffle/rules"');
 assertIncludes("sitemap", read(files.sitemap), `${SITE_ORIGIN}/raffle</loc>`);
-assertIncludes("sitemap", read(files.sitemap), `${SITE_ORIGIN}/raffle/rules</loc>`);
+assert(!read(files.sitemap).includes(`${SITE_ORIGIN}/raffle/rules`), "sitemap: retired raffle rules URL must be absent");
+assert(!metadataSource.includes('path: "/raffle/rules"'), "metadata: retired raffle rules page must be absent");
+
+const visibleTimeSource = [
+  read(files.component),
+  read(files.data),
+  read(files.footer),
+  read("apps/web/components/public-pages/RaffleDateTime.tsx"),
+  read("apps/web/public/data/announcements.json"),
+  read("apps/web/public/data/events.json"),
+  read("apps/web/public/data/join.json"),
+  read("apps/web/public/data/twills.json"),
+].join("\n");
+assert(!/Singapore\s+Time|Singapore time|UTC\s+\+\s*8|UTC\+8\s*\(Singapore\)/i.test(visibleTimeSource), "public time labels must use UTC+8 without Singapore wording or spacing drift");
+assert(visibleTimeSource.includes("UTC+8"), "public time labels must include UTC+8");
 
 if (failures.length) {
   console.error(`Raffle public contract failed (${failures.length} issue${failures.length === 1 ? "" : "s"}).`);
@@ -236,7 +260,7 @@ if (failures.length) {
 }
 
 console.log("Raffle public contract OK.");
-console.log("- The inactive monthly program, permanent 5+5 entry model, rewards, rules, and results states are complete.");
+console.log("- The inactive monthly program, permanent 1+9 entry model, rewards, rules, and results states are complete on /raffle.");
 console.log("- Public content is provider-neutral; entry, claim, administration, and reward controls remain absent.");
 console.log("- The 7/5 and 8/4 grid contracts reflow to full-width cards at 980px.");
 

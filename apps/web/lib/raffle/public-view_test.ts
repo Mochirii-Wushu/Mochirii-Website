@@ -30,7 +30,7 @@ test("the reviewed inactive contract fails closed", () => {
   assert.equal(rafflePublicView.bonusEntryStatus, "closed");
   assert.deepEqual(
     [rafflePublicView.baseEntries, rafflePublicView.maximumBonusEntries, rafflePublicView.maximumEntries],
-    [5, 5, 10],
+    [1, 9, 10],
   );
   assert.equal(rafflePublicView.publicReward, null);
   assert.equal(rafflePublicView.rulesUrl, null);
@@ -115,12 +115,12 @@ test("current results, aggregate counts, and evidence exist only in results stat
     /nonzero aggregate/,
   );
   assert.throws(
-    () => parseRafflePublicView({ ...resultModel.publicView, entrantCount: 24, totalEntryCount: 119 }),
-    /five to ten entries per entrant/,
+    () => parseRafflePublicView({ ...resultModel.publicView, entrantCount: 24, totalEntryCount: 23 }),
+    /one to ten entries per entrant/,
   );
   assert.throws(
     () => parseRafflePublicView({ ...resultModel.publicView, entrantCount: 24, totalEntryCount: 241 }),
-    /five to ten entries per entrant/,
+    /one to ten entries per entrant/,
   );
 });
 
@@ -153,7 +153,7 @@ test("completed drawings require one winner, two honors, and unique public resul
 test("every advertised immutable rules URL resolves to reviewed local content", () => {
   const active = modelFor("open", "open", "open");
   const parsed = parseRafflePageModel(active);
-  assert.equal(getRaffleRuleVersion("example-cycle", parsed)?.rulesUrl, "/raffle/rules/example-cycle");
+  assert.equal(getRaffleRuleVersion("example-cycle", parsed)?.rulesUrl, "/raffle#drawing-rules-example-cycle");
   assert.equal(getRaffleRuleVersion("missing-cycle", parsed), null);
   assert.equal(getRaffleRuleVersion("../unsafe", parsed), null);
 
@@ -166,7 +166,7 @@ test("every advertised immutable rules URL resolves to reviewed local content", 
   assert.throws(() => parseRafflePageModel(wrongState), /exactly one reviewed active rule version/);
 
   const unknownArchive = structuredClone(rafflePublicModel);
-  unknownArchive.rules.archive = [{ cycleLabel: "Past drawing", rulesUrl: "/raffle/rules/past-drawing" }];
+  unknownArchive.rules.archive = [{ cycleLabel: "Past drawing", rulesUrl: "/raffle#drawing-rules-past-drawing" }];
   assert.throws(() => parseRafflePageModel(unknownArchive), /matching reviewed archived content/);
 
   const archived = structuredClone(rafflePublicModel);
@@ -198,6 +198,7 @@ test("unknown, missing, and leaked fields are rejected", () => {
 test("the standing model contains every selected fairness, privacy, claim, and expiration disclosure", () => {
   const standingText = [
     rafflePublicModel.eligibility,
+    rafflePublicModel.entryModel.noPurchaseNotice,
     ...rafflePublicModel.standingPrinciples,
     ...rafflePublicModel.entryModel.noAdvantageRules,
   ].join(" ");
@@ -207,6 +208,8 @@ test("the standing model contains every selected fairness, privacy, claim, and e
     "72 hours",
     "24 hours",
     "30 days",
+    "current point totals",
+    "Signed-out and unverified visitors cannot access the standings",
     "selected guild display name",
     "non-reversible evidence",
     "predetermined alternates",
@@ -216,10 +219,10 @@ test("the standing model contains every selected fairness, privacy, claim, and e
   }
 });
 
-test("all five permanent methods are unique and capped at one entry", () => {
+test("all nine permanent methods are unique and capped at one entry", () => {
   const methods = rafflePublicModel.entryModel.permanentBonusMethods;
-  assert.equal(methods.length, 5);
-  assert.equal(new Set(methods.map((method) => method.title)).size, 5);
+  assert.equal(methods.length, 9);
+  assert.equal(new Set(methods.map((method) => method.title)).size, 9);
   assert(methods.every((method) => method.maximumEntries === 1));
 });
 
@@ -240,7 +243,7 @@ test("result names remain generic unless the current verified-member DTO supplie
   assert.equal(resultLabelForViewer(winner, { "cycle-winner": "unsafe\u0000name" }), "Winner confirmed");
 });
 
-test("raffle instants use Singapore authority and strict visitor-local formatting", () => {
+test("raffle instants use the UTC+8 authority and strict visitor-local formatting", () => {
   const instant = "2026-08-01T13:30:00.000Z";
   assert.equal(parseRaffleInstant(instant).toISOString(), instant);
   assert.match(formatRaffleTime(instant), /9:30\s*PM/i);
@@ -296,14 +299,14 @@ function activeFixture(
     standardEntryStatus,
     bonusEntryStatus,
     publicReward: "Approved drawing reward",
-    rulesUrl: "/raffle/rules/example-cycle",
+    rulesUrl: "/raffle#drawing-rules-example-cycle",
   };
 }
 
 function ruleVersion(slug: string, state: RaffleRuleVersion["state"]): RaffleRuleVersion {
   return {
     slug,
-    rulesUrl: `/raffle/rules/${slug}`,
+    rulesUrl: `/raffle#drawing-rules-${slug}`,
     cycleLabel: "Example drawing",
     state,
     title: "Example drawing official rules",

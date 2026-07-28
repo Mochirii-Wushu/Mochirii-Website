@@ -4,9 +4,8 @@
   "meta": {
     "kicker": "Monthly guild drawings",
     "title": "Mōchirīī Monthly Raffle",
-    "intro": "Mōchirīī holds monthly drawings for eligible guild members. No raffle is active and no submissions are being accepted.",
+    "intro": "Mōchirīī holds monthly drawings for eligible guild members.",
     "frequency": "Monthly drawings",
-    "badges": ["No raffle is active", "Entries closed", "No purchase necessary"],
     "hero": {
       "image": "./assets/img/raffles/hero.webp",
       "atmosphere": ""
@@ -22,8 +21,8 @@
     "drawAt": null,
     "claimEndsAt": null,
     "publicReward": null,
-    "baseEntries": 5,
-    "maximumBonusEntries": 5,
+    "baseEntries": 1,
+    "maximumBonusEntries": 9,
     "maximumEntries": 10,
     "rulesUrl": null,
     "entrantCount": null,
@@ -31,60 +30,94 @@
     "publicResult": "none"
   },
   "entryModel": {
-    "standardEntrySummary": "One eligible monthly opt-in provides five standard entries.",
-    "bonusEntrySummary": "Members may earn up to five optional bonus entries through the standing participation methods below. Each method provides no more than one bonus entry per drawing.",
+    "standardEntrySummary": "One eligible monthly opt-in provides one standard entry.",
+    "bonusEntrySummary": "Members may earn up to nine optional bonus entries through the standing participation methods below.",
+    "noPurchaseNotice": "No purchase necessary. Entries are free; purchases, payments, donations, and subscriptions never improve eligibility, entry counts, or odds.",
     "permanentBonusMethods": [
       {
         "title": "Guild activity",
-        "primaryPath": "Check in for one scheduled guild activity.",
-        "equivalentFreePath": "Or complete the monthly pulse poll.",
+        "primaryPath": "Attend one guild activity, such as Breaking Army or Showdown.",
+        "equivalentFreePath": "Or complete the monthly activity check-in.",
         "maximumEntries": 1
       },
       {
         "title": "Monthly gathering",
-        "primaryPath": "Join the monthly guild gathering.",
-        "equivalentFreePath": "Or send an asynchronous agenda response.",
+        "primaryPath": "Join the monthly gathering.",
+        "equivalentFreePath": "Or submit one agenda response.",
         "maximumEntries": 1
       },
       {
-        "title": "Member support",
-        "primaryPath": "Join or host one party or help session.",
-        "equivalentFreePath": "Or privately share availability for a future guild group.",
+        "title": "Help session",
+        "primaryPath": "Join or host one help session, such as PvP training or build support.",
+        "equivalentFreePath": "Or submit one written PvP or build-support tip.",
         "maximumEntries": 1
       },
       {
-        "title": "Shared knowledge",
-        "primaryPath": "Share one useful guild tip or resource.",
-        "equivalentFreePath": "Or answer the rotating knowledge question.",
+        "title": "Social photo or video",
+        "primaryPath": "Share one original photo or video on a social account with a clear monthly-drawing disclosure.",
+        "equivalentFreePath": "Or submit the same original photo or video privately to the guild.",
         "maximumEntries": 1
       },
       {
         "title": "Guild feedback",
-        "primaryPath": "Give one member kudos note.",
-        "equivalentFreePath": "Or complete the end-of-cycle feedback prompt.",
+        "primaryPath": "Complete the end-of-cycle feedback prompt.",
+        "equivalentFreePath": "Or suggest one practical guild improvement.",
+        "maximumEntries": 1
+      },
+      {
+        "title": "Community welcome",
+        "primaryPath": "Welcome one new or returning member in a guild community channel.",
+        "equivalentFreePath": "Or send one private welcome note for leaders to share.",
+        "maximumEntries": 1
+      },
+      {
+        "title": "Guild recruitment",
+        "primaryPath": "Recruit one new verified guild member who voluntarily identifies you as their referrer.",
+        "equivalentFreePath": "Or submit one practical recruitment idea.",
+        "maximumEntries": 1
+      },
+      {
+        "title": "Creative contribution",
+        "primaryPath": "Share one original artwork or real-life hobby moment on Mōchirīī Social.",
+        "equivalentFreePath": "Or submit the same original work privately to the guild.",
+        "maximumEntries": 1
+      },
+      {
+        "title": "Member appreciation",
+        "primaryPath": "Recognize another member's contribution.",
+        "equivalentFreePath": "Or nominate one member for the monthly spotlight.",
         "maximumEntries": 1
       }
     ],
     "noAdvantageRules": [
       "Completing both paths in one pair never earns two bonus entries.",
+      "One activity or submission may satisfy only one bonus method.",
+      "A public social contribution must clearly disclose that it is connected to a monthly drawing; the private path earns the same single entry.",
+      "Recruitment credit applies only when a newly verified member voluntarily identifies the referring member. Unsolicited or repeated invitations do not qualify.",
       "Alternative-response text is used only to verify completion, reduced to non-reversible evidence, and then discarded.",
-      "Purchases, payments, donations, and subscriptions never improve entry counts or odds.",
-      "Referrals, invitations, follows, public shares, daily logins, and early entry never improve entry counts or odds.",
-      "The maximum is ten entries per person in one drawing."
+      "Follows, daily logins, and early entry never improve entry counts or odds."
     ],
     "oddsFormula": "A member's valid entries divided by all valid entries after the drawing closes."
   },
   "rewards": {
-    "summary": "Drawing rewards may include electronic gifts, approved in-game gifts, and two Mōchirīī community honors.",
+    "summary": "Drawing rewards may include digital gifts, approved in-game gifts, and Mōchirīī community honors.",
     "activeDrawingNotice": "Each active drawing identifies the exact primary reward, value, eligible locations, delivery method, redemption terms, and available choices in its official rules.",
     "categories": [
       {
-        "title": "Electronic gifts",
-        "description": "Digital gift cards, virtual prepaid rewards, or other eligible electronically delivered choices described in the active drawing rules."
+        "title": "Digital gift cards",
+        "description": "Eligible electronically delivered gift-card choices described in the active drawing rules."
+      },
+      {
+        "title": "Virtual prepaid rewards",
+        "description": "Eligible virtual prepaid choices where the active drawing's approved locations and redemption terms allow them."
+      },
+      {
+        "title": "Community membership upgrades",
+        "description": "Eligible digital membership upgrades for community features described in the active drawing rules."
       },
       {
         "title": "In-game gifts",
-        "description": "Approved in-game gifts described in the active drawing rules."
+        "description": "Approved in-game items, game credit, or other eligible digital game choices described in the active drawing rules."
       },
       {
         "title": "Guild commendation",
@@ -98,7 +131,6 @@
   },
   "eligibility": "Verified Mōchirīī guild member in good standing, age 18 or older, resident of a country approved for that drawing, and limited to one account and one opt-in per person per cycle.",
   "standingPrinciples": [
-    "No purchase necessary. A purchase or payment never improves the chance of selection.",
     "Published odds are a member's valid entries divided by all valid entries after the drawing closes.",
     "Each drawing has separate official rules stating its dates, eligibility, reward, value, claim period, expiration, and any location restrictions.",
     "Each completed drawing confirms one primary winner, two community-honor recipients, and predetermined alternates without replacement.",
@@ -106,6 +138,7 @@
     "Potential winners must retrieve rewards through the authenticated Mōchirīī claim page within seven days after the drawing unless the active drawing rules lawfully require a different period.",
     "Private claim reminders may be sent when approximately 72 hours and 24 hours remain.",
     "Electronic rewards expire 30 days after issue unless the active drawing rules lawfully state a different term.",
+    "During an active drawing, authenticated verified members may see participating members' guild display names, rank, and current point totals. Signed-out and unverified visitors cannot access the standings.",
     "Signed-out visitors see only Winner confirmed or Community honor confirmed. Authenticated guild members may see each recipient's selected guild display name.",
     "Void where prohibited."
   ],
@@ -116,7 +149,7 @@
     "publicEvidence": null
   },
   "rules": {
-    "standingRulesUrl": "/raffle/rules",
+    "standingRulesUrl": "/raffle#rules",
     "currentRulesState": "inactive",
     "currentRulesLabel": "No active drawing rules",
     "archive": [],

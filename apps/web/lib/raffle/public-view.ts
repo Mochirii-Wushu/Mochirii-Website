@@ -21,8 +21,8 @@ export type RafflePublicView = {
   drawAt: string | null;
   claimEndsAt: string | null;
   publicReward: string | null;
-  baseEntries: 5;
-  maximumBonusEntries: 5;
+  baseEntries: 1;
+  maximumBonusEntries: 9;
   maximumEntries: 10;
   rulesUrl: string | null;
   entrantCount: number | null;
@@ -79,7 +79,6 @@ export type RafflePageModel = {
     title: string;
     intro: string;
     frequency: string;
-    badges: string[];
     hero: {
       image: string;
       atmosphere: string;
@@ -89,6 +88,7 @@ export type RafflePageModel = {
   entryModel: {
     standardEntrySummary: string;
     bonusEntrySummary: string;
+    noPurchaseNotice: string;
     permanentBonusMethods: Array<{
       title: string;
       primaryPath: string;
@@ -115,7 +115,7 @@ export type RafflePageModel = {
     publicEvidence: RafflePublicEvidence | null;
   };
   rules: {
-    standingRulesUrl: "/raffle/rules";
+    standingRulesUrl: "/raffle#rules";
     currentRulesState: "inactive" | "active";
     currentRulesLabel: string;
     archive: Array<{
@@ -224,9 +224,8 @@ export function parseRafflePageModel(value: unknown): RafflePageModel {
   expectString(root.programName, "raffle.programName");
 
   const meta = expectRecord(root.meta, "raffle.meta");
-  expectExactKeys(meta, ["badges", "frequency", "hero", "intro", "kicker", "title"], "raffle.meta");
+  expectExactKeys(meta, ["frequency", "hero", "intro", "kicker", "title"], "raffle.meta");
   for (const key of ["kicker", "title", "intro", "frequency"] as const) expectString(meta[key], `raffle.meta.${key}`);
-  expectStringArray(meta.badges, "raffle.meta.badges", 1);
   const hero = expectRecord(meta.hero, "raffle.meta.hero");
   expectExactKeys(hero, ["atmosphere", "image"], "raffle.meta.hero");
   expectString(hero.image, "raffle.meta.hero.image");
@@ -238,15 +237,17 @@ export function parseRafflePageModel(value: unknown): RafflePageModel {
   expectExactKeys(entryModel, [
     "bonusEntrySummary",
     "noAdvantageRules",
+    "noPurchaseNotice",
     "oddsFormula",
     "permanentBonusMethods",
     "standardEntrySummary",
   ], "raffle.entryModel");
   expectString(entryModel.standardEntrySummary, "raffle.entryModel.standardEntrySummary");
   expectString(entryModel.bonusEntrySummary, "raffle.entryModel.bonusEntrySummary");
+  expectString(entryModel.noPurchaseNotice, "raffle.entryModel.noPurchaseNotice");
   expectString(entryModel.oddsFormula, "raffle.entryModel.oddsFormula");
   const bonusMethods = expectArray(entryModel.permanentBonusMethods, "raffle.entryModel.permanentBonusMethods");
-  if (bonusMethods.length !== 5) fail("raffle must define exactly five permanent bonus methods");
+  if (bonusMethods.length !== 9) fail("raffle must define exactly nine permanent bonus methods");
   const methodTitles = new Set<string>();
   for (const [index, item] of bonusMethods.entries()) {
     const method = expectRecord(item, `raffle.entryModel.permanentBonusMethods.${index}`);
@@ -314,7 +315,7 @@ export function parseRafflePageModel(value: unknown): RafflePageModel {
 
   const rules = expectRecord(root.rules, "raffle.rules");
   expectExactKeys(rules, ["archive", "currentRulesLabel", "currentRulesState", "standingRulesUrl", "versions"], "raffle.rules");
-  if (rules.standingRulesUrl !== "/raffle/rules") fail("raffle standing rules URL must remain /raffle/rules");
+  if (rules.standingRulesUrl !== "/raffle#rules") fail("raffle standing rules URL must target the consolidated rules section");
   const currentRulesState = expectOneOf(rules.currentRulesState, ["active", "inactive"], "raffle.rules.currentRulesState");
   expectString(rules.currentRulesLabel, "raffle.rules.currentRulesLabel");
   const archivedRuleUrls = new Set<string>();
@@ -395,8 +396,8 @@ export function parseRafflePublicView(value: unknown): RafflePublicView {
   const standardEntryStatus = expectOneOf(view.standardEntryStatus, ["closed", "open"], "raffle.publicView.standardEntryStatus");
   const bonusEntryStatus = expectOneOf(view.bonusEntryStatus, ["closed", "open"], "raffle.publicView.bonusEntryStatus");
   if (view.timezone !== "Asia/Singapore") fail("raffle.publicView.timezone must be Asia/Singapore");
-  if (view.baseEntries !== 5 || view.maximumBonusEntries !== 5 || view.maximumEntries !== 10) {
-    fail("raffle public entry limits must remain 5 standard, 5 bonus, and 10 total");
+  if (view.baseEntries !== 1 || view.maximumBonusEntries !== 9 || view.maximumEntries !== 10) {
+    fail("raffle public entry limits must remain 1 standard, 9 bonus, and 10 total");
   }
 
   const opensAt = expectNullableUtcInstant(view.opensAt, "raffle.publicView.opensAt");
@@ -436,7 +437,7 @@ export function parseRafflePublicView(value: unknown): RafflePublicView {
       fail("results state requires nonzero aggregate entrant and entry counts");
     }
     if (totalEntryCount < entrantCount * view.baseEntries || totalEntryCount > entrantCount * view.maximumEntries) {
-      fail("results aggregate counts must respect five to ten entries per entrant");
+      fail("results aggregate counts must respect one to ten entries per entrant");
     }
   } else {
     if (publicResult !== "none") fail("winner confirmation may appear only in results state");
@@ -476,7 +477,7 @@ function parseRuleVersion(value: unknown, path: string): RaffleRuleVersion {
   const slug = expectString(version.slug, `${path}.slug`);
   if (!/^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/.test(slug)) fail(`${path}.slug must be a safe lowercase route segment`);
   const rulesUrl = expectString(version.rulesUrl, `${path}.rulesUrl`);
-  if (rulesUrl !== `/raffle/rules/${slug}`) fail(`${path}.rulesUrl must match its reviewed rule-version slug`);
+  if (rulesUrl !== `/raffle#drawing-rules-${slug}`) fail(`${path}.rulesUrl must match its reviewed on-page rule-version anchor`);
   expectString(version.cycleLabel, `${path}.cycleLabel`);
   expectOneOf(version.state, ["active", "archived"], `${path}.state`);
   expectString(version.title, `${path}.title`);
@@ -547,8 +548,8 @@ function expectUtcInstant(value: unknown, path: string) {
 }
 
 function expectLocalRulesUrl(value: string, path: string) {
-  if (!/^\/raffle\/rules\/[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/.test(value)) {
-    fail(`${path} must use one safe local /raffle/rules/<version> route`);
+  if (!/^\/raffle#drawing-rules-[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/.test(value)) {
+    fail(`${path} must use one safe local /raffle rule-version anchor`);
   }
   return value;
 }
