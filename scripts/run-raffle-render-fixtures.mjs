@@ -74,8 +74,8 @@ async function verifyProductionFixtureBoundary() {
       throw new Error(`Production fixture route did not fail closed (HTTP ${fixtureResponse.status}).`);
     }
     const unavailableRulesResponse = await fetch(`${productionBaseUrl}/raffle/rules/unavailable-version`, { redirect: "manual" });
-    if (unavailableRulesResponse.status !== 404) {
-      throw new Error(`Unavailable rule-version route did not fail closed (HTTP ${unavailableRulesResponse.status}).`);
+    if (unavailableRulesResponse.status !== 404 || unavailableRulesResponse.headers.has("location")) {
+      throw new Error(`Retired rule-version route must return HTTP 404 without redirecting (received ${unavailableRulesResponse.status}).`);
     }
     await runChild(
       process.execPath,
@@ -84,7 +84,7 @@ async function verifyProductionFixtureBoundary() {
       "production-mode public raffle smoke",
       12 * 60_000,
     );
-    console.log("Production route boundary OK: internal fixtures and unavailable rule versions return HTTP 404.");
+    console.log("Production route boundary OK: internal fixtures and retired rule-version routes return HTTP 404 without redirects.");
   } finally {
     await stopChild(productionServer);
   }

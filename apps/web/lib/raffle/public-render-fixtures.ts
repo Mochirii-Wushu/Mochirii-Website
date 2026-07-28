@@ -72,15 +72,14 @@ function buildModel(
     standardEntryStatus,
     bonusEntryStatus,
     publicReward: "A choice described in the current drawing rules",
-    rulesUrl: "/raffle/rules/rendered-fixture",
+    rulesUrl: "/raffle#drawing-rules-rendered-fixture",
   };
   model.meta.intro = "Mōchirīī holds monthly drawings for eligible guild members. Current details appear below.";
-  model.meta.badges = [cycleStatus, "No purchase necessary"];
   model.rules.currentRulesState = "active";
   model.rules.currentRulesLabel = "Current drawing rules";
   model.rules.versions = [{
     slug: "rendered-fixture",
-    rulesUrl: "/raffle/rules/rendered-fixture",
+    rulesUrl: "/raffle#drawing-rules-rendered-fixture",
     cycleLabel: "Rendered fixture drawing",
     state: "active",
     title: "Rendered fixture official rules",

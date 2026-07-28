@@ -18,7 +18,6 @@ const publicRoutes = [
   { route: "/recruitment", key: "recruitment", file: "apps/web/app/recruitment/page.tsx" },
   { route: "/announcements", key: "announcements", file: "apps/web/app/announcements/page.tsx" },
   { route: "/raffle", key: "raffle", file: "apps/web/app/raffle/page.tsx" },
-  { route: "/raffle/rules", key: "raffleRules", file: "apps/web/app/raffle/rules/page.tsx" },
   { route: "/spotify", key: "spotify", file: "apps/web/app/spotify/page.tsx" },
   { route: "/spotlight", key: "spotlight", file: "apps/web/app/spotlight/page.tsx" },
   { route: "/twills", key: "twills", file: "apps/web/app/twills/page.tsx" },

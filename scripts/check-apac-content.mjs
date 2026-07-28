@@ -78,9 +78,11 @@ assert(twills.profile?.timezone === expected.displayTimezone, "the public Twills
 
 const raffleDateTime = read("apps/web/components/public-pages/RaffleDateTime.tsx");
 const rafflePage = read("apps/web/components/public-pages/route-pages/RafflePage.tsx");
-assertIncludes("Raffle date/time", raffleDateTime, "{singaporeTime} UTC+8");
+assertIncludes("Raffle date/time", raffleDateTime, "{raffleTime} {RAFFLE_TIME_ZONE_LABEL}");
 assert(!raffleDateTime.includes("Singapore time"), "the Raffle date/time component must not render a location-specific timezone label.");
 assertIncludes("Raffle page", rafflePage, 'items={[model.meta.frequency, "UTC+8"]}');
+assert(raffles.publicView?.baseEntries === 1, "the Raffle page must provide one standard entry.");
+assert(raffles.publicView?.maximumBonusEntries === 9, "the Raffle page must allow up to nine bonus entries.");
 
 const siteMetadata = read("apps/web/lib/site-metadata.ts");
 assertIncludes("site metadata", siteMetadata, `SITE_DESCRIPTION =\n  ${JSON.stringify(expected.description)}`);

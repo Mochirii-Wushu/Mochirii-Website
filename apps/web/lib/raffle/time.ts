@@ -1,4 +1,5 @@
 export const RAFFLE_TIME_ZONE = "Asia/Singapore" as const;
+export const RAFFLE_TIME_ZONE_LABEL = "UTC+8" as const;
 
 const dateTimeOptions: Intl.DateTimeFormatOptions = {
   dateStyle: "long",

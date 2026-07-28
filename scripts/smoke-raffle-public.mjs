@@ -27,28 +27,21 @@ const routes = [
       "Standard entries",
       "Bonus entries",
       "No purchase necessary",
+      "one standard entry",
+      "nine optional bonus entries",
+      "Maximum:",
       "Possible rewards",
       "Standing rules",
+      "Entry safeguards",
+      "Drawing, claims, and privacy",
+      "No active drawing rules",
+      "Rules archive",
+      "UTC+8",
     ],
     grids: [
       { selector: ".raffle-status-grid", spans: [8, 4] },
       { selector: ".raffle-program-grid", spans: [7, 5] },
       { selector: ".raffle-reward-grid", spans: [7, 5] },
-    ],
-  },
-  {
-    path: "/raffle/rules",
-    title: /raffle.*rules|rules.*raffle/i,
-    h1: /^raffle rules$/i,
-    requiredText: [
-      "No active drawing rules",
-      "Standing program principles",
-      "Standing bonus methods",
-      "Rules archive",
-      "No purchase necessary",
-    ],
-    grids: [
-      { selector: ".raffle-program-grid", spans: [7, 5] },
       { selector: ".raffle-rules-state-grid", spans: [7, 5] },
     ],
   },
@@ -78,7 +71,9 @@ const chromiumViewports = [
 const representativeViewports = [
   { name: "phone-390x844", width: 390, height: 844 },
   { name: "landscape-640x360", width: 640, height: 360 },
+  { name: "landscape-844x390", width: 844, height: 390 },
   { name: "tablet-768x1024", width: 768, height: 1024 },
+  { name: "desktop-1024x768", width: 1024, height: 768 },
   { name: "desktop-1440x900", width: 1440, height: 900 },
 ];
 
@@ -102,6 +97,7 @@ try {
   process.exit(1);
 }
 
+await verifyRetiredRuleAbsence();
 await runBrowserMatrix(playwright.chromium, "chromium", chromiumViewports);
 await runBrowserMatrix(playwright.firefox, "firefox", representativeViewports);
 await runBrowserMatrix(playwright.webkit, "webkit", representativeViewports);
@@ -232,9 +228,14 @@ async function inspectRoute(context, browserName, viewport, route, options) {
         ...document.querySelectorAll("meta[name='robots'],meta[name='googlebot']"),
       ].map((meta) => meta.getAttribute("content") || "").join(",");
       const statusText = [
-        ...document.querySelectorAll("[role='status'],#rafflesBadges,.raffle-status-grid,.raffle-rules-state-grid"),
+        ...document.querySelectorAll("[role='status'],.raffle-status-grid,.raffle-rules-state-grid"),
       ].map(normalizedText).join(" ");
       const allMainText = normalizedText(main);
+      const allPageText = normalizedText(body);
+      const longCopy = [...(main?.querySelectorAll("p,li") || [])]
+        .map(normalizedText)
+        .filter((text) => text.length >= 40);
+      const duplicateLongCopy = [...new Set(longCopy.filter((text, index) => longCopy.indexOf(text) !== index))];
       const grids = routeConfig.grids.map((gridConfig) => inspectGrid(gridConfig));
       const textClipping = [...(raffleLayout?.querySelectorAll(".glass-card,li,p,h1,h2,h3,a,dt,dd") || [])]
         .filter((element) => {
@@ -279,6 +280,10 @@ async function inspectRoute(context, browserName, viewport, route, options) {
         animated,
         textClipping,
         visiblyOverflowing,
+        duplicateLongCopy,
+        hasRetiredRulesLink: [...document.querySelectorAll("a[href]")]
+          .some((link) => (link.getAttribute("href") || "").startsWith("/raffle/rules")),
+        publicTimeLabelDrift: /Singapore\s+time|Singapore\s+Time|UTC\s+\+\s*8|UTC\+8\s*\(Singapore\)/i.test(allPageText),
         grids,
       };
 
@@ -385,6 +390,9 @@ function validateDocumentState(label, route, viewport, state) {
   if (state.animated.length) failures.push(`${label}: active animation remains under reduced motion: ${state.animated.join(", ")}.`);
   if (state.textClipping.length) failures.push(`${label}: text can be clipped by overflow: ${state.textClipping.join(", ")}.`);
   if (state.visiblyOverflowing.length) failures.push(`${label}: raffle card content overflows horizontally: ${state.visiblyOverflowing.join(", ")}.`);
+  if (state.duplicateLongCopy.length) failures.push(`${label}: duplicate long-form copy found: ${state.duplicateLongCopy.join(" | ")}.`);
+  if (state.hasRetiredRulesLink) failures.push(`${label}: rendered content links to a retired /raffle/rules path.`);
+  if (state.publicTimeLabelDrift) failures.push(`${label}: rendered time labels are not normalized to UTC+8.`);
 
   for (const grid of state.grids) {
     if (!grid.present) {
@@ -404,6 +412,20 @@ function validateDocumentState(label, route, viewport, state) {
       } else if (child.expectedWidth === null || Math.abs(child.width - child.expectedWidth) > 3) {
         failures.push(`${label}: ${grid.selector} child ${child.label} does not match its desktop column span.`);
       }
+    }
+  }
+}
+
+async function verifyRetiredRuleAbsence() {
+  for (const path of ["/raffle/rules", "/raffle/rules/example-cycle"]) {
+    try {
+      const response = await fetch(`${baseUrl}${path}`, { redirect: "manual" });
+      const location = response.headers.get("location") || "";
+      if (response.status !== 404 || location) {
+        failures.push(`${path}: expected HTTP 404 without a redirect, received HTTP ${response.status} and ${JSON.stringify(location)}.`);
+      }
+    } catch (error) {
+      failures.push(`${path}: retired-route verification failed: ${safeMessage(error)}`);
     }
   }
 }

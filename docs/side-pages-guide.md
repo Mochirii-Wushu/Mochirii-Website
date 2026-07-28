@@ -126,7 +126,7 @@ Supported top-level fields:
 - Nullable UTC `opensAt`, `closesAt`, `drawAt`, and `claimEndsAt` instants.
 - Nullable `publicReward`, immutable active-cycle `rulesUrl`, aggregate
   `entrantCount`, and aggregate `totalEntryCount`.
-- Literal entry limits of five base, five maximum bonus, and ten total.
+- Literal entry limits of one standard, nine maximum bonus, and ten total.
 - A privacy-safe `publicResult` of `none` or `winner_confirmed`.
 
 The parser uses an exact-key allowlist. Do not add supplier, platform, payment,
@@ -139,14 +139,19 @@ data remain Mochirii-only and provider-neutral.
 The standing model is fixed unless a separately reviewed program change updates
 the contract, copy, rules, and tests together:
 
-- One eligible monthly opt-in provides five standard entries.
-- A member may earn up to five optional bonus entries.
+- One eligible monthly opt-in provides one standard entry.
+- A member may earn up to nine optional bonus entries.
 - Each permanent bonus method provides at most one entry per drawing and has an
   equivalent free participation path.
 - The maximum is ten entries per person in one drawing.
-- Purchases, payments, donations, subscriptions, referrals, invitations,
-  follows, public shares, daily logins, and early entry never improve entry
-  counts or odds.
+- Purchases, payments, donations, subscriptions, follows, daily logins, and
+  early entry never improve entry counts or odds.
+- One activity or submission may satisfy only one bonus method. Completing both
+  paths within a method never earns two entries.
+- A public social contribution must disclose its connection to the monthly
+  drawing, while an equivalent private contribution earns the same entry.
+- Recruitment credit requires a newly verified member to identify the referring
+  member voluntarily; unsolicited or repeated invitations do not qualify.
 - Alternative-response text is reduced to non-reversible completion evidence
   and then discarded.
 - Potential winners use the authenticated Mochirii claim page within the
@@ -156,29 +161,42 @@ the contract, copy, rules, and tests together:
 - Electronic rewards expire 30 days after issue unless an active rules version
   lawfully states another term.
 
-`entryModel.permanentBonusMethods` contains exactly these five standing method
+`entryModel.permanentBonusMethods` contains exactly these nine standing method
 pairs:
 
-1. Check in for one scheduled guild activity, or complete the monthly pulse poll.
-2. Join the monthly guild gathering, or send an asynchronous agenda response.
-3. Join or host one party or help session, or privately share availability for
-   a future guild group.
-4. Share one useful tip or resource, or answer the rotating knowledge question.
-5. Give one member kudos note, or complete the end-of-cycle feedback prompt.
+1. Attend one guild activity such as Breaking Army or Showdown, or complete the
+   monthly activity check-in.
+2. Join the monthly gathering, or submit one agenda response.
+3. Join or host one help session such as PvP training or build support, or
+   submit one written PvP or build-support tip.
+4. Share one original photo or video on a social account with the required
+   monthly-drawing disclosure, or submit the same work privately to the guild.
+5. Complete the end-of-cycle feedback prompt, or suggest one practical guild
+   improvement.
+6. Welcome one new or returning member in a guild community channel, or send
+   one private welcome note for leaders to share.
+7. Recruit one new verified guild member who voluntarily identifies the
+   referrer, or submit one practical recruitment idea.
+8. Share one original artwork or real-life hobby moment on Mōchirīī Social, or
+   submit the same original work privately to the guild.
+9. Recognize another member's contribution, or nominate one member for the
+   monthly spotlight.
 
 Standing eligibility remains: verified Mochirii guild membership in good
 standing, age 18 or older, residence in a country approved for the drawing, and
 one account and one opt-in per person per cycle. Keep `No purchase necessary`
-conspicuous on both `/raffle` and `/raffle/rules`.
+conspicuous on `/raffle`.
 
 ### Reward and result presentation
 
 Standing reward copy may describe only the approved provider-neutral
 categories:
 
-- Electronic gifts, such as digital gift cards, virtual prepaid rewards, or
-  other electronically delivered choices stated in an active drawing's rules.
-- Approved in-game gifts stated in an active drawing's rules.
+- Digital gift cards stated in an active drawing's rules.
+- Virtual prepaid rewards where the approved locations and terms allow them.
+- Community membership upgrades stated in an active drawing's rules.
+- Approved in-game items, game credit, or other digital game choices stated in
+  an active drawing's rules.
 - Guild commendation as a community honor.
 - Hall record as a community honor retained with a completed drawing.
 
@@ -204,7 +222,7 @@ scheduled, closed, drawing, results, paused, and inactive states keep entries
 closed. An open cycle must accept standard entries and may independently open
 or close bonus entries. Results require privacy-safe winner confirmation,
 exactly one winner and two community honors, drawing evidence whose instant
-equals `drawAt`, and aggregate counts between five and ten entries per entrant.
+equals `drawAt`, and aggregate counts between one and ten entries per entrant.
 
 When no drawing is active:
 
@@ -221,31 +239,32 @@ When no drawing is active:
 
 An approved active cycle supplies UTC instants for opening, closing, drawing,
 and claim deadlines plus cycle-specific eligibility, reward copy, and a local
-immutable `/raffle/rules/...` route. `Asia/Singapore` remains the internal IANA
-calculation zone. Store instants as ISO 8601 UTC values, show UTC+8 as the
-governing public time, and progressively enhance with the visitor's localized
+immutable `/raffle#drawing-rules-...` anchor. `Asia/Singapore` remains the
+internal IANA calculation zone. Store instants as ISO 8601 UTC values, show
+`UTC+8` as the governing public time, and progressively enhance with the visitor's localized
 equivalent without replacing or obscuring the governing time. Invalid or
 missing dates fail closed, and every non-inactive cycle must satisfy
 `opensAt < closesAt < drawAt < claimEndsAt`.
 
-`/raffle/rules` distinguishes three layers:
+The consolidated `/raffle` rules section distinguishes three layers:
 
 - Standing program principles, which remain visible between drawings.
 - Current official drawing rules, which exist only for an approved active
   cycle and otherwise show `No active drawing rules`.
-- Immutable archived rules for completed drawings at local
-  `/raffle/rules/...` routes.
+- Immutable archived rules for completed drawings at local in-page anchors.
 
-`rules.versions[]` is the only source for versioned rule pages. Each entry has a
-safe route slug, an exactly matching local URL, active or archived state,
+`rules.versions[]` is the only source for versioned rule sections. Each entry has a
+safe route slug, an exactly matching local anchor, active or archived state,
 publication instant, and reviewed public sections. Every current/archive link
-must resolve to a matching version; unknown or unreviewed version URLs return
-not found. Do not invent archive records or publish an empty rules shell.
+must resolve to a matching version. Do not invent archive records or publish
+an empty rules shell.
 
 Observed routing and rendering rules:
 
-- `/raffle` and `/raffle/rules` are public, canonical, indexable Server
-  Components that remain useful without JavaScript.
+- `/raffle` is the only public, canonical, indexable raffle Server Component
+  and remains useful without JavaScript.
+- Retired `/raffle/rules` and version paths return not found; they do not own
+  redirects, content, metadata, bundles, or sitemap entries.
 - `/raffles` and `/raffles.html` permanently redirect to `/raffle`.
 - The website event-card renderer filters the inactive `monthly-raffle`
   schedule item so Events cannot advertise a drawing while the raffle is
@@ -374,7 +393,7 @@ utils.js -> supabase.js -> site.js -> page-specific script
 Current side-page script order:
 
 - `announcements.html`: `./utils.js` -> `./supabase.js` -> `./site.js` -> `./announcements.js`
-- `/raffle` and `/raffle/rules`: static Next.js Server Components with no page-specific browser script.
+- `/raffle`: a static Next.js Server Component with no page-specific browser script.
 - `spotify.html`: `./utils.js` -> `./supabase.js` -> `./site.js` -> `./spotify.js`
 - `spotlight.html`: `./utils.js` -> `./supabase.js` -> `./site.js` -> `./spotlight.js`
 
@@ -437,12 +456,12 @@ Use `npm run smoke:gallery` as a general regression check if shared behavior cou
 
 - `/announcements.html` loads.
 - `/raffle` loads and says `No raffle is active`, `Entries closed`, `No submissions are being accepted`, and `No purchase necessary`.
-- `/raffle` shows the standing five-standard, up-to-five-bonus, maximum-ten entry model and all five equivalent-free participation methods.
-- `/raffle` describes only the approved provider-neutral electronic-gift, in-game-gift, and community-honor categories.
-- `/raffle/rules` distinguishes standing principles, current official drawing rules, and immutable archived rules; it shows `No active drawing rules` while inactive.
-- A versioned rules URL renders only reviewed local `rules.versions[]` content; unavailable versions return not found.
+- `/raffle` shows the standing one-standard, up-to-nine-bonus, maximum-ten entry model and all nine equivalent-free participation methods.
+- `/raffle` describes only the approved provider-neutral digital-gift-card, virtual-prepaid, community-membership, in-game-gift, and community-honor categories.
+- `/raffle` distinguishes standing principles, current official drawing rules, and immutable archived rules; it shows `No active drawing rules` while inactive.
+- A versioned rules anchor renders only reviewed local `rules.versions[]` content; retired rules paths return not found.
 - Signed-out raffle results use only `Winner confirmed` or `Community honor confirmed`; verified-member result-name behavior is tested at the server boundary.
-- UTC+8 remains authoritative for active-cycle dates and visitor-local equivalents do not replace it.
+- `UTC+8` remains the governing public time for active-cycle dates and visitor-local equivalents do not replace it.
 - Inactive raffle pages render no submission, claim, sign-in, moderation, reward, disabled, or dead controls and make no private request.
 - `/raffles` and `/raffles.html` permanently redirect to `/raffle`.
 - `/spotify.html` loads.
