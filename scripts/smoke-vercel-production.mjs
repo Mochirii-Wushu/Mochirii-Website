@@ -12,7 +12,6 @@ const cleanRoutes = [
   "/events",
   "/announcements",
   "/raffle",
-  "/raffle/rules",
   "/gallery",
   "/spotlight",
   "/spotify",

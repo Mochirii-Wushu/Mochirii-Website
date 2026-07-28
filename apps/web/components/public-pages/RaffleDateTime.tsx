@@ -5,6 +5,7 @@ import {
   formatRaffleTime,
   formatRaffleTimeForZone,
   RAFFLE_TIME_ZONE,
+  RAFFLE_TIME_ZONE_LABEL,
 } from "@/lib/raffle/time";
 
 type RaffleDateTimeProps = {
@@ -23,7 +24,7 @@ function readBrowserLocale() {
 }
 
 export function RaffleDateTime({ instant, label }: RaffleDateTimeProps) {
-  const singaporeTime = formatRaffleTime(instant);
+  const raffleTime = formatRaffleTime(instant);
   const localeSnapshot = useSyncExternalStore(
     subscribeToLocale,
     readBrowserLocale,
@@ -38,7 +39,7 @@ export function RaffleDateTime({ instant, label }: RaffleDateTimeProps) {
     <div>
       <dt>{label}</dt>
       <dd>
-        <time dateTime={instant}>{singaporeTime} UTC+8</time>
+        <time dateTime={instant}>{raffleTime} {RAFFLE_TIME_ZONE_LABEL}</time>
         {visitorTime ? (
           <span className="raffle-visitor-time">
             Your time: {visitorTime} ({timeZone})

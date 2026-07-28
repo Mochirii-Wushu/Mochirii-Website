@@ -19,8 +19,6 @@ const publicRoutes = [
   "/join",
   "/leaders",
   "/raffle",
-  "/raffle/rules",
-  "/raffle/rules/[version]",
   "/ranks",
   "/recruitment",
   "/spotify",

@@ -7,13 +7,14 @@ import {
   type RafflePageModel,
   type RafflePublicEvidence,
   type RafflePublicResult,
+  type RaffleRuleVersion,
   type RaffleViewerResultNames,
 } from "@/lib/raffle/public-view";
 import type { LatestOfficialRaffleWinner } from "@/lib/raffle/latest-winner-core";
 import { RaffleDateTime } from "../RaffleDateTime";
 import { RaffleMonthlyWinner } from "../RaffleMonthlyWinner";
 import { BodyPageMarker } from "../BodyPageMarker";
-import { BadgeRow, MetaRow, PageHero } from "../common";
+import { MetaRow, PageHero } from "../common";
 
 type RafflePageProps = {
   model?: RafflePageModel;
@@ -50,7 +51,6 @@ export function RafflePage({
           />
         }
         intro={<p className="lede" id="rafflesIntro">{model.meta.intro}</p>}
-        badges={<BadgeRow id="rafflesBadges" items={model.meta.badges} label="Current raffle notices" />}
       />
 
       <main className="page-main" id="main">
@@ -101,20 +101,15 @@ export function RafflePage({
                 <h2 className="section-title">One monthly opt-in, clear entry limits</h2>
                 <p>{model.entryModel.standardEntrySummary}</p>
                 <p>{model.entryModel.bonusEntrySummary}</p>
-                <ul className="list-stack u-mt-18">
-                  <li>{view.baseEntries} standard entries after one eligible monthly opt-in.</li>
-                  <li>Up to {view.maximumBonusEntries} optional bonus entries.</li>
-                  <li>Maximum {view.maximumEntries} entries per person in one drawing.</li>
-                </ul>
+                <p><strong>Maximum:</strong> {view.maximumEntries} entries per person in one drawing.</p>
               </div>
             </section>
 
             <aside className="col-5" aria-labelledby="noPurchaseHeading">
               <div className="glass-card glass-card--soft glass-pad raffle-fill-card raffle-no-purchase">
                 <p className="kicker">Standing principle</p>
-                <h2 className="section-title section-title--sm" id="noPurchaseHeading">No purchase necessary</h2>
-                <p>A purchase, donation, or payment never improves eligibility, entry counts, or odds.</p>
-                <p className="muted">Referrals, early entry, and daily logins also provide no entry advantage.</p>
+                <h2 className="section-title section-title--sm" id="noPurchaseHeading">Free entry</h2>
+                <p>{model.entryModel.noPurchaseNotice}</p>
               </div>
             </aside>
           </div>
@@ -138,7 +133,7 @@ export function RafflePage({
             <section className="col-7">
               <div className="glass-card glass-card--primary glass-pad raffle-fill-card">
                 <p className="kicker">Possible rewards</p>
-                <h2 className="section-title">Electronic gifts, in-game gifts, and community honors</h2>
+                <h2 className="section-title">Digital gifts, in-game gifts, and community honors</h2>
                 <p>{model.rewards.summary}</p>
                 <p className="muted">{model.rewards.activeDrawingNotice}</p>
                 <div className="raffle-reward-list u-mt-18">
@@ -171,20 +166,107 @@ export function RafflePage({
             </aside>
           </div>
 
-          <section className="glass-card glass-card--primary glass-pad u-mt-24" aria-labelledby="standingRulesHeading">
+          <section className="glass-card glass-card--primary glass-pad u-mt-24" id="rules" aria-labelledby="standingRulesHeading">
             <p className="kicker">Standing rules</p>
             <h2 className="section-title" id="standingRulesHeading">Eligibility and drawing principles</h2>
             <p><strong>Eligibility:</strong> {model.eligibility}</p>
+            <h3 className="u-mt-18">Entry safeguards</h3>
+            <ul className="list-stack u-mt-18">
+              {model.entryModel.noAdvantageRules.map((rule) => <li key={rule}>{rule}</li>)}
+            </ul>
+            <h3 className="u-mt-18">Drawing, claims, and privacy</h3>
             <ul className="list-stack u-mt-18">
               {model.standingPrinciples.map((principle) => <li key={principle}>{principle}</li>)}
             </ul>
-            <div className="hero-cta-row u-mt-18">
-              <Link className="hero-cta" href={model.rules.standingRulesUrl}>Read standing and drawing rules</Link>
-            </div>
           </section>
+
+          <RaffleDrawingRules model={model} />
         </div>
       </main>
     </>
+  );
+}
+
+function RaffleDrawingRules({ model }: { model: RafflePageModel }) {
+  const activeVersion = model.publicView.rulesUrl
+    ? model.rules.versions.find((version) => version.rulesUrl === model.publicView.rulesUrl) ?? null
+    : null;
+  const archivedVersions = model.rules.archive.flatMap((archiveEntry) => {
+    const version = model.rules.versions.find((candidate) => candidate.rulesUrl === archiveEntry.rulesUrl);
+    return version ? [version] : [];
+  });
+
+  return (
+    <section className="u-mt-24" id="drawing-rules" aria-labelledby="drawingRulesHeading">
+      <div className="grid-12 grid-gap raffle-rules-state-grid">
+        <section className="col-7">
+          <div className="glass-card glass-card--primary glass-pad raffle-fill-card">
+            <p className="kicker">Current drawing rules</p>
+            <h2 className="section-title" id="drawingRulesHeading">{model.rules.currentRulesLabel}</h2>
+            {activeVersion ? (
+              <RaffleRuleVersionContent version={activeVersion} />
+            ) : (
+              <p>No drawing-specific dates, reward, eligible locations, entry period, claim deadline, or redemption terms are currently in effect.</p>
+            )}
+          </div>
+        </section>
+
+        <aside className="col-5" aria-labelledby="rulesArchiveHeading">
+          <div className="glass-card glass-card--soft glass-pad raffle-fill-card">
+            <p className="kicker">Completed drawings</p>
+            <h2 className="section-title section-title--sm" id="rulesArchiveHeading">Rules archive</h2>
+            {archivedVersions.length ? (
+              <ul className="list-stack">
+                {archivedVersions.map((version) => (
+                  <li key={version.slug}>
+                    <Link href={version.rulesUrl}>{version.cycleLabel}</Link>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="muted">No archived drawing rules are available.</p>
+            )}
+          </div>
+        </aside>
+      </div>
+
+      {archivedVersions.map((version) => (
+        <article className="glass-card glass-card--primary glass-pad u-mt-24" key={version.slug}>
+          <p className="kicker">Archived official rules</p>
+          <h2 className="section-title">{version.title}</h2>
+          <RaffleRuleVersionContent version={version} showTitle={false} />
+        </article>
+      ))}
+    </section>
+  );
+}
+
+function RaffleRuleVersionContent({
+  version,
+  showTitle = true,
+}: {
+  version: RaffleRuleVersion;
+  showTitle?: boolean;
+}) {
+  return (
+    <div id={`drawing-rules-${version.slug}`}>
+      {showTitle ? <h3>{version.title}</h3> : null}
+      <p>{version.cycleLabel}</p>
+      <dl className="raffle-date-list u-mt-18">
+        <RaffleDateTime instant={version.publishedAt} label="Rules published" />
+      </dl>
+      {version.sections.map((section) => (
+        <section className="u-mt-18" key={section.heading}>
+          {showTitle ? <h4>{section.heading}</h4> : <h3>{section.heading}</h3>}
+          {section.paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
+          {section.items.length ? (
+            <ul className="list-stack u-mt-18">
+              {section.items.map((item) => <li key={item}>{item}</li>)}
+            </ul>
+          ) : null}
+        </section>
+      ))}
+    </div>
   );
 }
 
