@@ -31,6 +31,8 @@ type PublicGalleryFeedResult = {
   message: string | null;
 };
 
+const unavailableMessage = "Approved gallery feed could not be loaded.";
+
 function publicApprovedGalleryFeedUrl() {
   const configuredUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || "").replace(/\/+$/, "");
   const baseUrl = configuredUrl || `https://${SUPABASE_PROJECT_REF}.supabase.co`;
@@ -65,7 +67,7 @@ export async function listApprovedGallerySubmissions(signal?: AbortSignal): Prom
         status: response.status,
         statusText: response.statusText,
         data,
-        message: message || "Approved gallery feed could not be loaded.",
+        message: unavailableMessage,
       };
     }
 
@@ -84,7 +86,7 @@ export async function listApprovedGallerySubmissions(signal?: AbortSignal): Prom
       status: 0,
       statusText: "",
       data: null,
-      message: error instanceof Error ? error.message : "Approved gallery feed could not be loaded.",
+      message: unavailableMessage,
     };
   }
 }

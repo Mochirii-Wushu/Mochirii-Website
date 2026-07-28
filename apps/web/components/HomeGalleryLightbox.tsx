@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
+import { ResponsiveGalleryMedia } from "@/components/ResponsiveGalleryMedia";
 import {
   useBodyPortalRoot,
   useBodyScrollLock,
@@ -137,20 +138,17 @@ export function HomeGalleryLightbox({
       <div id="galleryGrid" className="home-gallery" aria-label="Gallery thumbnails">
         {items.map((item, index) => (
           <button
-            className="home-thumb"
+            className="home-thumb responsive-gallery-frame"
             type="button"
             aria-label={`Open image: ${item.caption || item.alt || "Guild screenshot"}`}
             key={item.key}
             onClick={(event) => openModal(index, event.currentTarget)}
           >
-            <img
-              className="home-thumb__img"
+            <ResponsiveGalleryMedia
               src={item.image}
               alt={item.alt}
-              data-full={item.full}
-              data-caption={item.caption}
-              loading="lazy"
-              decoding="async"
+              fullSource={item.full}
+              caption={item.caption}
             />
             <span className="home-thumb__scrim" aria-hidden="true" />
           </button>
