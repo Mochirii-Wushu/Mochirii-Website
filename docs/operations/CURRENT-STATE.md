@@ -138,8 +138,8 @@ earlier closeout.
   baseline. It contains no database migration or `supabase/config.toml` change,
   but it changes reviewed source consumed by existing declared functions. Its
   Supabase Preview must therefore remain non-skipped. A protected-main merge
-  requires separate exact authorization to redeploy the same 33 functions while
-  preserving 20/13 JWT parity; any inventory or parity drift is a stop
+  requires separate exact authorization to redeploy the same 34 functions while
+  preserving 20/14 JWT parity; any inventory or parity drift is a stop
   condition. It also refreshes expired Discord role evidence on demand so an
   otherwise valid member cannot become stranded at Social consent when the
   bounded verification window expires.

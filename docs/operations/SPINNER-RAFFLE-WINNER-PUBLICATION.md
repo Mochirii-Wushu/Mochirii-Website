@@ -61,7 +61,7 @@ complete wholly-official state. After deployment it must additionally return
 
 ## Release And Readback Gate
 
-The migration adds tables and therefore needs an exact schema-change approval. A protected-main merge also invokes the existing Supabase Git integration, which applies migrations and redeploys every function in `supabase/config.toml`; this source does not change that 33-function inventory or its 20 `verify_jwt=true` / 13 false contract. Never deploy this migration manually.
+The migration adds tables and therefore needs an exact schema-change approval. A protected-main merge also invokes the existing Supabase Git integration, which applies migrations and redeploys every function in `supabase/config.toml`; the current source has a 34-function inventory with 20 `verify_jwt=true` and 14 false. Never deploy this migration manually.
 
 Before merge, require the exact-head Vercel and non-skipped Supabase Preview checks plus repository, Web, database-reset, pgTAP, browser, and accessibility gates. After the authorized integration completes, read back:
 
@@ -71,7 +71,7 @@ Before merge, require the exact-head Vercel and non-skipped Supabase Preview che
   and current revealed live state;
 - anonymous RPC output with a null display name;
 - verified-member output with the reviewed guild display name;
-- unchanged 33-function inventory and 20/13 JWT parity; and
+- current 34-function inventory and 20/14 JWT parity; and
 - exact Vercel production binding plus the `/raffle` responsive/runtime matrix.
 
 Stop on any source-binding mismatch, migration ambiguity, extra public field, wrong name-visibility state, changed function inventory, or layout/runtime regression. Rollback is a reviewed forward fix or append-only revocation; do not delete or rewrite the result ledger.

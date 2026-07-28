@@ -212,7 +212,10 @@ async function fetchContract(url, init = {}) {
     cors: response.headers.get("access-control-allow-origin") || "",
     cacheControl: response.headers.get("cache-control") || "",
     contentLength: response.headers.get("content-length") || "",
+    vary: response.headers.get("vary") || "",
+    contentSecurityPolicy: response.headers.get("content-security-policy") || "",
     contentTypeOptions: response.headers.get("x-content-type-options") || "",
+    robots: response.headers.get("x-robots-tag") || "",
     json,
     text,
   };
@@ -258,6 +261,7 @@ async function checkProtectedRejects(config, target, label, authorization) {
     deniedStatuses.includes(result.status),
     `${target.name} ${label} expected ${deniedStatuses.join("/")} fail-closed response, got ${result.status}: ${summarizeBody(result.json || result.text)}`,
   );
+  return result;
 }
 
 async function checkSecretProtectedRejects(config, target, label, extraHeaders = {}) {
@@ -551,6 +555,68 @@ async function checkCurrentSpotlightWinner(config) {
   await checkMethodNotAllowed(config, name);
 }
 
+async function checkCurrentRaffle(config) {
+  const name = "get-current-raffle";
+  await checkOptions(config, name);
+
+  const publicResult = await fetchContract(functionUrl(config, name), {
+    method: "GET",
+    headers: headers(config),
+  });
+  assert(
+    publicResult.status === 200,
+    `${name} GET expected 200, got ${publicResult.status}: ${summarizeBody(publicResult.json || publicResult.text)}`,
+  );
+  assert(publicResult.json?.ok === true, `${name} public response did not return ok=true.`);
+  assert(
+    publicResult.json?.data === null || typeof publicResult.json?.data === "object",
+    `${name} public data must be an object or null.`,
+  );
+
+  const rejectedPrivateResults = [];
+  rejectedPrivateResults.push(await checkProtectedRejects(
+    config,
+    { name, body: { action: "member_leaderboard" } },
+    "member leaderboard without JWT",
+    "",
+  ));
+  rejectedPrivateResults.push(await checkProtectedRejects(
+    config,
+    { name, body: { action: "member_leaderboard" } },
+    "member leaderboard with malformed JWT",
+    "Bearer malformed.jwt.token",
+  ));
+  rejectedPrivateResults.push(await checkProtectedRejects(
+    config,
+    { name, body: { action: "member_leaderboard" } },
+    "member leaderboard with publishable key as bearer",
+    `Bearer ${config.publishableKey}`,
+  ));
+
+  const unsignedSocial = await fetchContract(functionUrl(config, name), {
+    method: "POST",
+    headers: headers(config),
+    body: JSON.stringify({ sub: "00000000-0000-4000-8000-000000000000" }),
+  });
+  assert(
+    [401, 503].includes(unsignedSocial.status),
+    `${name} unsigned Social request expected 401/503 fail-closed response, got ${unsignedSocial.status}: ${summarizeBody(unsignedSocial.json || unsignedSocial.text)}`,
+  );
+  rejectedPrivateResults.push(unsignedSocial);
+
+  for (const result of rejectedPrivateResults) {
+    assert(result.cacheControl === "private, no-store, max-age=0", `${name} private response cache policy drifted.`);
+    assert(
+      result.vary.split(",").some((value) => value.trim().toLowerCase() === "authorization"),
+      `${name} private response must vary on Authorization.`,
+    );
+    assert(result.contentSecurityPolicy.includes("frame-ancestors 'none'"), `${name} private response CSP drifted.`);
+    assert(result.contentTypeOptions.toLowerCase() === "nosniff", `${name} private response must set nosniff.`);
+    assert(result.robots.toLowerCase().includes("noindex"), `${name} private response must be noindex.`);
+  }
+  await checkMethodNotAllowed(config, name);
+}
+
 assert(
   publicReadOnlyFunctions.length === 2,
   "Public read-only Supabase smoke inventory changed without a reviewed contract update.",
@@ -584,6 +650,7 @@ try {
   await checkApprovedFeed(config);
   await checkVisibleProfileCards(config);
   await checkCurrentSpotlightWinner(config);
+  await checkCurrentRaffle(config);
   console.log("Supabase Edge Function contract smoke OK.");
 } catch (error) {
   const message = error?.message || String(error);

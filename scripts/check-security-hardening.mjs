@@ -34,6 +34,7 @@ const files = {
   spotlightPollSender: "supabase/functions/send-member-spotlight-poll/index.ts",
   spotlightPollPublisher: "supabase/functions/publish-member-spotlight-winner/index.ts",
   spotlightPollPublicWinner: "supabase/functions/get-current-spotlight-winner/index.ts",
+  currentRaffle: "supabase/functions/get-current-raffle/index.ts",
   pixelfedSocialSync: "supabase/functions/sync-pixelfed-social-account/index.ts",
   report: "reports/free-security-hardening-2026-06-08.md",
   cspReport: "reports/csp-enforcement-verification-2026-06-08.md",
@@ -112,6 +113,7 @@ const spotlightPollShared = read(files.spotlightPollShared);
 const spotlightPollSender = read(files.spotlightPollSender);
 const spotlightPollPublisher = read(files.spotlightPollPublisher);
 const spotlightPollPublicWinner = read(files.spotlightPollPublicWinner);
+const currentRaffle = read(files.currentRaffle);
 const pixelfedSocialSync = read(files.pixelfedSocialSync);
 const report = read(files.report);
 const cspReport = read(files.cspReport);
@@ -236,6 +238,7 @@ const expectedUnauthenticatedFunctions = [
   "send-member-spotlight-poll",
   "publish-member-spotlight-winner",
   "get-current-spotlight-winner",
+  "get-current-raffle",
   "mochi-pets-alpha-action",
   "mochi-pets-alpha-progress",
   "sync-pixelfed-social-account",
@@ -369,6 +372,21 @@ const unauthenticatedFunctionGuardSpecs = {
     source: spotlightPollPublicWinner,
     kind: "public read-only spotlight DTO",
     snippets: [".eq(\"status\", \"published\")", "winner_display_name", "monthly-discord-poll"],
+  },
+  "get-current-raffle": {
+    source: currentRaffle,
+    kind: "public raffle DTO with verified private leaderboard actions",
+    snippets: [
+      'if (req.method === "POST")',
+      "withProtectedCors(",
+      "requireRaffleMember",
+      "verifySocialLeaderboardRequest",
+      '"consume_raffle_leaderboard_nonce"',
+      'const LEADERBOARD_CACHE_CONTROL = "private, no-store, max-age=0"',
+      "LEADERBOARD_SECURITY_HEADERS",
+      'Vary: "Authorization"',
+      "handlePublicGet(dependencies)",
+    ],
   },
   "mochi-pets-alpha-action": {
     source: `${mochiPetsAlphaShared}\n${mochiPetsAlphaAction}`,

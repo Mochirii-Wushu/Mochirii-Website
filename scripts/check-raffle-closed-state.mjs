@@ -41,7 +41,6 @@ const forbiddenOperationalSurfaces = [
   "apps/web/lib/supabase/prize-draw.ts",
   "services/reward-relay",
   "supabase/migrations/20260719130111_monthly_prize_draw.sql",
-  "supabase/functions/get-current-raffle",
   "supabase/functions/manage-raffle-entry",
   "supabase/functions/manage-raffle-claim",
   "supabase/functions/moderate-raffle",

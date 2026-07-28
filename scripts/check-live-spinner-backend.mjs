@@ -422,7 +422,7 @@ for (const snippet of [
   "Signed-out and unverified visitors receive exactly `Winner Confirmed`",
   "A test receipt is durable for private review",
   "drops the temporary backfill function",
-  "unchanged 33-function inventory and 20/13 JWT parity",
+  "current 34-function inventory and 20/14 JWT parity",
   "20260727211442_classify_reviewed_sya_spinner_draw.sql",
   "does not publish, announce, redraw, or create a reward",
 ]) includes("spinner raffle winner runbook", winnerRunbook, snippet);

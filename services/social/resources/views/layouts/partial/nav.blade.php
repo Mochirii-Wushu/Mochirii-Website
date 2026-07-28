@@ -38,6 +38,12 @@
 								<span class="sr-only">Home</span>
 							</a>
 						</li>
+						<li class="nav-item px-md-2 d-none d-md-block">
+							<a class="nav-link font-weight-bold text-dark" href="{{ route('guild.raffle') }}" title="Monthly Raffle" data-toggle="tooltip" data-placement="bottom" @if(request()->routeIs('guild.raffle')) aria-current="page" @endif>
+								<i class="fal fa-trophy fa-lg" style="font-size: 22px;"></i>
+								<span class="sr-only">Monthly Raffle</span>
+							</a>
+						</li>
 						<li class="nav-item px-md-2">
 							<a class="nav-link font-weight-bold text-dark" href="/account/direct" title="Direct" data-toggle="tooltip" data-placement="bottom">
 								<i class="fal fa-location-circle fa-lg" style="font-size: 22px;"></i>
@@ -97,6 +103,12 @@
 									Guild Feed
 								</a>
 								@endif
+								<a class="dropdown-item lead" href="{{ route('guild.raffle') }}" @if(request()->routeIs('guild.raffle')) aria-current="page" @endif>
+									<span style="width: 50px;margin-right:14px;">
+										<span class="fal fa-trophy text-lighter fa-lg"></span>
+									</span>
+									Monthly Raffle
+								</a>
 
 								@if((bool) config_cache('instance.stories.enabled'))
 								<a class="dropdown-item lead" href="/i/stories/new">
