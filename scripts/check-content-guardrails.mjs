@@ -354,8 +354,8 @@ function isTime24(value) {
 function validateGuildSchedule(data) {
   const filePath = "apps/web/public/data/guild-schedule.json";
   if (data?.timezone?.label !== "UTC+8") addFailure(`${filePath}.timezone.label: expected UTC+8.`);
-  if (data?.timezone?.displayLabel !== "Singapore Time (UTC+8)") {
-    addFailure(`${filePath}.timezone.displayLabel: expected Singapore Time (UTC+8).`);
+  if (data?.timezone?.displayLabel !== "UTC+8") {
+    addFailure(`${filePath}.timezone.displayLabel: expected UTC+8.`);
   }
   if (data?.timezone?.ianaZone !== "Asia/Singapore") {
     addFailure(`${filePath}.timezone.ianaZone: expected Asia/Singapore.`);

@@ -10,9 +10,9 @@ const expected = {
   spotlight: "Pretty guild member who's always so lovely, beautiful & keeping the guild a wonderful place for everyone.",
   gatheringTitle: "Monthly Guild Gathering",
   gatheringDescription: "A monthly gathering where every member can discuss anything they'd like with the guild.",
-  footer: "An Asia Pacific Where Winds Meet guild, with events scheduled in Singapore Time (UTC+8).",
+  footer: "An Asia Pacific Where Winds Meet guild, with events scheduled in UTC+8.",
   join: "Mōchirīī welcomes all pretty new members across Asia Pacific or anywhere else in the world if you don't mind the ping.",
-  displayTimezone: "Singapore Time (UTC+8)",
+  displayTimezone: "UTC+8",
   brandSubtitle: "Asia Pacific Guild",
 };
 
@@ -56,7 +56,7 @@ assert(home.copy?.spotlightIntro === expected.spotlight, "home Spotlight text mu
 assert(schedule.timezone?.label === "UTC+8", "the Discord-facing schedule label must remain UTC+8.");
 assert(schedule.timezone?.offsetMinutes === 480, "the schedule offset must remain 480 minutes.");
 assert(schedule.timezone?.ianaZone === "Asia/Singapore", "the schedule IANA zone must be Asia/Singapore.");
-assert(schedule.timezone?.displayLabel === expected.displayTimezone, "the website timezone label must remain Singapore Time (UTC+8).");
+assert(schedule.timezone?.displayLabel === expected.displayTimezone, "the website timezone label must remain UTC+8.");
 assert(schedule.monthly?.gathering?.title === expected.gatheringTitle, "the gathering title must match the approved copy.");
 assert(schedule.monthly?.gathering?.description === expected.gatheringDescription, "the gathering description must match the approved copy.");
 
@@ -72,6 +72,8 @@ assert(raffles.publicView?.cycleStatus === "inactive", "the Raffle page must rem
 assert(raffles.publicView?.timezone === "Asia/Singapore", "the Raffle page must use Singapore as its authoritative time zone.");
 assert(raffles.publicView?.standardEntryStatus === "closed", "the Raffle page must keep standard entries closed while inactive.");
 assert(raffles.publicView?.bonusEntryStatus === "closed", "the Raffle page must keep bonus entries closed while inactive.");
+assert(raffles.publicView?.baseEntries === 1, "the Raffle page must provide one standard entry.");
+assert(raffles.publicView?.maximumBonusEntries === 9, "the Raffle page must allow up to nine bonus entries.");
 
 const siteMetadata = read("apps/web/lib/site-metadata.ts");
 assertIncludes("site metadata", siteMetadata, `SITE_DESCRIPTION =\n  ${JSON.stringify(expected.description)}`);

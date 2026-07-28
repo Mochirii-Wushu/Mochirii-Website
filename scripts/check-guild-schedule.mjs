@@ -101,7 +101,7 @@ function assertEqual(label, actual, expected) {
 }
 
 assertEqual("timezone label", schedule.timezone?.label, "UTC+8");
-assertEqual("timezone display label", schedule.timezone?.displayLabel, "Singapore Time (UTC+8)");
+assertEqual("timezone display label", schedule.timezone?.displayLabel, "UTC+8");
 assertEqual("timezone IANA zone", schedule.timezone?.ianaZone, "Asia/Singapore");
 assertEqual("timezone offset", offsetMinutes(), 480);
 assertEqual("Discord cover version", schedule.discordCoverVersion, "2026-06-10-event-panels");

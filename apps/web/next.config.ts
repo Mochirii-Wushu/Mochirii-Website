@@ -17,6 +17,8 @@ const legacyHtmlRedirects = [
   ["/announcements.html", "/announcements"],
   ["/raffles", "/raffle"],
   ["/raffles.html", "/raffle"],
+  ["/raffle/rules", "/raffle"],
+  ["/raffle/rules/:path*", "/raffle"],
   ["/recruitment.html", "/recruitment"],
   ["/auth.html", "/auth"],
   ["/account.html", "/account"],

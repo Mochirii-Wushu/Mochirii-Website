@@ -1,7 +1,7 @@
 {
   "timezone": {
     "label": "UTC+8",
-    "displayLabel": "Singapore Time (UTC+8)",
+    "displayLabel": "UTC+8",
     "ianaZone": "Asia/Singapore",
     "offsetMinutes": 480
   },

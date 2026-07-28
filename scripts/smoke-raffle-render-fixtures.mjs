@@ -69,7 +69,7 @@ console.log("Rendered raffle fixture smoke OK.");
 console.log(`- All ${stateScenarios.length} public state/entry variants passed in Chromium, Firefox, and WebKit.`);
 console.log(`- Active-state geometry passed at ${commonViewports.length} representative viewports, including the 980px breakpoint.`);
 console.log("- The signed-out and verified-member winner feature passed reflow, privacy, and reduced-motion checks.");
-console.log("- Singapore server time, visitor localization, no-JavaScript output, missing-data rejection, and alternating render-fixture isolation passed.");
+console.log("- UTC+8 governing time, visitor localization, no-JavaScript output, missing-data rejection, and alternating render-fixture isolation passed.");
 console.log("- Authenticated session and shared-cache isolation remain part of the server-integrated core track.");
 
 async function launch(browserName, browserType) {
@@ -156,7 +156,7 @@ async function verifyLocalization(browser) {
   try {
     const inspected = await inspectFixture(context, "open", "chromium active visitor localization");
     if (!inspected) return;
-    if (!inspected.text.includes("Singapore time")) failures.push("active visitor localization: authoritative Singapore time is missing.");
+    if (!inspected.text.includes("UTC+8")) failures.push("active visitor localization: authoritative UTC+8 time is missing.");
     if (!inspected.text.includes("Your time:")) failures.push("active visitor localization: visitor-local time was not appended after hydration.");
     if (!inspected.text.includes("America/Los_Angeles")) failures.push("active visitor localization: visitor timezone label is missing.");
   } finally {
@@ -176,7 +176,7 @@ async function verifyNoJavaScript(browser) {
       waitForHydration: false,
     });
     if (!inspected) return;
-    if (!inspected.text.includes("Singapore time")) failures.push("active no-JavaScript: authoritative Singapore time is missing.");
+    if (!inspected.text.includes("UTC+8")) failures.push("active no-JavaScript: authoritative UTC+8 time is missing.");
     if (inspected.text.includes("Your time:")) failures.push("active no-JavaScript: visitor-local enhancement rendered without JavaScript.");
   } finally {
     await closeContext(context);

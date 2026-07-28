@@ -95,7 +95,7 @@ export function SiteFooter({
 
             <div className="footer-brand-text">
               <p className="footer-desc">
-                An Asia Pacific Where Winds Meet guild, with events scheduled in Singapore Time (UTC+8).
+                An Asia Pacific Where Winds Meet guild, with events scheduled in UTC+8.
               </p>
 
               <div className="footer-actions">

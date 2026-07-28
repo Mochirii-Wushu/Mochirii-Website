@@ -18,8 +18,8 @@ Keep this page focused on times, RSVP notes, runs, and the rhythm of gathering.
 
 - Events shell copy lives in `apps/web/public/data/events.json`.
 - Rolling event timing and the live Next Events board live in `apps/web/public/data/guild-schedule.json`.
-- The live Next Events board is schedule-first: it renders one card per Discord/Reaper-managed event type from `websiteEventCardsFromSchedule`, using schedule-derived dates, Singapore Time (UTC+8), and `discordCoverImage` art.
-- `apps/web/public/data/guild-schedule.json` keeps `timezone.label` as `UTC+8` and `offsetMinutes` as `480` for Discord and machine compatibility. Website rendering uses `timezone.displayLabel` (`Singapore Time (UTC+8)`) and `timezone.ianaZone` (`Asia/Singapore`).
+- The live Next Events board is schedule-first: it renders one card per Discord/Reaper-managed event type from `websiteEventCardsFromSchedule`, using schedule-derived dates, the public `UTC+8` label, and `discordCoverImage` art.
+- `apps/web/public/data/guild-schedule.json` keeps `timezone.label` and `timezone.displayLabel` as `UTC+8` and `offsetMinutes` as `480` for public and machine compatibility. `timezone.ianaZone` remains `Asia/Singapore` internally so daylight-saving-independent calculations use a stable IANA zone.
 - `apps/web/public/data/events.json` is page-shell copy only for the Next app: meta, hero, featured lead/bullets fallback, recurring intro, participation text, and fallback content.
 - Keep JSON valid: no trailing commas, comments, or unquoted keys.
 - Preserve the current schema unless the matching renderer is updated in the same scoped task.
