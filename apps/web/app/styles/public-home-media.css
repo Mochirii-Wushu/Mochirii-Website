@@ -34,9 +34,7 @@
 .home-featured__img,
 .home-spotlight__img,
 .home-bulletin__img,
-.home-door__img,
-.home-thumb__img,
-.gallery-thumb img{
+.home-door__img{
   width:100%;
   height:100%;
   object-fit:cover;

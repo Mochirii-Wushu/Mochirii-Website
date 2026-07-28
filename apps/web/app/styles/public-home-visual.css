@@ -506,7 +506,7 @@ body[data-page="home"] .home-featured__img,
 body[data-page="home"] .home-spotlight__img,
 body[data-page="home"] .home-bulletin__img,
 body[data-page="home"] .home-door__img,
-body[data-page="home"] .home-thumb__img{
+body[data-page="home"] .home-thumb .responsive-gallery-media__image{
   transition:transform .32s var(--ease), filter .32s var(--ease);
 }
 
@@ -615,7 +615,7 @@ body[data-page="home"] .home-door:nth-child(4){
   body[data-page="home"] .home-spotlight__img,
   body[data-page="home"] .home-bulletin__img,
   body[data-page="home"] .home-door__img,
-  body[data-page="home"] .home-thumb__img{
+  body[data-page="home"] .home-thumb .responsive-gallery-media__image{
     transition:none;
     transform:none;
   }

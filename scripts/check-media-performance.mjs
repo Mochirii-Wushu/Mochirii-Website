@@ -30,6 +30,14 @@ function assertIncludes(label, text, snippet) {
   assert(text.includes(snippet), `${label}: expected snippet not found: ${snippet}`);
 }
 
+function cssRuleBody(source, selector) {
+  const start = source.indexOf(`${selector}{`);
+  if (start < 0) return "";
+  const bodyStart = start + selector.length + 1;
+  const end = source.indexOf("}", bodyStart);
+  return end < 0 ? "" : source.slice(bodyStart, end);
+}
+
 function extractStaticImageBlock(source, id) {
   const idIndex = source.indexOf(`id="${id}"`);
   if (idIndex < 0) return "";
@@ -113,6 +121,16 @@ const siteFooter = read("apps/web/components/SiteFooter.tsx");
 const spotifyBrowser = read("apps/web/components/public-pages/SpotifyBrowser.tsx");
 const tokenStyles = read("apps/web/app/styles/tokens-base.css");
 const sidePagesGuide = read("docs/side-pages-guide.md");
+const responsiveGalleryMediaPath = "apps/web/components/ResponsiveGalleryMedia.tsx";
+const sharedGalleryMediaStylesPath = "apps/web/app/styles/shell-gallery-media.css";
+const responsiveGalleryMedia = existsSync(path.join(root, responsiveGalleryMediaPath))
+  ? read(responsiveGalleryMediaPath)
+  : "";
+const sharedGalleryMediaStyles = existsSync(path.join(root, sharedGalleryMediaStylesPath))
+  ? read(sharedGalleryMediaStylesPath)
+  : "";
+const homeDoorsStyles = read("apps/web/app/styles/public-home-doors.css");
+const publicGalleryStyles = read("apps/web/app/styles/public-gallery.css");
 
 [
   "lazy(() =>",
@@ -135,7 +153,6 @@ assert(!homeGalleryLightboxModal.includes("useBodyScrollLock("), "Home gallery l
   "const galleryRenderBatchSize = 24;",
   "const renderedItems = useMemo(() => visibleItems.slice(0, effectiveRenderLimit)",
   'id="galleryLoadMore"',
-  "<img src={item.thumb} alt={item.alt} width={16} height={10} loading=\"lazy\" decoding=\"async\" />",
   "src={openItem.full}",
   "const fullSignedUrl = text(submission.full_signed_url);",
   "const thumbnailSignedUrl = text(submission.thumbnail_signed_url);",
@@ -148,6 +165,57 @@ assert(!homeGalleryLightboxModal.includes("useBodyScrollLock("), "Home gallery l
   "stableMixSeed(",
   "submission.preview_error",
 ].forEach((snippet) => assertIncludes("GalleryBrowser media contract", galleryBrowser, snippet));
+
+assertFileExists("shared Gallery media component", responsiveGalleryMediaPath);
+assertFileExists("shared Gallery media styles", sharedGalleryMediaStylesPath);
+[
+  'import { ResponsiveGalleryMedia } from "@/components/ResponsiveGalleryMedia";',
+  "<ResponsiveGalleryMedia",
+  "src={item.thumb}",
+].forEach((snippet) => assertIncludes("Gallery shared thumbnail media", galleryBrowser, snippet));
+[
+  'import { ResponsiveGalleryMedia } from "@/components/ResponsiveGalleryMedia";',
+  "<ResponsiveGalleryMedia",
+  "src={item.image}",
+].forEach((snippet) => assertIncludes("Home shared thumbnail media", homeGalleryLightbox, snippet));
+[
+  "responsive-gallery-media__image",
+  'loading={loading}',
+  'decoding="async"',
+  'status: "loading"',
+  'status: "ready"',
+  'status: "error"',
+  "Image unavailable",
+].forEach((snippet) => assertIncludes("shared Gallery media component", responsiveGalleryMedia, snippet));
+[
+  ".responsive-gallery-frame{",
+  "aspect-ratio:16 / 10;",
+  ".responsive-gallery-media{",
+  "width:100%;",
+  "height:100%;",
+  ".responsive-gallery-media__image{",
+  "object-fit:cover;",
+  "object-position:center;",
+].forEach((snippet) => assertIncludes("shared Gallery media geometry", sharedGalleryMediaStyles, snippet));
+assertIncludes("Gallery shared frame", galleryBrowser, 'className="gallery-thumb responsive-gallery-frame"');
+assertIncludes("Home shared frame", homeGalleryLightbox, 'className="home-thumb responsive-gallery-frame"');
+for (const [label, rule] of [
+  ["Gallery page frame", cssRuleBody(publicGalleryStyles, ".gallery-thumb")],
+  ["Home page frame", cssRuleBody(homeDoorsStyles, ".home-thumb")],
+]) {
+  assert(rule, `${label}: rule not found.`);
+  for (const property of ["position:", "display:", "width:", "aspect-ratio:", "overflow:", "padding:"]) {
+    assert(!rule.includes(property), `${label}: ${property} must remain owned by the shared frame contract.`);
+  }
+}
+assert(
+  !homeGalleryLightbox.includes('className="home-thumb__img"'),
+  "Home Gallery must not bypass the shared responsive media component.",
+);
+assert(
+  !galleryBrowser.includes('<img src={item.thumb}'),
+  "Gallery must not render the thumbnail outside the shared responsive media component.",
+);
 
 assert(!galleryBrowser.includes("setRandomSeed"), "GalleryBrowser must not reshuffle after first paint.");
 assert(!galleryBrowser.includes("createRandomSeed"), "GalleryBrowser must not use a per-render random seed.");

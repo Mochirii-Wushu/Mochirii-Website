@@ -29,6 +29,12 @@ The Gallery is Mōchirīī's visual memory: screenshots of scenes, members, gath
 - Approved member and Discord submissions may render with time-limited signed URLs only. Derivatives live below the service-owned `_approved/thumbs/{submission}/{revision}.webp` prefix; members cannot insert, update, read, or delete that prefix. Do not expose raw storage buckets, storage paths, service-role keys, or private media references to browser code.
 - Home Gallery Spotlight must keep using thumbnail paths in its grid and full-size Gallery images in its lightbox.
 
+### Shared grid-media contract
+
+- Home Screenshot Spotlight and `/gallery` render thumbnails through `apps/web/components/ResponsiveGalleryMedia.tsx` and the neutral geometry in `apps/web/app/styles/shell-gallery-media.css`.
+- The shared media wrapper fills the stable 16:10 card and uses `object-fit: cover`; page-specific styles may add borders, scrims, hover treatment, or color without redefining the image geometry.
+- A member-photo request failure must never masquerade as an empty Gallery. Keep the static Gallery available, distinguish loading, successful-empty, and temporary-unavailability states, and provide the bounded `Try again` action without exposing provider or internal-system language.
+
 ### Universal lightbox contract
 
 - Home Screenshot Spotlight and `/gallery` use the shared geometry in `apps/web/app/styles/shell-lightbox.css`.

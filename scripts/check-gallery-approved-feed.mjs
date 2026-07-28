@@ -27,6 +27,11 @@ const runbook = read("docs/vote-reminder-runbook.md");
   'from "@/lib/gallery/approved-feed";',
   'const memberSubmissionsCategory = "member-submissions";',
   "function approvedSubmissionToGalleryItem",
+  'type ApprovedFeedState = "loading" | "ready" | "error";',
+  "gallery-feed-state",
+  'className="gallery-feed-retry"',
+  "Member-submitted images are temporarily unavailable. The rest of the gallery is still available.",
+  "retryApprovedFeed",
   "const galleryRenderBatchSize = 24;",
   'const [renderWindow, setRenderWindow] = useState({ key: "", limit: galleryRenderBatchSize });',
   "const renderWindowKey =",
@@ -45,6 +50,13 @@ const runbook = read("docs/vote-reminder-runbook.md");
   "setApprovedItems",
   "[...items, ...approvedItems]",
 ].forEach((snippet) => assertIncludes("GalleryBrowser approved feed", galleryBrowser, snippet));
+
+[
+  "result.message",
+  "result.statusText",
+].forEach((snippet) => {
+  if (galleryBrowser.includes(snippet)) failures.push(`GalleryBrowser approved feed: public status must not expose ${snippet}.`);
+});
 
 if (galleryBrowser.includes("setRandomSeed") || galleryBrowser.includes("createRandomSeed")) {
   failures.push("GalleryBrowser approved feed: random order must be stable before first paint.");
