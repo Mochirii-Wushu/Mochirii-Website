@@ -24,6 +24,7 @@ const functions = [
   "send-member-spotlight-poll",
   "publish-member-spotlight-winner",
   "get-current-spotlight-winner",
+  "get-current-raffle",
   "list-instagram-publish-queue",
   "publish-instagram-gallery-submission",
   "mark-instagram-gallery-submission-shared",

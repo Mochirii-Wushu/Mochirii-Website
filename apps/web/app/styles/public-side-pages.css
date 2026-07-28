@@ -208,6 +208,65 @@ body[data-page="raffles"] .raffle-fill-card{
   height:100%;
 }
 
+body[data-page="raffles"] .raffle-leaderboard{
+  margin-top:24px;
+}
+
+body[data-page="raffles"] .raffle-leaderboard-list{
+  display:grid;
+  gap:10px;
+  margin:18px 0 0;
+  padding:0;
+  list-style:none;
+}
+
+body[data-page="raffles"] .raffle-leaderboard-row{
+  display:grid;
+  grid-template-columns:minmax(2.75rem,4rem) minmax(0,1fr) minmax(4.75rem,7rem);
+  gap:clamp(10px,2vw,18px);
+  align-items:center;
+  min-width:0;
+  padding:12px 14px;
+  border:1px solid rgba(218,181,94,.18);
+  border-radius:16px;
+  background:rgba(0,0,0,.16);
+}
+
+body[data-page="raffles"] .raffle-leaderboard-row > *{
+  min-width:0;
+  overflow-wrap:anywhere;
+}
+
+body[data-page="raffles"] .raffle-leaderboard-row > :last-child{
+  justify-self:end;
+  color:var(--side-ink);
+  font-weight:700;
+  text-align:right;
+}
+
+body[data-page="raffles"] .raffle-leaderboard-row--viewer{
+  border-color:rgba(105,217,166,.46);
+  background:
+    radial-gradient(circle at 100% 0%,rgba(105,217,166,.13),transparent 50%),
+    rgba(0,0,0,.18);
+}
+
+body[data-page="raffles"] .raffle-leaderboard-limit{
+  margin:14px 0 0;
+}
+
+@media (max-width:40rem){
+  body[data-page="raffles"] .raffle-leaderboard-row{
+    grid-template-columns:minmax(2.75rem,4rem) minmax(0,1fr);
+  }
+
+  body[data-page="raffles"] .raffle-leaderboard-row > :last-child{
+    grid-column:2;
+    justify-self:start;
+    text-align:left;
+  }
+}
+
 body[data-page="raffles"] .raffle-monthly-winner{
   position:relative;
   isolation:isolate;

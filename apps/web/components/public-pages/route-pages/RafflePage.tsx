@@ -11,7 +11,10 @@ import {
   type RaffleViewerResultNames,
 } from "@/lib/raffle/public-view";
 import type { LatestOfficialRaffleWinner } from "@/lib/raffle/latest-winner-core";
+import type { RaffleLeaderboard } from "@/lib/raffle/leaderboard-core";
 import { RaffleDateTime } from "../RaffleDateTime";
+import { RaffleMemberLeaderboard } from "../RaffleMemberLeaderboard";
+import { RaffleLeaderboardPanel } from "../RaffleLeaderboardPanel";
 import { RaffleMonthlyWinner } from "../RaffleMonthlyWinner";
 import { BodyPageMarker } from "../BodyPageMarker";
 import { MetaRow, PageHero } from "../common";
@@ -21,6 +24,7 @@ type RafflePageProps = {
   viewerResultNames?: RaffleViewerResultNames;
   featuredWinner?: LatestOfficialRaffleWinner | null;
   enableWinnerRefresh?: boolean;
+  leaderboardFixture?: RaffleLeaderboard | null;
 };
 
 export function RafflePage({
@@ -28,6 +32,7 @@ export function RafflePage({
   viewerResultNames,
   featuredWinner = null,
   enableWinnerRefresh = true,
+  leaderboardFixture,
 }: RafflePageProps = {}) {
   const view = model.publicView;
   const status = raffleStatusForView(view);
@@ -93,6 +98,12 @@ export function RafflePage({
             initialWinner={featuredWinner}
             enableRefresh={enableWinnerRefresh}
           />
+
+          {leaderboardFixture === undefined
+            ? <RaffleMemberLeaderboard />
+            : leaderboardFixture
+            ? <RaffleLeaderboardPanel leaderboard={leaderboardFixture} />
+            : null}
 
           <div className="grid-12 grid-gap u-mt-24 raffle-program-grid">
             <section className="col-7">

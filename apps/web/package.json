@@ -16,13 +16,14 @@
     "check:font-bundle": "node scripts/check-font-bundle.mjs",
     "check:route-css-bundle": "node scripts/check-route-css-bundle.mjs",
     "test:web-runtime-performance": "node --experimental-default-type=module --experimental-strip-types --test lib/auth-load-generation_test.ts lib/events/reference-time_test.ts lib/observability/authenticated-route-timing_test.ts",
+    "test:raffle-leaderboard": "node --experimental-default-type=module --experimental-strip-types --test lib/raffle/leaderboard-core.test.mts",
     "vercel:build:local": "npm run clean && cd ../.. && vercel build --prod --cwd apps/web",
     "vercel:version": "vercel --version",
     "start": "next start",
     "lint": "eslint",
     "test:spinner-private": "node --experimental-default-type=module --experimental-strip-types --test ../../tests/spinner-media-renderer.test.ts ../../tests/spinner-proxy.test.ts",
     "toolchain:check": "node scripts/check-local-toolchain.mjs",
-    "verify:local": "npm run toolchain:check && npm run test:web-runtime-performance && npm run lint && npm run build && npm run check:client-bundle && npm run check:font-bundle && npm run check:route-css-bundle"
+    "verify:local": "npm run toolchain:check && npm run test:web-runtime-performance && npm run test:raffle-leaderboard && npm run lint && npm run build && npm run check:client-bundle && npm run check:font-bundle && npm run check:route-css-bundle"
   },
   "dependencies": {
     "@napi-rs/canvas": "1.0.2",

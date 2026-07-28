@@ -9,11 +9,13 @@ import {
   type RaffleViewerResultNames,
 } from "./public-view";
 import type { LatestOfficialRaffleWinner } from "./latest-winner-core";
+import type { RaffleLeaderboard } from "./leaderboard-core";
 
 export type RaffleRenderFixture = {
   model: RafflePageModel;
   viewerResultNames?: RaffleViewerResultNames;
   featuredWinner?: LatestOfficialRaffleWinner | null;
+  leaderboard?: RaffleLeaderboard | null;
 };
 
 const cycleDates = {
@@ -26,6 +28,12 @@ const cycleDates = {
 export function getRaffleRenderFixture(scenario: string): RaffleRenderFixture | null {
   if (scenario === "missing-data") return null;
   if (scenario === "previous-only") return { model: previousOnlyModel(), featuredWinner: fixtureWinner(null) };
+  if (scenario === "leaderboard-verified") {
+    return {
+      model: buildModel("open", "open", "open"),
+      leaderboard: verifiedLeaderboard(),
+    };
+  }
 
   const state = scenario.startsWith("results-") ? "results" : scenario;
   if (!isCycleStatus(state)) return null;
@@ -45,6 +53,34 @@ export function getRaffleRenderFixture(scenario: string): RaffleRenderFixture | 
   if (["results", "results-signed-out", "results-unverified"].includes(scenario)) return { model, featuredWinner: fixtureWinner(null) };
   if (scenario === state || (scenario === "open-standard" && state === "open-standard")) return { model };
   return null;
+}
+
+function verifiedLeaderboard(): RaffleLeaderboard {
+  return {
+    cyclePublicId: "mpd-2026-08",
+    cycleStatus: "open",
+    closesAt: cycleDates.closesAt,
+    drawAt: cycleDates.drawAt,
+    maximumEntries: 10,
+    participantCount: 4,
+    entries: [
+      {
+        rank: 1,
+        displayName: "Moonlit Lotus Along the Jade River",
+        entryCount: 10,
+        isViewer: false,
+      },
+      {
+        rank: 1,
+        displayName: "Moonlit Lotus Along the Jade River",
+        entryCount: 10,
+        isViewer: true,
+      },
+      { rank: 2, displayName: "Sya", entryCount: 6, isViewer: false },
+      { rank: 3, displayName: "Pearl Bell", entryCount: 1, isViewer: false },
+    ],
+    asOf: "2026-08-01T12:00:00.000Z",
+  };
 }
 
 function fixtureWinner(displayName: string | null): LatestOfficialRaffleWinner {

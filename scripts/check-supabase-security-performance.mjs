@@ -113,6 +113,10 @@ const publicFunctions = [
   "get-current-spotlight-winner",
 ];
 
+const hybridFunctions = [
+  "get-current-raffle",
+];
+
 function read(rel) {
   const full = path.join(root, rel);
   if (!existsSync(full)) {
@@ -294,6 +298,15 @@ for (const name of publicFunctions) {
   if (source.includes("withProtectedCors")) {
     failures.push(`${name}: public-safe DTO endpoint must not use protected-origin CORS.`);
   }
+}
+
+for (const name of hybridFunctions) {
+  const source = read(`supabase/functions/${name}/index.ts`);
+  assertIncludes(`${name} public GET`, source, "handlePublicGet(dependencies)");
+  assertIncludes(`${name} protected member POST`, source, "withProtectedCors(");
+  assertIncludes(`${name} verified website member boundary`, source, "requireRaffleMember");
+  assertIncludes(`${name} verified Social member boundary`, source, "verifySocialLeaderboardRequest");
+  assertIncludes(`${name} private leaderboard cache boundary`, source, '"Cache-Control": LEADERBOARD_CACHE_CONTROL');
 }
 
 assertIncludes("list-approved-gallery-submissions public CORS", read("supabase/functions/list-approved-gallery-submissions/index.ts"), "\"Access-Control-Allow-Origin\": \"*\"");

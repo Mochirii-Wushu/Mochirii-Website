@@ -22,7 +22,7 @@ Provider changes remain approval-gated. During an approved Supabase release:
    `20260727054717_enforce_three_minute_spinner_countdown.sql`, from validated
    protected commits. Keep `spinner-live-session` and
    `reaper-spinner-dispatch` on the matching protected source. The connected
-   production integration redeploys all 33 functions declared in
+   production integration redeploys all 34 functions declared in
    `supabase/config.toml`, not only these two; require the exact-head Preview,
    full inventory readback, and serialized release described in
    `docs/operations/private-spinner.md`.
