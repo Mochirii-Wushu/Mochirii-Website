@@ -9,7 +9,7 @@ import type {
   RelayCreateOrderRequest,
 } from "./reward-relay-contract.ts";
 import type { RelayTransport } from "./reward-relay-client.ts";
-import { sha256Hex } from "./reward-crypto.ts";
+import { sha256Hex, stableJson } from "./reward-crypto.ts";
 import {
   isAllowedRafflePrizeCents,
   RAFFLE_ALL_IN_CAP_CENTS,
@@ -40,6 +40,7 @@ export type ProviderConfigRow = {
 export type FulfillmentJobRow = {
   id: string;
   draw_result_id: string;
+  cycle_id: string;
   provider_config_id: string;
   provider_configuration_hash: string;
   campaign_id: string;
@@ -100,6 +101,9 @@ export function prepareFulfillment(input: {
   if (job.external_id !== makeFulfillmentExternalId(job.draw_result_id)) {
     throw new Error("external_id_mismatch");
   }
+  if (!isUuid(job.cycle_id)) {
+    throw new Error("cycle_id_mismatch");
+  }
   if (
     config.minimum_reward_value_cents !== RAFFLE_MINIMUM_PRIZE_CENTS ||
     config.maximum_reward_value_cents !== RAFFLE_MAXIMUM_PRIZE_CENTS ||
@@ -158,6 +162,7 @@ export function prepareFulfillment(input: {
       operation: "create_order",
       environment: config.environment,
       configurationHash: config.configuration_hash.toLowerCase(),
+      cycleId: job.cycle_id,
       drawResultId: job.draw_result_id,
       externalId: job.external_id,
       countryCode: country,
@@ -212,23 +217,11 @@ export async function fulfillmentRequestHash(
   return sha256Hex(stableJson(request));
 }
 
-function stableJson(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
-  if (value && typeof value === "object") {
-    const record = value as Record<string, unknown>;
-    return `{${
-      Object.keys(record).sort().map((key) =>
-        `${JSON.stringify(key)}:${stableJson(record[key])}`
-      ).join(",")
-    }}`;
-  }
-  const serialized = JSON.stringify(value);
-  if (serialized === undefined) {
-    throw new Error("Cannot hash an undefined request value.");
-  }
-  return serialized;
-}
-
 function safeId(value: string): boolean {
   return /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(value);
+}
+
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+    .test(value);
 }

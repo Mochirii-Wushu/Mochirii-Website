@@ -1,0 +1,137 @@
+{
+  "version": 1,
+  "paths": {
+    "edge": {
+      "readiness": "/v1/readiness",
+      "createOrder": "/v1/orders",
+      "lookupOrder": "/v1/orders/by-external-id",
+      "rewardState": "/v1/rewards/state"
+    },
+    "relayOnly": {
+      "generateLink": "/v1/rewards/link"
+    }
+  },
+  "environments": {
+    "active": [
+      "sandbox",
+      "production"
+    ]
+  },
+  "externalId": {
+    "drawResultId": "12345678-1234-4234-9234-1234567890ab",
+    "value": "mochirii-mpd-12345678-1234-4234-9234-1234567890ab-v1"
+  },
+  "payloads": {
+    "readinessRequest": {
+      "operation": "readiness",
+      "environment": "sandbox",
+      "configurationHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "createOrderRequest": {
+      "operation": "create_order",
+      "environment": "sandbox",
+      "configurationHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "cycleId": "87654321-4321-4321-8321-ba0987654321",
+      "drawResultId": "12345678-1234-4234-9234-1234567890ab",
+      "externalId": "mochirii-mpd-12345678-1234-4234-9234-1234567890ab-v1",
+      "countryCode": "US",
+      "campaignId": "campaign-1",
+      "productIds": [
+        "product-1",
+        "product-2"
+      ],
+      "fundingSourceId": "balance",
+      "denomination": 25,
+      "currencyCode": "USD",
+      "deliveryMethod": "LINK"
+    },
+    "createOrderNormalization": {
+      "inputProductIds": [
+        "product-z",
+        "product-a",
+        "product-z",
+        "product-b"
+      ],
+      "expectedProductIds": [
+        "product-a",
+        "product-b",
+        "product-z"
+      ]
+    },
+    "lookupOrderRequest": {
+      "operation": "lookup_order",
+      "environment": "sandbox",
+      "externalId": "mochirii-mpd-12345678-1234-4234-9234-1234567890ab-v1"
+    },
+    "rewardStateRequest": {
+      "operation": "reward_state",
+      "environment": "sandbox",
+      "rewardReference": "reward-1"
+    },
+    "readinessResponse": {
+      "ready": true,
+      "environment": "sandbox",
+      "accountStatus": "active",
+      "apiOrders": true,
+      "ordersEnabled": true,
+      "organizationMatches": true,
+      "campaignMatches": true,
+      "configurationMatches": true,
+      "availableBalanceCents": 10000,
+      "pendingBalanceCents": 0
+    },
+    "orderResponse": {
+      "outcome": "created",
+      "orderReference": "order-1",
+      "rewardReference": "reward-1",
+      "sanitizedStatus": "succeeded"
+    },
+    "rewardStateResponse": {
+      "rewardReference": "reward-1",
+      "state": "active",
+      "deliveryState": "succeeded"
+    }
+  },
+  "stableJson": {
+    "value": {
+      "": 7,
+      "😀": 6,
+      "𐀀": 5,
+      "é": 4,
+      "é": 3,
+      "a": 2,
+      "A": 1
+    },
+    "canonical": "{\"A\":1,\"a\":2,\"é\":3,\"é\":4,\"𐀀\":5,\"😀\":6,\"\":7}",
+    "sha256": "6e51c32e6eb16192c031414ab34558173076bb9e1a1f9ca4598204a2c6001a1d"
+  },
+  "requestSignature": {
+    "secret": "mochirii-relay-protocol-vector-secret-0001",
+    "method": "POST",
+    "path": "/v1/orders",
+    "timestamp": "1700000000",
+    "nonce": "protocol-vector-nonce-0001",
+    "rawBody": "{\"operation\":\"create_order\",\"environment\":\"sandbox\",\"configurationHash\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"cycleId\":\"87654321-4321-4321-8321-ba0987654321\",\"drawResultId\":\"12345678-1234-4234-9234-1234567890ab\",\"externalId\":\"mochirii-mpd-12345678-1234-4234-9234-1234567890ab-v1\",\"countryCode\":\"US\",\"campaignId\":\"campaign-1\",\"productIds\":[\"product-1\",\"product-2\"],\"fundingSourceId\":\"balance\",\"denomination\":25,\"currencyCode\":\"USD\",\"deliveryMethod\":\"LINK\"}",
+    "bodyHash": "da4619164f3d06e25389626b08a9e4bdca8228c3613eb09eb46ec7a6a7fd1e20",
+    "canonicalMessage": "POST\n/v1/orders\n1700000000\nprotocol-vector-nonce-0001\nda4619164f3d06e25389626b08a9e4bdca8228c3613eb09eb46ec7a6a7fd1e20",
+    "headers": {
+      "x-mochirii-timestamp": "1700000000",
+      "x-mochirii-nonce": "protocol-vector-nonce-0001",
+      "x-mochirii-body-sha256": "da4619164f3d06e25389626b08a9e4bdca8228c3613eb09eb46ec7a6a7fd1e20",
+      "x-mochirii-signature": "c6efcb7ce78688e4a932edc106b8a428f315ee2007a8861d8d734eb62c5b7138"
+    }
+  },
+  "responseSignature": {
+    "path": "/v1/orders",
+    "status": 200,
+    "requestTimestamp": "1700000000",
+    "requestNonce": "protocol-vector-nonce-0001",
+    "stableBody": "{\"orderReference\":\"order-1\",\"outcome\":\"created\",\"rewardReference\":\"reward-1\",\"sanitizedStatus\":\"succeeded\"}",
+    "bodyHash": "61a9b4faa732b6030e0f4bae3a1997687369fed0dbe3865ad0e0923809b1f57c",
+    "canonicalMessage": "RESPONSE\n/v1/orders\n200\n1700000000\nprotocol-vector-nonce-0001\n61a9b4faa732b6030e0f4bae3a1997687369fed0dbe3865ad0e0923809b1f57c",
+    "headers": {
+      "x-mochirii-response-body-sha256": "61a9b4faa732b6030e0f4bae3a1997687369fed0dbe3865ad0e0923809b1f57c",
+      "x-mochirii-response-signature": "a3bb4a1c398c4de3c93ff8b2c6f8b63260321a53b7dddda68953c2c599cbec70"
+    }
+  }
+}

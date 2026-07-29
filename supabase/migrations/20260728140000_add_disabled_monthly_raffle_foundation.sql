@@ -440,6 +440,7 @@ create table public.raffle_draw_results (
   manual_all_in_cost_cents integer,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
+  constraint raffle_draw_results_identity_key unique (id, cycle_id),
   constraint raffle_draw_results_draw_member_key unique (draw_id, member_id),
   constraint raffle_draw_results_draw_order_key unique (draw_id, selection_order),
   constraint raffle_draw_results_draw_ordinal_key unique (draw_id, entry_ordinal),
@@ -786,6 +787,7 @@ for each row execute function public.invalidate_raffle_provider_approvals();
 create table public.raffle_fulfillment_jobs (
   id uuid primary key default gen_random_uuid(),
   draw_result_id uuid not null unique references public.raffle_draw_results(id) on delete restrict,
+  cycle_id uuid not null references public.raffle_cycles(id) on delete restrict,
   provider_config_id uuid not null references public.raffle_provider_configs(id) on delete restrict,
   provider_configuration_hash text not null,
   campaign_id text not null,
@@ -815,6 +817,10 @@ create table public.raffle_fulfillment_jobs (
   reconciled_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
+  constraint raffle_fulfillment_jobs_identity_key unique (id, cycle_id),
+  constraint raffle_fulfillment_jobs_result_cycle_fk
+    foreign key (draw_result_id, cycle_id)
+    references public.raffle_draw_results(id, cycle_id) on delete restrict,
   constraint raffle_fulfillment_jobs_state_check check (state in ('awaiting_clearance', 'ready', 'claimed', 'submitting', 'reconciling', 'succeeded', 'retryable', 'failed', 'cancelled', 'dead_letter')),
   constraint raffle_fulfillment_jobs_external_id_check check (
     external_id ~ '^mochirii-mpd-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-v1$'
@@ -856,6 +862,7 @@ comment on table public.raffle_fulfillment_jobs is
 
 create index raffle_fulfillment_jobs_due_idx on public.raffle_fulfillment_jobs (state, next_attempt_at, created_at)
 where state in ('ready', 'retryable', 'reconciling', 'claimed');
+create index raffle_fulfillment_jobs_cycle_idx on public.raffle_fulfillment_jobs (cycle_id, state);
 create index raffle_fulfillment_jobs_provider_config_idx on public.raffle_fulfillment_jobs (provider_config_id, state);
 create index raffle_fulfillment_jobs_unlock_actor_idx on public.raffle_fulfillment_jobs (link_generation_unlocked_by) where link_generation_unlocked_by is not null;
 create unique index raffle_fulfillment_jobs_provider_order_key on public.raffle_fulfillment_jobs (provider_config_id, provider_order_id)
@@ -1219,13 +1226,13 @@ begin
   end if;
 
   if row(
-    old.id, old.draw_result_id, old.provider_config_id,
+    old.id, old.draw_result_id, old.cycle_id, old.provider_config_id,
     old.provider_configuration_hash, old.campaign_id, old.external_id,
     old.country_code, old.reward_value_cents, old.reward_currency,
     old.all_in_cost_cap_cents,
     old.product_ids, old.created_at
   ) is distinct from row(
-    new.id, new.draw_result_id, new.provider_config_id,
+    new.id, new.draw_result_id, new.cycle_id, new.provider_config_id,
     new.provider_configuration_hash, new.campaign_id, new.external_id,
     new.country_code, new.reward_value_cents, new.reward_currency,
     new.all_in_cost_cap_cents,
@@ -3007,11 +3014,11 @@ begin
   end if;
 
   insert into public.raffle_fulfillment_jobs (
-    draw_result_id, provider_config_id, provider_configuration_hash,
+    draw_result_id, cycle_id, provider_config_id, provider_configuration_hash,
     campaign_id, state, external_id, country_code, reward_value_cents,
     reward_currency, all_in_cost_cap_cents, product_ids, next_attempt_at
   ) values (
-    result_row.id, config_row.id, config_row.configuration_hash,
+    result_row.id, result_row.cycle_id, config_row.id, config_row.configuration_hash,
     config_row.campaign_id, 'ready', immutable_external_id,
     entry_row.country_code, cycle_row.reward_value_cents, 'USD',
     cycle_row.cycle_cost_ceiling_cents, reviewed_products, p_now

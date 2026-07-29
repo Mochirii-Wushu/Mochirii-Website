@@ -31,6 +31,7 @@ export type RelayCreateOrderRequest = {
   operation: "create_order";
   environment: ActiveProviderMode;
   configurationHash: string;
+  cycleId: string;
   drawResultId: string;
   externalId: string;
   countryCode: string;
@@ -98,6 +99,7 @@ export function parseRelayRequest(
       "operation",
       "environment",
       "configurationHash",
+      "cycleId",
       "drawResultId",
       "externalId",
       "countryCode",
@@ -113,11 +115,12 @@ export function parseRelayRequest(
       operation: literal(body.operation, "create_order"),
       environment: activeMode(body.environment),
       configurationHash: hash(body.configurationHash),
+      cycleId: uuid(body.cycleId),
       drawResultId: uuid(body.drawResultId),
       externalId: externalId(body.externalId),
       countryCode: countryCode(body.countryCode),
       campaignId: identifier(body.campaignId),
-      productIds: [...new Set(productIds)],
+      productIds: [...new Set(productIds)].sort(compareCodeUnits),
       fundingSourceId: literal(body.fundingSourceId, "balance"),
       denomination: grossPrizeDollars(body.denomination),
       currencyCode: literal(body.currencyCode, "USD"),
@@ -284,6 +287,10 @@ function identifier(value: unknown): string {
   const text = String(value || "").trim();
   if (!SAFE_ID_RE.test(text)) throw new Error("Expected a provider reference.");
   return text;
+}
+
+function compareCodeUnits(left: string, right: string): number {
+  return left === right ? 0 : left < right ? -1 : 1;
 }
 
 function safeIdentifier(value: unknown): boolean {

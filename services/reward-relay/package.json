@@ -8,7 +8,7 @@
   },
   "scripts": {
     "start": "node src/server.mjs",
-    "test": "node --test test/relay.test.mjs test/reward-chain.test.mjs",
+    "test": "node --test test/protocol-vector.test.mjs test/relay.test.mjs test/reward-chain.test.mjs",
     "test:chain": "node --test test/reward-chain.test.mjs",
     "config-hash": "node src/config-hash.mjs",
     "reconcile": "node src/reconcile.mjs",

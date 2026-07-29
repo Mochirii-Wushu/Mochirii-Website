@@ -20,6 +20,7 @@ import { InMemoryRewardRelay } from "./reward-mock-relay.ts";
 import type { RelayCreateOrderRequest } from "./reward-relay-contract.ts";
 
 const drawResultId = "12345678-1234-4234-9234-1234567890ab";
+const cycleId = "87654321-4321-4321-8321-ba0987654321";
 
 Deno.test("external IDs are immutable and state transitions fail closed", () => {
   assertEquals(
@@ -372,6 +373,7 @@ Deno.test("job preparation enforces reviewed country/product/configuration and e
   });
   assertEquals(prepared.requiredAvailableBalanceCents, 6_000);
   assertEquals(prepared.maximumTotalBalanceCents, 10_000);
+  assertEquals(prepared.request.cycleId, cycleId);
   assertEquals(prepared.request.productIds, ["product-1"]);
   assertEquals(prepared.request.deliveryMethod, "LINK");
   assertEquals(prepared.request.fundingSourceId, "balance");
@@ -437,6 +439,13 @@ Deno.test("job preparation enforces reviewed country/product/configuration and e
       authorizedOutstandingCents: 1_000,
     })
   );
+  assertThrows(() =>
+    prepareFulfillment({
+      job: { ...jobRow(), cycle_id: "not-a-cycle" },
+      config: configRow(),
+      authorizedOutstandingCents: 1_000,
+    })
+  );
 });
 
 function response(
@@ -461,6 +470,7 @@ function orderRequest(): RelayCreateOrderRequest {
     operation: "create_order",
     environment: "sandbox",
     configurationHash: "a".repeat(64),
+    cycleId,
     drawResultId,
     externalId: `mochirii-mpd-${drawResultId}-v1`,
     countryCode: "US",
@@ -513,6 +523,7 @@ function jobRow(): FulfillmentJobRow {
   return {
     id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
     draw_result_id: drawResultId,
+    cycle_id: cycleId,
     provider_config_id: configRow().id,
     provider_configuration_hash: configRow().configuration_hash!,
     campaign_id: configRow().campaign_id!,

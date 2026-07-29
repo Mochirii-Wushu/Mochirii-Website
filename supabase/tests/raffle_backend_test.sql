@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions, pg_catalog;
 
-select plan(71);
+select plan(72);
 
 -- Every prize-draw relation is service-owned. Browser and authenticated JWT
 -- roles must use the narrow Edge Function contracts instead of direct SQL.
@@ -471,12 +471,13 @@ insert into public.raffle_draw_results (
 
 select lives_ok(
   $$insert into public.raffle_fulfillment_jobs (
-      id, draw_result_id, provider_config_id, provider_configuration_hash,
+      id, draw_result_id, cycle_id, provider_config_id, provider_configuration_hash,
       campaign_id, external_id, country_code, reward_value_cents,
       reward_currency, all_in_cost_cap_cents, product_ids
     ) values (
       '50000000-0000-4000-8000-000000000025',
       '40000000-0000-4000-8000-000000000025',
+      '10000000-0000-4000-8000-000000000025',
       (select id from public.raffle_provider_configs where environment = 'sandbox'),
       repeat('a', 64), 'campaign-v1',
       'mochirii-mpd-40000000-0000-4000-8000-000000000025-v1',
@@ -497,11 +498,12 @@ select is(
 
 select throws_like(
   $$insert into public.raffle_fulfillment_jobs (
-      draw_result_id, provider_config_id, provider_configuration_hash,
+      draw_result_id, cycle_id, provider_config_id, provider_configuration_hash,
       campaign_id, external_id, country_code, reward_value_cents,
       all_in_cost_cap_cents, product_ids
     ) values (
       '40000000-0000-4000-8000-000000000010',
+      '10000000-0000-4000-8000-000000000010',
       (select id from public.raffle_provider_configs where environment = 'sandbox'),
       repeat('a', 64), 'campaign-v1',
       'mochirii-mpd-40000000-0000-4000-8000-000000000010-v1',
@@ -513,11 +515,12 @@ select throws_like(
 
 select throws_like(
   $$insert into public.raffle_fulfillment_jobs (
-      draw_result_id, provider_config_id, provider_configuration_hash,
+      draw_result_id, cycle_id, provider_config_id, provider_configuration_hash,
       campaign_id, external_id, country_code, reward_value_cents,
       all_in_cost_cap_cents, product_ids
     ) values (
       '40000000-0000-4000-8000-000000000010',
+      '10000000-0000-4000-8000-000000000010',
       (select id from public.raffle_provider_configs where environment = 'sandbox'),
       repeat('a', 64), 'campaign-v1',
       'mochirii-mpd-40000000-0000-4000-8000-000000000011-v1',
@@ -529,11 +532,12 @@ select throws_like(
 
 select throws_like(
   $$insert into public.raffle_fulfillment_jobs (
-      draw_result_id, provider_config_id, provider_configuration_hash,
+      draw_result_id, cycle_id, provider_config_id, provider_configuration_hash,
       campaign_id, external_id, country_code, reward_value_cents,
       all_in_cost_cap_cents, product_ids
     ) values (
       '40000000-0000-4000-8000-000000000010',
+      '10000000-0000-4000-8000-000000000010',
       (select id from public.raffle_provider_configs where environment = 'sandbox'),
       repeat('a', 64), 'campaign-v1',
       'mochirii-mpd-40000000-0000-4000-8000-000000000012-v1',
@@ -545,11 +549,12 @@ select throws_like(
 
 select throws_like(
   $$insert into public.raffle_fulfillment_jobs (
-      draw_result_id, provider_config_id, provider_configuration_hash,
+      draw_result_id, cycle_id, provider_config_id, provider_configuration_hash,
       campaign_id, external_id, country_code, reward_value_cents,
       all_in_cost_cap_cents, product_ids
     ) values (
       '40000000-0000-4000-8000-000000000010',
+      '10000000-0000-4000-8000-000000000010',
       (select id from public.raffle_provider_configs where environment = 'sandbox'),
       repeat('a', 64), 'campaign-v1',
       'mochirii-mpd-40000000-0000-4000-8000-000000000013-v1',
@@ -573,6 +578,14 @@ select throws_like(
     where id = '50000000-0000-4000-8000-000000000025'$$,
   '%raffle_fulfillment_snapshot_is_immutable%',
   'a fulfillment job all-in cap snapshot is immutable'
+);
+
+select throws_like(
+  $$update public.raffle_fulfillment_jobs
+    set cycle_id = '10000000-0000-4000-8000-000000000010'
+    where id = '50000000-0000-4000-8000-000000000025'$$,
+  '%raffle_fulfillment_snapshot_is_immutable%',
+  'a fulfillment job cycle binding is immutable'
 );
 
 -- Manual fulfillment exercises the cross-table prize floor, exact $50 ceiling,

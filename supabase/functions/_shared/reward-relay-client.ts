@@ -68,9 +68,8 @@ export function createRelayClient(options: RelayClientOptions): RelayTransport {
       const requestNonce = headers[RELAY_SIGNATURE_HEADERS.nonce];
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), timeoutMs);
-      let response: Response;
       try {
-        response = await fetcher(new URL(path, baseUrl), {
+        const response = await fetcher(new URL(path, baseUrl), {
           method: "POST",
           headers: {
             ...headers,
@@ -82,43 +81,45 @@ export function createRelayClient(options: RelayClientOptions): RelayTransport {
           signal: controller.signal,
           redirect: "error",
         });
+        const length = Number(response.headers.get("content-length") || "0");
+        if (Number.isFinite(length) && length > MAX_RESPONSE_BYTES) {
+          throw new Error("Reward relay response exceeds the size limit.");
+        }
+        const text = await readResponseTextBounded(
+          response,
+          MAX_RESPONSE_BYTES,
+        );
+        let parsed: unknown = {};
+        if (text) {
+          try {
+            parsed = JSON.parse(text);
+          } catch {
+            throw new Error("Reward relay response is not valid JSON.");
+          }
+        }
+        const responseVerified = await verifyRelayResponse({
+          secret: options.hmacSecret,
+          path,
+          status: response.status,
+          requestTimestamp,
+          requestNonce,
+          headers: response.headers,
+          body: parsed,
+        });
+        if (!responseVerified) {
+          throw new Error("Reward relay response authentication failed.");
+        }
+        return {
+          status: response.status,
+          body: parsed,
+          retryAfterMs: parseRetryAfterMs(
+            response.headers.get("retry-after"),
+            now(),
+          ),
+        };
       } finally {
         clearTimeout(timeout);
       }
-
-      const length = Number(response.headers.get("content-length") || "0");
-      if (Number.isFinite(length) && length > MAX_RESPONSE_BYTES) {
-        throw new Error("Reward relay response exceeds the size limit.");
-      }
-      const text = await readResponseTextBounded(response, MAX_RESPONSE_BYTES);
-      let parsed: unknown = {};
-      if (text) {
-        try {
-          parsed = JSON.parse(text);
-        } catch {
-          throw new Error("Reward relay response is not valid JSON.");
-        }
-      }
-      const responseVerified = await verifyRelayResponse({
-        secret: options.hmacSecret,
-        path,
-        status: response.status,
-        requestTimestamp,
-        requestNonce,
-        headers: response.headers,
-        body: parsed,
-      });
-      if (!responseVerified) {
-        throw new Error("Reward relay response authentication failed.");
-      }
-      return {
-        status: response.status,
-        body: parsed,
-        retryAfterMs: parseRetryAfterMs(
-          response.headers.get("retry-after"),
-          now(),
-        ),
-      };
     },
   };
 }

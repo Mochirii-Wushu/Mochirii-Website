@@ -81,7 +81,7 @@ export function stableJson(value: unknown): string {
   }
   if (value && typeof value === "object") {
     const entries = Object.entries(value).sort(([left], [right]) =>
-      left.localeCompare(right)
+      compareCodeUnits(left, right)
     );
     return `{${
       entries.map(([key, item]) => `${JSON.stringify(key)}:${stableJson(item)}`)
@@ -93,6 +93,11 @@ export function stableJson(value: unknown): string {
     throw new Error("Relay response contains a non-JSON value.");
   }
   return serialized;
+}
+
+export function compareCodeUnits(left: string, right: string): number {
+  if (left === right) return 0;
+  return left < right ? -1 : 1;
 }
 
 export async function sha256Hex(body: string | Uint8Array): Promise<string> {

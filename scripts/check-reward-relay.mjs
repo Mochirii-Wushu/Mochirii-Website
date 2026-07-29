@@ -25,11 +25,18 @@ const requiredFiles = [
   "src/service.mjs",
   "src/state.mjs",
   "src/tremendous.mjs",
+  "test/protocol-vector.test.mjs",
   "test/relay.test.mjs",
   "test/reward-chain.test.mjs",
 ];
 
 for (const path of requiredFiles) requireFile(path);
+for (const path of [
+  "contracts/reward-relay-protocol-v1.json",
+  "supabase/functions/_shared/reward-relay-protocol-vector_test.ts",
+]) {
+  if (!existsSync(join(root, path))) fail(`Missing shared relay protocol file: ${path}`);
+}
 if (existsSync(join(serviceRoot, "deploy"))) fail("deployment templates must remain outside this disabled source track");
 
 if (!failures.length) {
@@ -85,6 +92,26 @@ if (!failures.length) {
     "leftText < rightText ? -1 : 1",
   ], "mutual relay authentication, freshness, replay prevention, and external ID contract");
   requireNone(read("src/protocol.mjs"), ["localeCompare"], "locale-dependent canonical sorting");
+  requireAll(read("test/protocol-vector.test.mjs"), [
+    "contracts/reward-relay-protocol-v1.json",
+    "parseRelayRequest",
+    "buildSignatureHeaders",
+    "buildResponseSignatureHeaders",
+  ], "shared cross-runtime protocol vectors");
+  requireAll(
+    readFileSync(
+      join(root, "supabase", "functions", "_shared", "reward-relay-protocol-vector_test.ts"),
+      "utf8",
+    ),
+    [
+      "contracts/reward-relay-protocol-v1.json",
+      "parseRelayRequest",
+      "buildRelaySignatureHeaders",
+      "buildRelayResponseSignatureHeaders",
+      "Edge relay deadline remains active through a stalled response body",
+    ],
+    "Edge and Node shared protocol vectors",
+  );
 
   requireAll(read("src/service.mjs"), [
     "consumeRate",
