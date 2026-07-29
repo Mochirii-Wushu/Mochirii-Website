@@ -39,7 +39,6 @@ const forbiddenOperationalSurfaces = [
   "apps/web/lib/prize-draw.ts",
   "apps/web/lib/prize-draw-rules.ts",
   "apps/web/lib/supabase/prize-draw.ts",
-  "services/reward-relay",
   "supabase/migrations/20260719130111_monthly_prize_draw.sql",
   "supabase/functions/manage-raffle-entry",
   "supabase/functions/manage-raffle-claim",
@@ -49,7 +48,6 @@ const forbiddenOperationalSurfaces = [
   "supabase/functions/reward-provider-webhook",
   "scripts/register-reaper-raffle-commands.mjs",
   "scripts/check-reaper-raffle-commands.mjs",
-  "scripts/check-reward-relay.mjs",
 ];
 
 for (const [label, file] of Object.entries(files)) {
@@ -58,6 +56,12 @@ for (const [label, file] of Object.entries(files)) {
 
 for (const file of forbiddenOperationalSurfaces) {
   if (existsSync(resolve(root, file))) failures.push(`${file}: operational raffle surface must stay outside the public-page track`);
+}
+
+const rewardRelaySourceExists = existsSync(resolve(root, "services/reward-relay"));
+const rewardRelayGuardExists = existsSync(resolve(root, "scripts/check-reward-relay.mjs"));
+if (rewardRelaySourceExists !== rewardRelayGuardExists) {
+  failures.push("disabled reward-relay source and its fail-closed repository guard must be added or removed together");
 }
 
 const data = JSON.parse(read(files.data) || "{}");
