@@ -72,9 +72,10 @@ export function PrivacyPage() {
                 <section aria-labelledby="privacyAccountTitle">
                   <h3 className="section-title section-title--sm" id="privacyAccountTitle">Account and membership</h3>
                   <p>
-                    Website account identifiers, editable profile information, session cookies or browser storage used
-                    to keep you signed in, Discord identity and role information, onboarding or verification state,
-                    and the results of live moderator-role checks.
+                    Website account identifiers, editable profile information, session cookies used to keep you
+                    signed in, limited browser storage used for auth cutover or interface preferences, Discord identity
+                    and role information, onboarding or verification state, and the results of live moderator-role
+                    checks.
                   </p>
                 </section>
                 <section aria-labelledby="privacyUploadTitle">

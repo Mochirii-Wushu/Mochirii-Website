@@ -3,7 +3,7 @@ import { BodyPageMarker } from "../BodyPageMarker";
 import { BadgeRow, PageHero } from "../common";
 
 const SUPPORT_EMAIL = "support@mochirii.com";
-const REQUEST_SUBJECT = "Mochirii data deletion request";
+const REQUEST_SUBJECT = "Mōchirīī data deletion request";
 
 export function MetaDataDeletionPage() {
   const requestHref = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(REQUEST_SUBJECT)}`;

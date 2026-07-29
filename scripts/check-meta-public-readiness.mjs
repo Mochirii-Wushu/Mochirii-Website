@@ -62,7 +62,7 @@ for (const phrase of [
   "intends to use a business-owned publisher",
   "not currently",
   "applies when the hardened destination workflow is enabled",
-  "Mochirii data deletion request",
+  "Mōchirīī data deletion request",
   "Do not send a password, access token, recovery code, signed media URL, or identity document",
   "Queued, failed, or ineligible",
   "Publishing or uncertain",
