@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { OAuthConsentPanel } from "@/components/member-workflow/OAuthConsentPanel";
+import { ProtectedAccessUnavailable } from "@/components/member-workflow/ProtectedAccessUnavailable";
 import { BodyPageMarker } from "@/components/public-pages/BodyPageMarker";
 import { PageHero } from "@/components/public-pages/common";
 import { oauthConsentLoginHref } from "@/lib/oauth/consent-login-url";
@@ -37,7 +38,12 @@ export default async function OAuthConsentPage({ searchParams }: OAuthConsentPag
   const session = await getVerifiedServerSession();
   if (!session.ok) {
     if (session.reason === "signed-out") redirect(oauthConsentLoginHref(authorizationId));
-    throw new Error("Guild social authorization is unavailable.");
+    return (
+      <>
+        <BodyPageMarker page="oauth-consent" />
+        <ProtectedAccessUnavailable />
+      </>
+    );
   }
 
   return (

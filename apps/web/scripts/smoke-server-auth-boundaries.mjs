@@ -49,13 +49,60 @@ async function assertRedirect(path, expectedLocation, forbiddenCopy) {
   assert.equal(new URL(String(response.headers.get("location")), origin).pathname + new URL(String(response.headers.get("location")), origin).search, expectedLocation);
   assert.doesNotMatch(body, forbiddenCopy);
   if (path.startsWith("/leader-dashboard") || path.startsWith("/oauth/consent")) {
-    const policy = String(response.headers.get("content-security-policy") || "");
-    const scriptDirective = policy.split("; ").find((directive) => directive.startsWith("script-src ")) || "";
-    assert.match(scriptDirective, /'nonce-[A-Fa-f0-9]{32}'/);
-    assert.match(scriptDirective, /'strict-dynamic'/);
-    assert.doesNotMatch(scriptDirective, /'unsafe-inline'/);
-    assert.match(String(response.headers.get("cache-control") || ""), /\bno-store\b/);
+    assertProtectedHeaders(response);
   }
+}
+
+function assertProtectedHeaders(response) {
+  const policy = String(response.headers.get("content-security-policy") || "");
+  const scriptDirective = policy.split("; ").find((directive) => directive.startsWith("script-src ")) || "";
+  assert.match(scriptDirective, /'nonce-[A-Fa-f0-9]{32}'/);
+  assert.match(scriptDirective, /'strict-dynamic'/);
+  assert.doesNotMatch(scriptDirective, /'unsafe-inline'/);
+  assert.match(String(response.headers.get("cache-control") || ""), /\bno-store\b/);
+}
+
+function jwt(payload) {
+  const encode = (value) => Buffer.from(JSON.stringify(value)).toString("base64url");
+  return `${encode({ alg: "HS256", typ: "JWT" })}.${encode(payload)}.local-signature`;
+}
+
+function authCookie(accessToken) {
+  const expiresAt = Math.floor(Date.now() / 1_000) + 3_600;
+  const session = {
+    access_token: accessToken,
+    refresh_token: "local-refresh-token",
+    expires_at: expiresAt,
+    expires_in: 3_600,
+    token_type: "bearer",
+  };
+  return `sb-example-auth-token=base64-${Buffer.from(JSON.stringify(session)).toString("base64url")}`;
+}
+
+async function assertCookieRedirect(path, expectedLocation, forbiddenCopy, cookie) {
+  const response = await fetch(`${origin}${path}`, {
+    redirect: "manual",
+    headers: { Cookie: cookie },
+  });
+  const body = await response.text();
+  assert.ok([303, 307, 308].includes(response.status), `${path} returned ${response.status}`);
+  const location = new URL(String(response.headers.get("location")), origin);
+  assert.equal(location.pathname + location.search, expectedLocation);
+  assert.doesNotMatch(body, forbiddenCopy);
+}
+
+async function assertAuthUnavailable(path, forbiddenCopy, cookie) {
+  const response = await fetch(`${origin}${path}`, {
+    redirect: "manual",
+    headers: { Cookie: cookie },
+  });
+  const body = await response.text();
+  assert.equal(response.status, 200, `${path} returned ${response.status}`);
+  assert.equal(response.headers.get("location"), null, `${path} must not redirect an outage to login`);
+  assertProtectedHeaders(response);
+  assert.match(body, /This guild page is temporarily unavailable/);
+  assert.doesNotMatch(body, forbiddenCopy);
+  assert.doesNotMatch(body, /AuthRetryableFetchError|example\.invalid|local-refresh-token/);
 }
 
 try {
@@ -74,6 +121,27 @@ try {
     "/auth/callback?next=%2Fleader-dashboard",
     "/auth?error=session",
     /Review member image uploads, inspect context/,
+  );
+  await assertCookieRedirect(
+    "/leader-dashboard",
+    "/auth?redirect=%2Fleader-dashboard",
+    /Review member image uploads, inspect context/,
+    authCookie("not-a-jwt"),
+  );
+  const upstreamCookie = authCookie(jwt({
+    sub: "local-member",
+    exp: Math.floor(Date.now() / 1_000) + 3_600,
+    role: "authenticated",
+  }));
+  await assertAuthUnavailable(
+    "/leader-dashboard",
+    /Review member image uploads, inspect context/,
+    upstreamCookie,
+  );
+  await assertAuthUnavailable(
+    "/oauth/consent?authorization_id=request_123",
+    /Review the requested guild social access before continuing/,
+    upstreamCookie,
   );
   console.log("Server authentication boundary smoke passed.");
 } finally {
