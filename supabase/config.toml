@@ -107,6 +107,42 @@ verify_jwt = false
 import_map = "./functions/get-current-raffle/deno.json"
 entrypoint = "./functions/get-current-raffle/index.ts"
 
+[functions.manage-raffle-entry]
+enabled = true
+verify_jwt = true
+import_map = "./functions/manage-raffle-entry/deno.json"
+entrypoint = "./functions/manage-raffle-entry/index.ts"
+
+[functions.moderate-raffle]
+enabled = true
+verify_jwt = true
+import_map = "./functions/moderate-raffle/deno.json"
+entrypoint = "./functions/moderate-raffle/index.ts"
+
+[functions.run-raffle-schedule]
+enabled = true
+verify_jwt = false
+import_map = "./functions/run-raffle-schedule/deno.json"
+entrypoint = "./functions/run-raffle-schedule/index.ts"
+
+[functions.manage-raffle-claim]
+enabled = true
+verify_jwt = true
+import_map = "./functions/manage-raffle-claim/deno.json"
+entrypoint = "./functions/manage-raffle-claim/index.ts"
+
+[functions.run-raffle-fulfillment]
+enabled = true
+verify_jwt = false
+import_map = "./functions/run-raffle-fulfillment/deno.json"
+entrypoint = "./functions/run-raffle-fulfillment/index.ts"
+
+[functions.reward-provider-webhook]
+enabled = true
+verify_jwt = false
+import_map = "./functions/reward-provider-webhook/deno.json"
+entrypoint = "./functions/reward-provider-webhook/index.ts"
+
 [functions.list-instagram-publish-queue]
 enabled = true
 verify_jwt = true
