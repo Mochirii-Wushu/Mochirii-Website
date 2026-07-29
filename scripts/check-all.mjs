@@ -30,6 +30,7 @@ const checks = [
   ["check:github-actions-security", ["node", "scripts/check-github-actions-security.mjs"]],
   ["check:supabase-config", ["node", "scripts/check-supabase-public-config.mjs"]],
   ["check:discord-gallery-ingest", ["node", "scripts/check-discord-gallery-ingest.mjs"]],
+  ["test:discord-gallery-ingest-auth", ["deno", "test", "--lock=deno.lock", "--frozen=true", "supabase/functions/_shared/discord-gallery-ingest-auth_test.ts"]],
   ["check:discord-reaper-parity", ["node", "scripts/check-discord-reaper-parity.mjs"]],
   ["check:discord-event-covers", ["node", "scripts/check-discord-event-covers.mjs"]],
   ["check:reaper-discord-interactions", ["node", "scripts/check-reaper-discord-interactions.mjs"]],

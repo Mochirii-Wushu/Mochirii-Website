@@ -35,6 +35,7 @@
     "check:csp-inline-hardening": "node scripts/check-csp-inline-hardening.mjs",
     "check:cutover-validators": "node scripts/check-cutover-validator-self-tests.mjs",
     "check:discord-gallery-ingest": "node scripts/check-discord-gallery-ingest.mjs",
+    "test:discord-gallery-ingest-auth": "deno test --lock=deno.lock --frozen=true supabase/functions/_shared/discord-gallery-ingest-auth_test.ts",
     "check:discord-reaper-parity": "node scripts/check-discord-reaper-parity.mjs",
     "check:discord-event-covers": "node scripts/check-discord-event-covers.mjs",
     "check:dns-cutover-approval-packet": "node scripts/check-dns-cutover-approval-packet.mjs",

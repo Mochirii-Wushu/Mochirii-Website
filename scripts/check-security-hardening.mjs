@@ -27,6 +27,7 @@ const files = {
   mochiPetsAlphaAction: "supabase/functions/mochi-pets-alpha-action/index.ts",
   mochiPetsAlphaProgress: "supabase/functions/mochi-pets-alpha-progress/index.ts",
   discordIngest: "supabase/functions/submit-discord-gallery-image/index.ts",
+  discordIngestAuth: "supabase/functions/_shared/discord-gallery-ingest-auth.ts",
   voteReminder: "supabase/functions/send-vote-reminder/index.ts",
   spotlightPollShared: "supabase/functions/_shared/spotlight-polls.ts",
   spotlightPollSender: "supabase/functions/send-member-spotlight-poll/index.ts",
@@ -97,6 +98,7 @@ const mochiPetsAlphaShared = read(files.mochiPetsAlphaShared);
 const mochiPetsAlphaAction = read(files.mochiPetsAlphaAction);
 const mochiPetsAlphaProgress = read(files.mochiPetsAlphaProgress);
 const discordIngest = read(files.discordIngest);
+const discordIngestAuth = read(files.discordIngestAuth);
 const voteReminder = read(files.voteReminder);
 const spotlightPollShared = read(files.spotlightPollShared);
 const spotlightPollSender = read(files.spotlightPollSender);
@@ -297,9 +299,14 @@ const unauthenticatedFunctionGuardSpecs = {
     snippets: [".eq(\"profile_public_enabled\", true)", ".eq(\"member_status\", \"active\")", "recentVerification(profile.discord_verified_at)", "signedMediaUrl"],
   },
   "submit-discord-gallery-image": {
-    source: discordIngest,
-    kind: "shared-secret Reaper ingest",
-    snippets: ["DISCORD_GALLERY_INGEST_SECRET", "x-mochirii-reaper-secret", "bearerOrHeaderSecret(req) !== ingestSecret"],
+    source: `${discordIngest}\n${discordIngestAuth}`,
+    kind: "body-bound HMAC and one-use nonce authenticated Reaper ingest",
+    snippets: [
+      "verifyDiscordGalleryIngestRequest",
+      "DISCORD_GALLERY_INGEST_MAX_SKEW_SECONDS = 60",
+      "crypto.subtle.sign(\"HMAC\"",
+      "dependencies.consumeNonce(keyId, nonce, expiresAt)",
+    ],
   },
   "reaper-discord-interactions": {
     source: reaperSecuritySource,
@@ -446,11 +453,19 @@ assertMatches(
 );
 
 [
-  "DISCORD_GALLERY_INGEST_SECRET",
-  "x-mochirii-reaper-secret",
-  "bearerOrHeaderSecret(req) !== ingestSecret",
-  "invalid_ingest_secret",
+  "DISCORD_GALLERY_INGEST_HMAC_KEYS_ENV",
+  "verifyDiscordGalleryIngestRequest",
+  '"consume_discord_gallery_ingest_nonce"',
+  "rawBody = await req.text()",
+  "parseJsonBody(rawBody)",
 ].forEach((snippet) => assertIncludes("submit-discord-gallery-image", discordIngest, snippet));
+
+assertNotMatches(
+  "submit-discord-gallery-image",
+  discordIngest,
+  /DISCORD_GALLERY_INGEST_SECRET|x-mochirii-reaper-secret|bearerOrHeaderSecret/,
+  "retired static-secret ingest authentication must not remain available.",
+);
 
 [
   "VOTE_REMINDER_CRON_SECRET",

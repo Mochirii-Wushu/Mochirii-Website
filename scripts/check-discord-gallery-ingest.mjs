@@ -6,7 +6,12 @@ const root = process.cwd();
 const files = {
   config: "supabase/config.toml",
   function: "supabase/functions/submit-discord-gallery-image/index.ts",
+  reaperFunction: "supabase/functions/reaper-discord-interactions/index.ts",
+  authHelper: "supabase/functions/_shared/discord-gallery-ingest-auth.ts",
+  authTest: "supabase/functions/_shared/discord-gallery-ingest-auth_test.ts",
   importMap: "supabase/functions/submit-discord-gallery-image/deno.json",
+  nonceMigration: "supabase/migrations/20260729130654_add_discord_gallery_ingest_hmac_replay_guard.sql",
+  nonceDbTest: "supabase/tests/discord_gallery_ingest_hmac_test.sql",
   sourceMigration: "supabase/migrations/20260524114802_add_discord_gallery_submission_source.sql",
   revokeMigration: "supabase/migrations/20260524115932_revoke_public_rls_auto_enable_execute.sql",
   previousGalleryMigration: "supabase/migrations/20260513081523_create_discord_role_gated_gallery_uploads.sql",
@@ -67,7 +72,12 @@ function assertEqual(label, actual, expected) {
 
 const config = read(files.config);
 const functionSource = read(files.function);
+const reaperFunction = read(files.reaperFunction);
+const authHelper = read(files.authHelper);
+const authTest = read(files.authTest);
 const importMap = read(files.importMap);
+const nonceMigration = read(files.nonceMigration);
+const nonceDbTest = read(files.nonceDbTest);
 const sourceMigration = read(files.sourceMigration);
 const revokeMigration = read(files.revokeMigration);
 const previousGalleryMigration = read(files.previousGalleryMigration);
@@ -93,15 +103,18 @@ assertIncludes("import map", importMap, '"@supabase/supabase-js": "npm:@supabase
   'const DISCORD_CDN_HOSTS = new Set(["cdn.discordapp.com", "media.discordapp.net", "media.discordapp.com"]);',
   "const RECENT_VERIFICATION_MS = 7 * 24 * 60 * 60 * 1000;",
   '"Access-Control-Allow-Methods": "POST, OPTIONS"',
-  "x-mochirii-reaper-secret",
-  'Deno.env.get("DISCORD_GALLERY_INGEST_SECRET")',
+  "DISCORD_GALLERY_INGEST_HMAC_KEYS_ENV",
+  "verifyDiscordGalleryIngestRequest",
+  "readDiscordGalleryIngestBody",
+  '"consume_discord_gallery_ingest_nonce"',
+  "const bodyRead = await readDiscordGalleryIngestBody(req);",
+  "parseJsonBody(rawBody)",
   'Deno.env.get("DISCORD_GALLERY_CHANNEL_ID")',
   'Deno.env.get("DISCORD_GUILD_ID")',
   'Deno.env.get("DISCORD_REQUIRED_ROLE_IDS")',
   "getServiceRoleKey()",
   "guildConfigMatches",
   "roleConfigMatches",
-  "bearerOrHeaderSecret(req) !== ingestSecret",
   'return jsonResponse({ ok: false, message: "Method not allowed." }, 405);',
   'if (req.method === "OPTIONS")',
   "validAttachmentUrl(body.attachmentUrl)",
@@ -131,6 +144,82 @@ assertIncludes("import map", importMap, '"@supabase/supabase-js": "npm:@supabase
   "instagram_opt_in: instagramOptIn",
   'instagram_opt_in_source: instagramOptIn ? "discord_slash_command" : null',
 ].forEach((snippet) => assertIncludes("submit-discord-gallery-image", functionSource, snippet));
+
+assertMatches(
+  "submit-discord-gallery-image",
+  functionSource,
+  /readDiscordGalleryIngestBody\(req\)[\s\S]*verifyDiscordGalleryIngestRequest\([\s\S]*parseJsonBody\(rawBody\)/,
+  "raw request bytes must be bounded and authenticated before JSON parsing.",
+);
+
+assertNotMatches(
+  "submit-discord-gallery-image",
+  functionSource,
+  /DISCORD_GALLERY_INGEST_SECRET|x-mochirii-reaper-secret|bearerOrHeaderSecret/,
+  "the retired static-secret request contract must not remain available.",
+);
+
+[
+  "DISCORD_GALLERY_INGEST_HMAC_KEYS_ENV",
+  "DISCORD_GALLERY_INGEST_ACTIVE_KEY_ID_ENV",
+  'const AUTH_VERSION = "v1";',
+  "DISCORD_GALLERY_INGEST_MAX_SKEW_SECONDS = 60",
+  "DISCORD_GALLERY_INGEST_MAX_BODY_BYTES = 16 * 1024",
+  "request.body.getReader()",
+  "await reader.cancel().catch(() => undefined)",
+  'signature: "x-mochirii-gallery-signature"',
+  "crypto.subtle.digest(\"SHA-256\"",
+  '{ name: "HMAC", hash: "SHA-256" }',
+  "constantTimeLowerHexMatches",
+  "dependencies.consumeNonce(keyId, nonce, expiresAt)",
+  "verification_unavailable",
+].forEach((snippet) => assertIncludes("Discord gallery ingest auth helper", authHelper, snippet));
+
+[
+  "body-bound request",
+  "binds the body, method, and exact function path",
+  "rejects stale, future, malformed, and unknown-key requests",
+  "consumes a nonce once and fails closed on store errors",
+  "supports bounded rotation and rejects weak configuration",
+  "enforces media type and streaming byte limits",
+].forEach((snippet) => assertIncludes("Discord gallery ingest auth tests", authTest, snippet));
+
+[
+  "createDiscordGalleryIngestHeaders",
+  "DISCORD_GALLERY_INGEST_HMAC_KEYS_ENV",
+  "DISCORD_GALLERY_INGEST_ACTIVE_KEY_ID_ENV",
+  "discordGalleryIngestActiveKey",
+  "const rawBody = JSON.stringify(payload);",
+  "...authHeaders",
+  "body: rawBody",
+].forEach((snippet) => assertIncludes("Reaper Discord gallery caller", reaperFunction, snippet));
+
+assertNotMatches(
+  "Reaper Discord gallery caller",
+  reaperFunction,
+  /DISCORD_GALLERY_INGEST_SECRET|x-mochirii-reaper-secret/,
+  "the caller must not retain the retired static-secret contract.",
+);
+
+[
+  "create table private.discord_gallery_ingest_nonces",
+  "primary key (key_id, nonce)",
+  "alter table private.discord_gallery_ingest_nonces enable row level security",
+  "alter table private.discord_gallery_ingest_nonces force row level security",
+  "revoke all on table private.discord_gallery_ingest_nonces",
+  "create or replace function public.consume_discord_gallery_ingest_nonce",
+  "request_role <> 'service_role'",
+  "on conflict (key_id, nonce) do nothing",
+  "grant execute on function public.consume_discord_gallery_ingest_nonce",
+].forEach((snippet) => assertIncludes("nonce migration", nonceMigration, snippet));
+
+[
+  "private Discord gallery ingest nonce table exists",
+  "same key and nonce cannot be replayed",
+  "invalid key identifiers fail closed",
+  "expired nonce leases fail closed",
+  "overlong nonce leases fail closed",
+].forEach((snippet) => assertIncludes("nonce database tests", nonceDbTest, snippet));
 
 assertMatches(
   "submit-discord-gallery-image",
@@ -237,7 +326,8 @@ assertNotMatches(
 
 [
   "DISCORD_GALLERY_CHANNEL_ID=1508077313965817856",
-  "DISCORD_GALLERY_INGEST_SECRET=<set manually, never commit>",
+  "DISCORD_GALLERY_INGEST_HMAC_KEYS_JSON=<JSON object of key IDs to 32+ byte secrets, never commit>",
+  "DISCORD_GALLERY_INGEST_HMAC_ACTIVE_KEY_ID=<one configured key ID>",
   "share_to_instagram",
   "instagramOptIn",
   "supabase functions serve submit-discord-gallery-image --env-file supabase/functions/.env.local",
@@ -246,6 +336,9 @@ assertNotMatches(
   "submit-discord-gallery-image",
   "verify_jwt = false",
   "trusted Reaper bridge",
+  "HMAC-SHA256",
+  "random one-use nonce",
+  "Do not retain the former static-secret header as a fallback.",
   "existing linked `member_profiles.discord_user_id`",
   "Discord uploads are idempotent by message/attachment ID.",
 ].forEach((snippet) => assertIncludes("supabase README", readme, snippet));
