@@ -175,7 +175,7 @@ Before merge or provider authorization:
 7. Recalculate migrations, function inventory, JWT parity, and exact source
    head before requesting Vercel or Supabase authorization.
 
-The current reviewed source baseline contains 33 Edge Functions with 20/13 JWT
+The current reviewed source baseline contains 34 Edge Functions with 20/14 JWT
 parity. That count is evidence for this source head, not permission to deploy a
 later head. No provider write, preview, migration application, function deploy,
 or Website publication follows from this document alone.
