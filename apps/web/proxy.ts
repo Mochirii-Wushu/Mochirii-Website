@@ -1,5 +1,7 @@
+import { createServerClient } from "@supabase/ssr";
 import type { NextRequest } from "next/server.js";
 import { NextResponse } from "next/server.js";
+import { isSupabaseConfigured, SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "./lib/supabase/config.ts";
 import {
   SPINNER_PRIVATE_RESPONSE_HEADERS,
   SPINNER_SESSION_COOKIE,
@@ -8,6 +10,33 @@ import {
 } from "./lib/spinner/session-policy.ts";
 
 const SPINNER_PAGE_PATH = "/spinner";
+const SUPABASE_SESSION_PATHS = new Set(["/leader-dashboard", "/oauth/consent"]);
+
+async function refreshSupabaseSession(request: NextRequest) {
+  if (!isSupabaseConfigured()) return NextResponse.next({ request });
+
+  let response = NextResponse.next({ request });
+  const client = createServerClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+    auth: {
+      flowType: "pkce",
+    },
+    cookies: {
+      getAll() {
+        return request.cookies.getAll();
+      },
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+        response = NextResponse.next({ request });
+        cookiesToSet.forEach(({ name, value, options }) => {
+          response.cookies.set(name, value, options);
+        });
+      },
+    },
+  });
+
+  await client.auth.getClaims();
+  return response;
+}
 
 function clearSpinnerCookie(response: NextResponse) {
   response.cookies.set({
@@ -31,6 +60,10 @@ function opaqueDenied() {
 }
 
 export async function proxy(request: NextRequest) {
+  if (SUPABASE_SESSION_PATHS.has(request.nextUrl.pathname)) {
+    return refreshSupabaseSession(request);
+  }
+
   // The matcher is intentionally exact. Keep this guard so a future matcher
   // expansion cannot put the session, live-state, or media handlers behind
   // the page preflight by accident.
@@ -57,5 +90,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/spinner"],
+  matcher: ["/spinner", "/leader-dashboard", "/oauth/consent"],
 };

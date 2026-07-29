@@ -56,9 +56,11 @@ import { WorkflowEmptyState, WorkflowNotice } from "./WorkflowState";
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 type GalleryThumbnailState = "all" | "missing" | "ready";
 
-export function LeaderDashboard() {
+export function LeaderDashboard({ initialAuthorized = false }: { initialAuthorized?: boolean }) {
   const [busy, setBusy] = useState(true);
-  const [panel, setPanel] = useState<"signed-out" | "denied" | "review">("signed-out");
+  const [panel, setPanel] = useState<"signed-out" | "denied" | "review">(
+    initialAuthorized ? "review" : "signed-out",
+  );
   const [activeStatus, setActiveStatus] = useState<ModerationStatus>("pending");
   const [queuePage, setQueuePage] = useState(1);
   const [queueThumbnailState, setQueueThumbnailState] = useState<GalleryThumbnailState>("all");

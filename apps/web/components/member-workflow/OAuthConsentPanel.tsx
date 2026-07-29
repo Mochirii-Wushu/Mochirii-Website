@@ -50,12 +50,12 @@ function scopeLabels(scope: unknown) {
   return [...new Set(scopeList(scope).map((item) => SOCIAL_SCOPE_LABELS[item] || "Additional account access"))];
 }
 
-export function OAuthConsentPanel() {
+export function OAuthConsentPanel({ initialSignedIn = false }: { initialSignedIn?: boolean }) {
   const searchParams = useSearchParams();
   const authorizationId = text(searchParams.get("authorization_id"));
   const loginHref = useMemo(() => oauthConsentLoginHref(authorizationId), [authorizationId]);
   const [busy, setBusy] = useState(true);
-  const [signedIn, setSignedIn] = useState(false);
+  const [signedIn, setSignedIn] = useState(initialSignedIn);
   const [details, setDetails] = useState<AuthorizationDetails | null>(null);
   const [memberAccess, setMemberAccess] = useState<MemberAccessResponse | null>(null);
   const [status, setStatus] = useState("Checking guild social access.");

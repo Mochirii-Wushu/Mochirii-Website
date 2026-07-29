@@ -1,4 +1,5 @@
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
+import { authCallbackPath, safeInternalRedirectPath } from "@/lib/auth-redirect";
 import type { SpinnerAccessMode } from "@/lib/spinner/session-policy";
 import {
   AUTH_PROVIDER_REGISTRY,
@@ -51,7 +52,7 @@ export function onAuthStateChange(callback: (event: AuthChangeEvent, session: Se
 
 function resolveRedirectTo(value = "/account") {
   if (typeof window === "undefined") return value;
-  return new URL(value, window.location.origin).href;
+  return new URL(authCallbackPath(safeInternalRedirectPath(value)), window.location.origin).href;
 }
 
 export async function signInWithProvider(provider: OAuthProviderId, options: { redirectTo?: string } = {}) {

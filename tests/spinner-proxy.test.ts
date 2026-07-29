@@ -47,10 +47,12 @@ test("the exact page proxy rejects every failed preflight before App Router rend
     // @ts-expect-error Node's type-stripping runner needs the explicit source extension.
     import("../apps/web/proxy.ts"),
   ]);
-  assert.deepEqual(config, { matcher: ["/spinner"] });
+  assert.deepEqual(config, { matcher: ["/spinner", "/leader-dashboard", "/oauth/consent"] });
   const nextConfig = { skipTrailingSlashRedirect: true };
   assert.equal(doesProxyMatch({ config, nextConfig, url: "/spinner" }), true);
   assert.equal(doesProxyMatch({ config, nextConfig, url: "/spinner/" }), true);
+  assert.equal(doesProxyMatch({ config, nextConfig, url: "/leader-dashboard" }), true);
+  assert.equal(doesProxyMatch({ config, nextConfig, url: "/oauth/consent" }), true);
   for (const path of ["/spinner/session", "/spinner/live", "/spinner/media/render", "/spinnerish"]) {
     assert.equal(doesProxyMatch({ config, nextConfig, url: path }), false);
   }

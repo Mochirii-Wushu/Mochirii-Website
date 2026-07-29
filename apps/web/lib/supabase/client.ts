@@ -1,4 +1,5 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createBrowserClient } from "@supabase/ssr";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { isSupabaseConfigured, SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "./config";
 import { createError, createResult, failedResult, okResult, type SupabaseResult } from "./types";
 
@@ -8,13 +9,14 @@ export function getBrowserSupabaseClient() {
   if (!isSupabaseConfigured()) return null;
   if (browserClient) return browserClient;
 
-  browserClient = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  browserClient = createBrowserClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     auth: {
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: true,
       flowType: "pkce",
     },
+    isSingleton: true,
   });
 
   return browserClient;
