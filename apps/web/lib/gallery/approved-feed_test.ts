@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   fetchWithGalleryTimeout,
   listApprovedGallerySubmissions,
+  loadApprovedGalleryOriginal,
   parseApprovedGalleryPage,
   refreshApprovedGalleryThumbnail,
   resolveApprovedGalleryOriginal,
@@ -179,6 +180,79 @@ test("only list requests use POST while media uses deterministic GET URLs", asyn
       assert.equal("authorization" in request.headers, false);
       assert.equal("apikey" in request.headers, false);
     }
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("full-image loading uses an abortable credential-free bounded WebP request", async () => {
+  const originalFetch = globalThis.fetch;
+  const requests: Array<{ url: string; init: RequestInit }> = [];
+  globalThis.fetch = async (input, init = {}) => {
+    requests.push({ url: String(input), init });
+    return new Response(new Uint8Array([0x52, 0x49, 0x46, 0x46]), {
+      status: 200,
+      headers: {
+        "Content-Type": "image/webp",
+        "Content-Length": "4",
+      },
+    });
+  };
+
+  try {
+    const blob = await loadApprovedGalleryOriginal(submissionId);
+    assert.equal(blob.type, "image/webp");
+    assert.equal(blob.size, 4);
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].url, mediaUrl("full"));
+    assert.equal(requests[0].init.method, "GET");
+    assert.equal(requests[0].init.credentials, "omit");
+    assert.equal(requests[0].init.cache, "default");
+    assert.ok(requests[0].init.signal instanceof AbortSignal);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("full-image loading rejects unsafe responses without exposing response details", async () => {
+  const originalFetch = globalThis.fetch;
+  const responses = [
+    new Response("not webp", { status: 200, headers: { "Content-Type": "image/png" } }),
+    new Response(new Uint8Array([1]), {
+      status: 200,
+      headers: { "Content-Type": "image/webp", "Content-Length": String(2 * 1024 * 1024 + 1) },
+    }),
+    new Response(new Uint8Array([1]), {
+      status: 200,
+      headers: { "Content-Type": "image/webp", "Content-Length": "2" },
+    }),
+  ];
+  let responseIndex = 0;
+  globalThis.fetch = async () => responses[responseIndex++];
+
+  try {
+    for (let index = 0; index < responses.length; index += 1) {
+      await assert.rejects(
+        loadApprovedGalleryOriginal(submissionId),
+        (error: unknown) => error instanceof Error && error.message === "The full image is unavailable.",
+      );
+    }
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("closing an approved full-image request propagates caller cancellation", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = ((_input, init = {}) => new Promise<Response>((_resolve, reject) => {
+    init.signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), { once: true });
+  })) as typeof fetch;
+
+  try {
+    const caller = new AbortController();
+    const pending = loadApprovedGalleryOriginal(submissionId, caller.signal);
+    caller.abort();
+    await assert.rejects(pending, { name: "AbortError" });
   } finally {
     globalThis.fetch = originalFetch;
   }

@@ -72,6 +72,8 @@ const unavailableMessage = "Member-submitted images are temporarily unavailable.
 const fullImageUnavailableMessage = "The full image is unavailable.";
 const thumbnailUnavailableMessage = "The image preview is unavailable.";
 const APPROVED_GALLERY_REQUEST_TIMEOUT_MS = 8_000;
+const APPROVED_GALLERY_MEDIA_TIMEOUT_MS = 15_000;
+const APPROVED_GALLERY_DISPLAY_MAX_BYTES = 2 * 1024 * 1024;
 const APPROVED_GALLERY_CACHE_MAX_ENTRIES = 40;
 const APPROVED_GALLERY_CACHE_MAX_TTL_MS = 60_000;
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -321,6 +323,20 @@ export async function fetchWithGalleryTimeout(
   callerSignal?: AbortSignal,
   timeoutMs = APPROVED_GALLERY_REQUEST_TIMEOUT_MS,
 ) {
+  return fetchWithBoundedTimeout(
+    input,
+    init,
+    callerSignal,
+    Math.max(1, Math.min(APPROVED_GALLERY_REQUEST_TIMEOUT_MS, timeoutMs)),
+  );
+}
+
+async function fetchWithBoundedTimeout(
+  input: string,
+  init: RequestInit,
+  callerSignal: AbortSignal | undefined,
+  timeoutMs: number,
+) {
   if (callerSignal?.aborted) throw abortError();
 
   const controller = new AbortController();
@@ -338,7 +354,7 @@ export async function fetchWithGalleryTimeout(
     timeout = setTimeout(() => {
       controller.abort();
       reject(new GalleryRequestTimeoutError());
-    }, Math.max(1, Math.min(APPROVED_GALLERY_REQUEST_TIMEOUT_MS, timeoutMs)));
+    }, timeoutMs);
   });
 
   try {
@@ -549,6 +565,41 @@ async function resolveApprovedGalleryAsset(
 
 export function resolveApprovedGalleryOriginal(id: string, signal?: AbortSignal) {
   return resolveApprovedGalleryAsset("full", id, signal);
+}
+
+export async function loadApprovedGalleryOriginal(id: string, signal?: AbortSignal) {
+  const mediaUrl = await resolveApprovedGalleryOriginal(id, signal);
+  try {
+    const response = await fetchWithBoundedTimeout(mediaUrl, {
+      method: "GET",
+      cache: "default",
+      credentials: "omit",
+    }, signal, APPROVED_GALLERY_MEDIA_TIMEOUT_MS);
+    const contentType = (response.headers.get("content-type") || "")
+      .split(";", 1)[0]
+      .trim()
+      .toLowerCase();
+    const contentLengthText = response.headers.get("content-length");
+    const contentLength = contentLengthText === null ? null : Number(contentLengthText);
+    if (
+      !response.ok || contentType !== "image/webp" ||
+      (contentLength !== null && (
+        !Number.isSafeInteger(contentLength) || contentLength < 1 ||
+        contentLength > APPROVED_GALLERY_DISPLAY_MAX_BYTES
+      ))
+    ) throw new Error(fullImageUnavailableMessage);
+
+    const blob = await response.blob();
+    if (
+      blob.type.toLowerCase() !== "image/webp" || blob.size < 1 ||
+      blob.size > APPROVED_GALLERY_DISPLAY_MAX_BYTES ||
+      (contentLength !== null && blob.size !== contentLength)
+    ) throw new Error(fullImageUnavailableMessage);
+    return blob;
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") throw error;
+    throw new Error(fullImageUnavailableMessage);
+  }
 }
 
 export function refreshApprovedGalleryThumbnail(id: string, signal?: AbortSignal) {

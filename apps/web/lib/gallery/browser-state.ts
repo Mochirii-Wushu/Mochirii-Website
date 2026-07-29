@@ -57,6 +57,20 @@ export function normalizeGalleryRouteState(parameters: GallerySearchParameters):
   };
 }
 
+export function galleryRouteHref(currentUrl: URL, state: GalleryRouteState) {
+  const url = new URL(currentUrl.toString());
+  const category = isGalleryFilter(state.category) ? state.category : GALLERY_ALL_CATEGORY;
+  const sort = normalizeGallerySort(state.sort);
+  const query = normalizeGalleryQuery(state.query);
+  if (category === GALLERY_ALL_CATEGORY) url.searchParams.delete("category");
+  else url.searchParams.set("category", category);
+  if (sort === GALLERY_DEFAULT_SORT) url.searchParams.delete("sort");
+  else url.searchParams.set("sort", sort);
+  if (query) url.searchParams.set("q", query);
+  else url.searchParams.delete("q");
+  return `${url.pathname}${url.search}${url.hash}`;
+}
+
 export function replaceGalleryThumbnail<T extends GalleryThumbnailStateItem>(
   items: T[],
   submissionId: string,

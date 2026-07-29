@@ -182,6 +182,10 @@ expectIncludes("Universal backdrop closing", universalLightbox, "onClick={onClos
 expectIncludes("Decode-aware image state", lightboxImage, "data-image-state={imageState}", lightboxImagePath);
 expectIncludes("User-requested full-image priority", lightboxImage, 'fetchPriority="high"', lightboxImagePath);
 expectIncludes("Accessible full-image status", lightboxImage, 'role="status" aria-live="polite"', lightboxImagePath);
+expectIncludes("Abortable full-image resolver", lightboxImage, "requestControllerRef.current?.abort();", lightboxImagePath);
+expectIncludes("Disposable full-image object URL", lightboxImage, "URL.createObjectURL(resolved)", lightboxImagePath);
+expectIncludes("Full-image object URL cleanup", lightboxImage, "URL.revokeObjectURL(objectUrlRef.current);", lightboxImagePath);
+expectIncludes("Stale full-image generation guard", lightboxImage, "generation !== requestGenerationRef.current", lightboxImagePath);
 [
   "const scrollbarWidth = Math.max(0, window.innerWidth - documentElement.clientWidth);",
   "const currentPaddingRight = Number.parseFloat(window.getComputedStyle(body).paddingRight) || 0;",

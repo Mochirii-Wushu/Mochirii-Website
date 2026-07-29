@@ -170,6 +170,8 @@ for (const functionName of expectedCommittedLockFunctions) {
   "const galleryRenderBatchSize = APPROVED_GALLERY_PAGE_SIZE;",
   'id="galleryLoadMore"',
   "submission.thumbnail_url",
+  "thumbnailWidth: submission.thumbnail_width",
+  "thumbnailHeight: submission.thumbnail_height",
   "submission.categories",
   "nextCursor",
   "hasMore",
@@ -179,7 +181,18 @@ for (const functionName of expectedCommittedLockFunctions) {
   "updateApprovedThumbnail",
   "chronologicalOrderPending",
   "data-order-pending={chronologicalOrderPending}",
+  'id="galleryShareLink"',
+  'id="galleryCopyLink"',
+  'typeof navigator.share === "function"',
+  "await navigator.share({",
+  "await copyCurrentLink()",
 ].forEach((snippet) => assertIncludes("GalleryBrowser v2 approved feed", galleryBrowser, snippet));
+
+assertNotIncludes(
+  "GalleryBrowser atomic feed contract",
+  galleryBrowser,
+  "approvedPartial",
+);
 
 [
   "submission.full_signed_url",
@@ -204,6 +217,7 @@ if (galleryBrowser.includes("setRandomSeed") || galleryBrowser.includes("createR
 ].forEach((snippet) => assertIncludes("Gallery normalized initial state", galleryRouteComponent, snippet));
 [
   "normalizeGalleryRouteState",
+  "galleryRouteHref",
   "stableGalleryMixSeed",
   "orderGalleryPresentation",
   "replaceGalleryThumbnail",
@@ -221,7 +235,16 @@ if (galleryBrowser.includes("setRandomSeed") || galleryBrowser.includes("createR
 [
   "onSourceRefresh?: (src: string) => void;",
   "onSourceRefresh?.(refreshedSrc);",
+  "intrinsicWidth?: number;",
+  "intrinsicHeight?: number;",
+  "width={imageWidth}",
+  "height={imageHeight}",
 ].forEach((snippet) => assertIncludes("Gallery refreshed thumbnail propagation", responsiveGalleryMedia, snippet));
+
+[
+  "intrinsicWidth={item.thumbnailWidth}",
+  "intrinsicHeight={item.thumbnailHeight}",
+].forEach((snippet) => assertIncludes("Gallery intrinsic thumbnail geometry", galleryBrowser, snippet));
 
 [
   "function approvedGalleryFeedUrl",
@@ -233,6 +256,10 @@ if (galleryBrowser.includes("setRandomSeed") || galleryBrowser.includes("createR
   'function resolveApprovedGalleryAsset',
   'return resolveApprovedGalleryAsset("full", id, signal);',
   'return resolveApprovedGalleryAsset("thumbnail", id, signal);',
+  "loadApprovedGalleryOriginal",
+  'method: "GET"',
+  'contentType !== "image/webp"',
+  "APPROVED_GALLERY_DISPLAY_MAX_BYTES",
   "refreshApprovedGalleryThumbnail",
   "schemaVersion",
   "pageSize",
@@ -265,6 +292,9 @@ if (galleryBrowser.includes("setRandomSeed") || galleryBrowser.includes("createR
   'assert.equal("apikey" in request.headers, false)',
   "thumbnail_url",
   "uploader_display_name",
+  "full-image loading uses an abortable credential-free bounded WebP request",
+  "full-image loading rejects unsafe responses without exposing response details",
+  "closing an approved full-image request propagates caller cancellation",
 ].forEach((snippet) => assertIncludes("approved Gallery client executable contract", approvedFeedClientTests, snippet));
 
 [

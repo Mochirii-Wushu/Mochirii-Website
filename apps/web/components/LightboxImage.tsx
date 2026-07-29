@@ -9,7 +9,7 @@ import {
 } from "react";
 
 type ImageState = "loading" | "ready" | "error";
-type ResolveImageSource = (signal: AbortSignal) => Promise<string>;
+type ResolveImageSource = (signal: AbortSignal) => Promise<string | Blob>;
 
 export function LightboxImage({
   id,
@@ -29,10 +29,19 @@ export function LightboxImage({
   const [requestAttempt, setRequestAttempt] = useState(0);
   const requestGenerationRef = useRef(0);
   const requestControllerRef = useRef<AbortController | null>(null);
+  const objectUrlRef = useRef<string | null>(null);
+  const activeImageRef = useRef<HTMLImageElement | null>(null);
   const refreshCountRef = useRef(0);
+
+  const revokeObjectUrl = useCallback(() => {
+    if (!objectUrlRef.current) return;
+    URL.revokeObjectURL(objectUrlRef.current);
+    objectUrlRef.current = null;
+  }, []);
 
   const resolveImage = useCallback(async () => {
     if (!resolveSrc) {
+      revokeObjectUrl();
       setResolvedSrc(src || "");
       setRequestAttempt(0);
       setImageState(src ? "loading" : "error");
@@ -40,6 +49,8 @@ export function LightboxImage({
     }
 
     requestControllerRef.current?.abort();
+    activeImageRef.current = null;
+    revokeObjectUrl();
     const controller = new AbortController();
     const generation = requestGenerationRef.current + 1;
     requestControllerRef.current = controller;
@@ -47,8 +58,14 @@ export function LightboxImage({
     setImageState("loading");
 
     try {
-      const nextSrc = await resolveSrc(controller.signal);
+      const resolved = await resolveSrc(controller.signal);
       if (controller.signal.aborted || generation !== requestGenerationRef.current) return;
+      const nextSrc = resolved instanceof Blob ? URL.createObjectURL(resolved) : resolved;
+      if (controller.signal.aborted || generation !== requestGenerationRef.current) {
+        if (resolved instanceof Blob) URL.revokeObjectURL(nextSrc);
+        return;
+      }
+      objectUrlRef.current = resolved instanceof Blob ? nextSrc : null;
       setResolvedSrc(nextSrc);
       setRequestAttempt((attempt) => attempt + 1);
     } catch (error) {
@@ -57,7 +74,7 @@ export function LightboxImage({
       setResolvedSrc("");
       setImageState("error");
     }
-  }, [resolveSrc, src]);
+  }, [resolveSrc, revokeObjectUrl, src]);
 
   useEffect(() => {
     refreshCountRef.current = 0;
@@ -70,27 +87,34 @@ export function LightboxImage({
       requestGenerationRef.current += 1;
       requestControllerRef.current?.abort();
       requestControllerRef.current = null;
+      activeImageRef.current = null;
+      revokeObjectUrl();
     };
-  }, [resolveImage, resolveSrc, src]);
+  }, [resolveImage, resolveSrc, revokeObjectUrl, src]);
 
   const finishDecode = async (event: SyntheticEvent<HTMLImageElement>) => {
     const image = event.currentTarget;
-    const generation = requestGenerationRef.current + 1;
-    requestGenerationRef.current = generation;
+    const generation = requestGenerationRef.current;
+    activeImageRef.current = image;
 
     if (typeof image.decode === "function") {
       try {
         await image.decode();
       } catch {
-        // A loaded image can reject decode() after it leaves the document.
+        if (
+          requestGenerationRef.current === generation &&
+          activeImageRef.current === image && image.isConnected
+        ) setImageState("error");
+        return;
       }
     }
 
-    if (requestGenerationRef.current !== generation) return;
+    if (requestGenerationRef.current !== generation || activeImageRef.current !== image) return;
     setImageState(image.complete && image.naturalWidth > 0 ? "ready" : "error");
   };
 
-  const markError = () => {
+  const markError = (event: SyntheticEvent<HTMLImageElement>) => {
+    if (activeImageRef.current !== event.currentTarget) return;
     requestGenerationRef.current += 1;
     if (resolveSrc && refreshCountRef.current < 1) {
       refreshCountRef.current += 1;
@@ -123,6 +147,9 @@ export function LightboxImage({
       {resolvedSrc ? (
         <img
           key={`${resolvedSrc}:${requestAttempt}`}
+          ref={(image) => {
+            activeImageRef.current = image;
+          }}
           id={id}
           src={resolvedSrc}
           alt={alt}

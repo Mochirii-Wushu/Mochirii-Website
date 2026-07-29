@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  galleryRouteHref,
   normalizeGalleryRouteState,
   orderGalleryPresentation,
   replaceGalleryThumbnail,
@@ -43,6 +44,23 @@ test("route state is normalized identically for server records and browser param
     sort: "random",
     query: "",
   });
+});
+
+test("route links canonicalize Gallery state while preserving unrelated parameters and hashes", () => {
+  assert.equal(
+    galleryRouteHref(
+      new URL("https://mochirii.com/gallery?category=invalid&sort=random&q=old&utm_source=guild#images"),
+      { category: "portraits", sort: "oldest", query: "  Cloud terrace  " },
+    ),
+    "/gallery?category=portraits&sort=oldest&q=Cloud+terrace&utm_source=guild#images",
+  );
+  assert.equal(
+    galleryRouteHref(
+      new URL("https://mochirii.com/gallery?category=portraits&sort=newest&q=old&utm_source=guild#images"),
+      { category: "all", sort: "random", query: "" },
+    ),
+    "/gallery?utm_source=guild#images",
+  );
 });
 
 test("the default mix appends runtime cards without moving painted static cards", () => {

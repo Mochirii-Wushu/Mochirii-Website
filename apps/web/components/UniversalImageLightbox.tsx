@@ -29,7 +29,7 @@ export type UniversalImageLightboxItem = {
   fullSrc?: string;
   alt: string;
   caption: string;
-  resolveFullSrc?: (signal: AbortSignal) => Promise<string>;
+  resolveFullSrc?: (signal: AbortSignal) => Promise<string | Blob>;
 };
 
 export type UniversalImageLightboxIds = {

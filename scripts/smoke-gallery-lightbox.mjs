@@ -1686,7 +1686,7 @@ async function verifyApprovedSchemaV2Success(browser, engine, resolvedBaseUrl) {
       await trigger.click();
       await waitForOpen(page, surface);
       assert(requests.filter(({ action }) => action === "full").length === 1, `${engine.label} schema-v2 Gallery did not make exactly one full request.`);
-      assert(await page.locator(surface.image).getAttribute("src") === fixture.fullUrl, `${engine.label} schema-v2 viewer did not render the resolved display image.`);
+      assert((await page.locator(surface.image).getAttribute("src"))?.startsWith("blob:"), `${engine.label} schema-v2 viewer did not render the validated display blob.`);
       await page.keyboard.press("Escape");
       await waitForProbeClosed(page, surface);
       await page.waitForFunction(
