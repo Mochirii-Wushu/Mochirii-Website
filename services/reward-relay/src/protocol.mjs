@@ -59,10 +59,17 @@ export function sha256Hex(value) {
 export function stableJson(value) {
   if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
   if (value && typeof value === "object") {
-    const entries = Object.entries(value).sort(([left], [right]) => left.localeCompare(right));
+    const entries = Object.entries(value).sort(([left], [right]) => compareCodeUnits(left, right));
     return `{${entries.map(([key, item]) => `${JSON.stringify(key)}:${stableJson(item)}`).join(",")}}`;
   }
   return JSON.stringify(value);
+}
+
+export function compareCodeUnits(left, right) {
+  const leftText = String(left);
+  const rightText = String(right);
+  if (leftText === rightText) return 0;
+  return leftText < rightText ? -1 : 1;
 }
 
 export function buildSignatureHeaders({ secret, method = "POST", path, body, timestampSeconds = Math.floor(Date.now() / 1_000), nonce }) {

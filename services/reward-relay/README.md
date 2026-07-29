@@ -24,11 +24,13 @@ The relay exposes only five exact JSON `POST` routes:
 - `/v1/rewards/state`
 - `/v1/rewards/link`
 
-Every accepted request uses HMAC-SHA256 over the method, exact path, timestamp, nonce, and body digest. Nonces are durably consumed through the absolute final millisecond in which their signed timestamp can remain valid, timestamps have a maximum 60-second skew, request bodies are bounded, and authenticated responses are separately signed over the exact path, HTTP status, originating request timestamp and nonce, and canonical response digest. Unsigned, stale, replayed, malformed, query-bearing, oversized, or unknown requests fail closed.
+Every accepted request uses HMAC-SHA256 over the method, exact path, timestamp, nonce, and body digest. Nonces are durably consumed through the absolute final millisecond in which their signed timestamp can remain valid, timestamps have a maximum 60-second skew, request bodies are bounded, and authenticated responses are separately signed over the exact path, HTTP status, originating request timestamp and nonce, and canonical response digest. Canonical object keys use a deterministic UTF-16 code-unit comparator rather than host locale rules, with a fixed Unicode vector and digest enforced by tests. Unsigned, stale, replayed, malformed, query-bearing, oversized, or unknown requests fail closed.
 
-Provider access is restricted to the two fixed official API origins selected by the configured environment. Reward handoffs separately allow only the exact environment host: `testflight.tremendous.com` for sandbox and `reward.tremendous.com` for production. The provider client rejects redirects, bounds responses, applies a timeout, and cannot accept an arbitrary upstream origin from environment configuration.
+The inbound Node server uses reviewed exact limits: a 10-second whole-request/body deadline, a 5-second header deadline, and a 5-second keep-alive timeout. A client that stalls after sending partial JSON is disconnected before authentication or provider access. These values are explicit policy, not open-ended deployment tuning.
 
-Order creation is recipient-less `LINK` delivery. Every signed request carries an immutable cycle UUID. One durable transaction binds that cycle to exactly one primary electronic order, records its reward value, enforces the configured per-cycle cost ceiling before provider contact, and binds the deterministic external ID to one draw result. The reservation is marked uncertain before the network request. Retries reconcile the same external ID instead of issuing a second order. Provider conflicts or response-integrity failures suspend orders.
+Provider access is restricted to the two fixed official API origins selected by the configured environment. Reward handoffs separately allow only the exact environment host: `testflight.tremendous.com` for sandbox and `reward.tremendous.com` for production. The provider client rejects redirects, bounds responses, and cannot accept an arbitrary upstream origin from environment configuration. Its one absolute deadline covers both response headers and the complete bounded response-body read; a stalled body reader is cancelled when that deadline expires.
+
+Order creation is recipient-less `LINK` delivery. Every signed request carries an immutable cycle UUID. One durable transaction binds that cycle to exactly one primary electronic order, records its reward value, enforces the configured per-cycle cost ceiling before provider contact, and binds the deterministic external ID to one draw result. Provider order and reward identifiers are independently unique. Completion atomically changes both identifiers from null to one exact pair or accepts an exact-pair replay; partial or conflicting identifiers and uniqueness races suspend all order creation. The reservation is marked uncertain before the network request. Retries reconcile the same external ID instead of issuing a second order. Provider conflicts or response-integrity failures suspend orders.
 
 Generated reward links are accepted only from the exact environment-specific HTTPS reward host. They are retrieved only during the final authenticated server request, validated again immediately before redirect, and never placed in cookies, browser storage, handoff state, durable relay state, analytics, or logs. The proposed server boundary accepts only a draw-result identifier from the browser; a trusted server adapter must atomically verify active membership, current winner ownership, claim deadline and state, reward kind and reference, and idempotency. It repeats that authorization immediately before retrieving the link.
 
@@ -51,6 +53,8 @@ node scripts/check-reward-relay.mjs
 ```
 
 The tests are fully mocked. They do not require credentials, call a provider, create orders, or start a hosted service.
+
+The repository-wide public-config check rejects every untracked environment file. The sole tracked relay example remains explicitly allowlisted, contains blank secret fields, and is scanned with the same committed-text secret rules as the rest of the repository.
 
 ## Activation boundary
 

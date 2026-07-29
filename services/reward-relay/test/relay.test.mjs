@@ -5,9 +5,19 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 import { once } from "node:events";
+import { createConnection } from "node:net";
 import test from "node:test";
+import { Worker } from "node:worker_threads";
 import { loadConfig, PROVIDER_BASE_URLS } from "../src/config.mjs";
-import { buildSignatureHeaders, PROVIDER_REWARD_HOSTS, RELAY_PATHS, safeTremendousHttpsLink } from "../src/protocol.mjs";
+import {
+  buildSignatureHeaders,
+  compareCodeUnits,
+  PROVIDER_REWARD_HOSTS,
+  RELAY_PATHS,
+  safeTremendousHttpsLink,
+  sha256Hex,
+  stableJson,
+} from "../src/protocol.mjs";
 import { reconcileCampaign } from "../src/reconcile.mjs";
 import { RelayService } from "../src/service.mjs";
 import { createRelayServer } from "../src/server.mjs";
@@ -152,6 +162,60 @@ test("HTTP boundary returns generic 404 and emits metadata-only logs", async (t)
     assert.deepEqual(Object.keys(event).sort(), ["endpointClass", "event", "latencyMs", "statusCode", "traceId"]);
     assert.equal(JSON.stringify(event).includes("private-body-marker"), false);
   }
+});
+
+test("HTTP server applies reviewed inbound deadlines and terminates a stalled request body", async (t) => {
+  const defaults = loadConfig({ REWARD_RELAY_HMAC_SECRET: HMAC_SECRET });
+  assert.equal(defaults.inboundRequestTimeoutMs, 10_000);
+  assert.equal(defaults.headersTimeoutMs, 5_000);
+  assert.equal(defaults.keepAliveTimeoutMs, 5_000);
+  assert.throws(() => loadConfig({
+    REWARD_RELAY_HMAC_SECRET: HMAC_SECRET,
+    REWARD_RELAY_INBOUND_REQUEST_TIMEOUT_MS: "9999",
+  }), /REWARD_RELAY_INBOUND_REQUEST_TIMEOUT_MS/);
+
+  const config = {
+    ...defaults,
+    inboundRequestTimeoutMs: 50,
+    headersTimeoutMs: 40,
+    keepAliveTimeoutMs: 30,
+  };
+  const state = stateFor(t);
+  const logs = [];
+  const provider = new Proxy({}, { get: () => () => assert.fail("stalled request reached provider") });
+  const server = createRelayServer({ config, state, provider, logger: (event) => logs.push(event) });
+  assert.equal(server.requestTimeout, 50);
+  assert.equal(server.headersTimeout, 40);
+  assert.equal(server.keepAliveTimeout, 30);
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  t.after(async () => {
+    server.close();
+    await once(server, "close");
+  });
+
+  const { port } = server.address();
+  const socket = createConnection({ host: "127.0.0.1", port });
+  socket.on("error", () => {});
+  await once(socket, "connect");
+  const closed = new Promise((resolve) => socket.once("close", resolve));
+  const startedAt = Date.now();
+  socket.write([
+    `POST ${RELAY_PATHS.readiness} HTTP/1.1`,
+    "Host: 127.0.0.1",
+    "Content-Type: application/json",
+    "Content-Length: 100",
+    "Connection: close",
+    "",
+    "{",
+  ].join("\r\n"));
+  await Promise.race([
+    closed,
+    new Promise((_, reject) => setTimeout(() => reject(new Error("stalled_body_was_not_terminated")), 1_000)),
+  ]);
+  assert.ok(Date.now() - startedAt < 750);
+  assert.equal(logs.length, 1);
+  assert.equal(logs[0].statusCode, 404);
 });
 
 test("readiness validates organization, campaign, catalog, balance, and separate order gate", async (t) => {
@@ -376,6 +440,113 @@ test("cycle reservation atomically enforces its budget and exactly one primary e
   assert.equal(provider.count("createOrder"), 1);
   assert.equal(state.listOrderBindings().length, 1);
   assert.equal(state.getOrderByCycleId(CYCLE_ID).reward_value_cents, 5_000);
+});
+
+test("provider identifiers bind once, replay exactly, and suspend on drift or uniqueness conflict", (t) => {
+  const state = stateFor(t);
+  const first = createOrderRequest(activeConfig().config);
+  const second = createOrderRequest(activeConfig().config, {
+    cycleId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    drawResultId: SECOND_DRAW_ID,
+    externalId: SECOND_EXTERNAL_ID,
+  });
+  reserveBinding(state, first, "a".repeat(64), 1);
+  reserveBinding(state, second, "b".repeat(64), 2);
+
+  const initial = state.completeOrder(first.externalId, {
+    orderReference: "ORDER1",
+    rewardReference: "REWARD1",
+    sanitizedStatus: "executed",
+  }, 3);
+  const replay = state.completeOrder(first.externalId, {
+    orderReference: "ORDER1",
+    rewardReference: "REWARD1",
+    sanitizedStatus: "executed",
+  }, 4);
+  assert.equal(initial.provider_order_id, "ORDER1");
+  assert.equal(replay.provider_reward_id, "REWARD1");
+
+  assert.throws(() => state.completeOrder(first.externalId, {
+    orderReference: "ORDER-DRIFT",
+    rewardReference: "REWARD1",
+    sanitizedStatus: "executed",
+  }, 5), (error) => error?.code === "provider_identifier_conflict");
+  assert.equal(state.getControl().ordersSuspended, true);
+  assert.equal(state.getOrderByExternalId(first.externalId).provider_order_id, "ORDER1");
+
+  assert.throws(() => state.completeOrder(second.externalId, {
+    orderReference: "ORDER1",
+    rewardReference: "REWARD2",
+    sanitizedStatus: "executed",
+  }, 6), (error) => error?.code === "provider_identifier_conflict");
+  assert.equal(state.getOrderByExternalId(second.externalId).provider_order_id, null);
+  assert.equal(state.getControl().reasonCode, "provider_identifier_conflict");
+});
+
+test("concurrent provider identifier drift preserves one exact pair and suspends orders", async (t) => {
+  const directory = mkdtempSync(join(tmpdir(), "mochirii-relay-cas-test-"));
+  const databasePath = join(directory, "state.sqlite3");
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const request = createOrderRequest(activeConfig().config);
+  const setup = new RelayState(databasePath);
+  reserveBinding(setup, request, "c".repeat(64), 1);
+  setup.close();
+
+  const moduleUrl = new URL("../src/state.mjs", import.meta.url).href;
+  const workerSource = `
+    const { parentPort, workerData } = require("node:worker_threads");
+    (async () => {
+      const { RelayState } = await import(workerData.moduleUrl);
+      const state = new RelayState(workerData.databasePath);
+      parentPort.postMessage({ status: "ready" });
+      parentPort.once("message", () => {
+        try {
+          const binding = state.completeOrder(workerData.externalId, workerData.references, workerData.nowMs);
+          parentPort.postMessage({ status: "complete", binding: {
+            providerOrderId: binding.provider_order_id,
+            providerRewardId: binding.provider_reward_id,
+          } });
+        } catch (error) {
+          parentPort.postMessage({ status: "error", code: error && error.code });
+        } finally {
+          state.close();
+          parentPort.close();
+        }
+      });
+    })().catch((error) => {
+      parentPort.postMessage({ status: "fatal", message: error && error.message });
+      parentPort.close();
+    });
+  `;
+  const pairs = [
+    { orderReference: "ORDER-A", rewardReference: "REWARD-A", sanitizedStatus: "executed" },
+    { orderReference: "ORDER-B", rewardReference: "REWARD-B", sanitizedStatus: "executed" },
+  ];
+  const workers = pairs.map((references, index) => new Worker(workerSource, {
+    eval: true,
+    workerData: { moduleUrl, databasePath, externalId: request.externalId, references, nowMs: 10 + index },
+  }));
+  const workerExits = workers.map((worker) => once(worker, "exit"));
+  t.after(async () => Promise.allSettled(workers.map((worker) => worker.terminate())));
+  const ready = await Promise.all(workers.map((worker) => nextWorkerMessage(worker)));
+  assert.deepEqual(ready.map((message) => message.status), ["ready", "ready"]);
+  const outcomes = workers.map((worker) => {
+    const outcome = nextWorkerMessage(worker);
+    worker.postMessage("go");
+    return outcome;
+  });
+  const results = await Promise.all(outcomes);
+  await Promise.all(workerExits);
+  assert.equal(results.filter((result) => result.status === "complete").length, 1);
+  assert.equal(results.filter((result) => result.code === "provider_identifier_conflict").length, 1);
+
+  const readback = new RelayState(databasePath);
+  const binding = readback.getOrderByExternalId(request.externalId);
+  const selectedPair = `${binding.provider_order_id}/${binding.provider_reward_id}`;
+  assert.ok(new Set(["ORDER-A/REWARD-A", "ORDER-B/REWARD-B"]).has(selectedPair));
+  assert.equal(readback.getControl().ordersSuspended, true);
+  assert.equal(readback.getControl().reasonCode, "provider_identifier_conflict");
+  readback.close();
 });
 
 test("uncertain transport result is reconciled by immutable external ID before identical retry", async (t) => {
@@ -776,6 +947,47 @@ test("provider client has no arbitrary-origin escape", async () => {
   assert.equal("request" in api, false);
 });
 
+test("provider deadline remains active through a stalled response body and cancels its reader", async () => {
+  let cancelCount = 0;
+  const reader = {
+    read: () => new Promise(() => {}),
+    async cancel() {
+      cancelCount += 1;
+    },
+  };
+  const api = new TremendousApi({
+    baseUrl: PROVIDER_BASE_URLS.sandbox,
+    apiKey: "TEST_1234567890123456",
+    timeoutMs: 25,
+    fetcher: async () => ({
+      status: 200,
+      headers: { get: () => null },
+      body: { getReader: () => reader },
+    }),
+  });
+  await assert.rejects(api.listOrganizations(), (error) => (
+    error instanceof ProviderTransportError && error.kind === "timeout"
+  ));
+  assert.equal(cancelCount, 1);
+});
+
+test("canonical JSON uses locale-independent UTF-16 code-unit ordering", () => {
+  const value = {
+    "\uE000": 7,
+    "😀": 6,
+    "𐀀": 5,
+    "é": 4,
+    "e\u0301": 3,
+    a: 2,
+    A: 1,
+  };
+  const orderedKeys = ["A", "a", "e\u0301", "é", "𐀀", "😀", "\uE000"];
+  const canonical = "{\"A\":1,\"a\":2,\"é\":3,\"é\":4,\"𐀀\":5,\"😀\":6,\"\":7}";
+  assert.deepEqual(Object.keys(value).sort(compareCodeUnits), orderedKeys);
+  assert.equal(stableJson(value), canonical);
+  assert.equal(sha256Hex(Buffer.from(canonical)), "6e51c32e6eb16192c031414ab34558173076bb9e1a1f9ca4598204a2c6001a1d");
+});
+
 function activeConfig({ ordersEnabled = true, productIds = ["PRODUCT1"], feeFreeProductIds = productIds, apiKey = "TEST_1234567890123456" } = {}) {
   const env = {
     TREMENDOUS_MODE: "sandbox",
@@ -802,6 +1014,29 @@ function stateFor(t) {
     rmSync(directory, { recursive: true, force: true });
   });
   return state;
+}
+
+function reserveBinding(state, request, requestHash, nowMs) {
+  const result = state.reserveOrder({
+    externalId: request.externalId,
+    cycleId: request.cycleId,
+    drawResultId: request.drawResultId,
+    rewardValueCents: request.denomination * 100,
+    maximumCycleCostCents: 5_000,
+    requestHash,
+    requestJson: JSON.stringify(request),
+    environment: request.environment,
+    nowMs,
+  });
+  assert.equal(result.outcome, "created");
+  return result.binding;
+}
+
+async function nextWorkerMessage(worker) {
+  return Promise.race([
+    once(worker, "message").then(([message]) => message),
+    once(worker, "error").then(([error]) => Promise.reject(error)),
+  ]);
 }
 
 function readinessRequest(config) {

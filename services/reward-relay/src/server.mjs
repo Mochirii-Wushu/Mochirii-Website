@@ -9,7 +9,7 @@ import { TremendousApi } from "./tremendous.mjs";
 
 export function createRelayServer({ config, state, provider, logger = defaultLogger, now = Date.now }) {
   const service = new RelayService({ config, state, provider, now });
-  return createServer(async (request, response) => {
+  const server = createServer(async (request, response) => {
     const startedAt = now();
     const traceId = randomUUID();
     let statusCode = 500;
@@ -29,7 +29,7 @@ export function createRelayServer({ config, state, provider, logger = defaultLog
         statusCode = 404;
         return;
       }
-      const rawBody = await readBodyBounded(request, config.maximumRequestBytes);
+      const rawBody = await readBodyBounded(request, config.maximumRequestBytes, config.inboundRequestTimeoutMs);
       const result = await service.handle({
         method: request.method,
         path,
@@ -39,7 +39,7 @@ export function createRelayServer({ config, state, provider, logger = defaultLog
       writeResponse(response, result.status, result.body, result.headers);
       statusCode = result.status;
     } catch (error) {
-      statusCode = error?.code === "body_too_large" ? 404 : 503;
+      statusCode = error?.code === "body_too_large" || error?.code === "request_body_timeout" ? 404 : 503;
       writeResponse(response, statusCode, statusCode === 404 ? {} : { error: "relay_failure" });
     } finally {
       logger({
@@ -51,6 +51,10 @@ export function createRelayServer({ config, state, provider, logger = defaultLog
       });
     }
   });
+  server.requestTimeout = config.inboundRequestTimeoutMs;
+  server.headersTimeout = config.headersTimeoutMs;
+  server.keepAliveTimeout = config.keepAliveTimeoutMs;
+  return server;
 }
 
 export function startRelay(env = process.env) {
@@ -79,23 +83,44 @@ function isJsonContentType(value) {
   return typeof value === "string" && /^application\/json(?:\s*;\s*charset=utf-8)?$/i.test(value.trim());
 }
 
-async function readBodyBounded(request, maximumBytes) {
+async function readBodyBounded(request, maximumBytes, timeoutMs) {
   const declared = Number(request.headers["content-length"] || 0);
   if (Number.isFinite(declared) && declared > maximumBytes) throw bodyTooLarge();
-  const chunks = [];
-  let total = 0;
-  for await (const chunk of request) {
-    total += chunk.length;
-    if (total > maximumBytes) throw bodyTooLarge();
-    chunks.push(chunk);
+  const bodyRead = (async () => {
+    const chunks = [];
+    let total = 0;
+    for await (const chunk of request) {
+      total += chunk.length;
+      if (total > maximumBytes) throw bodyTooLarge();
+      chunks.push(chunk);
+    }
+    if (total === 0) return Buffer.alloc(0);
+    return Buffer.concat(chunks);
+  })();
+  let timer;
+  const deadline = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      const error = requestBodyTimeout();
+      request.destroy(error);
+      reject(error);
+    }, timeoutMs);
+  });
+  try {
+    return await Promise.race([bodyRead, deadline]);
+  } finally {
+    clearTimeout(timer);
   }
-  if (total === 0) return Buffer.alloc(0);
-  return Buffer.concat(chunks);
 }
 
 function bodyTooLarge() {
   const error = new Error("request_body_rejected");
   error.code = "body_too_large";
+  return error;
+}
+
+function requestBodyTimeout() {
+  const error = new Error("request_body_timeout");
+  error.code = "request_body_timeout";
   return error;
 }
 

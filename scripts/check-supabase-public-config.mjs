@@ -121,9 +121,7 @@ function checkEnvFiles(trackedFiles, untrackedFiles) {
   });
 
   untrackedFiles.filter(isEnvPath).forEach((file) => {
-    if (!allowedEnvFiles.has(file)) {
-      addFailure(file, 0, "untracked environment file is not ignored; update .gitignore before adding secrets locally.");
-    }
+    addFailure(file, 0, "untracked environment file is not ignored; update .gitignore before adding secrets locally.");
   });
 }
 

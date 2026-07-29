@@ -31,8 +31,9 @@ Each transition revalidates its own authorization and input. Network position al
 - The browser supplies only the draw-result identifier. It cannot assert winner identity, reward kind, or reward reference.
 - A trusted future server data-access adapter must atomically authorize or idempotently replay the claim by verifying the current active member, winner ownership, claim deadline and state, reward kind and reference. The handoff route must run a fresh transactional revalidation of the same facts immediately before redirecting.
 - The claim boundary checks method, exact host, exact path, `Origin`, and Fetch Metadata before any relay call.
-- Relay requests and responses are both HMAC-authenticated and bound to the exact request context. Request nonces are durably one-use until the absolute end of the signed timestamp's full acceptance window.
-- The provider client selects one of two compiled official API origins. It rejects redirects, path escape, unbounded bodies, and timeouts.
+- Relay requests and responses are both HMAC-authenticated and bound to the exact request context. Request nonces are durably one-use until the absolute end of the signed timestamp's full acceptance window. Canonical object keys use deterministic UTF-16 code-unit order, independent of operating-system locale.
+- The inbound server applies exact 10-second whole-request/body, 5-second header, and 5-second keep-alive limits. A partial slow body is terminated before it can reach authentication or provider code.
+- The provider client selects one of two compiled official API origins. It rejects redirects, path escape, and unbounded bodies. One absolute deadline remains active through the bounded response-body read and cancels a stalled reader.
 - The handoff cookie contains only a cryptographically random opaque handle and an HMAC bound to its HTTPS origin and exact route. It contains no member, draw, reward, or URL data.
 - Server-side handoff state contains only a SHA-256 handle digest, bounded claim metadata, environment, and expiry. It never contains a reward URL. Creation is unique and consumption is conditional, atomic, and one-use.
 - The cookie is `HttpOnly`, `Secure`, `SameSite=Strict`, path-scoped, short-lived, and has no `Domain` attribute.
@@ -55,7 +56,7 @@ The distinct paths prevent an in-game or community-honor award from accidentally
 
 ## Idempotency and reconciliation
 
-An electronic order carries an immutable cycle UUID and uses one deterministic `external_id` derived from the immutable draw-result UUID. In one `BEGIN IMMEDIATE` transaction, local state binds the cycle to exactly one primary electronic order, records the reward value, rejects any aggregate cost above the configured cycle ceiling, binds one draw result to exactly one request digest, and marks the reservation before provider contact. A timeout or ambiguous response never causes a blind retry: the next attempt queries the same external ID and validates the returned campaign, product, value, delivery method, fees, currency, order reference, and reward reference.
+An electronic order carries an immutable cycle UUID and uses one deterministic `external_id` derived from the immutable draw-result UUID. In one `BEGIN IMMEDIATE` transaction, local state binds the cycle to exactly one primary electronic order, records the reward value, rejects any aggregate cost above the configured cycle ceiling, binds one draw result to exactly one request digest, and marks the reservation before provider contact. Provider order and reward identifiers each have a durable uniqueness constraint. Completion atomically moves both from null to one exact pair or accepts the same pair as an idempotent replay. A partial pair, mismatched replay, uniqueness conflict, or concurrent drift preserves one binding and suspends all order creation. A timeout or ambiguous response never causes a blind retry: the next attempt queries the same external ID and validates the returned campaign, product, value, delivery method, fees, currency, order reference, and reward reference.
 
 Provider-only orders, missing upstream orders, duplicate upstream IDs, or binding mismatches suspend order creation. Re-enabling orders requires an explicit reviewed control action after reconciliation.
 
@@ -67,7 +68,7 @@ The in-memory store is a test double. Production activation requires a durable a
 
 ## Defaults and cost boundary
 
-`services/reward-relay/.env.example` is the checked-in policy source. Its exact defaults are provider mode disabled and order creation false. The local process accepts loopback hosts only. The source includes no infrastructure-as-code, public endpoint, fixed-egress allocation, funded balance, production key, webhook registration, or schedule; therefore this branch adds no provider cost.
+`services/reward-relay/.env.example` is the checked-in policy source. Its exact defaults are provider mode disabled and order creation false. The local process accepts loopback hosts only. Every untracked environment file is rejected by the repository validator; the tracked example is separately allowlisted and scanned for secret values. The source includes no infrastructure-as-code, public endpoint, fixed-egress allocation, funded balance, production key, webhook registration, or schedule; therefore this branch adds no provider cost.
 
 ## Activation gates
 
@@ -90,7 +91,7 @@ The source contract is enforced by:
 - `node scripts/check-reward-relay.mjs`
 - the repository validation suite after the focused branch is rebased onto its eventual release base
 
-The mocked end-to-end chain covers the browser request, atomic server authorization contract, opaque handle creation, fresh handoff reauthorization, final-request link generation, signed relay request and response, one-use redirect, provider failures, hostile origin/host/path metadata, cookie inspection/tampering/expiry/replay/wrong owner/wrong environment, handle revocation, full-horizon nonce retention, one-order-per-cycle cost enforcement, exact reward hosts, arbitrary-link rejection, claim-page isolation, raw-body webhook authentication and HTTP 200 acknowledgement, UUID deduplication, and separation of all three reward kinds.
+The mocked end-to-end chain covers the browser request, atomic server authorization contract, opaque handle creation, fresh handoff reauthorization, final-request link generation, signed relay request and response, one-use redirect, provider failures, hostile origin/host/path metadata, cookie inspection/tampering/expiry/replay/wrong owner/wrong environment, handle revocation, full-horizon nonce retention, one-order-per-cycle cost enforcement, concurrent provider-identifier drift, stalled inbound and provider response bodies, deterministic Unicode canonicalization, exact reward hosts, arbitrary-link rejection, claim-page isolation, raw-body webhook authentication and HTTP 200 acknowledgement, UUID deduplication, and separation of all three reward kinds.
 
 ## Primary references
 
