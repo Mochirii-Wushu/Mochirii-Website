@@ -196,6 +196,8 @@ function databasePage(): Record<string, unknown> {
       snapshotAt: cursorValue.snapshotAt,
     },
     totalEligible: 2,
+    sourceApprovedCount: 2,
+    publicationReadyCount: 2,
     facets: {
       "member-submissions": 2,
       portraits: 0,
@@ -233,6 +235,10 @@ Deno.test("strict database page evidence rejects malformed empty and aggregate e
   assert(
     parseGalleryDatabasePage({ ...databasePage(), hasMore: false }) === null,
     "cursor and pagination mismatch was accepted",
+  );
+  assert(
+    parseGalleryDatabasePage({ ...databasePage(), publicationReadyCount: 1 }) === null,
+    "an incomplete publication ledger was accepted as a complete public feed",
   );
 });
 
