@@ -14,7 +14,7 @@ Completed:
 - Vercel production deployed the Next app changes.
 - Supabase production migration `add_instagram_gallery_publishing` is applied.
 - Supabase production has active `list-instagram-publish-queue`, `mark-instagram-gallery-submission-shared`, `check-instagram-api-status`, and `publish-instagram-gallery-submission` functions with JWT verification enabled.
-- The private Reaper bot source repository exists at <https://github.com/Mochirii-Wushu/Reaper>.
+- The private Reaper bot source repository exists at <https://github.com/Mochirii-Wushu/Reaper-Discord-Bot>.
 - Reaper has an initial Node/TypeScript Discord command scaffold that matches the Supabase ingest contract.
 - Reaper CI is green on `main` for typecheck, tests, and build.
 - Production Reaper is now implemented as a Supabase-hosted Discord Interactions webhook at:
@@ -79,7 +79,7 @@ Complete these checks before any production mutation or future redeployment:
 3. Vercel production for `mochirii/mochirii` is Ready after the merge.
 4. Supabase project is confirmed as `deyvmtncimmcinldjyqe`.
 5. The official Instagram account is a Professional account controlled by Mōchirīī.
-6. Reaper's code repository is available at <https://github.com/Mochirii-Wushu/Reaper>; production command handling is hosted by Supabase Edge Function `reaper-discord-interactions`, while the repo remains the command/contract helper and rollback reference.
+6. Reaper's code repository is available at <https://github.com/Mochirii-Wushu/Reaper-Discord-Bot>; production command handling is hosted by Supabase Edge Function `reaper-discord-interactions`, while the repo remains the command/contract helper and rollback reference.
 7. The Discord submission channel remains `1508077313965817856`.
 
 ## Deployment Sequence

@@ -782,7 +782,7 @@ All three tables have RLS enabled and service-role-only grants. Browser clients 
 
 Discord uploads are idempotent by message/attachment ID. They go through the same moderator approval queue as website uploads and do not appear publicly until approved. Discord attachment `content_type` is advisory because Discord may omit or mislabel it; `submit-discord-gallery-image` streams the approved Discord CDN URL through an 8 MiB hard ceiling, structurally validates a static JPEG, PNG, or WebP within the 4096-edge and 12.6-megapixel limits, stores the sniffed MIME type, and commits matching trusted source evidence. A missing or conflicting evidence commit removes the inserted row and object and fails closed.
 
-The private Reaper source repo exists at `Mochirii-Wushu/Reaper` as the command/contract helper and rollback runtime reference. Production Reaper is Supabase-hosted Discord Interactions. Its gallery slash command requires only `image`; `title`, `subtitle`, and the Discord boolean opt-in stay optional:
+The private Reaper source repo is `Mochirii-Wushu/Reaper-Discord-Bot`, which remains the command/contract helper and rollback runtime reference. Production Reaper is Supabase-hosted Discord Interactions. Its gallery slash command requires only `image`; `title`, `subtitle`, and the Discord boolean opt-in stay optional:
 
 ```text
 /submit image:<file> [title:<title>] [subtitle:<subtitle>] [share_to_instagram:<true|false>]
