@@ -13,6 +13,9 @@ with hard safety caps, not unlimited uploads.
 - Keep backups separate from public media.
 - Do not share the media bucket with database backups or private host notes.
 
+The authenticated application gateway, two-factor checkpoint, and request
+limits are specified in [Private Media Authentication](private-media-authentication.md).
+
 ## Upload Safety
 
 Before broad member upload testing, verify:
