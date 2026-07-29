@@ -63,11 +63,32 @@ export type GalleryPublicRequestResult =
   | { ok: true; request: GalleryPublicRequest }
   | { ok: false; error: string };
 
-export type GalleryDeliveryReservation = {
-  allowed: boolean;
+type GalleryDeliveryReservationFields = {
   retryAfterSeconds: number;
   dailyReservedBytes: number;
   dailyLimitBytes: number;
+};
+
+export type GalleryDeliveryAllowedReservation =
+  & GalleryDeliveryReservationFields
+  & { allowed: true };
+export type GalleryDeliveryDeniedReservation =
+  & GalleryDeliveryReservationFields
+  & { allowed: false };
+export type GalleryDeliveryReservation =
+  | GalleryDeliveryAllowedReservation
+  | GalleryDeliveryDeniedReservation;
+
+export type GalleryMediaReservation = GalleryDeliveryReservationFields & {
+  allowed: true;
+  id: string;
+  storageBucket: "member-gallery";
+  storagePath: string;
+  mimeType: "image/webp";
+  sizeBytes: number;
+  width: number;
+  height: number;
+  sha256: string;
 };
 
 type GalleryEvidenceCacheEntry = {
@@ -160,8 +181,12 @@ export function parseGalleryDeliveryReservation(
     keys.some((key) => !(key in reservation)) ||
     typeof reservation.allowed !== "boolean"
   ) return null;
-  const retryAfterSeconds = safeIntegerForEvidence(reservation.retryAfterSeconds);
-  const dailyReservedBytes = safeIntegerForEvidence(reservation.dailyReservedBytes);
+  const retryAfterSeconds = safeIntegerForEvidence(
+    reservation.retryAfterSeconds,
+  );
+  const dailyReservedBytes = safeIntegerForEvidence(
+    reservation.dailyReservedBytes,
+  );
   const dailyLimitBytes = safeIntegerForEvidence(reservation.dailyLimitBytes);
   if (
     retryAfterSeconds === null || dailyReservedBytes === null ||
@@ -169,11 +194,92 @@ export function parseGalleryDeliveryReservation(
     dailyReservedBytes > dailyLimitBytes ||
     (reservation.allowed ? retryAfterSeconds !== 0 : retryAfterSeconds < 1)
   ) return null;
+  return reservation.allowed
+    ? {
+      allowed: true,
+      retryAfterSeconds,
+      dailyReservedBytes,
+      dailyLimitBytes,
+    }
+    : {
+      allowed: false,
+      retryAfterSeconds,
+      dailyReservedBytes,
+      dailyLimitBytes,
+    };
+}
+
+export function parseGalleryMediaReservation(
+  value: unknown,
+  expectedId: string,
+  kind: "full" | "thumbnail",
+): GalleryMediaReservation | GalleryDeliveryDeniedReservation | null {
+  const media = record(value);
+  const reservationKeys = [
+    "allowed",
+    "retryAfterSeconds",
+    "dailyReservedBytes",
+    "dailyLimitBytes",
+  ];
+  const mediaKeys = [
+    ...reservationKeys,
+    "id",
+    "storageBucket",
+    "storagePath",
+    "mimeType",
+    "sizeBytes",
+    "width",
+    "height",
+    "sha256",
+  ];
+  const reservation = {
+    allowed: media.allowed,
+    retryAfterSeconds: media.retryAfterSeconds,
+    dailyReservedBytes: media.dailyReservedBytes,
+    dailyLimitBytes: media.dailyLimitBytes,
+  };
+  const parsedReservation = parseGalleryDeliveryReservation(reservation);
+  if (!parsedReservation) return null;
+  if (!parsedReservation.allowed) {
+    return Object.keys(media).length === reservationKeys.length &&
+        reservationKeys.every((key) => key in media)
+      ? parsedReservation
+      : null;
+  }
+  if (
+    Object.keys(media).length !== mediaKeys.length ||
+    mediaKeys.some((key) => !(key in media))
+  ) return null;
+
+  const id = safeGalleryText(media.id, 80);
+  const storageBucket = safeGalleryText(media.storageBucket, 80);
+  const storagePath = safeGalleryText(media.storagePath, 1000);
+  const mimeType = safeGalleryText(media.mimeType, 80)?.toLowerCase();
+  const sizeBytes = safeIntegerForEvidence(media.sizeBytes);
+  const width = safeIntegerForEvidence(media.width);
+  const height = safeIntegerForEvidence(media.height);
+  const sha256 = safeGalleryText(media.sha256, 64);
+  const maximumBytes = kind === "thumbnail" ? 80 * 1024 : 2 * 1024 * 1024;
+  const maximumDimension = kind === "thumbnail" ? 720 : 2560;
+  if (
+    !id || id !== expectedId || !UUID_RE.test(id) ||
+    storageBucket !== "member-gallery" || !storagePath ||
+    mimeType !== "image/webp" || sizeBytes === null || sizeBytes < 1 ||
+    sizeBytes > maximumBytes || width === null || width < 1 ||
+    width > maximumDimension || height === null || height < 1 ||
+    height > maximumDimension || !sha256 || !/^[0-9a-f]{64}$/.test(sha256)
+  ) return null;
+
   return {
-    allowed: reservation.allowed,
-    retryAfterSeconds,
-    dailyReservedBytes,
-    dailyLimitBytes,
+    ...parsedReservation,
+    id,
+    storageBucket,
+    storagePath,
+    mimeType,
+    sizeBytes,
+    width,
+    height,
+    sha256,
   };
 }
 
@@ -571,6 +677,11 @@ export function parseGalleryPublicRequest(
   };
 }
 
+export function isLegacyGalleryListRequest(value: unknown): boolean {
+  return value !== null && typeof value === "object" && !Array.isArray(value) &&
+    Object.keys(value).length === 0;
+}
+
 const databasePageKeys = new Set([
   "schemaVersion",
   "snapshotAt",
@@ -610,19 +721,25 @@ export function parseGalleryDatabasePage(value: unknown): JsonRecord | null {
   if (
     Object.keys(page).length !== databasePageKeys.size ||
     Object.keys(page).some((key) => !databasePageKeys.has(key)) ||
-    safeIntegerForEvidence(page.schemaVersion) !== GALLERY_PUBLIC_SCHEMA_VERSION ||
-    !Array.isArray(page.items) || page.items.length > GALLERY_PUBLIC_PAGE_SIZE ||
+    safeIntegerForEvidence(page.schemaVersion) !==
+      GALLERY_PUBLIC_SCHEMA_VERSION ||
+    !Array.isArray(page.items) ||
+    page.items.length > GALLERY_PUBLIC_PAGE_SIZE ||
     typeof page.hasMore !== "boolean"
   ) return null;
 
   const snapshotAt = validDate(page.snapshotAt);
   const snapshotExpiresAt = validDate(page.snapshotExpiresAt);
   const snapshotMs = snapshotAt ? Date.parse(snapshotAt) : Number.NaN;
-  const expiryMs = snapshotExpiresAt ? Date.parse(snapshotExpiresAt) : Number.NaN;
+  const expiryMs = snapshotExpiresAt
+    ? Date.parse(snapshotExpiresAt)
+    : Number.NaN;
   if (!snapshotAt || !snapshotExpiresAt || expiryMs <= snapshotMs) return null;
 
   const totalEligible = safeIntegerForEvidence(page.totalEligible);
-  const unknownCategoryCount = safeIntegerForEvidence(page.unknownCategoryCount);
+  const unknownCategoryCount = safeIntegerForEvidence(
+    page.unknownCategoryCount,
+  );
   if (
     totalEligible === null || totalEligible < page.items.length ||
     unknownCategoryCount !== 0
@@ -631,7 +748,9 @@ export function parseGalleryDatabasePage(value: unknown): JsonRecord | null {
   const facets = record(page.facets);
   if (
     Object.keys(facets).length !== databaseFacetKeys.length ||
-    databaseFacetKeys.some((key) => safeIntegerForEvidence(facets[key]) === null)
+    databaseFacetKeys.some((key) =>
+      safeIntegerForEvidence(facets[key]) === null
+    )
   ) return null;
 
   const itemsValid = page.items.every((value) => {
@@ -708,5 +827,47 @@ export function toPublicGalleryItem(
     thumbnail_size_bytes: thumbnailSizeBytes,
     thumbnail_width: thumbnailWidth,
     thumbnail_height: thumbnailHeight,
+  };
+}
+
+export function toLegacyGalleryItem(
+  value: unknown,
+  fullUrl: string,
+): JsonRecord | null {
+  const item = record(value);
+  const id = safeGalleryText(item.id, 80);
+  const thumbnailUrl = safeGalleryText(item.thumbnail_url, 4000);
+  const safeFullUrl = safeGalleryText(fullUrl, 4000);
+  const mimeType = safeGalleryText(item.mime_type, 80)?.toLowerCase();
+  const sizeBytes = Number(item.size_bytes || 0);
+  const thumbnailSizeBytes = Number(item.thumbnail_size_bytes || 0);
+  const createdAt = validDate(item.created_at);
+  const reviewedAt = validDate(item.reviewed_at);
+  const category = safeGalleryText(item.category, 40)?.toLowerCase() || null;
+  if (
+    !id || !UUID_RE.test(id) || !thumbnailUrl || !safeFullUrl ||
+    thumbnailUrl === safeFullUrl || mimeType !== "image/webp" ||
+    !Number.isSafeInteger(sizeBytes) || sizeBytes < 1 ||
+    sizeBytes > 2 * 1024 * 1024 ||
+    !Number.isSafeInteger(thumbnailSizeBytes) || thumbnailSizeBytes < 1 ||
+    thumbnailSizeBytes > 80 * 1024 || !createdAt || !reviewedAt ||
+    !category || !publicationCategories.has(category)
+  ) return null;
+
+  return {
+    id,
+    title: safeGalleryText(item.title, 80),
+    caption: safeGalleryText(item.caption, 300),
+    category,
+    mime_type: mimeType,
+    size_bytes: sizeBytes,
+    created_at: createdAt,
+    reviewed_at: reviewedAt,
+    uploader_display_name: null,
+    uploader_discord_name: null,
+    full_signed_url: safeFullUrl,
+    thumbnail_signed_url: thumbnailUrl,
+    thumbnail_size_bytes: thumbnailSizeBytes,
+    preview_error: null,
   };
 }

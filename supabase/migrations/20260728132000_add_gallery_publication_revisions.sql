@@ -187,6 +187,27 @@ from public, anon, authenticated, service_role;
 create index gallery_public_delivery_window_cleanup_idx
 on private.gallery_public_delivery_windows (window_started_at);
 
+-- Moderator source previews have an independent capacity pool. Anonymous
+-- Gallery traffic must never be able to consume the quota needed for a
+-- moderator to review a private submission.
+create table private.gallery_moderation_preview_windows (
+  window_started_at timestamptz primary key,
+  request_count bigint not null default 0,
+  reserved_bytes bigint not null default 0,
+  updated_at timestamptz not null default statement_timestamp(),
+  constraint gallery_moderation_preview_request_count_check
+    check (request_count between 0 and 1000000),
+  constraint gallery_moderation_preview_reserved_bytes_check
+    check (reserved_bytes between 0 and 1073741824)
+);
+
+alter table private.gallery_moderation_preview_windows enable row level security;
+revoke all on table private.gallery_moderation_preview_windows
+from public, anon, authenticated, service_role;
+
+create index gallery_moderation_preview_window_cleanup_idx
+on private.gallery_moderation_preview_windows (window_started_at);
+
 create or replace function public.gallery_reserve_public_delivery(
   p_delivery_kind text,
   p_reserved_bytes bigint
@@ -214,7 +235,8 @@ begin
   if requested_kind is null
     or requested_kind not in ('list', 'thumbnail', 'full')
     or requested_bytes is null
-    or requested_bytes not between 1 and 2097152
+    or requested_bytes < 1
+    or requested_bytes > 2097152
   then
     raise exception 'Invalid Gallery delivery reservation.' using errcode = '22023';
   end if;
@@ -309,6 +331,107 @@ from public, anon, authenticated;
 grant execute on function public.gallery_reserve_public_delivery(text, bigint)
 to service_role;
 
+create or replace function public.gallery_reserve_moderation_preview(
+  p_reserved_bytes bigint
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  requested_bytes bigint := p_reserved_bytes;
+  minute_start timestamptz := date_trunc('minute', statement_timestamp());
+  day_start timestamptz := date_trunc('day', statement_timestamp(), 'UTC');
+  minute_requests bigint := 0;
+  day_requests bigint := 0;
+  day_reserved_bytes bigint := 0;
+  daily_byte_limit constant bigint := 67108864;
+  minute_limit_reached boolean;
+  daily_limit_reached boolean;
+  retry_after_seconds bigint;
+begin
+  if requested_bytes is null
+    or requested_bytes < 1
+    or requested_bytes > 8388608
+  then
+    raise exception 'Invalid Gallery moderation preview reservation.' using errcode = '22023';
+  end if;
+
+  perform pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended('mochirii.gallery-moderation-preview', 0)
+  );
+
+  delete from private.gallery_moderation_preview_windows
+  where window_started_at < day_start - interval '2 days';
+
+  select coalesce(sum(preview_window.request_count), 0)
+  into minute_requests
+  from private.gallery_moderation_preview_windows as preview_window
+  where preview_window.window_started_at = minute_start;
+
+  select
+    coalesce(sum(preview_window.request_count), 0),
+    coalesce(sum(preview_window.reserved_bytes), 0)
+  into day_requests, day_reserved_bytes
+  from private.gallery_moderation_preview_windows as preview_window
+  where preview_window.window_started_at >= day_start;
+
+  minute_limit_reached := minute_requests + 1 > 12;
+  daily_limit_reached := day_requests + 1 > 100
+    or day_reserved_bytes + requested_bytes > daily_byte_limit;
+
+  if minute_limit_reached or daily_limit_reached then
+    retry_after_seconds := case
+      when daily_limit_reached then greatest(
+        1,
+        ceil(extract(epoch from (day_start + interval '1 day' - statement_timestamp())))::bigint
+      )
+      else greatest(
+        1,
+        ceil(extract(epoch from (minute_start + interval '1 minute' - statement_timestamp())))::bigint
+      )
+    end;
+
+    return jsonb_build_object(
+      'allowed', false,
+      'retryAfterSeconds', retry_after_seconds,
+      'dailyReservedBytes', day_reserved_bytes,
+      'dailyLimitBytes', daily_byte_limit
+    );
+  end if;
+
+  insert into private.gallery_moderation_preview_windows (
+    window_started_at,
+    request_count,
+    reserved_bytes,
+    updated_at
+  ) values (
+    minute_start,
+    1,
+    requested_bytes,
+    statement_timestamp()
+  )
+  on conflict (window_started_at) do update
+  set
+    request_count = private.gallery_moderation_preview_windows.request_count + 1,
+    reserved_bytes = private.gallery_moderation_preview_windows.reserved_bytes + excluded.reserved_bytes,
+    updated_at = excluded.updated_at;
+
+  return jsonb_build_object(
+    'allowed', true,
+    'retryAfterSeconds', 0,
+    'dailyReservedBytes', day_reserved_bytes + requested_bytes,
+    'dailyLimitBytes', daily_byte_limit
+  );
+end;
+$$;
+
+revoke all on function public.gallery_reserve_moderation_preview(bigint)
+from public, anon, authenticated;
+grant execute on function public.gallery_reserve_moderation_preview(bigint)
+to service_role;
+
 create unique index gallery_publication_one_active_per_submission_idx
 on private.gallery_publication_revisions (submission_id)
 where visible_until is null;
@@ -342,10 +465,10 @@ on private.gallery_publication_revisions (
 );
 
 -- Keep the exact v1 RPC signature during the bounded application rollback
--- window. Prior reviewed Edge source signs the two paths returned by this
--- function, so synthesize its legacy row shape only from current immutable
--- publication derivatives. Member-owned source paths and identity fields must
--- never cross this compatibility boundary.
+-- window, but fail closed with an empty, list-budgeted result. The retired Edge
+-- source minted replayable Storage bearer URLs and must never remain a media
+-- rollback after this migration. The current Edge serves the old browser's
+-- exact empty-object request shape with quota-enforced Edge media URLs instead.
 create or replace function public.gallery_publishable_submissions(
   p_limit integer default 24,
   p_offset integer default 0
@@ -356,93 +479,14 @@ security definer
 set search_path = ''
 as $$
 declare
-  requested_limit integer := least(greatest(coalesce(p_limit, 24), 1), 24);
-  requested_offset integer := least(greatest(coalesce(p_offset, 0), 0), 10000);
   delivery_reservation jsonb;
 begin
-  if coalesce(auth.role(), '') <> 'service_role' then
-    raise exception 'Service role required.' using errcode = '42501';
-  end if;
-
   delivery_reservation := public.gallery_reserve_public_delivery('list', 65536);
   if coalesce((delivery_reservation ->> 'allowed')::boolean, false) is not true then
     raise exception 'Gallery public delivery temporarily unavailable.' using errcode = 'P0001';
   end if;
 
-  return query
-  select (
-    pg_catalog.jsonb_populate_record(
-      null::public.gallery_submissions,
-      pg_catalog.jsonb_build_object(
-        'id', publication.publication_id,
-        'user_id', '00000000-0000-0000-0000-000000000000'::uuid,
-        'storage_bucket', publication.storage_bucket,
-        'storage_path', publication.original_storage_path,
-        'original_filename', null,
-        'mime_type', publication.original_mime_type,
-        'size_bytes', publication.original_size_bytes,
-        'title', publication.title,
-        'caption', publication.caption,
-        'category', publication.public_category,
-        'status', 'approved',
-        'rejection_reason', null,
-        'reviewed_by', null,
-        'reviewed_at', publication.source_reviewed_at,
-        'created_at', publication.source_created_at,
-        'updated_at', publication.visible_from,
-        'thumbnail_revision_id', publication.id,
-        'thumbnail_storage_path', publication.thumbnail_storage_path,
-        'thumbnail_mime_type', publication.thumbnail_mime_type,
-        'thumbnail_size_bytes', publication.thumbnail_size_bytes,
-        'thumbnail_width', publication.thumbnail_width,
-        'thumbnail_height', publication.thumbnail_height,
-        'gallery_publication_id', publication.publication_id
-      )
-    )
-  ).*
-  from private.gallery_publication_revisions as publication
-  join public.gallery_submissions as submission
-    on submission.id = publication.submission_id
-  join storage.objects as display_object
-    on display_object.id = publication.original_storage_object_id
-    and display_object.bucket_id = publication.storage_bucket
-    and display_object.name = publication.original_storage_path
-    and display_object.version is not distinct from publication.original_storage_object_version
-    and display_object.updated_at = publication.original_storage_object_updated_at
-  join storage.objects as thumbnail_object
-    on thumbnail_object.id = publication.thumbnail_storage_object_id
-    and thumbnail_object.bucket_id = publication.storage_bucket
-    and thumbnail_object.name = publication.thumbnail_storage_path
-    and thumbnail_object.version is not distinct from publication.thumbnail_storage_object_version
-    and thumbnail_object.updated_at = publication.thumbnail_storage_object_updated_at
-  where publication.visible_until is null
-    and submission.status = 'approved'
-    and publication.original_mime_type = 'image/webp'
-    and publication.original_size_bytes between 1 and 2097152
-    and publication.original_width between 1 and 2560
-    and publication.original_height between 1 and 2560
-    and publication.thumbnail_mime_type = 'image/webp'
-    and publication.thumbnail_size_bytes between 1 and 81920
-    and publication.thumbnail_width between 1 and 720
-    and publication.thumbnail_height between 1 and 720
-    and (case
-      when coalesce(display_object.metadata ->> 'size', '') ~ '^[0-9]+$'
-        then (display_object.metadata ->> 'size')::bigint
-      else null
-    end) = publication.original_size_bytes
-    and lower(coalesce(display_object.metadata ->> 'mimetype', '')) = publication.original_mime_type
-    and (case
-      when coalesce(thumbnail_object.metadata ->> 'size', '') ~ '^[0-9]+$'
-        then (thumbnail_object.metadata ->> 'size')::bigint
-      else null
-    end) = publication.thumbnail_size_bytes
-    and lower(coalesce(thumbnail_object.metadata ->> 'mimetype', '')) = publication.thumbnail_mime_type
-  order by
-    publication.source_reviewed_at desc,
-    publication.source_created_at desc,
-    publication.id desc
-  limit requested_limit
-  offset requested_offset;
+  return;
 end;
 $$;
 
@@ -452,7 +496,7 @@ grant execute on function public.gallery_publishable_submissions(integer, intege
 to service_role;
 
 comment on function public.gallery_publishable_submissions(integer, integer) is
-  'Temporary service-only rollback compatibility over bounded immutable Gallery derivatives; never returns member source originals.';
+  'Temporary service-only rollback guard: meters legacy calls and always returns an empty set so retired Edge source cannot mint replayable media URLs.';
 
 create or replace function private.enforce_gallery_publication_immutability()
 returns trigger
@@ -757,7 +801,8 @@ begin
       'committed', true,
       'already_validated', true,
       'width', existing_validation.source_width,
-      'height', existing_validation.source_height
+      'height', existing_validation.source_height,
+      'validated_at', existing_validation.validated_at
     );
   end if;
 
@@ -787,13 +832,15 @@ begin
     p_source_height,
     p_source_sha256,
     'gallery-source-v1'
-  );
+  )
+  returning * into existing_validation;
 
   return jsonb_build_object(
     'committed', true,
     'already_validated', false,
-    'width', p_source_width,
-    'height', p_source_height
+    'width', existing_validation.source_width,
+    'height', existing_validation.source_height,
+    'validated_at', existing_validation.validated_at
   );
 end;
 $$;
@@ -1537,34 +1584,95 @@ grant execute on function public.gallery_public_feed_page_v2(
 ) to service_role;
 
 drop function if exists public.gallery_public_original_v2(uuid);
+drop function if exists public.gallery_reserve_public_media_v2(uuid, text);
 
-create function public.gallery_public_original_v2(p_publication_id uuid)
+-- Resolve the exact immutable media evidence and reserve its byte count in one
+-- database transaction. The Edge Function cannot observe a path without also
+-- consuming the corresponding public-delivery budget.
+create function public.gallery_reserve_public_media_v2(
+  p_publication_id uuid,
+  p_delivery_kind text
+)
 returns jsonb
 language plpgsql
-stable
 security definer
 set search_path = ''
 as $$
 declare
-  result jsonb;
+  requested_kind text := lower(nullif(btrim(p_delivery_kind), ''));
+  selected_revision_id uuid;
+  selected_size_bytes bigint;
+  media_evidence jsonb;
+  delivery_reservation jsonb;
 begin
+  if requested_kind is null or requested_kind not in ('thumbnail', 'full') then
+    raise exception 'Invalid Gallery media reservation.' using errcode = '22023';
+  end if;
+
+  -- Select only the indexed revision identity and immutable byte count before
+  -- touching Storage evidence. Known-ID traffic that has exhausted the public
+  -- budget must return without paying for either Storage join.
+  select
+    publication.id,
+    case
+      when requested_kind = 'thumbnail' then publication.thumbnail_size_bytes
+      else publication.original_size_bytes
+    end
+  into selected_revision_id, selected_size_bytes
+  from private.gallery_publication_revisions as publication
+  join public.gallery_submissions as submission
+    on submission.id = publication.submission_id
+  where publication.publication_id = p_publication_id
+    and (
+      publication.visible_until is null
+      or publication.visible_until > statement_timestamp() - interval '1 hour'
+    )
+    and submission.status = 'approved'
+  order by (publication.visible_until is null) desc, publication.visible_from desc
+  limit 1;
+
+  if selected_revision_id is null or selected_size_bytes is null then
+    return null;
+  end if;
+
+  delivery_reservation := public.gallery_reserve_public_delivery(
+    requested_kind,
+    selected_size_bytes
+  );
+
+  if coalesce((delivery_reservation ->> 'allowed')::boolean, false) is not true then
+    return delivery_reservation;
+  end if;
+
   select jsonb_build_object(
     'id', publication.publication_id,
     'storageBucket', publication.storage_bucket,
-    'storagePath', publication.original_storage_path,
-    'mimeType', publication.original_mime_type,
-    'sizeBytes', publication.original_size_bytes,
-    'width', publication.original_width,
-    'height', publication.original_height,
-    'sha256', publication.original_sha256,
-    'thumbnailStoragePath', publication.thumbnail_storage_path,
-    'thumbnailMimeType', publication.thumbnail_mime_type,
-    'thumbnailSizeBytes', publication.thumbnail_size_bytes,
-    'thumbnailWidth', publication.thumbnail_width,
-    'thumbnailHeight', publication.thumbnail_height,
-    'thumbnailSha256', publication.thumbnail_sha256
+    'storagePath', case
+      when requested_kind = 'thumbnail' then publication.thumbnail_storage_path
+      else publication.original_storage_path
+    end,
+    'mimeType', case
+      when requested_kind = 'thumbnail' then publication.thumbnail_mime_type
+      else publication.original_mime_type
+    end,
+    'sizeBytes', case
+      when requested_kind = 'thumbnail' then publication.thumbnail_size_bytes
+      else publication.original_size_bytes
+    end,
+    'width', case
+      when requested_kind = 'thumbnail' then publication.thumbnail_width
+      else publication.original_width
+    end,
+    'height', case
+      when requested_kind = 'thumbnail' then publication.thumbnail_height
+      else publication.original_height
+    end,
+    'sha256', case
+      when requested_kind = 'thumbnail' then publication.thumbnail_sha256
+      else publication.original_sha256
+    end
   )
-  into result
+  into media_evidence
   from private.gallery_publication_revisions as publication
   join public.gallery_submissions as submission
     on submission.id = publication.submission_id
@@ -1580,7 +1688,8 @@ begin
     and thumbnail_object.name = publication.thumbnail_storage_path
     and thumbnail_object.version is not distinct from publication.thumbnail_storage_object_version
     and thumbnail_object.updated_at = publication.thumbnail_storage_object_updated_at
-  where publication.publication_id = p_publication_id
+  where publication.id = selected_revision_id
+    and publication.publication_id = p_publication_id
     and (
       publication.visible_until is null
       or publication.visible_until > statement_timestamp() - interval '1 hour'
@@ -1598,16 +1707,23 @@ begin
       else null
     end) = publication.thumbnail_size_bytes
     and lower(coalesce(thumbnail_object.metadata ->> 'mimetype', '')) = publication.thumbnail_mime_type
-  order by (publication.visible_until is null) desc, publication.visible_from desc
   limit 1;
 
-  return result;
+  if media_evidence is null then
+    return null;
+  end if;
+
+  if (media_evidence ->> 'sizeBytes')::bigint <> selected_size_bytes then
+    return null;
+  end if;
+
+  return delivery_reservation || media_evidence;
 end;
 $$;
 
-revoke all on function public.gallery_public_original_v2(uuid)
+revoke all on function public.gallery_reserve_public_media_v2(uuid, text)
 from public, anon, authenticated;
-grant execute on function public.gallery_public_original_v2(uuid)
+grant execute on function public.gallery_reserve_public_media_v2(uuid, text)
 to service_role;
 
 comment on table private.gallery_publication_revisions is
@@ -1617,5 +1733,8 @@ comment on function public.gallery_public_feed_page_v2(
   integer, timestamptz, timestamptz, timestamptz, uuid, text, text, text
 ) is 'Service-only ten-minute snapshot/keyset page over immutable Gallery publication revisions.';
 
-comment on function public.gallery_public_original_v2(uuid) is
-  'Service-only current-publication lookup for one on-demand Gallery original or thumbnail refresh.';
+comment on function public.gallery_reserve_public_media_v2(uuid, text) is
+  'Service-only atomic current-publication lookup and exact public byte reservation for one Gallery derivative.';
+
+comment on function public.gallery_reserve_moderation_preview(bigint) is
+  'Service-only moderator preview reservation isolated from anonymous public Gallery delivery capacity.';

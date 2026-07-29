@@ -1,5 +1,5 @@
 begin;
-select plan(59);
+select plan(68);
 
 select has_table(
   'private',
@@ -11,6 +11,12 @@ select has_table(
   'private',
   'gallery_public_delivery_windows',
   'global Gallery public-delivery usage ledger exists'
+);
+
+select has_table(
+  'private',
+  'gallery_moderation_preview_windows',
+  'isolated Gallery moderator-preview usage ledger exists'
 );
 
 select is(
@@ -46,6 +52,18 @@ select ok(
 );
 
 select ok(
+  (
+    select relrowsecurity
+    from pg_class
+    where oid = 'private.gallery_moderation_preview_windows'::regclass
+  )
+  and not has_table_privilege('anon', 'private.gallery_moderation_preview_windows', 'SELECT')
+  and not has_table_privilege('authenticated', 'private.gallery_moderation_preview_windows', 'SELECT')
+  and not has_table_privilege('service_role', 'private.gallery_moderation_preview_windows', 'SELECT'),
+  'moderator-preview usage rows have RLS and no direct API grants'
+);
+
+select ok(
   not has_function_privilege(
     'anon',
     'public.gallery_public_feed_page_v2(integer,timestamp with time zone,timestamp with time zone,timestamp with time zone,uuid,text,text,text)',
@@ -65,10 +83,10 @@ select ok(
 );
 
 select ok(
-  not has_function_privilege('anon', 'public.gallery_public_original_v2(uuid)', 'execute')
-  and not has_function_privilege('authenticated', 'public.gallery_public_original_v2(uuid)', 'execute')
-  and has_function_privilege('service_role', 'public.gallery_public_original_v2(uuid)', 'execute'),
-  'one-publication media lookup is callable only through the service role'
+  not has_function_privilege('anon', 'public.gallery_reserve_public_media_v2(uuid,text)', 'execute')
+  and not has_function_privilege('authenticated', 'public.gallery_reserve_public_media_v2(uuid,text)', 'execute')
+  and has_function_privilege('service_role', 'public.gallery_reserve_public_media_v2(uuid,text)', 'execute'),
+  'atomic one-publication media reservation is callable only through the service role'
 );
 
 select ok(
@@ -76,6 +94,13 @@ select ok(
   and not has_function_privilege('authenticated', 'public.gallery_reserve_public_delivery(text,bigint)', 'execute')
   and has_function_privilege('service_role', 'public.gallery_reserve_public_delivery(text,bigint)', 'execute'),
   'global delivery reservations are service-role only'
+);
+
+select ok(
+  not has_function_privilege('anon', 'public.gallery_reserve_moderation_preview(bigint)', 'execute')
+  and not has_function_privilege('authenticated', 'public.gallery_reserve_moderation_preview(bigint)', 'execute')
+  and has_function_privilege('service_role', 'public.gallery_reserve_moderation_preview(bigint)', 'execute'),
+  'isolated moderator-preview reservations are service-role only'
 );
 
 select ok(
@@ -507,61 +532,29 @@ select * from public.gallery_publishable_submissions(80, 0);
 
 select is(
   (select count(*)::integer from gallery_v1_compatibility),
-  24,
-  'legacy rollback compatibility caps its old 80-row request at 24 publications'
+  0,
+  'retired Edge compatibility always returns an empty Gallery feed'
 );
 
-select ok(
-  (
-    select bool_and(
-      id = gallery_publication_id
-      and storage_path = '_approved/publications/' || id::text || '/display.webp'
-      and thumbnail_storage_path = (
-        '_approved/publications/' || id::text || '/revisions/' ||
-          thumbnail_revision_id::text || '/thumbnail.webp'
-      )
-    )
-    from gallery_v1_compatibility
-  ),
-  'legacy rows expose only opaque service-owned publication paths'
+select is(
+  (select sum(reserved_bytes)::bigint from private.gallery_public_delivery_windows),
+  65536::bigint,
+  'retired Edge compatibility calls remain list-budgeted even though no media is returned'
 );
 
-select ok(
-  (
-    select bool_and(
-      storage_bucket = 'member-gallery'
-      and mime_type = 'image/webp'
-      and size_bytes between 1 and 2097152
-      and thumbnail_mime_type = 'image/webp'
-      and thumbnail_size_bytes between 1 and 81920
-      and thumbnail_width between 1 and 720
-      and thumbnail_height between 1 and 720
-    )
-    from gallery_v1_compatibility
-  ),
-  'legacy rows retain the bounded display and thumbnail derivative contract'
+create temporary table gallery_v1_compatibility_repeat on commit drop as
+select * from public.gallery_publishable_submissions(80, 0);
+
+select is(
+  (select count(*)::integer from gallery_v1_compatibility_repeat),
+  0,
+  'repeated retired Edge compatibility calls cannot recover media paths'
 );
 
-select ok(
-  (
-    select bool_and(
-      user_id = '00000000-0000-0000-0000-000000000000'::uuid
-      and original_filename is null
-      and reviewed_by is null
-      and rejection_reason is null
-    )
-    from gallery_v1_compatibility
-  ),
-  'legacy rows omit member, filename, moderator, and rejection identity fields'
-);
-
-select ok(
-  not exists (
-    select 1
-    from gallery_v1_compatibility
-    where id = '10000000-0000-4000-8000-000000000092'::uuid
-  ),
-  'legacy rollback compatibility rejects mismatched immutable object evidence'
+select is(
+  (select sum(reserved_bytes)::bigint from private.gallery_public_delivery_windows),
+  131072::bigint,
+  'each repeated retired Edge compatibility call consumes the shared list budget'
 );
 
 select throws_ok(
@@ -576,6 +569,87 @@ select throws_ok(
   '22023',
   'Invalid Gallery delivery reservation.',
   'non-positive delivery byte reservations fail closed'
+);
+
+delete from private.gallery_moderation_preview_windows;
+create temporary table gallery_moderation_preview_reservation (payload jsonb) on commit drop;
+insert into gallery_moderation_preview_reservation
+values (public.gallery_reserve_moderation_preview(8388608));
+
+select ok(
+  (select (payload ->> 'allowed')::boolean from gallery_moderation_preview_reservation)
+  and (
+    select reserved_bytes = 8388608 and request_count = 1
+    from private.gallery_moderation_preview_windows
+    where window_started_at = date_trunc('minute', statement_timestamp())
+  ),
+  'moderation preview reserves its exact maximum source bytes once'
+);
+
+select throws_ok(
+  $$select public.gallery_reserve_moderation_preview(8388609)$$,
+  '22023',
+  'Invalid Gallery moderation preview reservation.',
+  'moderation preview rejects sources over eight mebibytes'
+);
+
+delete from private.gallery_moderation_preview_windows;
+insert into private.gallery_moderation_preview_windows (
+  window_started_at, request_count, reserved_bytes
+) values (
+  date_trunc('minute', statement_timestamp()), 12, 12
+);
+
+select ok(
+  (public.gallery_reserve_moderation_preview(1) ->> 'allowed')::boolean is false
+  and (public.gallery_reserve_moderation_preview(1) ->> 'retryAfterSeconds')::bigint between 1 and 60,
+  'moderation preview minute saturation fails closed at twelve requests'
+);
+
+delete from private.gallery_moderation_preview_windows;
+insert into private.gallery_moderation_preview_windows (
+  window_started_at, request_count, reserved_bytes
+) values (
+  date_trunc('day', statement_timestamp(), 'UTC'), 100, 100
+);
+
+select ok(
+  (public.gallery_reserve_moderation_preview(1) ->> 'allowed')::boolean is false,
+  'moderation preview daily saturation fails closed at one hundred requests'
+);
+
+delete from private.gallery_moderation_preview_windows;
+delete from private.gallery_public_delivery_windows;
+insert into private.gallery_public_delivery_windows (
+  window_started_at, delivery_kind, request_count, reserved_bytes
+) values (
+  date_trunc('minute', statement_timestamp()), 'list', 1, 67108864
+);
+truncate gallery_moderation_preview_reservation;
+insert into gallery_moderation_preview_reservation
+values (public.gallery_reserve_moderation_preview(8388608));
+
+select ok(
+  (select (payload ->> 'allowed')::boolean from gallery_moderation_preview_reservation)
+  and (select sum(reserved_bytes)::bigint from private.gallery_moderation_preview_windows) = 8388608,
+  'anonymous public saturation cannot consume isolated moderator-preview capacity'
+);
+
+delete from private.gallery_public_delivery_windows;
+delete from private.gallery_moderation_preview_windows;
+insert into private.gallery_moderation_preview_windows (
+  window_started_at, request_count, reserved_bytes
+) values (
+  date_trunc('minute', statement_timestamp()), 8, 67108864
+);
+create temporary table gallery_isolated_public_reservation (payload jsonb) on commit drop;
+insert into gallery_isolated_public_reservation
+values (public.gallery_reserve_public_delivery('list', 1));
+
+select ok(
+  (select (payload ->> 'allowed')::boolean from gallery_isolated_public_reservation)
+  and (select sum(reserved_bytes)::bigint from private.gallery_public_delivery_windows) = 1,
+  'moderator-preview saturation cannot consume anonymous public capacity'
 );
 
 delete from private.gallery_public_delivery_windows;
@@ -743,28 +817,77 @@ select ok(
   'anonymous feed rows expose neither member attribution nor private Storage paths'
 );
 
+delete from private.gallery_public_delivery_windows;
+
+insert into private.gallery_public_delivery_windows (
+  window_started_at, delivery_kind, request_count, reserved_bytes
+) values (
+  date_trunc('minute', statement_timestamp()), 'list', 1, 67108864
+);
+create temporary table gallery_quota_first_media_reservation (payload jsonb) on commit drop;
+insert into gallery_quota_first_media_reservation
+values (public.gallery_reserve_public_media_v2(
+  '10000000-0000-4000-8000-000000000092',
+  'full'
+));
+
+select ok(
+  (select (payload ->> 'allowed')::boolean is false from gallery_quota_first_media_reservation)
+  and (select not (payload ? 'storagePath') from gallery_quota_first_media_reservation)
+  and (
+    select count(*) = 4
+    from gallery_quota_first_media_reservation
+    cross join lateral jsonb_object_keys(payload)
+  ),
+  'exhausted quota returns path-free denial before mismatched Storage evidence is joined'
+);
+
+delete from private.gallery_public_delivery_windows;
+
 select is(
-  public.gallery_public_original_v2('10000000-0000-4000-8000-000000000092'),
+  public.gallery_reserve_public_media_v2(
+    '10000000-0000-4000-8000-000000000092',
+    'full'
+  ),
   null::jsonb,
-  'mismatched service-owned object metadata fails closed for media resolution'
+  'mismatched service-owned object metadata fails closed after quota-first reservation'
+);
+
+delete from private.gallery_public_delivery_windows;
+create temporary table gallery_exact_media_reservation (payload jsonb) on commit drop;
+insert into gallery_exact_media_reservation
+values (public.gallery_reserve_public_media_v2(
+  '10000000-0000-4000-8000-000000000090',
+  'full'
+));
+
+select ok(
+  (select payload ->> 'storagePath' =
+    '_approved/publications/10000000-0000-4000-8000-000000000090/display.webp'
+    from gallery_exact_media_reservation)
+  and (select sum(reserved_bytes)::bigint from private.gallery_public_delivery_windows) = 1000,
+  'a current publication reserves its exact selected bytes before resolving its display derivative'
 );
 
 select is(
-  public.gallery_public_original_v2('10000000-0000-4000-8000-000000000090') ->> 'storagePath',
-  '_approved/publications/10000000-0000-4000-8000-000000000090/display.webp',
-  'a current publication resolves only its opaque service-owned display derivative'
-);
-
-select is(
-  public.gallery_public_original_v2('10000000-0000-4000-8000-000000000090') ->> 'thumbnailStoragePath',
+  public.gallery_reserve_public_media_v2(
+    '10000000-0000-4000-8000-000000000090',
+    'thumbnail'
+  ) ->> 'storagePath',
   '_approved/publications/10000000-0000-4000-8000-000000000090/revisions/50000000-0000-4000-8000-000000000090/thumbnail.webp',
-  'a current publication resolves its matching service-owned thumbnail'
+  'a current publication atomically reserves and resolves its matching thumbnail'
 );
 
 select ok(
-  public.gallery_public_original_v2('10000000-0000-4000-8000-000000000090') ->> 'sha256' = repeat('a', 64)
-  and public.gallery_public_original_v2('10000000-0000-4000-8000-000000000090') ->> 'thumbnailSha256' = repeat('b', 64),
-  'service-only media resolution returns the immutable content hashes'
+  public.gallery_reserve_public_media_v2(
+    '10000000-0000-4000-8000-000000000090',
+    'full'
+  ) ->> 'sha256' = repeat('a', 64)
+  and public.gallery_reserve_public_media_v2(
+    '10000000-0000-4000-8000-000000000090',
+    'thumbnail'
+  ) ->> 'sha256' = repeat('b', 64),
+  'atomic media reservations return the immutable content hashes'
 );
 
 -- Publish an old-dated backfill after page one and refresh publication 90.
@@ -1083,13 +1206,19 @@ select ok(
 );
 
 select is(
-  public.gallery_public_original_v2('10000000-0000-4000-8000-000000000090') ->> 'id',
+  public.gallery_reserve_public_media_v2(
+    '10000000-0000-4000-8000-000000000090',
+    'full'
+  ) ->> 'id',
   '10000000-0000-4000-8000-000000000090',
-  'the stable publication identity resolves after a derivative refresh'
+  'the stable publication identity reserves and resolves after a derivative refresh'
 );
 
 select is(
-  public.gallery_public_original_v2('10000000-0000-4000-8000-000000000090') ->> 'thumbnailStoragePath',
+  public.gallery_reserve_public_media_v2(
+    '10000000-0000-4000-8000-000000000090',
+    'thumbnail'
+  ) ->> 'storagePath',
   '_approved/publications/10000000-0000-4000-8000-000000000090/revisions/51000000-0000-4000-8000-000000000090/thumbnail.webp',
   'the stable publication identity resolves the current derivative revision'
 );
@@ -1140,9 +1269,12 @@ select ok(
 );
 
 select is(
-  public.gallery_public_original_v2('10000000-0000-4000-8000-000000000090'),
+  public.gallery_reserve_public_media_v2(
+    '10000000-0000-4000-8000-000000000090',
+    'full'
+  ),
   null::jsonb,
-  'archiving immediately revokes retained-revision media resolution'
+  'archiving immediately revokes retained-revision media reservation and resolution'
 );
 
 select is(

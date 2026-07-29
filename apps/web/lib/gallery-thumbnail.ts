@@ -1,20 +1,10 @@
 "use client";
 
-import {
-  ACCEPTED_IMAGE_TYPES,
-  MAX_GALLERY_SOURCE_EDGE,
-  MAX_GALLERY_SOURCE_PIXELS,
-  MAX_UPLOAD_BYTES,
-} from "@/lib/supabase/config";
-
 export const galleryThumbnailMimeType = "image/webp";
 export const galleryThumbnailMaximumBytes = 80 * 1024;
 export const galleryThumbnailMaximumEdge = 720;
 export const galleryDisplayMaximumBytes = 2 * 1024 * 1024;
 export const galleryDisplayMaximumEdge = 2560;
-export const gallerySourceMaximumBytes = MAX_UPLOAD_BYTES;
-export const gallerySourceMaximumEdge = MAX_GALLERY_SOURCE_EDGE;
-export const gallerySourceMaximumPixels = MAX_GALLERY_SOURCE_PIXELS;
 
 export type GalleryThumbnailPayload = {
   base64: string;
@@ -40,131 +30,10 @@ const thumbnailEdgeSteps = [720, 640, 560, 480, 400, 320, 240, 180] as const;
 const thumbnailQualitySteps = [0.82, 0.72, 0.62, 0.52, 0.42, 0.32] as const;
 const displayEdgeSteps = [2560, 2304, 2048, 1920, 1600, 1440, 1280, 1024] as const;
 const displayQualitySteps = [0.88, 0.82, 0.76, 0.7, 0.64, 0.58] as const;
-const acceptedGallerySourceMimeTypes = new Set<string>(ACCEPTED_IMAGE_TYPES);
-
-type GallerySourceExpectation = {
-  mimeType: string;
-  sizeBytes: number;
-};
+const galleryPreparedMaximumPixels = galleryDisplayMaximumEdge * galleryDisplayMaximumEdge;
 
 function normalizedMimeType(value: string | null | undefined) {
   return String(value || "").split(";", 1)[0].trim().toLowerCase();
-}
-
-function validatedGallerySourceExpectation(
-  expectation: GallerySourceExpectation,
-) {
-  const mimeType = normalizedMimeType(expectation.mimeType);
-  const sizeBytes = Number(expectation.sizeBytes);
-  if (!acceptedGallerySourceMimeTypes.has(mimeType)) {
-    throw new Error("The gallery image preview has an unsupported image type.");
-  }
-  if (!Number.isSafeInteger(sizeBytes) || sizeBytes < 1 || sizeBytes > gallerySourceMaximumBytes) {
-    throw new Error("The gallery image preview has an invalid file size.");
-  }
-  return { mimeType, sizeBytes };
-}
-
-function validatedGallerySourceUrl(sourceUrl: string) {
-  let parsed: URL;
-  try {
-    parsed = new URL(sourceUrl);
-  } catch {
-    throw new Error("The gallery image preview address was invalid.");
-  }
-  if (
-    parsed.protocol !== "https:" ||
-    parsed.username ||
-    parsed.password ||
-    parsed.hash
-  ) {
-    throw new Error("The gallery image preview address was invalid.");
-  }
-  return parsed.toString();
-}
-
-async function cancelResponseBody(response: Response) {
-  try {
-    await response.body?.cancel();
-  } catch {
-    // The response is already closed or was canceled by the caller.
-  }
-}
-
-export async function fetchBoundedGallerySource(
-  sourceUrl: string,
-  expectation: GallerySourceExpectation,
-  signal?: AbortSignal,
-): Promise<Blob> {
-  const expected = validatedGallerySourceExpectation(expectation);
-  const response = await fetch(validatedGallerySourceUrl(sourceUrl), {
-    credentials: "omit",
-    cache: "no-store",
-    signal,
-  });
-  if (!response.ok) {
-    await cancelResponseBody(response);
-    throw new Error("The gallery image preview could not be loaded.");
-  }
-
-  const responseMimeType = normalizedMimeType(response.headers.get("content-type"));
-  if (
-    responseMimeType !== expected.mimeType ||
-    !acceptedGallerySourceMimeTypes.has(responseMimeType)
-  ) {
-    await cancelResponseBody(response);
-    throw new Error("The gallery image preview type did not match its review record.");
-  }
-
-  const contentEncoding = String(response.headers.get("content-encoding") || "identity")
-    .trim()
-    .toLowerCase();
-  if (contentEncoding !== "identity") {
-    await cancelResponseBody(response);
-    throw new Error("The gallery image preview response was not safely bounded.");
-  }
-
-  const contentLengthHeader = response.headers.get("content-length");
-  if (contentLengthHeader !== null) {
-    const contentLength = Number(contentLengthHeader);
-    if (
-      !Number.isSafeInteger(contentLength) ||
-      contentLength !== expected.sizeBytes ||
-      contentLength < 1 ||
-      contentLength > gallerySourceMaximumBytes
-    ) {
-      await cancelResponseBody(response);
-      throw new Error("The gallery image preview size did not match its review record.");
-    }
-  }
-
-  if (!response.body) {
-    throw new Error("The gallery image preview response was empty.");
-  }
-
-  const reader = response.body.getReader();
-  const sourceBytes = new Uint8Array(expected.sizeBytes);
-  let totalBytes = 0;
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      if (!value?.byteLength) continue;
-      totalBytes += value.byteLength;
-      if (totalBytes > gallerySourceMaximumBytes || totalBytes > expected.sizeBytes) {
-        await reader.cancel("gallery_source_too_large");
-        throw new Error("The gallery image preview exceeded its reviewed size.");
-      }
-      sourceBytes.set(value, totalBytes - value.byteLength);
-    }
-  } finally {
-    reader.releaseLock();
-  }
-
-  if (totalBytes !== expected.sizeBytes) {
-    throw new Error("The gallery image preview size did not match its review record.");
-  }
-  return new Blob([sourceBytes.buffer], { type: responseMimeType });
 }
 
 function canvasBlob(
@@ -298,19 +167,19 @@ async function createGalleryMedia(
   includeDisplay: boolean,
 ): Promise<{ display: GalleryDisplayPayload | null; thumbnail: GalleryThumbnailPayload }> {
   const sourceMimeType = normalizedMimeType(sourceBlob.type);
-  if (!acceptedGallerySourceMimeTypes.has(sourceMimeType)) {
+  if (sourceMimeType !== galleryThumbnailMimeType) {
     throw new Error("The gallery image preview has an unsupported image type.");
   }
-  if (sourceBlob.size < 1 || sourceBlob.size > gallerySourceMaximumBytes) {
+  if (sourceBlob.size < 1 || sourceBlob.size > galleryDisplayMaximumBytes) {
     throw new Error("The gallery image preview has an invalid file size.");
   }
 
   const decoded = await decodeImage(sourceBlob);
   if (
     decoded.width < 1 || decoded.height < 1 ||
-    decoded.width > gallerySourceMaximumEdge ||
-    decoded.height > gallerySourceMaximumEdge ||
-    decoded.width * decoded.height > gallerySourceMaximumPixels
+    decoded.width > galleryDisplayMaximumEdge ||
+    decoded.height > galleryDisplayMaximumEdge ||
+    decoded.width * decoded.height > galleryPreparedMaximumPixels
   ) {
     decoded.release();
     throw new Error("The gallery image has invalid dimensions.");

@@ -228,13 +228,13 @@ assertRegex("profile client", profileClient, /\.update\(\s*clean\s*\)/, "Profile
 ].forEach((snippet) => assertIncludes("visible profile cards", visibleProfileCards, snippet));
 
 [
-  "MEMBER_GALLERY_BUCKET",
   '"gallery_reserve_public_delivery"',
+  '"gallery_reserve_public_media_v2"',
   '"bounded-edge-media"',
   "publicMediaUrl(",
   '"Cache-Control": "private, max-age=300, stale-while-revalidate=60"',
   '"gallery_public_feed_page_v2"',
-  '"gallery_public_original_v2"',
+  "parseGalleryMediaReservation",
 ].forEach((snippet) => assertIncludes("approved gallery feed", approvedFeed, snippet));
 
 [
@@ -265,9 +265,11 @@ assertRegex("profile client", profileClient, /\.update\(\s*clean\s*\)/, "Profile
   "gallery_publication_category_check",
   "create table private.gallery_publication_revisions",
   "gallery_public_feed_page_v2",
-  "gallery_public_original_v2",
+  "gallery_reserve_public_media_v2",
+  "gallery_reserve_moderation_preview",
   "grant execute on function public.gallery_public_feed_page_v2",
-  "grant execute on function public.gallery_public_original_v2",
+  "grant execute on function public.gallery_reserve_public_media_v2",
+  "grant execute on function public.gallery_reserve_moderation_preview",
   "to service_role;",
 ].forEach((snippet) => assertIncludes("gallery publication migration", migrationGalleryPublications, snippet));
 

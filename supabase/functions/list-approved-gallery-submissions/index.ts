@@ -6,10 +6,13 @@ import {
   GalleryIsolateCircuitBreaker,
   GalleryIsolateEvidenceCache,
   galleryPublicListCacheKey,
+  isLegacyGalleryListRequest,
   parseGalleryDatabasePage,
   parseGalleryDeliveryReservation,
+  parseGalleryMediaReservation,
   parseGalleryPublicRequest,
   safeGalleryText,
+  toLegacyGalleryItem,
   toPublicGalleryItem,
 } from "../_shared/gallery-public-feed.ts";
 import { getServiceRoleKey } from "../_shared/supabase-service-role.ts";
@@ -22,7 +25,6 @@ const CORS_HEADERS = {
     "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
-const MEMBER_GALLERY_BUCKET = "member-gallery";
 const MAX_BODY_BYTES = 2048;
 const publicFeedEvidenceCache = new GalleryIsolateEvidenceCache();
 const publicFeedCircuitBreaker = new GalleryIsolateCircuitBreaker();
@@ -83,16 +85,18 @@ async function reserveDelivery(
     error: { code?: string } | null;
   }>,
   kind: "list" | "full" | "thumbnail",
-  reservedBytes: number,
 ): Promise<{ ok: true } | { ok: false; response: Response }> {
   const { data, error } = await requestReservation();
   const reservation = error ? null : parseGalleryDeliveryReservation(data);
   if (!reservation) {
     if (error) {
-      console.error("list-approved-gallery-submissions delivery reservation failed", {
-        code: error.code,
-        mediaKind: kind,
-      });
+      console.error(
+        "list-approved-gallery-submissions delivery reservation failed",
+        {
+          code: error.code,
+          mediaKind: kind,
+        },
+      );
     }
     return {
       ok: false,
@@ -187,7 +191,12 @@ async function readPayload(req: Request): Promise<JsonRecord | null> {
       offset += chunk.byteLength;
     }
     const body = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
-    return record(body ? JSON.parse(body) : {});
+    if (!body) return null;
+    const parsed: unknown = JSON.parse(body);
+    return parsed !== null && typeof parsed === "object" &&
+        !Array.isArray(parsed)
+      ? parsed as JsonRecord
+      : null;
   } catch {
     return null;
   }
@@ -208,9 +217,10 @@ async function handleRequest(req: Request): Promise<Response> {
       const asset = url.searchParams.get("asset");
       const keys = [...url.searchParams.keys()].sort().join(",");
       return {
-        action: keys === "asset,id" && (asset === "full" || asset === "thumbnail")
-          ? asset
-          : "invalid",
+        action:
+          keys === "asset,id" && (asset === "full" || asset === "thumbnail")
+            ? asset
+            : "invalid",
         id: url.searchParams.get("id"),
       };
     })()
@@ -222,6 +232,9 @@ async function handleRequest(req: Request): Promise<Response> {
       message: "The Gallery request is invalid.",
     }, 400);
   }
+
+  const legacyListRequest = req.method === "POST" &&
+    isLegacyGalleryListRequest(payload);
 
   const requestResult = parseGalleryPublicRequest(payload);
   if (!requestResult.ok) {
@@ -258,41 +271,30 @@ async function handleRequest(req: Request): Promise<Response> {
   const request = requestResult.request;
 
   if (request.action === "full" || request.action === "thumbnail") {
+    if (req.method !== "GET") {
+      return jsonResponse({
+        ok: false,
+        error: "invalid_request",
+        message: "The Gallery request is invalid.",
+      }, 400);
+    }
     const isThumbnail = request.action === "thumbnail";
-    const { data: originalData, error: originalError } = await adminClient.rpc(
-      "gallery_public_original_v2",
-      { p_publication_id: request.id },
+    const { data: mediaData, error: mediaLookupError } = await adminClient.rpc(
+      "gallery_reserve_public_media_v2",
+      {
+        p_publication_id: request.id,
+        p_delivery_kind: request.action,
+      },
     );
-    const original = record(originalData);
-    const storageBucket = safeGalleryText(original.storageBucket, 80);
-    const storagePath = safeGalleryText(
-      isThumbnail ? original.thumbnailStoragePath : original.storagePath,
-      1000,
-    );
-    const mediaType = safeGalleryText(
-      isThumbnail ? original.thumbnailMimeType : original.mimeType,
-      80,
-    )?.toLowerCase();
-    const mediaSize = safeInteger(
-      isThumbnail ? original.thumbnailSizeBytes : original.sizeBytes,
-    );
-    const mediaSha256 = safeGalleryText(
-      isThumbnail ? original.thumbnailSha256 : original.sha256,
-      64,
-    );
-    const id = safeGalleryText(original.id, 80);
-    if (
-      originalError || !id || id !== request.id ||
-      storageBucket !== MEMBER_GALLERY_BUCKET || !storagePath ||
-      mediaType !== "image/webp" || mediaSize < 1 ||
-      (isThumbnail ? mediaSize > 80 * 1024 : mediaSize > 2 * 1024 * 1024) ||
-      !mediaSha256 || !/^[0-9a-f]{64}$/.test(mediaSha256)
-    ) {
-      if (originalError) {
+    const mediaReservation = mediaLookupError
+      ? null
+      : parseGalleryMediaReservation(mediaData, request.id, request.action);
+    if (!mediaReservation) {
+      if (mediaLookupError) {
         console.error(
-          "list-approved-gallery-submissions eligible media lookup failed",
+          "list-approved-gallery-submissions atomic media reservation failed",
           {
-            code: originalError.code,
+            code: mediaLookupError.code,
             submissionId: request.id,
             mediaKind: request.action,
           },
@@ -309,29 +311,54 @@ async function handleRequest(req: Request): Promise<Response> {
       }, 404);
     }
 
-    const assetUrl = publicMediaUrl(supabaseUrl, request.action, request.id);
-    if (req.method === "POST") return jsonResponse({
-      ok: true,
-      data: {
-        schemaVersion: GALLERY_PUBLIC_SCHEMA_VERSION,
-        id: request.id,
-        [isThumbnail ? "thumbnail_url" : "full_url"]: assetUrl,
-      },
-      message: isThumbnail ? "Gallery image ready." : "Full image ready.",
-    });
+    if (!mediaReservation.allowed) {
+      return jsonResponse(
+        {
+          ok: false,
+          error: "gallery_delivery_limit_reached",
+          message: "Member-submitted images are temporarily unavailable.",
+        },
+        429,
+        { "Retry-After": String(mediaReservation.retryAfterSeconds) },
+      );
+    }
 
-    const reservation = await reserveDelivery(
-      () => adminClient.rpc("gallery_reserve_public_delivery", {
-        p_delivery_kind: request.action,
-        p_reserved_bytes: mediaSize,
-      }),
-      request.action,
-      mediaSize,
-    );
-    if (!reservation.ok) return reservation.response;
+    if (!("storagePath" in mediaReservation)) {
+      return jsonResponse(
+        {
+          ok: false,
+          error: "gallery_delivery_unavailable",
+          message: "Member-submitted images are temporarily unavailable.",
+        },
+        503,
+        { "Retry-After": "60" },
+      );
+    }
+
+    const {
+      storageBucket,
+      storagePath,
+      mimeType: mediaType,
+      sizeBytes: mediaSize,
+      sha256: mediaSha256,
+    } = mediaReservation;
+    if (
+      mediaReservation.dailyLimitBytes > 0 &&
+      mediaReservation.dailyReservedBytes * 5 >=
+        mediaReservation.dailyLimitBytes * 4
+    ) {
+      console.warn(
+        "list-approved-gallery-submissions delivery budget warning",
+        {
+          mediaKind: request.action,
+          dailyReservedBytes: mediaReservation.dailyReservedBytes,
+          dailyLimitBytes: mediaReservation.dailyLimitBytes,
+        },
+      );
+    }
 
     const { data: mediaBlob, error: mediaError } = await adminClient.storage
-      .from(MEMBER_GALLERY_BUCKET)
+      .from(storageBucket)
       .download(storagePath);
     if (mediaError || !mediaBlob || mediaBlob.size !== mediaSize) {
       console.warn("list-approved-gallery-submissions media download failed", {
@@ -375,12 +402,12 @@ async function handleRequest(req: Request): Promise<Response> {
   }
 
   const listReservation = await reserveDelivery(
-    () => adminClient.rpc("gallery_reserve_public_delivery", {
-      p_delivery_kind: "list",
-      p_reserved_bytes: 65536,
-    }),
+    () =>
+      adminClient.rpc("gallery_reserve_public_delivery", {
+        p_delivery_kind: "list",
+        p_reserved_bytes: 65536,
+      }),
     "list",
-    65536,
   );
   if (!listReservation.ok) return listReservation.response;
 
@@ -482,6 +509,40 @@ async function handleRequest(req: Request): Promise<Response> {
         count: unknownCategoryCount,
       },
     );
+  }
+
+  if (legacyListRequest) {
+    const submissions = items.map((item) => {
+      const id = safeGalleryText(item.id, 80);
+      return id
+        ? toLegacyGalleryItem(
+          item,
+          publicMediaUrl(supabaseUrl, "full", id),
+        )
+        : null;
+    });
+    if (submissions.some((item) => item === null)) {
+      console.warn(
+        "list-approved-gallery-submissions legacy page conversion failed",
+        { itemCount: items.length },
+      );
+      return jsonResponse({
+        ok: false,
+        error: "approved_submission_page_unavailable",
+        message: "Member-submitted images are temporarily unavailable.",
+      }, 503);
+    }
+
+    return jsonResponse({
+      ok: true,
+      data: {
+        submissions,
+        count: submissions.length,
+      },
+      message: submissions.length
+        ? "Member-submitted images loaded."
+        : "No member-submitted images are available yet.",
+    });
   }
 
   const nextCursor = encodeGalleryCursor({

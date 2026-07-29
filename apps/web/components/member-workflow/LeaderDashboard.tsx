@@ -29,8 +29,6 @@ import {
 import {
   createGalleryPublicationMedia,
   createGalleryThumbnail,
-  gallerySourceMaximumEdge,
-  gallerySourceMaximumPixels,
   type GalleryModerationMedia,
 } from "@/lib/gallery-thumbnail";
 import {
@@ -64,9 +62,12 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-
 type GalleryThumbnailState = "all" | "missing" | "ready";
 type GalleryPreviewSelection = {
   submissionId: string;
-  sourceUrl: string;
+  previewKey: string;
+  preparedBlob: Blob;
   sourceWidth: number;
   sourceHeight: number;
+  previewWidth: number;
+  previewHeight: number;
   blob: Blob | null;
 };
 
@@ -115,14 +116,14 @@ export function LeaderDashboard() {
 
   const retainGalleryPreviewBlob = useCallback((
     submissionId: string,
-    sourceUrl: string,
+    previewKey: string,
     blob: Blob | null,
   ) => {
     setGalleryPreview((current) => {
       if (
         !current ||
         current.submissionId !== submissionId ||
-        current.sourceUrl !== sourceUrl ||
+        current.previewKey !== previewKey ||
         current.blob === blob
       ) {
         return current;
@@ -131,13 +132,13 @@ export function LeaderDashboard() {
     });
   }, []);
 
-  const rejectGalleryPreview = useCallback((submissionId: string, sourceUrl: string) => {
+  const rejectGalleryPreview = useCallback((submissionId: string, previewKey: string) => {
     setGalleryPreview((current) =>
-      current?.submissionId === submissionId && current.sourceUrl === sourceUrl
+      current?.submissionId === submissionId && current.previewKey === previewKey
         ? null
         : current
     );
-    setReviewError("The safe Gallery preview could not be loaded. Prepare it again before reviewing this image.");
+    setReviewError("The prepared Gallery preview could not be loaded. Prepare it again before reviewing this image.");
     setReviewStatus("");
   }, []);
 
@@ -415,7 +416,7 @@ export function LeaderDashboard() {
         ? galleryPreview.blob
         : null;
       if (!previewBlob) {
-        setReviewError("Prepare the safe preview and wait for it to load before reviewing this image.");
+        setReviewError("Prepare the private preview and wait for it to load before reviewing this image.");
         setReviewStatus("");
         setBusy(false);
         return;
@@ -473,32 +474,34 @@ export function LeaderDashboard() {
     setBusy(true);
     setGalleryPreview(null);
     setReviewError("");
-    setReviewStatus("Validating one private Gallery source before preview.");
+    setReviewStatus("Preparing one private Gallery preview.");
     const result = await prepareGalleryReviewPreview(submissionId, expectedUpdatedAt);
     if (!isCurrentAuthLoadGeneration(leaderLoadGenerationRef, requestGeneration)) return;
     if (!result.ok) {
-      setReviewError(result.message || "The private Gallery preview could not be prepared safely.");
+      setReviewError(result.message || "The private Gallery preview could not be prepared.");
       setReviewStatus("");
       setBusy(false);
       return;
     }
 
     const preview = result.data;
-    const sourceUrl = text(preview?.signedPreviewUrl);
     const sourceWidth = Number(preview?.sourceWidth || 0);
     const sourceHeight = Number(preview?.sourceHeight || 0);
+    const previewWidth = Number(preview?.previewWidth || 0);
+    const previewHeight = Number(preview?.previewHeight || 0);
     const sourceValidatedAt = text(preview?.sourceValidatedAt);
     const dimensionsAreValid =
       Number.isSafeInteger(sourceWidth) &&
       Number.isSafeInteger(sourceHeight) &&
       sourceWidth > 0 &&
       sourceHeight > 0 &&
-      sourceWidth <= gallerySourceMaximumEdge &&
-      sourceHeight <= gallerySourceMaximumEdge &&
-      sourceWidth * sourceHeight <= gallerySourceMaximumPixels;
+      Number.isSafeInteger(previewWidth) &&
+      Number.isSafeInteger(previewHeight) &&
+      previewWidth > 0 &&
+      previewHeight > 0;
     if (
       text(preview?.submissionId) !== submissionId ||
-      !sourceUrl ||
+      !(preview?.blob instanceof Blob) ||
       !dimensionsAreValid ||
       !sourceValidatedAt ||
       !Number.isFinite(Date.parse(sourceValidatedAt))
@@ -509,14 +512,19 @@ export function LeaderDashboard() {
       return;
     }
 
+    const previewKey = `${submissionId}:${sourceValidatedAt}:${previewWidth}x${previewHeight}`;
+
     setGalleryPreview({
       submissionId,
-      sourceUrl,
+      previewKey,
+      preparedBlob: preview.blob,
       sourceWidth,
       sourceHeight,
+      previewWidth,
+      previewHeight,
       blob: null,
     });
-    setReviewStatus(result.message || "Safe Gallery preview prepared.");
+    setReviewStatus(result.message || "Private Gallery preview prepared.");
     setBusy(false);
   }
 
@@ -888,9 +896,12 @@ export function LeaderDashboard() {
                 busy={busy || cleanupBusyId === id}
                 reason={reasons[id] || ""}
                 cleanupArmed={Boolean(cleanupConfirmations[id])}
-                previewSourceUrl={selectedPreview?.sourceUrl || ""}
+                previewKey={selectedPreview?.previewKey || ""}
+                previewBlob={selectedPreview?.preparedBlob || null}
                 previewSourceWidth={selectedPreview?.sourceWidth || 0}
                 previewSourceHeight={selectedPreview?.sourceHeight || 0}
+                previewWidth={selectedPreview?.previewWidth || 0}
+                previewHeight={selectedPreview?.previewHeight || 0}
                 previewReady={Boolean(selectedPreview?.blob)}
                 key={id}
                 onReasonChange={(value) => setReasons((current) => ({ ...current, [id]: value.slice(0, 500) }))}

@@ -231,8 +231,10 @@ for (const snippet of requiredIndexSnippets) {
 [
   "revoke all on function public.gallery_public_feed_page_v2(integer, timestamptz, timestamptz, timestamptz, uuid, text, text, text)",
   "grant execute on function public.gallery_public_feed_page_v2(integer, timestamptz, timestamptz, timestamptz, uuid, text, text, text)",
-  "revoke all on function public.gallery_public_original_v2(uuid)",
-  "grant execute on function public.gallery_public_original_v2(uuid)",
+  "revoke all on function public.gallery_reserve_public_media_v2(uuid, text)",
+  "grant execute on function public.gallery_reserve_public_media_v2(uuid, text)",
+  "revoke all on function public.gallery_reserve_moderation_preview(bigint)",
+  "grant execute on function public.gallery_reserve_moderation_preview(bigint)",
   "from public, anon, authenticated;",
   "to service_role;",
 ].forEach((snippet) => assertIncludes("Gallery service-only function grants", migrationText, snippet));

@@ -35,6 +35,14 @@ const galleryBrowserStateTests = read("apps/web/lib/gallery/browser-state_test.t
 const leaderDashboard = read("apps/web/components/member-workflow/LeaderDashboard.tsx");
 const leaderDashboardParts = read("apps/web/components/member-workflow/LeaderDashboardParts.tsx");
 const browserThumbnail = read("apps/web/lib/gallery-thumbnail.ts");
+const moderationPreviewClient = read("apps/web/lib/gallery/moderation-preview-client.ts");
+const moderationPreviewRoute = read("apps/web/lib/gallery/moderation-preview-route.ts");
+const moderationPreviewServer = read("apps/web/lib/gallery/moderation-preview-server.ts");
+const moderationPreviewServerCore = read("apps/web/lib/gallery/moderation-preview-server-core.ts");
+const previewAttestation = read("supabase/functions/_shared/gallery-preview-attestation.ts");
+const previewAttestationTests = read("supabase/functions/_shared/gallery-preview-attestation_test.ts");
+const protectedCors = read("supabase/functions/_shared/cors.ts");
+const galleryModerationShared = read("supabase/functions/_shared/gallery-moderation.ts");
 const approvedFeedClient = read("apps/web/lib/gallery/approved-feed.ts");
 const approvedFeedClientTests = read("apps/web/lib/gallery/approved-feed_test.ts");
 const safePreview = read("apps/web/lib/gallery/safe-preview.ts");
@@ -48,6 +56,8 @@ const thumbnailParser = read("supabase/functions/_shared/gallery-thumbnail.ts");
 const thumbnailTests = read("supabase/functions/_shared/gallery-thumbnail_test.ts");
 const sourceImageParser = read("supabase/functions/_shared/gallery-source-image.ts");
 const sourceImageTests = read("supabase/functions/_shared/gallery-source-image_test.ts");
+const sourceDecode = read("supabase/functions/_shared/gallery-source-decode.ts");
+const sourceDecodeTests = read("supabase/functions/_shared/gallery-source-decode_test.ts");
 const thumbnailMigration = read("supabase/migrations/20260727145241_add_gallery_submission_thumbnails.sql");
 const publicFeedMigration = read("supabase/migrations/20260728130000_add_gallery_public_feed_v2.sql");
 const publicationMigration = read("supabase/migrations/20260728132000_add_gallery_publication_revisions.sql");
@@ -61,6 +71,10 @@ const rollbackCompatibilityMatch = publicationMigration.match(
   /create or replace function public\.gallery_publishable_submissions\([\s\S]*?comment on function public\.gallery_publishable_submissions\(integer, integer\) is[\s\S]*?;\r?\n/,
 );
 const rollbackCompatibility = rollbackCompatibilityMatch?.[0] || "";
+const atomicMediaReservationMatch = publicationMigration.match(
+  /create function public\.gallery_reserve_public_media_v2\([\s\S]*?revoke all on function public\.gallery_reserve_public_media_v2/,
+);
+const atomicMediaReservation = atomicMediaReservationMatch?.[0] || "";
 
 const functionBlocks = [...supabaseConfig.matchAll(/\[functions\.([^\]]+)\]([\s\S]*?)(?=\n\[functions\.|\s*$)/g)];
 const verifyJwtFalse = functionBlocks.filter(([, , body]) => /verify_jwt\s*=\s*false/.test(body));
@@ -82,6 +96,9 @@ assert(
   '"test:gallery-public-feed"',
   '"test:gallery-public-feed-db"',
   '"test:gallery-source-image"',
+  '"test:gallery-source-decode"',
+  '"test:gallery-moderation-preview"',
+  '"test:gallery-preview-attestation"',
   '"check:gallery-approved-feed"',
 ].forEach((snippet) => assertIncludes("package scripts", packageJson, snippet));
 
@@ -89,6 +106,9 @@ assert(
   '"test:gallery-approved-feed-client"',
   '"test:gallery-browser-state"',
   '"test:gallery-safe-preview"',
+  '"test:gallery-source-decode"',
+  '"test:gallery-moderation-preview"',
+  '"test:gallery-preview-attestation"',
   '"test:gallery-public-feed"',
 ].forEach((snippet) => assertIncludes("full repository check", checkAll, snippet));
 
@@ -236,14 +256,13 @@ if (galleryBrowser.includes("setRandomSeed") || galleryBrowser.includes("createR
 ].forEach((snippet) => assertNotIncludes("SDK-free approved Gallery client", approvedFeedClient, snippet));
 
 [
-  "list, full-image, and thumbnail requests use the credential-free versioned envelope",
+  "only list requests use POST while media uses deterministic GET URLs",
   'assert.equal(request.method, "POST")',
   '"Content-Type": "application/json"',
   'assert.equal(request.cache, "no-store")',
   'assert.equal(request.credentials, "omit")',
   'assert.equal("authorization" in request.headers, false)',
   'assert.equal("apikey" in request.headers, false)',
-  "full_url",
   "thumbnail_url",
   "uploader_display_name",
 ].forEach((snippet) => assertIncludes("approved Gallery client executable contract", approvedFeedClientTests, snippet));
@@ -261,25 +280,28 @@ if (galleryBrowser.includes("setRandomSeed") || galleryBrowser.includes("createR
   "permit.release()",
   'contentType !== "application/json"',
   'await reader.cancel("request_too_large")',
+  "if (!body) return null",
+  '!Array.isArray(parsed)',
+  "isLegacyGalleryListRequest(payload)",
   "parseGalleryPublicRequest(payload)",
   'request.action === "full" || request.action === "thumbnail"',
+  'if (req.method !== "GET")',
   'keys === "asset,id"',
   'asset === "full" || asset === "thumbnail"',
   '"gallery_public_feed_page_v2"',
-  '"gallery_public_original_v2"',
+  '"gallery_reserve_public_media_v2"',
   '"gallery_reserve_public_delivery"',
   "p_publication_id: request.id",
-  "publicMediaUrl(supabaseUrl, request.action, request.id)",
   'p_delivery_kind: request.action',
-  "p_reserved_bytes: mediaSize",
+  "parseGalleryMediaReservation(mediaData, request.id, request.action)",
   ".download(storagePath)",
   "mediaBlob.size !== mediaSize",
   "await sha256Hex(mediaBytes) !== mediaSha256",
   '"Cache-Control": "private, max-age=300, stale-while-revalidate=60"',
   '"Content-Length": String(mediaBytes.byteLength)',
   '"X-Content-Type-Options": "nosniff"',
-  '[isThumbnail ? "thumbnail_url" : "full_url"]: assetUrl',
   "toPublicGalleryItem",
+  "toLegacyGalleryItem",
   "encodeGalleryCursor",
   'p_delivery_kind: "list"',
   "p_reserved_bytes: 65536",
@@ -304,10 +326,15 @@ if (galleryBrowser.includes("setRandomSeed") || galleryBrowser.includes("createR
 ].forEach((snippet) => assertNotIncludes("approved Gallery v2 Edge contract", approvedFeedFunction, snippet));
 
 assertMatches(
-  "approved Gallery bounded media delivery",
+  "approved Gallery atomic bounded media delivery",
   approvedFeedFunction,
-  /reserveDelivery\([\s\S]*?gallery_reserve_public_delivery[\s\S]*?\.download\(storagePath\)[\s\S]*?mediaBlob\.size !== mediaSize[\s\S]*?sha256Hex\(mediaBytes\) !== mediaSha256[\s\S]*?new Response\(mediaBytes/,
-  "quota reservation, exact-size validation, digest validation, and binary delivery must remain ordered.",
+  /gallery_reserve_public_media_v2[\s\S]*?parseGalleryMediaReservation[\s\S]*?\.download\(storagePath\)[\s\S]*?mediaBlob\.size !== mediaSize[\s\S]*?sha256Hex\(mediaBytes\) !== mediaSha256[\s\S]*?new Response\(mediaBytes/,
+  "atomic lookup/reservation, exact-size validation, digest validation, and binary delivery must remain ordered.",
+);
+assertNotIncludes(
+  "approved Gallery media resolver",
+  approvedFeedFunction,
+  '[isThumbnail ? "thumbnail_url" : "full_url"]: assetUrl',
 );
 assertMatches(
   "approved Gallery item conversion",
@@ -321,6 +348,13 @@ assertMatches(
   approvedFeedFunction,
   /data:\s*\{[\s\S]*?schemaVersion:\s*GALLERY_PUBLIC_SCHEMA_VERSION,[\s\S]*?items,[\s\S]*?nextCursor,[\s\S]*?partial:\s*false,[\s\S]*?deliveryFailures:\s*0/,
   "list response must expose only the versioned thumbnail page contract.",
+);
+
+assertMatches(
+  "approved Gallery legacy browser response",
+  approvedFeedFunction,
+  /if \(legacyListRequest\)[\s\S]*?toLegacyGalleryItem\([\s\S]*?publicMediaUrl\(supabaseUrl, "full", id\)[\s\S]*?data:\s*\{[\s\S]*?submissions,[\s\S]*?count: submissions\.length/,
+  "the exact legacy request must receive only mapped, quota-enforced Edge media URLs.",
 );
 
 const finalListResponseStart = approvedFeedFunction.lastIndexOf("return jsonResponse({\n    ok: true,");
@@ -357,6 +391,8 @@ assert(finalListResponseStart >= 0, "Approved Gallery list response: final respo
   "containsBearerCapability",
   "parseGalleryDatabasePage",
   "parseGalleryDeliveryReservation",
+  "isLegacyGalleryListRequest",
+  "toLegacyGalleryItem",
   'action: "list"',
   'action: "full"',
   'action: "thumbnail"',
@@ -378,7 +414,10 @@ assert(finalListResponseStart >= 0, "Approved Gallery list response: final respo
   "rejects malformed cursors, categories, searches, and opaque ids",
   "strict database page evidence rejects malformed empty and aggregate envelopes",
   "delivery reservations distinguish allowed, denied, and malformed evidence",
+  "atomic media reservations require exact bounded media evidence",
+  "recognizes only the exact legacy empty-object request shape",
   "public Gallery items omit service-only references and originals",
+  "legacy Gallery items use metered Edge URLs without identity or paths",
   'assert(!serialized.includes("StoragePath"), "raw Storage path leaked")',
   'serialized.includes("private-original")',
   '"full original leaked into the list response"',
@@ -405,24 +444,36 @@ assert(finalListResponseStart >= 0, "Approved Gallery list response: final respo
   "const requestedPage = boundedInteger(",
   "const requestedPageSize = boundedInteger(",
   'bodyResult.body.action === "prepare_preview"',
+  "galleryPreviewSanitizerIsAttested(req",
   '"gallery_source_validation_candidate"',
   '"gallery_commit_source_validation"',
   '"gallery_source_validation_states"',
   "validateGallerySourceBytes(",
+  "decodeGallerySourceImage(",
+  "gallerySourcePreviewResponse(sourceBytes",
+  '"gallery_reserve_moderation_preview"',
+  "p_reserved_bytes: sourceSizeBytes",
+  "safeString(commit.validated_at, 80)",
   'thumbnailState === "missing"',
   'thumbnailState === "ready"',
-  ".createSignedUrls(previewPaths, SIGNED_URL_SECONDS)",
   "sourceValidationState: sourceValidation ? \"validated\" : \"required\"",
   "thumbnail_width",
   "thumbnail_height",
 ].forEach((snippet) => assertIncludes("moderation pagination and thumbnail evidence", reviewQueue, snippet));
-
-assertMatches(
-  "validated moderation preview signing",
-  reviewQueue,
-  /filter\(\(submission\) => \{[\s\S]*?sourceValidationsBySubmissionId\.has\(submissionId\)[\s\S]*?\.createSignedUrls\(previewPaths, SIGNED_URL_SECONDS\)/,
-  "normal queue previews must be signed only for sources with current trusted validation evidence.",
+assert(
+  reviewQueue.indexOf("galleryPreviewSanitizerIsAttested(req") <
+    reviewQueue.indexOf('"gallery_source_validation_candidate"'),
+  "private Gallery preview must attest the sanitizer before reading source evidence.",
 );
+assertMatches(
+  "metered private Gallery preview",
+  reviewQueue,
+  /gallery_reserve_moderation_preview[\s\S]*?p_reserved_bytes: sourceSizeBytes[\s\S]*?\.download\(storagePath\)/,
+  "the exact source bytes must be reserved before the private Storage download.",
+);
+assertNotIncludes("private Gallery queue", reviewQueue, "createSignedUrl");
+assertNotIncludes("private Gallery queue", reviewQueue, "signedPreviewUrl");
+assertNotIncludes("durable Gallery validation timestamp", reviewQueue, "validatedAt: new Date()");
 
 [
   '["missing", "Needs thumbnail"]',
@@ -432,31 +483,82 @@ assertMatches(
 assertIncludes("Leader Dashboard thumbnail backfill", leaderDashboardParts, "Prepare gallery thumbnail");
 
 [
-  "fetchBoundedGallerySource(",
-  "response.body.getReader()",
-  "totalBytes > gallerySourceMaximumBytes",
-  "totalBytes > expected.sizeBytes",
+  'import "server-only"',
+  'export * from "./moderation-preview-server-core"',
+].forEach((snippet) => assertIncludes("Gallery sanitizer server boundary", moderationPreviewServer, snippet));
+[
+  '@napi-rs/canvas',
+  'GALLERY_MODERATOR_PREVIEW_MAX_BYTES',
+  'loadImage(',
+  'canvas.encode("webp"',
+  'sourceDecodeVersion !== GALLERY_SOURCE_DECODE_VERSION',
+  'redirect: "error"',
+].forEach((snippet) => assertIncludes("Gallery server sanitizer", moderationPreviewServerCore, snippet));
+[
+  "GALLERY_SANITIZER_ATTESTATION_HEADER",
+  "sanitizerAttestation",
+].forEach((snippet) => assertIncludes("Gallery server attestation forwarding", moderationPreviewServerCore, snippet));
+[
+  '"https://oidc.vercel.com/mochirii/.well-known/jwks"',
+  'payload.aud !== VERCEL_AUDIENCE',
+  'payload.project !== VERCEL_PROJECT',
+  'payload.owner_id !== VERCEL_OWNER_ID',
+  'payload.project_id !== VERCEL_PROJECT_ID',
+  'ALLOWED_ENVIRONMENTS.has(environment)',
+  'crypto.subtle.verify(',
+  'exactLocalDevelopmentRequest(request, supabaseUrl)',
+].forEach((snippet) => assertIncludes("Gallery sanitizer workload attestation", previewAttestation, snippet));
+[
+  "a moderator bearer alone cannot attest the source-byte request",
+  "signed Vercel preview and production project identities are accepted",
+  "wrong claims, algorithms, signatures, and time windows fail closed",
+  "the local marker is confined to the exact loopback Supabase origin",
+].forEach((snippet) => assertIncludes("Gallery sanitizer attestation tests", previewAttestationTests, snippet));
+assertNotIncludes(
+  "protected Edge CORS allowlist",
+  protectedCors,
+  "x-gallery-sanitizer-attestation",
+);
+assertNotIncludes(
+  "Gallery moderation CORS allowlist",
+  galleryModerationShared,
+  "x-gallery-sanitizer-attestation",
+);
+[
+  'const PREVIEW_ROUTE = "/api/gallery/moderation-preview"',
+  'credentials: "same-origin"',
+  'redirect: "error"',
+  'hasWebpContainerSignature(bytes)',
+].forEach((snippet) => assertIncludes("same-origin Gallery preview client", moderationPreviewClient, snippet));
+assertNotIncludes("same-origin Gallery preview client", moderationPreviewClient, "x-vercel-oidc-token");
+assertNotIncludes("same-origin Gallery preview client", moderationPreviewClient, "x-gallery-sanitizer-attestation");
+[
+  'galleryPreviewRequestIsSameOrigin(request)',
+  'GALLERY_PREVIEW_PRIVATE_HEADERS',
+  'opaqueGalleryPreviewDenied()',
+].forEach((snippet) => assertIncludes("same-origin Gallery preview route", moderationPreviewRoute, snippet));
+[
   "createGalleryMedia(sourceBlob, true)",
   "createGalleryMedia(sourceBlob, false)",
-].forEach((snippet) => assertIncludes("bounded single-download Gallery source", browserThumbnail, snippet));
-assert(
-  (browserThumbnail.match(/\bfetch\(/g) || []).length === 1,
-  "bounded single-download Gallery source: exactly one source fetch boundary is required.",
-);
+  "sourceMimeType !== galleryThumbnailMimeType",
+].forEach((snippet) => assertIncludes("sanitized Gallery browser media", browserThumbnail, snippet));
+assertNotIncludes("sanitized Gallery browser media", browserThumbnail, "fetch(");
+assertNotIncludes("sanitized Gallery browser media", browserThumbnail, "sourceUrl");
 
 [
   "setGalleryPreview(null);",
   "galleryPreview?.submissionId === submissionId",
+  "preparedBlob: preview.blob",
   "createGalleryThumbnail(previewBlob)",
   "createGalleryPublicationMedia(previewBlob)",
   "onPreviewBlobChange={retainGalleryPreviewBlob}",
 ].forEach((snippet) => assertIncludes("Leader Dashboard retained preview Blob", leaderDashboard, snippet));
 
 [
-  "startGalleryPreviewRequest((signal)",
+  "startGalleryPreviewRequest(async () => previewBlob)",
   "request.dispose()",
   "preview.release()",
-  "onBlobChange(submissionId, sourceUrl, null)",
+  "onBlobChange(submissionId, previewKey, null)",
   "disabled={busy || !previewReady}",
 ].forEach((snippet) => assertIncludes("Leader Dashboard preview lifecycle", leaderDashboardParts, snippet));
 
@@ -483,6 +585,18 @@ assert(
   "createGalleryPublicationMedia(previewUrl)",
 ].forEach((snippet) => assertNotIncludes("Leader Dashboard duplicate source download", leaderDashboard, snippet));
 assertNotIncludes("Leader Dashboard selected-source boundary", leaderDashboardParts, "item.signedPreviewUrl");
+assertNotIncludes("Leader Dashboard selected-source boundary", leaderDashboard, "signedPreviewUrl");
+
+[
+  'GALLERY_SOURCE_IMAGE_DECODE_VERSION = "gallery-source-decode-v1"',
+  "globalThis.createImageBitmap",
+  "gallerySourcePreviewResponse(",
+  '"X-Content-Type-Options": "nosniff"',
+].forEach((snippet) => assertIncludes("Edge full-decode boundary", sourceDecode, snippet));
+[
+  "fully decodes every accepted source format in the Edge runtime",
+  "rejects structurally plausible PNG bytes that fail full decoding",
+].forEach((snippet) => assertIncludes("Edge full-decode regression", sourceDecodeTests, snippet));
 
 [
   "await isDecodableGalleryWebp(",
@@ -600,13 +714,16 @@ if (/create policy "Members update own pending gallery originals"/.test(publicat
   "thumbnail_storage_object_updated_at",
   "thumbnail_sha256",
   "gallery_reserve_public_delivery",
+  "gallery_reserve_moderation_preview",
+  "private.gallery_moderation_preview_windows",
+  "mochirii.gallery-moderation-preview",
   "daily_byte_limit constant bigint := 67108864",
   "pg_catalog.pg_advisory_xact_lock",
   "insert into public.gallery_instagram_publish_jobs",
   "insert into public.gallery_instagram_publish_events",
   "'instagramJob'",
   "gallery_public_feed_page_v2",
-  "gallery_public_original_v2",
+  "gallery_reserve_public_media_v2",
   "requested_limit integer := least(greatest(coalesce(p_limit, 24), 1), 24)",
   "from private.gallery_publication_revisions as publication",
   "join storage.objects as original_object",
@@ -619,9 +736,34 @@ if (/create policy "Members update own pending gallery originals"/.test(publicat
   "publication.visible_until > statement_timestamp() - interval '1 hour'",
   "p_publication_id uuid",
   "grant execute on function public.gallery_public_feed_page_v2",
-  "grant execute on function public.gallery_public_original_v2",
+  "grant execute on function public.gallery_reserve_public_media_v2",
   "to service_role;",
+  "'validated_at', existing_validation.validated_at",
+  "returning * into existing_validation",
 ].forEach((snippet) => assertIncludes("immutable Gallery publication database contract", publicationMigration, snippet));
+
+[
+  "selected_revision_id uuid",
+  "selected_size_bytes bigint",
+  "into selected_revision_id, selected_size_bytes",
+  "gallery_reserve_public_delivery(",
+  "requested_kind,",
+  "selected_size_bytes",
+  "return delivery_reservation;",
+  "join storage.objects as original_object",
+  "join storage.objects as thumbnail_object",
+  "publication.id = selected_revision_id",
+].forEach((snippet) => assertIncludes("quota-first atomic Gallery media reservation", atomicMediaReservation, snippet));
+
+const mediaQuotaReservationIndex = atomicMediaReservation.indexOf("delivery_reservation :=");
+const mediaQuotaDenialIndex = atomicMediaReservation.indexOf("return delivery_reservation;");
+const mediaStorageJoinIndex = atomicMediaReservation.indexOf("join storage.objects as original_object");
+assert(
+  mediaQuotaReservationIndex >= 0 &&
+    mediaQuotaDenialIndex > mediaQuotaReservationIndex &&
+    mediaStorageJoinIndex > mediaQuotaDenialIndex,
+  "quota-first atomic Gallery media reservation: exact reservation and denial must precede every Storage evidence join.",
+);
 
 assertNotIncludes(
   "Gallery v1 rollback compatibility",
@@ -632,42 +774,47 @@ assertNotIncludes(
 [
   "create or replace function public.gallery_publishable_submissions",
   "returns setof public.gallery_submissions",
-  "requested_limit integer := least(greatest(coalesce(p_limit, 24), 1), 24)",
-  "requested_offset integer := least(greatest(coalesce(p_offset, 0), 0), 10000)",
   "public.gallery_reserve_public_delivery('list', 65536)",
-  "null::public.gallery_submissions",
-  "'id', publication.publication_id",
-  "'user_id', '00000000-0000-0000-0000-000000000000'::uuid",
-  "'storage_path', publication.original_storage_path",
-  "'original_filename', null",
-  "'reviewed_by', null",
-  "publication.visible_until is null",
-  "submission.status = 'approved'",
-  "publication.original_size_bytes between 1 and 2097152",
-  "publication.thumbnail_size_bytes between 1 and 81920",
+  "return;",
   "revoke all on function public.gallery_publishable_submissions(integer, integer)",
   "grant execute on function public.gallery_publishable_submissions(integer, integer)",
-  "Temporary service-only rollback compatibility over bounded immutable Gallery derivatives",
+  "Temporary service-only rollback guard",
+  "always returns an empty set",
 ].forEach((snippet) => assertIncludes("Gallery v1 rollback compatibility", rollbackCompatibility, snippet));
 
 [
-  "submission.storage_path",
-  "submission.original_filename",
-  "submission.user_id",
-  "publication.uploader_display_name",
+  "auth.role()",
+  "from private.gallery_publication_revisions",
+  "join storage.objects",
+  "jsonb_populate_record",
+  "storage_path",
+  "thumbnail_storage_path",
 ].forEach((snippet) => assertNotIncludes("Gallery v1 rollback compatibility", rollbackCompatibility, snippet));
 
 [
   "legacy rollback compatibility is callable only through the service role",
-  "legacy rollback compatibility caps its old 80-row request at 24 publications",
-  "legacy rows expose only opaque service-owned publication paths",
-  "legacy rows omit member, filename, moderator, and rejection identity fields",
+  "retired Edge compatibility always returns an empty Gallery feed",
+  "retired Edge compatibility calls remain list-budgeted even though no media is returned",
+  "repeated retired Edge compatibility calls cannot recover media paths",
+  "each repeated retired Edge compatibility call consumes the shared list budget",
+  "moderation preview reserves its exact maximum source bytes once",
+  "moderation preview rejects sources over eight mebibytes",
+  "moderation preview minute saturation fails closed at twelve requests",
+  "moderation preview daily saturation fails closed at one hundred requests",
+  "anonymous public saturation cannot consume isolated moderator-preview capacity",
+  "moderator-preview saturation cannot consume anonymous public capacity",
+  "exhausted quota returns path-free denial before mismatched Storage evidence is joined",
 ].forEach((snippet) => assertIncludes("Gallery v1 rollback database regression", publicFeedDatabaseTests, snippet));
 
 assertIncludes(
   "Gallery publication foreign-key index regression",
   thumbnailDatabaseTests,
   "gallery_publication_submission_fk_idx",
+);
+assertIncludes(
+  "durable source-validation timestamp regression",
+  thumbnailDatabaseTests,
+  "repeat validation returns the exact durable evidence timestamp",
 );
 
 [
@@ -692,7 +839,8 @@ assertIncludes(
   "from public, anon, authenticated;",
   "gallery_public_feed_page_v2(",
   "integer, timestamptz, timestamptz, timestamptz, uuid, text, text, text",
-  "gallery_public_original_v2(uuid)",
+  "gallery_reserve_public_media_v2(uuid, text)",
+  "gallery_reserve_moderation_preview(bigint)",
 ].forEach((snippet) => assertIncludes("Gallery service-only database contract", publicationMigration, snippet));
 
 [
@@ -708,6 +856,7 @@ assertIncludes(
   "canonical Gallery category",
   "historical approved rows",
   "separate authorized operation",
+  "Prepare private preview",
 ].forEach((snippet) => assertIncludes("Gallery moderation runbook v2 contract", moderationRunbook, snippet));
 
 [
@@ -730,6 +879,8 @@ assertIncludes(
   "CORS is also",
   "not authorization or abuse prevention",
   "No provider write",
+  "Private preview",
+  "same-origin server",
 ].forEach((snippet) => assertIncludes("Gallery public media delivery contract", deliveryContract, snippet));
 
 if (failures.length) {

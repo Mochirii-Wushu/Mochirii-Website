@@ -238,8 +238,9 @@ assert(!galleryBrowser.includes("storage_bucket"), "GalleryBrowser must not read
 assertIncludes("approved gallery client", approvedGalleryFeed, "list-approved-gallery-submissions");
 assertIncludes("approved gallery client", approvedGalleryFeed, "method: \"POST\"");
 assertIncludes("approved gallery client", approvedGalleryFeed, 'action: "list"');
-assertIncludes("approved gallery client", approvedGalleryFeed, 'action: "full"');
 assertIncludes("approved gallery client", approvedGalleryFeed, 'action: "full" | "thumbnail"');
+assertIncludes("approved gallery client", approvedGalleryFeed, 'url.searchParams.set("asset", kind)');
+assertIncludes("approved gallery client", approvedGalleryFeed, 'url.searchParams.set("id", id)');
 assertIncludes("approved gallery client", approvedGalleryFeed, "refreshApprovedGalleryThumbnail");
 assertIncludes("approved gallery client", approvedGalleryFeed, "nextCursor");
 
@@ -259,10 +260,10 @@ if (approvedTypeMatch) {
 
 [
   '"gallery_public_feed_page_v2"',
-  '"gallery_public_original_v2"',
+  '"gallery_reserve_public_media_v2"',
   'request.action === "full" || request.action === "thumbnail"',
-  "publicMediaUrl(supabaseUrl, request.action, request.id)",
-  '"gallery_reserve_public_delivery"',
+  'if (req.method !== "GET")',
+  "parseGalleryMediaReservation(mediaData, request.id, request.action)",
   ".download(storagePath)",
   "mediaBlob.size !== mediaSize",
   "await sha256Hex(mediaBytes) !== mediaSha256",

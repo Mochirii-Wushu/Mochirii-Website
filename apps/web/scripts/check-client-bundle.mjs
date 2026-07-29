@@ -9,6 +9,11 @@ const layoutLimit = 63 * 1024;
 const homeIncrementalLimit = 5 * 1024;
 const publicRouteLimit = 225 * 1024;
 const forbiddenRuntimeMarkers = ["GoTrueClient", "PostgrestError", "RealtimeClient"];
+const forbiddenGallerySanitizerMarkers = [
+  "@napi-rs/canvas",
+  "prepareGalleryModerationPreview",
+  "preview_output_unavailable",
+];
 const galleryMarker = "galleryMemberFeedStatus";
 const publicRoutes = [
   "/",
@@ -161,6 +166,34 @@ function chunksContaining(marker) {
 }
 const controllerChunks = chunksContaining("Bulk paste");
 const viewerChunks = chunksContaining("raffle-app--viewer");
+for (const marker of forbiddenGallerySanitizerMarkers) {
+  const offenders = chunksContaining(marker);
+  if (offenders.length) {
+    failures.push(`server-only Gallery sanitizer marker ${marker} appears in client chunks: ${offenders.join(", ")}`);
+  }
+}
+
+const galleryClientBoundaryFiles = [
+  "components/member-workflow/LeaderDashboard.tsx",
+  "components/member-workflow/LeaderDashboardParts.tsx",
+  "lib/gallery/moderation-preview-client.ts",
+  "lib/gallery-thumbnail.ts",
+];
+for (const relativeFile of galleryClientBoundaryFiles) {
+  const source = readFileSync(path.resolve(relativeFile), "utf8");
+  for (const forbiddenImport of ["moderation-preview-server", "@napi-rs/canvas"]) {
+    if (source.includes(forbiddenImport)) {
+      failures.push(`${relativeFile} crosses the server-only Gallery sanitizer boundary via ${forbiddenImport}`);
+    }
+  }
+}
+const gallerySanitizerBoundary = readFileSync(
+  path.resolve("lib/gallery/moderation-preview-server.ts"),
+  "utf8",
+);
+if (!gallerySanitizerBoundary.includes('import "server-only"')) {
+  failures.push("Gallery sanitizer boundary is missing its explicit server-only import");
+}
 if (controllerChunks.length !== 1) failures.push(`expected one controller-only spinner chunk, found ${controllerChunks.length}`);
 if (viewerChunks.length !== 1) failures.push(`expected one viewer-only spinner chunk, found ${viewerChunks.length}`);
 if (controllerChunks[0] && viewerChunks[0] && controllerChunks[0] === viewerChunks[0]) {
@@ -237,3 +270,4 @@ console.log(`- Every public route entry stays within ${formatKiB(publicRouteLimi
 console.log(`- Route inventory classifies ${publicRoutes.length} public and ${nonPublicRoutes.length} non-public app pages.`);
 console.log("- Gallery-only code is absent from unrelated public entries, and Supabase SDK modules and markers are absent from all public entries.");
 console.log("- Private spinner controller and viewer code remain distinct, lazy chunks.");
+console.log("- Gallery native sanitizer code remains server-only and absent from every client chunk.");

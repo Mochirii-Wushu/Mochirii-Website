@@ -330,12 +330,6 @@ function assertListRequestShape(body, label) {
   assert(body.query === null || (typeof body.query === "string" && body.query.length <= 80), `${label}: invalid query.`);
 }
 
-function assertAssetRequestShape(body, action, label) {
-  assert(body.action === action, `${label}: expected ${action} action.`);
-  assert(JSON.stringify(Object.keys(body).sort()) === JSON.stringify(["action", "id"]), `${label}: asset request leaked extra fields.`);
-  assert(uuidV4Pattern.test(body.id), `${label}: asset request must use one opaque UUID v4 ID.`);
-}
-
 async function stubVercelAnalyticsScripts(context) {
   const appOrigin = new URL(baseUrl).origin;
   await context.route(
@@ -394,6 +388,8 @@ async function newCheckedPage(context, options = {}) {
           && (asset === "full" || asset === "thumbnail"),
         "Gallery media request drifted from the exact bounded Edge URL.",
       );
+      const actionCounts = asset === "full" ? fullActionCounts : thumbnailActionCounts;
+      actionCounts.set(id, (actionCounts.get(id) || 0) + 1);
       const corruptFixture = (asset === "thumbnail" && id === options.expireThumbnailId)
         || (asset === "full" && id === options.expireFullId);
       const attempt = corruptFixture ? (corruptAssetAttempts.get(requestUrl) || 0) + 1 : 1;
@@ -460,50 +456,7 @@ async function newCheckedPage(context, options = {}) {
       return;
     }
 
-    if (body.action === "full") {
-      assertAssetRequestShape(body, "full", "full-image request");
-      const count = (fullActionCounts.get(body.id) || 0) + 1;
-      fullActionCounts.set(body.id, count);
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        headers: corsHeaders,
-        body: JSON.stringify({
-          ok: true,
-          data: { schemaVersion: 2, id: body.id, full_url: displayUrl(body.id) },
-          message: "Full image ready.",
-        }),
-      });
-      return;
-    }
-
-    if (body.action === "thumbnail") {
-      assertAssetRequestShape(body, "thumbnail", "thumbnail-refresh request");
-      const count = (thumbnailActionCounts.get(body.id) || 0) + 1;
-      thumbnailActionCounts.set(body.id, count);
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        headers: corsHeaders,
-        body: JSON.stringify({
-          ok: true,
-          data: {
-            schemaVersion: 2,
-            id: body.id,
-            thumbnail_url: thumbnailUrl(body.id),
-          },
-          message: "Gallery image ready.",
-        }),
-      });
-      return;
-    }
-
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      headers: corsHeaders,
-      body: JSON.stringify({ ok: false, data: null, message: "Invalid fixture action." }),
-    });
+    throw new Error("Gallery browser attempted a forbidden POST media resolver request.");
   });
 
   page.on("pageerror", (error) => errors.push(`Page error: ${error.message}`));
@@ -581,8 +534,8 @@ function requestsByAction(feedRequests, action) {
   return feedRequests.filter((request) => (request.body.action || "list") === action);
 }
 
-async function waitForActionCount(feedRequests, action, count, label) {
-  await waitUntil(() => requestsByAction(feedRequests, action).length >= count, label);
+async function waitForMediaCount(actionCounts, id, count, label) {
+  await waitUntil(() => (actionCounts.get(id) || 0) >= count, label);
 }
 
 function normalizeAccessibleText(value) {
@@ -1052,10 +1005,10 @@ try {
     const normalTrigger = "#galleryGrid .gallery-thumb:first-child";
     const selectedId = fixtureRows.at(-1).id;
     await page.click(normalTrigger);
-    await waitForActionCount(feedRequests, "full", 1, "normal full-image request");
+    await waitForMediaCount(fullActionCounts, selectedId, 1, "normal full-image request");
     await assertSharedLightboxContract(page, "approved Gallery", displayUrl(selectedId));
     await assertNoSeriousAccessibilityViolations(page, "approved Gallery viewer", "#lightbox");
-    assert(requestsByAction(feedRequests, "full").length === 1, "Opening one approved item did not make exactly one full request.");
+    assert(requestsByAction(feedRequests, "full").length === 0, "Opening one approved item used a POST media resolver.");
     assert(fullActionCounts.get(selectedId) === 1, "Normal full request did not use the selected opaque ID exactly once.");
     assert(
       galleryAssetRequests.filter(isFixtureDisplayUrl).length === 1,
@@ -1076,10 +1029,10 @@ try {
     await page.waitForFunction(
       () => document.querySelector("#galleryGrid .gallery-thumb:first-child .responsive-gallery-media")?.getAttribute("data-image-state") === "ready",
     );
-    await waitForActionCount(feedRequests, "thumbnail", 1, "expired thumbnail refresh");
+    await waitForMediaCount(thumbnailActionCounts, expiredId, 2, "expired thumbnail refresh");
     await page.waitForTimeout(400);
-    assert(thumbnailActionCounts.get(expiredId) === 1, "Expired thumbnail retried more than once.");
-    assert(requestsByAction(feedRequests, "thumbnail").length === 1, "Expired thumbnail triggered an unbounded retry loop.");
+    assert(thumbnailActionCounts.get(expiredId) === 2, "Expired thumbnail did not stop after one bounded refresh.");
+    assert(requestsByAction(feedRequests, "thumbnail").length === 0, "Expired thumbnail used a POST media resolver.");
     assert(
       corruptAssetAttempts.get(thumbnailUrl(expiredId)) === 2,
       "Identical refreshed thumbnail URL was not requested exactly twice across its bounded retry.",
@@ -1097,11 +1050,11 @@ try {
     await page.goto(`${baseUrl}/gallery?category=member-submissions&sort=newest`, { waitUntil: "domcontentloaded" });
     await waitForReadyFeed(page);
     await page.click("#galleryGrid .gallery-thumb:first-child");
-    await waitForActionCount(feedRequests, "full", 2, "expired full-image refresh");
+    await waitForMediaCount(fullActionCounts, expiredId, 2, "expired full-image refresh");
     await assertSharedLightboxContract(page, "expired full image", displayUrl(expiredId));
     await page.waitForTimeout(400);
     assert(fullActionCounts.get(expiredId) === 2, "Expired full image did not stop after one bounded refresh.");
-    assert(requestsByAction(feedRequests, "full").length === 2, "Expired full-image refresh entered a retry loop.");
+    assert(requestsByAction(feedRequests, "full").length === 0, "Expired full image used a POST media resolver.");
     assert(
       corruptAssetAttempts.get(displayUrl(expiredId)) === 2,
       "Identical refreshed full URL was not requested exactly twice across its bounded retry.",
@@ -1222,7 +1175,7 @@ try {
     const narrowContext = await prepareContext(browser, { width: 320, height: 256 });
     try {
       const checked = await newCheckedPage(narrowContext);
-      const { page, errors, feedRequests } = checked;
+      const { page, errors, fullActionCounts } = checked;
       await page.goto(`${baseUrl}/gallery?category=member-submissions&sort=newest&q=Approved%20Smoke%20Submission%20001`, {
         waitUntil: "domcontentloaded",
       });
@@ -1238,7 +1191,7 @@ try {
       const card = await page.locator("#galleryGrid .gallery-thumb").boundingBox();
       assert(card && card.x >= -1 && card.x + card.width <= 321, "Gallery card escaped the 320px viewport.");
       await page.click("#galleryGrid .gallery-thumb");
-      await waitForActionCount(feedRequests, "full", 1, "narrow full-image request");
+      await waitForMediaCount(fullActionCounts, fixtureRows[0].id, 1, "narrow full-image request");
       await assertSharedLightboxContract(page, "320px/200% Gallery", displayUrl(fixtureRows[0].id));
       const reachable = await page.evaluate(() => {
         const root = document.querySelector("#lightbox");
