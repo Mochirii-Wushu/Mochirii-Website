@@ -42,7 +42,7 @@ export function createRelayClient(options: RelayClientOptions): RelayTransport {
     30_000,
   );
   const now = options.now || Date.now;
-  const nonce = options.nonce || crypto.randomUUID;
+  const nonce = options.nonce ?? (() => crypto.randomUUID());
 
   return {
     async request(
@@ -83,6 +83,7 @@ export function createRelayClient(options: RelayClientOptions): RelayTransport {
         });
         const length = Number(response.headers.get("content-length") || "0");
         if (Number.isFinite(length) && length > MAX_RESPONSE_BYTES) {
+          cancelResponseBody(response);
           throw new Error("Reward relay response exceeds the size limit.");
         }
         const text = await readResponseTextBounded(
@@ -132,15 +133,19 @@ async function readResponseTextBounded(
   const reader = response.body.getReader();
   const chunks: Uint8Array[] = [];
   let total = 0;
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    total += value.byteLength;
-    if (total > maximumBytes) {
-      await reader.cancel();
-      throw new Error("Reward relay response exceeds the size limit.");
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > maximumBytes) {
+        await reader.cancel();
+        throw new Error("Reward relay response exceeds the size limit.");
+      }
+      chunks.push(value);
     }
-    chunks.push(value);
+  } finally {
+    reader.releaseLock();
   }
   const bytes = new Uint8Array(total);
   let offset = 0;
@@ -149,6 +154,15 @@ async function readResponseTextBounded(
     offset += chunk.byteLength;
   }
   return new TextDecoder().decode(bytes);
+}
+
+function cancelResponseBody(response: Response): void {
+  if (!response.body) return;
+  try {
+    void response.body.cancel().catch(() => undefined);
+  } catch {
+    // The size rejection remains authoritative even if cancellation fails.
+  }
 }
 
 export function validateRewardRelayUrl(

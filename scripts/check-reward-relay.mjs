@@ -109,9 +109,21 @@ if (!failures.length) {
       "buildRelaySignatureHeaders",
       "buildRelayResponseSignatureHeaders",
       "Edge relay deadline remains active through a stalled response body",
+      "default relay options create a nonce and complete the signed response path",
+      "oversized declared relay responses cancel their body before rejection",
+      "response stream errors reject promptly and clear the request timeout",
     ],
     "Edge and Node shared protocol vectors",
   );
+  const edgeRelayClient = readFileSync(
+    join(root, "supabase", "functions", "_shared", "reward-relay-client.ts"),
+    "utf8",
+  );
+  requireAll(edgeRelayClient, [
+    "() => crypto.randomUUID()",
+    "cancelResponseBody(response)",
+    "reader.releaseLock()",
+  ], "bound default nonce, discarded oversized bodies, and released readers");
 
   requireAll(read("src/service.mjs"), [
     "consumeRate",

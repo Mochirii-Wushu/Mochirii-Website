@@ -7,6 +7,7 @@ import {
   canonicalRelayMessage,
   canonicalRelayResponseMessage,
   compareCodeUnits,
+  RELAY_SIGNATURE_HEADERS,
   sha256Hex,
   stableJson,
 } from "./reward-crypto.ts";
@@ -169,6 +170,128 @@ Deno.test("Edge relay deadline remains active through a stalled response body", 
   assert(
     Date.now() - startedAt < 2_000,
     "stalled body exceeded the bounded relay deadline",
+  );
+});
+
+Deno.test("default relay options create a nonce and complete the signed response path", async () => {
+  let fetchCalled = false;
+  let observedNonce = "";
+  const responseBody = protocolVector.payloads.readinessResponse;
+  const fetcher = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    fetchCalled = true;
+    const requestHeaders = new Headers(init?.headers);
+    const requestTimestamp = requestHeaders.get(
+      RELAY_SIGNATURE_HEADERS.timestamp,
+    );
+    observedNonce = requestHeaders.get(RELAY_SIGNATURE_HEADERS.nonce) || "";
+    assert(requestTimestamp, "default request timestamp was not signed");
+    assert(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+        .test(observedNonce),
+      "default request nonce was not a UUID",
+    );
+    const responseHeaders = await buildRelayResponseSignatureHeaders({
+      secret: protocolVector.requestSignature.secret,
+      path: RELAY_PATHS.readiness,
+      status: 200,
+      requestTimestamp,
+      requestNonce: observedNonce,
+      body: responseBody,
+    });
+    return new Response(JSON.stringify(responseBody), {
+      status: 200,
+      headers: responseHeaders,
+    });
+  }) as typeof fetch;
+  const client = createRelayClient({
+    baseUrl: "https://reward-gateway.mochirii.com",
+    hmacSecret: protocolVector.requestSignature.secret,
+    fetcher,
+  });
+
+  const response = await client.request(
+    RELAY_PATHS.readiness,
+    protocolVector.payloads.readinessRequest,
+  );
+
+  assert(fetchCalled, "default client did not reach fetch");
+  assert(observedNonce.length > 0, "default client did not sign a nonce");
+  assertEquals(response.body, responseBody);
+});
+
+Deno.test("oversized declared relay responses cancel their body before rejection", async () => {
+  let cancelled = false;
+  const body = new ReadableStream<Uint8Array>({
+    cancel() {
+      cancelled = true;
+    },
+  });
+  const fetcher = (() =>
+    Promise.resolve(
+      new Response(body, {
+        status: 200,
+        headers: { "content-length": "32769" },
+      }),
+    )) as typeof fetch;
+  const client = createRelayClient({
+    baseUrl: "https://reward-gateway.mochirii.com",
+    hmacSecret: protocolVector.requestSignature.secret,
+    fetcher,
+    timeoutMs: 1_000,
+    now: () => 1_700_000_000_000,
+    nonce: () => protocolVector.requestSignature.nonce,
+  });
+  const startedAt = Date.now();
+
+  await assertRejects(() =>
+    client.request(
+      RELAY_PATHS.readiness,
+      protocolVector.payloads.readinessRequest,
+    )
+  );
+
+  assert(cancelled, "oversized declared response body was not cancelled");
+  assert(
+    Date.now() - startedAt < 500,
+    "oversized declared response did not reject promptly",
+  );
+});
+
+Deno.test("response stream errors reject promptly and clear the request timeout", async () => {
+  const observation: { requestSignal?: AbortSignal } = {};
+  const fetcher = ((_input: RequestInfo | URL, init?: RequestInit) => {
+    if (init?.signal) observation.requestSignal = init.signal;
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.error(new Error("synthetic_stream_error"));
+      },
+    });
+    return Promise.resolve(new Response(body, { status: 200 }));
+  }) as typeof fetch;
+  const client = createRelayClient({
+    baseUrl: "https://reward-gateway.mochirii.com",
+    hmacSecret: protocolVector.requestSignature.secret,
+    fetcher,
+    timeoutMs: 1_000,
+    now: () => 1_700_000_000_000,
+    nonce: () => protocolVector.requestSignature.nonce,
+  });
+  const startedAt = Date.now();
+
+  await assertRejects(() =>
+    client.request(
+      RELAY_PATHS.readiness,
+      protocolVector.payloads.readinessRequest,
+    )
+  );
+
+  assert(Date.now() - startedAt < 500, "stream error did not reject promptly");
+  await new Promise((resolve) => setTimeout(resolve, 1_100));
+  const requestSignal = observation.requestSignal;
+  assert(requestSignal, "stream error request did not reach fetch");
+  assert(
+    !requestSignal.aborted,
+    "stream error left the request timeout active",
   );
 });
 
