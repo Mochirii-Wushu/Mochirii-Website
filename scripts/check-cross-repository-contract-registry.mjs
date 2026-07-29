@@ -31,7 +31,7 @@ const CONTRACTS = new Map([
   ["forum-central-identity", "Forum central identity"],
 ]);
 
-const STATUSES = new Set(["unversioned", "incomplete", "versioned"]);
+const REGISTRY_CONTRACT_STATUS = "unversioned";
 const ARTIFACT_KINDS = new Set(["documentation", "schema", "interface", "manifest", "fixture"]);
 const CONCRETE_ARTIFACT_KINDS = new Set(["schema", "interface", "manifest"]);
 const TEST_COVERAGE = new Set(["producer", "consumer", "cross_repository"]);
@@ -220,10 +220,10 @@ for (const [index, contract] of (registry.contracts ?? []).entries()) {
   if (CONTRACTS.get(contract.id) !== contract.name) {
     fail(`${contract.id} must retain map name ${JSON.stringify(CONTRACTS.get(contract.id))}.`);
   }
-  if (!STATUSES.has(contract.status)) fail(`${contract.id}.status is unsupported.`);
-  if (contract.version !== null && (typeof contract.version !== "string" || !/^v[1-9]\d*$/.test(contract.version))) {
-    fail(`${contract.id}.version must be null or a v-prefixed positive integer.`);
+  if (contract.status !== REGISTRY_CONTRACT_STATUS) {
+    fail(`${contract.id}.status must remain ${REGISTRY_CONTRACT_STATUS} in the evidence-only v1 registry.`);
   }
+  if (contract.version !== null) fail(`${contract.id}.version must remain null in the evidence-only v1 registry.`);
 
   assertUniqueStrings(contract.producerRepositories, REPOSITORIES, `${contract.id}.producerRepositories`);
   assertUniqueStrings(contract.consumerRepositories, REPOSITORIES, `${contract.id}.consumerRepositories`);
@@ -267,57 +267,27 @@ for (const [index, contract] of (registry.contracts ?? []).entries()) {
   const hasCrossRepositoryFixture = contract.artifacts.some((artifact) => artifact.kind === "fixture");
   const hasProducerTest = hasCoverage(contract.tests, "producer");
   const hasConsumerTest = hasCoverage(contract.tests, "consumer");
-  const hasProducerCompatibilityTest = contract.status === "versioned" &&
-    hasConcreteArtifact && hasProducerTest;
-  const hasConsumerCompatibilityTest = contract.status === "versioned" &&
-    hasConcreteArtifact && hasConsumerTest;
-
-  if (contract.status === "unversioned") {
-    if (contract.version !== null) fail(`${contract.id} is unversioned and must use version: null.`);
-    requireGap(contract, "contract_version", "the contract is unversioned");
-    requireGap(contract, "versioned_artifact", "no deployed contract version is recorded");
-  } else if (contract.version === null) {
-    requireGap(contract, "contract_version", "version is null");
-    requireGap(contract, "versioned_artifact", "version is null");
-  } else {
-    rejectStaleGap(contract, "contract_version", "a version is recorded");
-    rejectStaleGap(contract, "versioned_artifact", "a version is recorded");
-  }
+  requireGap(contract, "contract_version", "the v1 registry records only unversioned target contracts");
+  requireGap(contract, "versioned_artifact", "no deployed contract version is recorded");
 
   if (hasConcreteArtifact) rejectStaleGap(contract, "concrete_artifact", "a concrete artifact is referenced");
   else requireGap(contract, "concrete_artifact", "no schema, interface, or manifest is referenced");
 
-  if (hasProducerCompatibilityTest) {
-    rejectStaleGap(
-      contract,
-      "producer_compatibility_test",
-      "versioned producer compatibility coverage is referenced",
-    );
-  } else {
-    requireGap(
-      contract,
-      "producer_compatibility_test",
-      hasProducerTest
-        ? "producer coverage is only partial evidence for an unversioned contract"
-        : "no producer compatibility test is referenced",
-    );
-  }
+  requireGap(
+    contract,
+    "producer_compatibility_test",
+    hasProducerTest
+      ? "producer coverage is only partial evidence for an unversioned target contract"
+      : "no producer compatibility test is referenced",
+  );
 
-  if (hasConsumerCompatibilityTest) {
-    rejectStaleGap(
-      contract,
-      "consumer_compatibility_test",
-      "versioned consumer compatibility coverage is referenced",
-    );
-  } else {
-    requireGap(
-      contract,
-      "consumer_compatibility_test",
-      hasConsumerTest
-        ? "consumer coverage is only partial evidence for an unversioned contract"
-        : "no consumer compatibility test is referenced",
-    );
-  }
+  requireGap(
+    contract,
+    "consumer_compatibility_test",
+    hasConsumerTest
+      ? "consumer coverage is only partial evidence for an unversioned target contract"
+      : "no consumer compatibility test is referenced",
+  );
 
   if (hasCrossRepositoryFixture) rejectStaleGap(contract, "cross_repository_fixture", "a fixture is referenced");
   else requireGap(contract, "cross_repository_fixture", "no cross-repository fixture is referenced");
@@ -330,12 +300,7 @@ for (const [index, contract] of (registry.contracts ?? []).entries()) {
     rejectStaleGap(contract, "rollback_window", "a rollback window is recorded");
   }
 
-  if ((contract.status === "unversioned" || contract.status === "incomplete") && contract.gaps.length === 0) {
-    fail(`${contract.id} must record explicit gaps while status is ${contract.status}.`);
-  }
-  if (contract.status === "versioned" && contract.gaps.length !== 0) {
-    fail(`${contract.id} cannot be versioned while gaps remain.`);
-  }
+  if (contract.gaps.length === 0) fail(`${contract.id} must record explicit gaps in the evidence-only v1 registry.`);
 }
 
 for (const contractId of CONTRACTS.keys()) {
@@ -365,7 +330,12 @@ assertExactStringSet(schema.$defs?.contractId?.enum, new Set(CONTRACTS.keys()), 
 assertExactStringSet(schema.$defs?.gap?.enum, GAPS, "schema.$defs.gap.enum");
 assertExactStringSet(schema.$defs?.artifact?.properties?.kind?.enum, ARTIFACT_KINDS, "schema artifact kinds");
 assertExactStringSet(schema.$defs?.test?.properties?.coverage?.enum, TEST_COVERAGE, "schema test coverage");
-assertExactStringSet(schema.$defs?.contract?.properties?.status?.enum, STATUSES, "schema contract statuses");
+if (schema.$defs?.contract?.properties?.status?.const !== REGISTRY_CONTRACT_STATUS) {
+  fail(`The v1 schema must lock every contract status to ${REGISTRY_CONTRACT_STATUS}.`);
+}
+if (schema.$defs?.contract?.properties?.version?.type !== "null") {
+  fail("The v1 schema must lock every contract version to null.");
+}
 assertExactStringSet(
   schema.$defs?.contract?.required,
   new Set([

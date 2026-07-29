@@ -148,14 +148,10 @@
           "minLength": 1
         },
         "status": {
-          "type": "string",
-          "enum": ["unversioned", "incomplete", "versioned"]
+          "const": "unversioned"
         },
         "version": {
-          "oneOf": [
-            { "type": "null" },
-            { "type": "string", "pattern": "^v[1-9]\\d*$" }
-          ]
+          "type": "null"
         },
         "producerRepositories": {
           "type": "array",
@@ -223,33 +219,6 @@
                 "minItems": 1,
                 "contains": { "const": "contract_version" }
               }
-            }
-          }
-        },
-        {
-          "if": {
-            "properties": {
-              "status": { "const": "incomplete" }
-            },
-            "required": ["status"]
-          },
-          "then": {
-            "properties": {
-              "gaps": { "minItems": 1 }
-            }
-          }
-        },
-        {
-          "if": {
-            "properties": {
-              "status": { "const": "versioned" }
-            },
-            "required": ["status"]
-          },
-          "then": {
-            "properties": {
-              "version": { "type": "string" },
-              "gaps": { "maxItems": 0 }
             }
           }
         },
