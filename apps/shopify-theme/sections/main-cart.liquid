@@ -59,7 +59,7 @@
             </p>
           {% endif %}
           <div class="cart-summary__actions">
-            {% if settings.checkout_enabled %}
+            {% if settings.checkout_cta_enabled %}
               <button class="button" type="submit" name="checkout">Checkout</button>
             {% else %}
               <button class="button" type="button" disabled="disabled">Checkout opens when the store launches.</button>

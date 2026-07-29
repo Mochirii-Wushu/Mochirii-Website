@@ -25,6 +25,7 @@ const forbiddenContentPatterns = [
   { label: "private supplier-side catalog evidence", pattern: /\bsupplier[- ]side product (?:set|list|entries)\b/i },
 ];
 const separationMetadataPaths = new Set([
+  "apps/shopify-theme/ACTIVE-SOURCE-MANIFEST.v1.json",
   "apps/shopify-theme/MIGRATION-MANIFEST.json",
   "apps/shopify-theme/README.md",
   "docs/shopify-theme-migration-2026-07-16.md",

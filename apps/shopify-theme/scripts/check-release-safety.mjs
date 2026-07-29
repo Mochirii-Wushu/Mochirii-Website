@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { checkoutPrimitiveCategories } from "./lib/checkout-cta-safety.mjs";
 
 const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const failures = [];
@@ -27,10 +28,10 @@ function requireText(relativePath, source, expected) {
 }
 
 const settings = readThemeJson("config/settings_data.json");
-if (settings.current?.checkout_enabled !== false) {
-  failures.push("config/settings_data.json: checkout_enabled must remain false");
+if (settings.current?.checkout_cta_enabled !== false) {
+  failures.push("config/settings_data.json: checkout_cta_enabled must remain false");
 }
-for (const removedSetting of ["product_publication_approved", "show_internal_product_meta"]) {
+for (const removedSetting of ["checkout_enabled", "product_publication_approved", "show_internal_product_meta"]) {
   if (Object.hasOwn(settings.current ?? {}, removedSetting)) {
     failures.push(`config/settings_data.json: obsolete or unsafe setting is forbidden: ${removedSetting}`);
   }
@@ -43,11 +44,13 @@ for (const immutableWordmarkSetting of ["brand_display_name", "corporate_display
 
 const schema = readThemeJson("config/settings_schema.json");
 const schemaSettings = schema.flatMap((group) => group.settings ?? []);
-const checkoutControl = schemaSettings.find((setting) => setting.id === "checkout_enabled");
-if (!checkoutControl || checkoutControl.type !== "checkbox" || checkoutControl.default !== false) {
-  failures.push("config/settings_schema.json: checkout_enabled must be a false-by-default checkbox");
+const checkoutCtaControl = schemaSettings.find((setting) => setting.id === "checkout_cta_enabled");
+if (!checkoutCtaControl || checkoutCtaControl.type !== "checkbox" || checkoutCtaControl.default !== false ||
+    !checkoutCtaControl.info?.includes("Controls only this theme's cart-page button") ||
+    !checkoutCtaControl.info?.includes("It does not disable other checkout routes")) {
+  failures.push("config/settings_schema.json: checkout_cta_enabled must be a false-by-default presentation-only control");
 }
-for (const removedSetting of ["product_publication_approved", "show_internal_product_meta"]) {
+for (const removedSetting of ["checkout_enabled", "product_publication_approved", "show_internal_product_meta"]) {
   if (schemaSettings.some((setting) => setting.id === removedSetting)) {
     failures.push(`config/settings_schema.json: obsolete or unsafe setting is forbidden: ${removedSetting}`);
   }
@@ -64,6 +67,20 @@ const liquidFiles = walk(appRoot)
     relativePath: path.relative(appRoot, file).split(path.sep).join("/"),
     source: readFileSync(file, "utf8"),
   }));
+
+const runtimeRoots = ["assets", "blocks", "config", "layout", "locales", "sections", "snippets", "templates"];
+const checkoutRuntimeFiles = runtimeRoots
+  .flatMap((root) => walk(path.join(appRoot, root)))
+  .filter((file) => [".js", ".json", ".liquid"].includes(path.extname(file)))
+  .map((file) => ({
+    relativePath: path.relative(appRoot, file).split(path.sep).join("/"),
+    source: readFileSync(file, "utf8"),
+  }));
+for (const { relativePath, source } of checkoutRuntimeFiles) {
+  for (const category of checkoutPrimitiveCategories(source)) {
+    failures.push(`${relativePath}: contains forbidden ${category}`);
+  }
+}
 
 const forbiddenRuntimePatterns = [
   ["internal product metadata setting", /show_internal_product_meta/iu],
@@ -86,7 +103,7 @@ for (const { relativePath, source } of liquidFiles) {
 
 const cart = read("sections/main-cart.liquid");
 for (const token of [
-  "{% if settings.checkout_enabled %}",
+  "{% if settings.checkout_cta_enabled %}",
   '<button class="button" type="submit" name="checkout">Checkout</button>',
   '<button class="button" type="button" disabled="disabled">Checkout opens when the store launches.</button>',
 ]) {
@@ -545,4 +562,7 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log(`Shopify release-safety check OK (${liquidFiles.length} Liquid files; products visible, checkout disabled).`);
+console.log(
+  `Shopify release-safety check OK (${liquidFiles.length} Liquid files; products visible, ` +
+  "theme checkout CTA disabled; Shopify checkout remains provider-controlled).",
+);
