@@ -23,6 +23,7 @@ const checks = [
   ["check:brand-boundaries", ["node", "scripts/check-brand-boundaries.mjs"]],
   ["check:repository-boundaries", ["node", "scripts/check-repository-boundaries.mjs"]],
   ["check:host-independence", ["node", "scripts/check-host-independence.mjs"]],
+  ["check:integration-exposure-catalog", ["node", "scripts/check-integration-exposure-catalog.mjs"]],
   ["check:shopify-release-safety", ["node", "apps/shopify-theme/scripts/check-release-safety.mjs"]],
   ["check:social", [...npmCommand, "--prefix", "services/social", "run", "check:mochirii-ops"]],
   ["check:code-cleanliness", ["node", "scripts/check-code-cleanliness.mjs"]],
