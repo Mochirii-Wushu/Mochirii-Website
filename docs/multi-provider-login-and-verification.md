@@ -57,9 +57,14 @@ Supabase Auth. The source is activation-ready but intentionally fails closed:
   project-wide and per-recipient rate-limit boundary;
 - the CAPTCHA secret belongs only in Supabase Auth Bot and Abuse Protection;
   Vercel receives only the public site key and public readiness fields;
-- CSP narrowly permits the CAPTCHA script and frame origin, but the script is
+- the route-scoped `/auth` CSP narrowly permits the CAPTCHA script and frame
+  origin; unrelated routes retain the stricter shared policy, and the script is
   never requested unless every phone readiness input is complete and Phone is
-  explicitly present in the provider allowlist.
+  explicitly present in the provider allowlist;
+- after a validated request reaches Supabase Auth, every upstream send outcome
+  returns the same public accepted state so account-lookup results cannot reveal
+  whether a phone number is linked to an account. Code-verification failures use
+  one generic public error and never expose provider diagnostics.
 
 Before a later activation packet may add `phone` to the public allowlist, it
 must verify the SMS provider and sender, exact supported-country and cost

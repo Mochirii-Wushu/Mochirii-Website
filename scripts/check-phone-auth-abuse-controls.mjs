@@ -66,7 +66,10 @@ requireSnippets("provider registry", registry, [
 
 requireSnippets("phone policy", policy, [
   "PHONE_OTP_RESEND_COOLDOWN_MS = 60_000",
+  "PHONE_OTP_REQUEST_PUBLIC_MESSAGE",
+  "PHONE_OTP_VERIFY_PUBLIC_ERROR_MESSAGE",
   'readiness.captchaProvider === "turnstile"',
+  "phoneOtpRequestPublicOutcome",
   "requirePhoneCaptchaToken",
   "normalizePhoneForOtp",
   "normalizePhoneOtpCode",
@@ -75,6 +78,8 @@ requireSnippets("phone policy", policy, [
 ]);
 requireSnippets("phone policy tests", policyTest, [
   "phone auth requires every explicit readiness input",
+  "phone auth remains closed for every partial activation state",
+  "phone OTP request responses do not disclose provider account lookup results",
   "CAPTCHA tokens are mandatory, opaque, and bounded",
   "resend cooldown is exact, bounded, and ignores corrupt persisted values",
 ]);
@@ -84,17 +89,27 @@ requireSnippets("phone auth client", auth, [
   "requirePhoneCaptchaToken(captchaToken)",
   "shouldCreateUser: false",
   "captchaToken: cleanCaptchaToken",
+  "phoneOtpRequestPublicOutcome(error)",
+  "phoneOtpRequestPublicOutcome(providerError)",
+  "PHONE_OTP_VERIFY_PUBLIC_ERROR_MESSAGE",
 ]);
-forbidSnippets("phone auth client", auth, ["shouldCreateUser = true", "captchaToken?: string"]);
+forbidSnippets("phone auth client", auth, [
+  "shouldCreateUser = true",
+  "captchaToken?: string",
+  'return okResult(data, "Code sent. Check your phone.")',
+]);
 
 requireSnippets("phone auth panel", panel, [
   "<AuthCaptcha",
+  "!signedIn && phoneProvider",
   "NEXT_PUBLIC_AUTH_CAPTCHA_SITE_KEY",
   "window.sessionStorage",
   "createPhoneOtpResendDeadline",
   "readPhoneOtpResendDeadline",
   "resendSeconds > 0",
   "disabled={!canRequestPhoneCode}",
+  "PHONE_OTP_REQUEST_PUBLIC_MESSAGE",
+  "PHONE_OTP_VERIFY_PUBLIC_ERROR_MESSAGE",
 ]);
 forbidSnippets("phone auth panel", panel, ["window.localStorage", "console."]);
 
@@ -110,15 +125,41 @@ requireSnippets("CAPTCHA component", captcha, [
 ]);
 forbidSnippets("CAPTCHA component", captcha, ["console.", "localStorage", "sessionStorage"]);
 
-requireSnippets("narrow CAPTCHA CSP", nextConfig, [
-  "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com",
-  "frame-src 'self' https://discord.com https://open.spotify.com https://challenges.cloudflare.com",
+requireSnippets("route-scoped CAPTCHA CSP", nextConfig, [
+  "const contentSecurityPolicy = [",
+  "const authContentSecurityPolicy = contentSecurityPolicy",
+  '"script-src \'self\' \'unsafe-inline\' https://challenges.cloudflare.com"',
+  '"frame-src \'self\' https://discord.com https://open.spotify.com https://challenges.cloudflare.com"',
+  'source: "/auth"',
+  "value: authContentSecurityPolicy",
 ]);
+
+const globalPolicyDeclaration = nextConfig.slice(
+  nextConfig.indexOf("const contentSecurityPolicy ="),
+  nextConfig.indexOf("const authContentSecurityPolicy ="),
+);
+forbidSnippets("global CAPTCHA CSP", globalPolicyDeclaration, ["challenges.cloudflare.com"]);
+
+const turnstileScriptOccurrences = [config, registry, policy, auth, panel, captcha]
+  .join("\n")
+  .match(/https:\/\/challenges\.cloudflare\.com\/turnstile\/v0\/api\.js\?render=explicit/g)?.length ?? 0;
+if (turnstileScriptOccurrences !== 1) {
+  failures.push(`browser CAPTCHA boundary: expected one exact Turnstile script URL, found ${turnstileScriptOccurrences}`);
+}
+
+const captchaImportOccurrences = [config, registry, policy, auth, panel]
+  .join("\n")
+  .match(/@\/components\/member-workflow\/AuthCaptcha/g)?.length ?? 0;
+if (captchaImportOccurrences !== 1) {
+  failures.push(`browser CAPTCHA boundary: expected one gated AuthCaptcha import, found ${captchaImportOccurrences}`);
+}
 
 requireSnippets("phone activation docs", docs, [
   "## Phone OTP Activation Gate",
   "shouldCreateUser",
   "60-second session-scoped resend cooldown",
+  "route-scoped `/auth` CSP",
+  "account-lookup results",
   "Supabase Auth remains the authoritative",
   "Phone remains absent from the public provider allowlist",
 ]);

@@ -10,6 +10,8 @@ import { enabledAuthProviders, enabledOAuthProviders, placeholderOAuthProviders,
 import { getCurrentUser, onAuthStateChange, signInWithPhoneOtp, signInWithProvider, signOut, verifyPhoneOtp } from "@/lib/supabase/auth";
 import { NEXT_PUBLIC_AUTH_CAPTCHA_SITE_KEY } from "@/lib/supabase/config";
 import {
+  PHONE_OTP_REQUEST_PUBLIC_MESSAGE,
+  PHONE_OTP_VERIFY_PUBLIC_ERROR_MESSAGE,
   createPhoneOtpResendDeadline,
   phoneOtpResendSecondsRemaining,
   readPhoneOtpResendDeadline,
@@ -128,7 +130,7 @@ export function AuthPanel() {
     setCaptchaToken("");
     setCaptchaResetKey((current) => current + 1);
     if (!result.ok) {
-      setError(result.message || "Phone code could not be sent.");
+      setError(result.message || "Phone sign-in is unavailable.");
       setStatus("");
       setBusy(false);
       return;
@@ -142,7 +144,7 @@ export function AuthPanel() {
     setResendDeadline(deadline);
     setResendSeconds(phoneOtpResendSecondsRemaining(deadline, Date.now()));
     setPhoneCodeSent(true);
-    setStatus(result.message || "Code sent. Check your phone.");
+    setStatus(result.message || PHONE_OTP_REQUEST_PUBLIC_MESSAGE);
     setBusy(false);
   }
 
@@ -153,7 +155,7 @@ export function AuthPanel() {
     setStatus("Checking phone code.");
     const result = await verifyPhoneOtp({ phone, token: phoneCode });
     if (!result.ok) {
-      setError(result.message || "Phone code could not be verified.");
+      setError(PHONE_OTP_VERIFY_PUBLIC_ERROR_MESSAGE);
       setStatus("");
       setBusy(false);
       return;

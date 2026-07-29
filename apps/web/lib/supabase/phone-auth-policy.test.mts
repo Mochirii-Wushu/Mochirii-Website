@@ -1,12 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  PHONE_OTP_REQUEST_PUBLIC_MESSAGE,
+  PHONE_OTP_VERIFY_PUBLIC_ERROR_MESSAGE,
   PHONE_OTP_RESEND_COOLDOWN_MS,
   PHONE_OTP_RESEND_STORAGE_KEY,
   createPhoneOtpResendDeadline,
   normalizePhoneForOtp,
   normalizePhoneOtpCode,
   phoneAuthConfigurationReady,
+  phoneOtpRequestPublicOutcome,
   phoneOtpResendSecondsRemaining,
   readPhoneOtpResendDeadline,
   requirePhoneCaptchaToken,
@@ -32,6 +35,34 @@ test("phone auth requires every explicit readiness input", () => {
   assert.equal(phoneAuthConfigurationReady(readiness({ captchaProvider: "hcaptcha" })), false);
   assert.equal(phoneAuthConfigurationReady(readiness({ captchaSiteKey: "  " })), false);
   assert.equal(phoneAuthConfigurationReady(readiness({ supabaseConfigured: false })), false);
+});
+
+test("phone auth remains closed for every partial activation state", () => {
+  const readinessInputs = 5;
+  const fullyReadyMask = (1 << readinessInputs) - 1;
+
+  for (let mask = 0; mask < fullyReadyMask; mask += 1) {
+    const partial = readiness({
+      phoneAuthReady: Boolean(mask & 1),
+      captchaEnabled: Boolean(mask & 2),
+      captchaProvider: mask & 4 ? "turnstile" : "",
+      captchaSiteKey: mask & 8 ? "public-site-key" : "",
+      supabaseConfigured: Boolean(mask & 16),
+    });
+    assert.equal(phoneAuthConfigurationReady(partial), false);
+  }
+});
+
+test("phone OTP request responses do not disclose provider account lookup results", () => {
+  const accepted = phoneOtpRequestPublicOutcome(null);
+  const unknownAccount = phoneOtpRequestPublicOutcome(new Error("User not found"));
+  const existingAccountFailure = phoneOtpRequestPublicOutcome(new Error("SMS delivery failed"));
+
+  assert.deepEqual(unknownAccount, accepted);
+  assert.deepEqual(existingAccountFailure, accepted);
+  assert.equal(accepted.message, PHONE_OTP_REQUEST_PUBLIC_MESSAGE);
+  assert.match(PHONE_OTP_VERIFY_PUBLIC_ERROR_MESSAGE, /could not be confirmed/i);
+  assert.doesNotMatch(accepted.message, /sent|exists|found|registered/i);
 });
 
 test("CAPTCHA tokens are mandatory, opaque, and bounded", () => {

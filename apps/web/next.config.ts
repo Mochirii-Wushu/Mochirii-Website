@@ -34,16 +34,26 @@ const contentSecurityPolicy = [
   "object-src 'none'",
   "frame-ancestors 'none'",
   "form-action 'self'",
-  "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com",
+  "script-src 'self' 'unsafe-inline'",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https://*.supabase.co https://cdn.discordapp.com https://media.discordapp.net https://i.scdn.co https://*.scdn.co",
   "font-src 'self' data:",
   "media-src 'self' data: blob:",
-  "frame-src 'self' https://discord.com https://open.spotify.com https://challenges.cloudflare.com",
+  "frame-src 'self' https://discord.com https://open.spotify.com",
   "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://discord.com https://cdn.discordapp.com https://vitals.vercel-insights.com",
   "worker-src 'self' blob:",
   "upgrade-insecure-requests",
 ].join("; ");
+
+const authContentSecurityPolicy = contentSecurityPolicy
+  .replace(
+    "script-src 'self' 'unsafe-inline'",
+    "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com",
+  )
+  .replace(
+    "frame-src 'self' https://discord.com https://open.spotify.com",
+    "frame-src 'self' https://discord.com https://open.spotify.com https://challenges.cloudflare.com",
+  );
 
 const spinnerContentSecurityPolicy = [
   "default-src 'self'",
@@ -117,6 +127,15 @@ const nextConfig: NextConfig = {
       {
         source: "/(.*)",
         headers: [...securityHeaders],
+      },
+      {
+        source: "/auth",
+        headers: [
+          {
+            key: "Content-Security-Policy",
+            value: authContentSecurityPolicy,
+          },
+        ],
       },
       {
         source: "/spinner/:path*",

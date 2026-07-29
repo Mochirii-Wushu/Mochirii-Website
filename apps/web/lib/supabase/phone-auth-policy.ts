@@ -1,6 +1,10 @@
 export const PHONE_OTP_RESEND_COOLDOWN_MS = 60_000;
 export const PHONE_OTP_RESEND_STORAGE_KEY = "mochirii:phone-otp:resend-after";
 export const PHONE_CAPTCHA_RESPONSE_MAX_CHARS = 4_096;
+export const PHONE_OTP_REQUEST_PUBLIC_MESSAGE =
+  "If this phone number is linked to an existing account, a verification code will arrive shortly.";
+export const PHONE_OTP_VERIFY_PUBLIC_ERROR_MESSAGE =
+  "The verification code could not be confirmed. Check the code and try again.";
 
 export type PhoneCaptchaProvider = "turnstile";
 
@@ -22,6 +26,14 @@ export function phoneAuthConfigurationReady(readiness: PhoneAuthReadiness) {
     Boolean(readiness.captchaSiteKey.trim()) &&
     readiness.supabaseConfigured
   );
+}
+
+export function phoneOtpRequestPublicOutcome(providerError: unknown) {
+  void providerError;
+  return {
+    ok: true as const,
+    message: PHONE_OTP_REQUEST_PUBLIC_MESSAGE,
+  };
 }
 
 export function requirePhoneCaptchaToken(value: unknown) {

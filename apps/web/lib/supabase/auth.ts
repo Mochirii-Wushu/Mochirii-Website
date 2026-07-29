@@ -9,7 +9,13 @@ import {
   type OAuthProviderId,
 } from "./auth-providers";
 import { requireBrowserSupabaseClient } from "./client";
-import { normalizePhoneForOtp, normalizePhoneOtpCode, requirePhoneCaptchaToken } from "./phone-auth-policy";
+import {
+  PHONE_OTP_VERIFY_PUBLIC_ERROR_MESSAGE,
+  normalizePhoneForOtp,
+  normalizePhoneOtpCode,
+  phoneOtpRequestPublicOutcome,
+  requirePhoneCaptchaToken,
+} from "./phone-auth-policy";
 import { failedResult, okResult, createResult, createError, type AuthSessionResult, type AuthUserResult } from "./types";
 
 export async function getCurrentSession() {
@@ -125,11 +131,17 @@ export async function signInWithPhoneOtp({
   phone: string;
   captchaToken: string;
 }) {
+  let cleanPhone: string;
+  let cleanCaptchaToken: string;
   try {
     if (!phoneAuthReady()) throw new Error("Phone sign-in is unavailable.");
-    const cleanPhone = normalizePhoneForOtp(phone);
-    const cleanCaptchaToken = requirePhoneCaptchaToken(captchaToken);
+    cleanPhone = normalizePhoneForOtp(phone);
+    cleanCaptchaToken = requirePhoneCaptchaToken(captchaToken);
+  } catch (error) {
+    return failedResult(error);
+  }
 
+  try {
     const client = requireBrowserSupabaseClient();
     const { data, error } = await client.auth.signInWithOtp({
       phone: cleanPhone,
@@ -138,29 +150,36 @@ export async function signInWithPhoneOtp({
         captchaToken: cleanCaptchaToken,
       },
     });
-    if (error) return failedResult(error);
-    return okResult(data, "Code sent. Check your phone.");
-  } catch (error) {
-    return failedResult(error);
+    const publicOutcome = phoneOtpRequestPublicOutcome(error);
+    return okResult(error ? null : data, publicOutcome.message);
+  } catch (providerError) {
+    const publicOutcome = phoneOtpRequestPublicOutcome(providerError);
+    return okResult(null, publicOutcome.message);
   }
 }
 
 export async function verifyPhoneOtp({ phone, token }: { phone: string; token: string }) {
+  let cleanPhone: string;
+  let cleanToken: string;
   try {
     if (!phoneAuthReady()) throw new Error("Phone sign-in is unavailable.");
-    const cleanPhone = normalizePhoneForOtp(phone);
-    const cleanToken = normalizePhoneOtpCode(token);
+    cleanPhone = normalizePhoneForOtp(phone);
+    cleanToken = normalizePhoneOtpCode(token);
+  } catch (error) {
+    return failedResult(error);
+  }
 
+  try {
     const client = requireBrowserSupabaseClient();
     const { data, error } = await client.auth.verifyOtp({
       phone: cleanPhone,
       token: cleanToken,
       type: "sms",
     });
-    if (error) return failedResult(error);
+    if (error) return failedResult(new Error(PHONE_OTP_VERIFY_PUBLIC_ERROR_MESSAGE));
     return okResult(data, "Phone sign-in complete.");
-  } catch (error) {
-    return failedResult(error);
+  } catch {
+    return failedResult(new Error(PHONE_OTP_VERIFY_PUBLIC_ERROR_MESSAGE));
   }
 }
 
