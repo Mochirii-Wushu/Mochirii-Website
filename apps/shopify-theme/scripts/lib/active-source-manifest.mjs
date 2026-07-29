@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readdirSync, readFileSync } from "node:fs";
+import { lstatSync, readdirSync, readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
 
 export const ACTIVE_SOURCE_MANIFEST_PATH = "apps/shopify-theme/ACTIVE-SOURCE-MANIFEST.v1.json";
@@ -52,10 +52,51 @@ const TOP_LEVEL_KEYS = Object.freeze([
   "files",
 ]);
 
-function walk(directory) {
-  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-    const absolute = path.join(directory, entry.name);
-    return entry.isDirectory() ? walk(absolute) : [absolute];
+function isInside(candidate, root) {
+  const relative = path.relative(root, candidate);
+  return relative === "" || (!relative.startsWith(`..${path.sep}`) && relative !== ".." && !path.isAbsolute(relative));
+}
+
+export function resolveContainedManifestPath(repoRoot, absolutePath, expectedKind) {
+  if (expectedKind !== "file" && expectedKind !== "directory") {
+    throw new Error("active-source path kind must be file or directory");
+  }
+  const namedRoot = path.resolve(repoRoot);
+  const namedPath = path.resolve(absolutePath);
+  const relative = path.relative(namedRoot, namedPath);
+  if (relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+    throw new Error("active-source path escapes the repository boundary");
+  }
+
+  const rootStats = lstatSync(namedRoot);
+  if (rootStats.isSymbolicLink() || !rootStats.isDirectory()) {
+    throw new Error("active-source repository root must be a real directory");
+  }
+  const realRoot = realpathSync(namedRoot);
+  let cursor = namedRoot;
+  for (const segment of relative.split(path.sep).filter(Boolean)) {
+    cursor = path.join(cursor, segment);
+    if (lstatSync(cursor).isSymbolicLink()) throw new Error("active-source paths cannot contain symbolic links");
+  }
+
+  const stats = lstatSync(cursor);
+  if ((expectedKind === "file" && !stats.isFile()) || (expectedKind === "directory" && !stats.isDirectory())) {
+    throw new Error(`active-source path must be a regular ${expectedKind}`);
+  }
+  const real = realpathSync(cursor);
+  if (!isInside(real, realRoot)) throw new Error("active-source real path escapes the repository boundary");
+  return real;
+}
+
+function walk(directory, repoRoot) {
+  const realDirectory = resolveContainedManifestPath(repoRoot, directory, "directory");
+  return readdirSync(realDirectory, { withFileTypes: true }).flatMap((entry) => {
+    const absolute = path.join(realDirectory, entry.name);
+    const stats = lstatSync(absolute);
+    if (stats.isSymbolicLink()) throw new Error("active-source paths cannot contain symbolic links");
+    if (stats.isDirectory()) return walk(absolute, repoRoot);
+    if (stats.isFile()) return [resolveContainedManifestPath(repoRoot, absolute, "file")];
+    throw new Error("active-source inventory accepts only regular files and directories");
   });
 }
 
@@ -85,15 +126,16 @@ function canonicalJson(value) {
 }
 
 function entryFor(repoRoot, absolute) {
+  const realFile = resolveContainedManifestPath(repoRoot, absolute, "file");
   return {
-    path: path.relative(repoRoot, absolute).split(path.sep).join("/"),
-    sha256: sha256Bytes(readFileSync(absolute)),
+    path: path.relative(realpathSync(repoRoot), realFile).split(path.sep).join("/"),
+    sha256: sha256Bytes(readFileSync(realFile)),
   };
 }
 
 export function activeSourceEntries(appRoot, repoRoot) {
   const files = RUNTIME_ROOTS
-    .flatMap((root) => walk(path.join(appRoot, root)))
+    .flatMap((root) => walk(path.join(appRoot, root), repoRoot))
     .map((absolute) => entryFor(repoRoot, absolute))
     .sort((left, right) => left.path.localeCompare(right.path));
   const genericTooling = GENERIC_TOOLING_PATHS
@@ -139,7 +181,12 @@ function validateEntries(actual, expected, repoRoot, label, failures) {
       continue;
     }
     try {
-      const digest = sha256Bytes(readFileSync(path.join(repoRoot, ...entry.path.split("/"))));
+      const absolute = resolveContainedManifestPath(
+        repoRoot,
+        path.join(repoRoot, ...entry.path.split("/")),
+        "file",
+      );
+      const digest = sha256Bytes(readFileSync(absolute));
       if (digest !== entry.sha256) failures.push(`${entry.path}: active-source SHA-256 mismatch`);
     } catch {
       failures.push(`${entry.path}: active-source file is missing or unreadable`);

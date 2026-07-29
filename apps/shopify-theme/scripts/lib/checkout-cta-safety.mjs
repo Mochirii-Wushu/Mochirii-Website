@@ -1,3 +1,20 @@
+import path from "node:path";
+
+const RUNTIME_TEXT_EXTENSIONS = new Set([
+  ".css", ".csv", ".html", ".js", ".json", ".liquid", ".mjs", ".svg", ".txt", ".xml", ".yaml", ".yml",
+]);
+const RUNTIME_BINARY_EXTENSIONS = new Set([
+  ".avif", ".eot", ".gif", ".ico", ".jpeg", ".jpg", ".mp3", ".mp4", ".ogg", ".otf", ".pdf", ".png",
+  ".ttf", ".webm", ".webp", ".woff", ".woff2",
+]);
+
+export function checkoutSafetyFileKind(filePath) {
+  const extension = typeof filePath === "string" ? path.extname(filePath).toLowerCase() : "";
+  if (RUNTIME_TEXT_EXTENSIONS.has(extension)) return "text";
+  if (RUNTIME_BINARY_EXTENSIONS.has(extension)) return "binary";
+  return null;
+}
+
 export const FORBIDDEN_CHECKOUT_PRIMITIVES = Object.freeze([
   Object.freeze({
     category: "accelerated checkout payment_button",

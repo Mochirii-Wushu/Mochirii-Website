@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
@@ -9,6 +10,7 @@ import {
   ACTIVE_SOURCE_MANIFEST_SCHEMA_PATH,
   HISTORICAL_MIGRATION_MANIFEST_PATH,
   refreshActiveSourceManifest,
+  resolveContainedManifestPath,
   sha256Bytes,
   validateActiveSourceManifest,
 } from "./lib/active-source-manifest.mjs";
@@ -41,6 +43,33 @@ test("active-source hash and path drift fail closed", () => {
   weakenedSchema.properties.authority.properties.publicationAuthorized = { type: "boolean" };
   assert.ok(validateActiveSourceManifest(readJson(ACTIVE_SOURCE_MANIFEST_PATH), weakenedSchema, appRoot, repoRoot)
     .some((issue) => issue.includes("schema identity or root contract")));
+});
+
+test("active-source paths reject file and directory symlinks", (t) => {
+  const temporaryRoot = mkdtempSync(path.join(os.tmpdir(), "mochirii-active-source-"));
+  t.after(() => rmSync(temporaryRoot, { recursive: true, force: true }));
+  const repository = path.join(temporaryRoot, "repository");
+  const outside = path.join(temporaryRoot, "outside");
+  mkdirSync(repository);
+  mkdirSync(outside);
+  const regularFile = path.join(repository, "regular.txt");
+  const outsideFile = path.join(outside, "outside.txt");
+  writeFileSync(regularFile, "inside");
+  writeFileSync(outsideFile, "outside");
+  assert.equal(resolveContainedManifestPath(repository, regularFile, "file"), regularFile);
+  assert.throws(() => resolveContainedManifestPath(repository, regularFile, "socket"), /file or directory/u);
+
+  try {
+    const fileLink = path.join(repository, "file-link.txt");
+    const directoryLink = path.join(repository, "directory-link");
+    symlinkSync(outsideFile, fileLink, "file");
+    symlinkSync(outside, directoryLink, "junction");
+    assert.throws(() => resolveContainedManifestPath(repository, fileLink, "file"), /symbolic links/u);
+    assert.throws(() => resolveContainedManifestPath(repository, directoryLink, "directory"), /symbolic links/u);
+  } catch (error) {
+    if (error?.code === "EPERM") t.skip("The current Windows policy does not permit creating test symlinks.");
+    else throw error;
+  }
 });
 
 test("the migration manifest is byte-sealed and its former generator refuses writes", () => {
