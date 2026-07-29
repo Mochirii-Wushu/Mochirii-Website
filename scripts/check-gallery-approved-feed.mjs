@@ -60,9 +60,9 @@ const deliveryContract = read("docs/integrations/gallery-public-media-delivery.m
 const functionBlocks = [...supabaseConfig.matchAll(/\[functions\.([^\]]+)\]([\s\S]*?)(?=\n\[functions\.|\s*$)/g)];
 const verifyJwtFalse = functionBlocks.filter(([, , body]) => /verify_jwt\s*=\s*false/.test(body));
 const verifyJwtTrue = functionBlocks.filter(([, , body]) => /verify_jwt\s*=\s*true/.test(body));
-assert(functionBlocks.length === 33, `Supabase function inventory: expected 33, found ${functionBlocks.length}.`);
+assert(functionBlocks.length === 34, `Supabase function inventory: expected 34, found ${functionBlocks.length}.`);
 assert(verifyJwtTrue.length === 20, `Supabase function inventory: expected 20 verify_jwt=true, found ${verifyJwtTrue.length}.`);
-assert(verifyJwtFalse.length === 13, `Supabase function inventory: expected 13 verify_jwt=false, found ${verifyJwtFalse.length}.`);
+assert(verifyJwtFalse.length === 14, `Supabase function inventory: expected 14 verify_jwt=false, found ${verifyJwtFalse.length}.`);
 const approvedFeedConfig = functionBlocks.find(([, name]) => name === "list-approved-gallery-submissions");
 assert(Boolean(approvedFeedConfig), "Supabase function inventory: list-approved-gallery-submissions is not configured.");
 assert(
@@ -88,6 +88,7 @@ assert(
 ].forEach((snippet) => assertIncludes("full repository check", checkAll, snippet));
 
 [
+  '"get-current-raffle"',
   '"list-approved-gallery-submissions"',
   '"list-gallery-review-queue"',
   '"moderate-gallery-submission"',
@@ -104,6 +105,7 @@ const committedLockFunctions = committedLockMatch
   ? [...committedLockMatch[1].matchAll(/"([^"]+)"/g)].map((match) => match[1]).sort()
   : [];
 const expectedCommittedLockFunctions = [
+  "get-current-raffle",
   "list-approved-gallery-submissions",
   "list-gallery-review-queue",
   "moderate-gallery-submission",
@@ -693,4 +695,6 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log("Gallery approved feed validation OK (schema v2; 33 functions; JWT 20/13).");
+console.log(
+  `Gallery approved feed validation OK (schema v2; ${functionBlocks.length} functions; JWT ${verifyJwtTrue.length}/${verifyJwtFalse.length}).`,
+);

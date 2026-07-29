@@ -44,6 +44,7 @@ const functions = [
   "sync-pixelfed-social-account",
 ];
 const committedLockFunctions = [
+  "get-current-raffle",
   "list-approved-gallery-submissions",
   "list-gallery-review-queue",
   "moderate-gallery-submission",
