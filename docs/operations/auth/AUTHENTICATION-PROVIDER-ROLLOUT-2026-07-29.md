@@ -49,4 +49,3 @@ configuration is missing. Dormant code is not activation authorization.
 - [Supabase Social Login](https://supabase.com/docs/guides/auth/social-login)
 - [Supabase identity linking](https://supabase.com/docs/guides/auth/auth-identity-linking)
 - [Supabase Auth rate limits](https://supabase.com/docs/guides/auth/rate-limits)
-

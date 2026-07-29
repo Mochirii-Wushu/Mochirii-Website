@@ -97,4 +97,3 @@ snapshot.
 - Rollback state: `UNPROVEN`
 - Remaining blockers/risks: `TBD`
 - Next approved action: `NONE`
-

@@ -25,4 +25,3 @@ server-side guild verification, and a separate exact provider/release packet.
 - [Meta Instagram Platform](https://developers.facebook.com/docs/instagram-platform/)
 - [Instagram API with Instagram Login](https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/)
 - [Supabase supported social-login providers](https://supabase.com/docs/guides/auth/social-login)
-

@@ -38,4 +38,3 @@ that cannot be proven from current provider documentation/readback.
 - [Spotify quota modes](https://developer.spotify.com/documentation/web-api/concepts/quota-modes)
 - [Spotify February 2026 development-mode migration guide](https://developer.spotify.com/documentation/web-api/tutorials/february-2026-migration-guide)
 - [Spotify July 2026 quota update](https://developer.spotify.com/blog/2026-07-23-web-api-quota-updates)
-

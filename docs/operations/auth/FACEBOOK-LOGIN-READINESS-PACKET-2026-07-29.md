@@ -38,4 +38,3 @@ is not verified; or if identity continuity cannot be proven without mutation.
 
 - [Supabase Login with Facebook](https://supabase.com/docs/guides/auth/social-login/auth-facebook)
 - [Supabase identity linking](https://supabase.com/docs/guides/auth/auth-identity-linking)
-

@@ -267,6 +267,10 @@ for (const [index, contract] of (registry.contracts ?? []).entries()) {
   const hasCrossRepositoryFixture = contract.artifacts.some((artifact) => artifact.kind === "fixture");
   const hasProducerTest = hasCoverage(contract.tests, "producer");
   const hasConsumerTest = hasCoverage(contract.tests, "consumer");
+  const hasProducerCompatibilityTest = contract.status === "versioned" &&
+    hasConcreteArtifact && hasProducerTest;
+  const hasConsumerCompatibilityTest = contract.status === "versioned" &&
+    hasConcreteArtifact && hasConsumerTest;
 
   if (contract.status === "unversioned") {
     if (contract.version !== null) fail(`${contract.id} is unversioned and must use version: null.`);
@@ -283,11 +287,37 @@ for (const [index, contract] of (registry.contracts ?? []).entries()) {
   if (hasConcreteArtifact) rejectStaleGap(contract, "concrete_artifact", "a concrete artifact is referenced");
   else requireGap(contract, "concrete_artifact", "no schema, interface, or manifest is referenced");
 
-  if (hasProducerTest) rejectStaleGap(contract, "producer_compatibility_test", "producer coverage is referenced");
-  else requireGap(contract, "producer_compatibility_test", "no producer compatibility test is referenced");
+  if (hasProducerCompatibilityTest) {
+    rejectStaleGap(
+      contract,
+      "producer_compatibility_test",
+      "versioned producer compatibility coverage is referenced",
+    );
+  } else {
+    requireGap(
+      contract,
+      "producer_compatibility_test",
+      hasProducerTest
+        ? "producer coverage is only partial evidence for an unversioned contract"
+        : "no producer compatibility test is referenced",
+    );
+  }
 
-  if (hasConsumerTest) rejectStaleGap(contract, "consumer_compatibility_test", "consumer coverage is referenced");
-  else requireGap(contract, "consumer_compatibility_test", "no consumer compatibility test is referenced");
+  if (hasConsumerCompatibilityTest) {
+    rejectStaleGap(
+      contract,
+      "consumer_compatibility_test",
+      "versioned consumer compatibility coverage is referenced",
+    );
+  } else {
+    requireGap(
+      contract,
+      "consumer_compatibility_test",
+      hasConsumerTest
+        ? "consumer coverage is only partial evidence for an unversioned contract"
+        : "no consumer compatibility test is referenced",
+    );
+  }
 
   if (hasCrossRepositoryFixture) rejectStaleGap(contract, "cross_repository_fixture", "a fixture is referenced");
   else requireGap(contract, "cross_repository_fixture", "no cross-repository fixture is referenced");

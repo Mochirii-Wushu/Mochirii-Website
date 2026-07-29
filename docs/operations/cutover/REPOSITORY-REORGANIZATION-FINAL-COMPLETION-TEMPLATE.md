@@ -159,4 +159,3 @@ record.
 Final decision: `INCOMPLETE` / `COMPLETE`
 
 Next approved action: `NONE`
-

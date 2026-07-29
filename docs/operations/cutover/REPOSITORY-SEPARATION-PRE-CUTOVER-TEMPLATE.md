@@ -117,4 +117,3 @@ backup/restore, secret, public-copy, test, cost, rollback, or exact-head blocker
 Final decision: `BLOCKED` / `APPROVED_FOR_EXACT_SCOPE` / `CANCELLED`
 
 Approved exact next action: `NONE`
-
