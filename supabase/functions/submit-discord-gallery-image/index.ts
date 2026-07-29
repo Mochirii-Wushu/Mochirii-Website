@@ -6,7 +6,7 @@ import { validateGallerySourceBytes } from "../_shared/gallery-source-image.ts";
 import {
   constantTimeSecretEquals,
   downloadAllowlistedAttachment,
-  GalleryDiscordIngestError,
+  galleryDiscordIngestErrorCode,
   readBoundedJsonRecord,
 } from "../_shared/gallery-discord-ingest.ts";
 
@@ -390,12 +390,12 @@ async function handleRequest(req: Request): Promise<Response> {
       },
     });
   } catch (error) {
+    const errorCode = galleryDiscordIngestErrorCode(error);
     console.error("submit-discord-gallery-image attachment fetch failed", {
-      message: error instanceof Error ? error.message : String(error),
+      code: errorCode,
     });
 
-    const tooLarge = error instanceof GalleryDiscordIngestError &&
-      error.code === "attachment_too_large";
+    const tooLarge = errorCode === "attachment_too_large";
     return jsonResponse(
       {
         ok: false,
