@@ -818,6 +818,124 @@ async function assertGalleryPerformanceEnvelope(page, label, expectedAssetUrls) 
   assert(metrics.transferBytes < 2 * 1024 * 1024, `${label}: initial thumbnail transfer reached 2 MiB.`);
 }
 
+async function assertNarrowGalleryControlGeometry(page, label) {
+  const geometry = await page.evaluate(() => {
+    const toolbar = document.querySelector(".gallery-toolbar");
+    const controls = document.querySelector(".gallery-controls");
+    const filters = document.querySelector(".gallery-filters");
+    const orders = [...document.querySelectorAll(".gallery-order")];
+    const fields = [...document.querySelectorAll(".gallery-order__select")];
+    const copyLink = document.querySelector("#galleryCopyLink");
+
+    if (
+      !(toolbar instanceof HTMLElement)
+      || !(controls instanceof HTMLElement)
+      || !(filters instanceof HTMLElement)
+      || !(copyLink instanceof HTMLElement)
+      || orders.length !== 2
+      || fields.length !== 2
+      || orders.some((element) => !(element instanceof HTMLElement))
+      || fields.some((element) => !(element instanceof HTMLElement))
+    ) return null;
+
+    const bounds = (element, name) => {
+      const rect = element.getBoundingClientRect();
+      return {
+        name,
+        left: rect.left,
+        right: rect.right,
+        top: rect.top,
+        bottom: rect.bottom,
+        width: rect.width,
+        height: rect.height,
+        scrollWidth: element.scrollWidth,
+        clientWidth: element.clientWidth,
+      };
+    };
+
+    const toolbarRect = toolbar.getBoundingClientRect();
+    const toolbarStyle = getComputedStyle(toolbar);
+
+    return {
+      viewportWidth: window.innerWidth,
+      rootFontSize: Number.parseFloat(getComputedStyle(document.documentElement).fontSize),
+      contentLeft: toolbarRect.left + Number.parseFloat(toolbarStyle.paddingLeft),
+      contentRight: toolbarRect.right - Number.parseFloat(toolbarStyle.paddingRight),
+      controls: bounds(controls, "controls"),
+      filters: bounds(filters, "filters"),
+      orders: orders.map((element, index) => bounds(element, `order ${index + 1}`)),
+      fields: fields.map((element, index) => bounds(element, `field ${index + 1}`)),
+      copyLink: bounds(copyLink, "Copy link"),
+    };
+  });
+
+  assert(geometry, `${label}: required Gallery controls were missing.`);
+  assert(Math.abs(geometry.viewportWidth - 320) <= 1, `${label}: viewport was not 320 CSS pixels.`);
+  assert(geometry.rootFontSize >= 31, `${label}: 200% text sizing was not applied.`);
+
+  const tolerance = 2;
+  const all = [
+    geometry.controls,
+    geometry.filters,
+    ...geometry.orders,
+    ...geometry.fields,
+    geometry.copyLink,
+  ];
+  const fullWidth = [
+    geometry.filters,
+    ...geometry.orders,
+    ...geometry.fields,
+    geometry.copyLink,
+  ];
+  const overflowSafe = [
+    geometry.controls,
+    geometry.filters,
+    ...geometry.orders,
+    geometry.copyLink,
+  ];
+
+  assert(
+    Math.abs(geometry.controls.left - geometry.contentLeft) <= tolerance
+      && Math.abs(geometry.controls.right - geometry.contentRight) <= tolerance,
+    `${label}: Gallery controls did not fill the usable toolbar width.`,
+  );
+
+  for (const item of all) {
+    assert(item.width > 0 && item.height > 0, `${label}: ${item.name} collapsed.`);
+    assert(
+      item.left >= -tolerance && item.right <= geometry.viewportWidth + tolerance,
+      `${label}: ${item.name} escaped the viewport.`,
+    );
+  }
+
+  for (const item of overflowSafe) {
+    assert(
+      item.scrollWidth <= item.clientWidth + 1,
+      `${label}: ${item.name} overflowed internally (${item.scrollWidth}px > ${item.clientWidth}px).`,
+    );
+  }
+
+  for (const item of fullWidth) {
+    assert(
+      Math.abs(item.left - geometry.controls.left) <= tolerance
+        && Math.abs(item.right - geometry.controls.right) <= tolerance,
+      `${label}: ${item.name} did not reflow to the available width.`,
+    );
+  }
+
+  for (const item of [...geometry.fields, geometry.copyLink]) {
+    assert(item.height >= 44, `${label}: ${item.name} was smaller than 44px.`);
+  }
+
+  const stack = [geometry.filters, ...geometry.orders, geometry.copyLink];
+  for (let index = 1; index < stack.length; index += 1) {
+    assert(
+      stack[index].top >= stack[index - 1].bottom - tolerance,
+      `${label}: ${stack[index].name} overlapped ${stack[index - 1].name}.`,
+    );
+  }
+}
+
 async function waitForHomeGallery(page) {
   let previousSignature = "";
   let stablePolls = 0;
@@ -1116,6 +1234,7 @@ try {
         await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1),
         "Gallery overflowed horizontally at 320px and 200% text.",
       );
+      await assertNarrowGalleryControlGeometry(page, "320px and 200% Gallery");
       const card = await page.locator("#galleryGrid .gallery-thumb").boundingBox();
       assert(card && card.x >= -1 && card.x + card.width <= 321, "Gallery card escaped the 320px viewport.");
       await page.click("#galleryGrid .gallery-thumb");
