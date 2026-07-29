@@ -53,6 +53,29 @@ test("route groups above or between private segments cannot bypass operation dis
   }
 });
 
+test("parallel slots above or between private segments cannot bypass operation discovery", () => {
+  const root = fixture();
+  try {
+    const slotAbove = path.join(root, "app", "@member", "raffle", "claim");
+    const slotBetweenSegments = path.join(root, "app", "leader-dashboard", "@private", "raffle");
+    const slotInsideClaim = path.join(root, "app", "raffle", "@member", "claim");
+    fs.mkdirSync(slotAbove, { recursive: true });
+    fs.mkdirSync(slotBetweenSegments, { recursive: true });
+    fs.mkdirSync(slotInsideClaim, { recursive: true });
+    fs.writeFileSync(path.join(slotAbove, "actions.ts"), '"use server";\nexport async function claim() {}\n');
+    fs.writeFileSync(path.join(slotBetweenSegments, "route.ts"), "export async function POST() {}\n");
+    fs.writeFileSync(path.join(slotInsideClaim, "inline.ts"), 'export async function claimInline() {\n  "use server";\n}\n');
+
+    assert.deepEqual(discoverPrivateRaffleOperations(root), [
+      "app/@member/raffle/claim/actions.ts",
+      "app/leader-dashboard/@private/raffle/route.ts",
+      "app/raffle/@member/claim/inline.ts",
+    ]);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("test files and ordinary Server Components never become operation evidence", () => {
   const root = fixture();
   try {
