@@ -29,23 +29,19 @@ const files = {
   sideStyles: "apps/web/app/styles/public-side-pages.css",
 };
 
-const forbiddenOperationalSurfaces = [
+// The public contract owns only the inactive, provider-neutral experience. The
+// reviewed private foundation is validated separately by
+// check-raffle-disabled-foundation.mjs and is therefore allowed to coexist in
+// this branch without becoming reachable from the public route.
+const forbiddenLegacySurfaces = [
   "apps/web/app/raffle/rules/page.tsx",
   "apps/web/app/raffle/rules/[version]/page.tsx",
-  "apps/web/app/raffle/claim",
-  "apps/web/app/leader-dashboard/raffle",
   "apps/web/app/raffles/page.tsx",
   "apps/web/components/prize-draw",
   "apps/web/lib/prize-draw.ts",
   "apps/web/lib/prize-draw-rules.ts",
   "apps/web/lib/supabase/prize-draw.ts",
   "supabase/migrations/20260719130111_monthly_prize_draw.sql",
-  "supabase/functions/manage-raffle-entry",
-  "supabase/functions/manage-raffle-claim",
-  "supabase/functions/moderate-raffle",
-  "supabase/functions/run-raffle-fulfillment",
-  "supabase/functions/run-raffle-schedule",
-  "supabase/functions/reward-provider-webhook",
   "scripts/register-reaper-raffle-commands.mjs",
   "scripts/check-reaper-raffle-commands.mjs",
 ];
@@ -54,8 +50,8 @@ for (const [label, file] of Object.entries(files)) {
   if (!existsSync(resolve(root, file))) failures.push(`${label}: required file is missing: ${file}`);
 }
 
-for (const file of forbiddenOperationalSurfaces) {
-  if (existsSync(resolve(root, file))) failures.push(`${file}: operational raffle surface must stay outside the public-page track`);
+for (const file of forbiddenLegacySurfaces) {
+  if (existsSync(resolve(root, file))) failures.push(`${file}: retired or duplicate raffle surface must remain absent`);
 }
 
 const rewardRelaySourceExists = existsSync(resolve(root, "services/reward-relay"));
@@ -161,6 +157,9 @@ for (const [label, pattern] of [
   ["provider or platform name", /\b(?:Tremendous|Supabase|Vercel|Discord|DigitalOcean|Fly\.io|Shopify|Stripe)\b/i],
   ["internal system language", /\b(?:backend|integration|provider|migration|webhook|relay|database|JWT|service role|Edge Function)\b/i],
   ["unfinished implementation language", /\b(?:coming soon|TBD|work in progress|not implemented|blocked|prelaunch)\b/i],
+  ["private claim route", /["'`]\/raffle\/claim(?:[/?#"'`]|$)/i],
+  ["private leader route", /["'`]\/leader-dashboard\/raffle(?:[/?#"'`]|$)/i],
+  ["private raffle function", /\b(?:manage-raffle-entry|manage-raffle-claim|moderate-raffle|run-raffle-schedule|run-raffle-fulfillment|reward-provider-webhook)\b/i],
 ]) {
   if (pattern.test(publicSource)) failures.push(`public raffle source: ${label} is forbidden`);
 }

@@ -85,7 +85,7 @@
     "check:private-spinner": "node scripts/check-private-spinner.mjs",
     "check:live-spinner-backend": "node scripts/check-live-spinner-backend.mjs",
     "check:raffle-public": "node scripts/check-raffle-closed-state.mjs",
-    "check:raffle-closed-state": "node scripts/check-raffle-closed-state.mjs",
+    "check:raffle-disabled-foundation": "node scripts/check-raffle-disabled-foundation.mjs",
     "check:reward-relay": "node scripts/check-reward-relay.mjs",
     "test:raffle-public": "node --experimental-default-type=module --experimental-strip-types --test apps/web/lib/raffle/public-view_test.ts",
     "test:raffle-latest-winner": "node --experimental-default-type=module --experimental-strip-types --test apps/web/lib/raffle/latest-winner-core.test.mts",
