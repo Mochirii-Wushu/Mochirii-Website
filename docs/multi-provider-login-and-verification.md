@@ -34,8 +34,39 @@ Deferred Phone readiness was captured in PR #300, <https://github.com/Mochirii-W
   - `NEXT_PUBLIC_AUTH_PROVIDER_PLACEHOLDER_IDS=`
   - `NEXT_PUBLIC_PHONE_AUTH_READY=false`
   - `NEXT_PUBLIC_AUTH_CAPTCHA_ENABLED=false`
+  - `NEXT_PUBLIC_AUTH_CAPTCHA_PROVIDER=`
+  - `NEXT_PUBLIC_AUTH_CAPTCHA_SITE_KEY=`
 - OAuth client secrets stay only in Supabase Auth provider settings.
 - Phone stays disabled unless SMS provider, CAPTCHA, Auth rate limits, country/cost expectations, and abuse handling are configured in a separate lane.
+
+## Phone OTP Activation Gate
+
+Phone remains absent from the public provider allowlist and disabled in
+Supabase Auth. The source is activation-ready but intentionally fails closed:
+
+- a phone send is rejected unless Supabase public configuration, the explicit
+  phone readiness flag, CAPTCHA enforcement flag, `turnstile` provider name,
+  and a non-empty public site key are all present;
+- every send requires a fresh CAPTCHA token, passes it directly to Supabase
+  Auth, resets the challenge after the request, and never writes the token to
+  browser storage or a generated hidden form field;
+- OTP requests cannot create a new account (`shouldCreateUser` is always
+  false), so member account creation remains on the reviewed identity lanes;
+- the browser enforces a 60-second session-scoped resend cooldown without
+  storing the phone number, while Supabase Auth remains the authoritative
+  project-wide and per-recipient rate-limit boundary;
+- the CAPTCHA secret belongs only in Supabase Auth Bot and Abuse Protection;
+  Vercel receives only the public site key and public readiness fields;
+- CSP narrowly permits the CAPTCHA script and frame origin, but the script is
+  never requested unless every phone readiness input is complete and Phone is
+  explicitly present in the provider allowlist.
+
+Before a later activation packet may add `phone` to the public allowlist, it
+must verify the SMS provider and sender, exact supported-country and cost
+policy, Supabase CAPTCHA enforcement, the OTP and SMS rate limits, budget/abuse
+alerts, moderator review operations, accessibility, and rollback. Enabling any
+dashboard/provider setting or Vercel environment value remains a separate
+owner-approved provider mutation.
 
 ## Provider Notes
 

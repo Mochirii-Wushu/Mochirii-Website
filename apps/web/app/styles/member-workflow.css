@@ -373,6 +373,30 @@ body[data-page="gallery-submit"] .muted{
   background:rgba(0,0,0,.14);
 }
 
+.phone-auth-panel__code-flow,
+.phone-captcha{
+  min-width:0;
+  display:grid;
+  gap:12px;
+}
+
+.phone-auth-panel__resend{
+  padding-top:14px;
+  border-top:1px solid rgba(220,235,255,.12);
+}
+
+.phone-captcha__widget{
+  width:150px;
+  max-width:100%;
+  min-height:140px;
+  overflow:hidden;
+}
+
+.phone-captcha__widget iframe{
+  display:block;
+  max-width:100%;
+}
+
 .identity-item{
   min-width:0;
   display:grid;

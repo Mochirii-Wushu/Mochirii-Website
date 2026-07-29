@@ -1,5 +1,10 @@
 import type { Provider } from "@supabase/supabase-js";
-import { NEXT_PUBLIC_AUTH_PROVIDER_IDS, NEXT_PUBLIC_AUTH_PROVIDER_PLACEHOLDER_IDS } from "./config";
+import {
+  NEXT_PUBLIC_AUTH_PROVIDER_IDS,
+  NEXT_PUBLIC_AUTH_PROVIDER_PLACEHOLDER_IDS,
+  isSupabaseConfigured,
+} from "./config";
+import { phoneAuthConfigurationReady } from "./phone-auth-policy";
 
 export const AUTH_PROVIDER_IDS = [
   "discord",
@@ -54,7 +59,7 @@ export const AUTH_PROVIDER_REGISTRY: Record<AuthProviderId, AuthProviderConfig> 
     kind: "phone",
     approvalRequired: true,
     automaticVerification: false,
-    setupNote: "Phone proves SMS control only and stays gated behind CAPTCHA, rate limits, and moderator review.",
+    setupNote: "Phone sign-in confirms access to this number; guild access still requires member verification.",
   },
   apple: {
     id: "apple",
@@ -148,10 +153,13 @@ export function providerToSupabaseProvider(provider: OAuthProviderId): Provider 
 }
 
 export function phoneAuthReady() {
-  return (
-    process.env.NEXT_PUBLIC_PHONE_AUTH_READY === "true" &&
-    process.env.NEXT_PUBLIC_AUTH_CAPTCHA_ENABLED === "true"
-  );
+  return phoneAuthConfigurationReady({
+    phoneAuthReady: process.env.NEXT_PUBLIC_PHONE_AUTH_READY === "true",
+    captchaEnabled: process.env.NEXT_PUBLIC_AUTH_CAPTCHA_ENABLED === "true",
+    captchaProvider: process.env.NEXT_PUBLIC_AUTH_CAPTCHA_PROVIDER || "",
+    captchaSiteKey: process.env.NEXT_PUBLIC_AUTH_CAPTCHA_SITE_KEY || "",
+    supabaseConfigured: isSupabaseConfigured(),
+  });
 }
 
 export function enabledAuthProviders() {
