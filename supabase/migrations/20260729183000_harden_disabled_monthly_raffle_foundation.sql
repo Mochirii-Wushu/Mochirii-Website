@@ -67,6 +67,22 @@ alter table public.raffle_cycles
   on update restrict
   on delete restrict;
 
+-- Cover every new or previously unindexed raffle foreign key so parent-row
+-- maintenance and service-side joins never require a full child-table scan.
+create index raffle_cycles_rules_snapshot_idx
+  on public.raffle_cycles (
+    rules_version,
+    rules_version_url,
+    rules_content_hash
+  )
+  where rules_content_hash is not null;
+
+create index raffle_rule_snapshots_reviewed_by_idx
+  on public.raffle_rule_snapshots (reviewed_by);
+
+create index raffle_fulfillment_jobs_result_cycle_idx
+  on public.raffle_fulfillment_jobs (draw_result_id, cycle_id);
+
 create or replace function public.archive_raffle_rules_snapshot(
   p_rules_version text,
   p_canonical_rules jsonb,

@@ -219,6 +219,9 @@ function checkRaffleHardening() {
   );
   for (const snippet of [
     "create table public.raffle_rule_snapshots",
+    "create index raffle_cycles_rules_snapshot_idx",
+    "create index raffle_rule_snapshots_reviewed_by_idx",
+    "create index raffle_fulfillment_jobs_result_cycle_idx",
     "canonical_rules jsonb not null",
     "source_commit_sha text not null",
     "raffle_rule_snapshot_is_immutable",

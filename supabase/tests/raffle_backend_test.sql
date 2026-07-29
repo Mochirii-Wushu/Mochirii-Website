@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions, pg_catalog;
 
-select plan(96);
+select plan(99);
 
 -- Every prize-draw relation is service-owned. Browser and authenticated JWT
 -- roles must use the narrow Edge Function contracts instead of direct SQL.
@@ -213,6 +213,30 @@ select ok(
     and not has_table_privilege('service_role', 'public.raffle_rule_snapshots', 'UPDATE')
     and not has_table_privilege('service_role', 'public.raffle_rule_snapshots', 'DELETE'),
   'service_role can read archived rules but can write them only through the reviewed RPC'
+);
+
+select has_index(
+  'public',
+  'raffle_cycles',
+  'raffle_cycles_rules_snapshot_idx',
+  array['rules_version', 'rules_version_url', 'rules_content_hash'],
+  'cycle-to-rules snapshot lookups use the covering foreign-key index'
+);
+
+select has_index(
+  'public',
+  'raffle_rule_snapshots',
+  'raffle_rule_snapshots_reviewed_by_idx',
+  array['reviewed_by'],
+  'rules snapshot reviewer references use a covering index'
+);
+
+select has_index(
+  'public',
+  'raffle_fulfillment_jobs',
+  'raffle_fulfillment_jobs_result_cycle_idx',
+  array['draw_result_id', 'cycle_id'],
+  'fulfillment result-cycle references use a covering index'
 );
 
 select ok(
