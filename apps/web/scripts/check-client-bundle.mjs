@@ -18,6 +18,8 @@ const publicRoutes = [
   "/games/mochi-pets",
   "/join",
   "/leaders",
+  "/meta-data-deletion",
+  "/privacy",
   "/raffle",
   "/raffle/rules",
   "/raffle/rules/[version]",

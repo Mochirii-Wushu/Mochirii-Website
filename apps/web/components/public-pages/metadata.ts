@@ -16,7 +16,9 @@ type PageKey =
   | "spotify"
   | "recruitment"
   | "twills"
-  | "mochiPets";
+  | "mochiPets"
+  | "privacy"
+  | "metaDataDeletion";
 
 const pageMeta: Record<
   PageKey,
@@ -124,6 +126,20 @@ const pageMeta: Record<
       "A shared 3D Mōchirīī guild home beyond the Jianghu, bringing members together with a Mochi companion of their own across iPhone and desktop.",
     path: "/games/mochi-pets",
     image: "/assets/img/mochi-pets/gate-arrival.webp",
+  },
+  privacy: {
+    title: "Privacy • Mōchirīī",
+    description:
+      "How Mōchirīī handles member accounts, Discord verification, Gallery uploads, moderation, and optional Facebook and Instagram publishing.",
+    path: "/privacy",
+    image: "/assets/img/hero/hero.webp",
+  },
+  metaDataDeletion: {
+    title: "Meta Data Deletion • Mōchirīī",
+    description:
+      "How to request deletion of data associated with Mōchirīī member accounts, Gallery submissions, and Facebook or Instagram publishing.",
+    path: "/meta-data-deletion",
+    image: "/assets/img/hero/hero.webp",
   },
 };
 

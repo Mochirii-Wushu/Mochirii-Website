@@ -18,6 +18,8 @@ const cleanRoutes = [
   "/spotify",
   "/recruitment",
   "/twills",
+  "/privacy",
+  "/meta-data-deletion",
   "/auth",
   "/account",
   "/gallery-submit",
@@ -52,6 +54,8 @@ const legacyRedirects = new Map([
 ]);
 
 const bodyChecks = new Map([
+  ["/privacy", /Mōchirīī Privacy Notice|Destination-specific consent/i],
+  ["/meta-data-deletion", /Meta Data Deletion Instructions|Mochirii data deletion request/i],
   ["/auth", /Mochirii Login|Sign-in connects your website account|Website Sign-In/i],
   ["/account", /Choose a Sign-In Method|Sign In Required/i],
   ["/gallery-submit", /Login Required|Access Check/i],

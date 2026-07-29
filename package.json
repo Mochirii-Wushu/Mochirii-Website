@@ -58,6 +58,7 @@
     "check:header-auth-loading": "node scripts/check-header-auth-loading.mjs",
     "check:events-page-schedule-sync": "node scripts/check-events-page-schedule-sync.mjs",
     "check:instagram-gallery-publishing": "node scripts/check-instagram-gallery-publishing.mjs",
+    "check:meta-public-readiness": "node scripts/check-meta-public-readiness.mjs",
     "check:js": "node scripts/check-js.mjs",
     "check:json": "node scripts/check-json.mjs",
     "check:live-member-cleanup-note": "node scripts/check-live-member-cleanup-note.mjs",

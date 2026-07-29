@@ -39,6 +39,7 @@ const checks = [
   ["test:reaper-pending-verification", ["deno", "test", "--lock=deno.lock", "--frozen=true", "supabase/functions/_shared/pending-verification-containment_test.ts"]],
   ["check:vote-reminder", ["node", "scripts/check-vote-reminder.mjs"]],
   ["check:instagram-gallery-publishing", ["node", "scripts/check-instagram-gallery-publishing.mjs"]],
+  ["check:meta-public-readiness", ["node", "scripts/check-meta-public-readiness.mjs"]],
   ["check:member-profiles-and-ranks", ["node", "scripts/check-member-profiles-and-ranks.mjs"]],
   ["check:member-social-links", ["node", "scripts/check-member-social-links.mjs"]],
   ["test:member-social-links", ["node", "--experimental-default-type=module", "--experimental-strip-types", "--test", "apps/web/lib/member-social-links/profile-links-core.test.mts"]],

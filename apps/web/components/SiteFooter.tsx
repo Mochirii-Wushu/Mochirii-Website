@@ -138,6 +138,11 @@ export function SiteFooter({
             <span className="dot" aria-hidden="true">•</span>
             <span className="footer-dim">Where Winds Meet</span>
           </div>
+          <nav className="footer-legal" aria-label="Privacy and support">
+            <Link href="/privacy">Privacy</Link>
+            <Link href="/meta-data-deletion">Data Deletion</Link>
+            <a href="mailto:support@mochirii.com">support@mochirii.com</a>
+          </nav>
         </div>
       </div>
     </footer>

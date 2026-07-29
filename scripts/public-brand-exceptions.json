@@ -38,5 +38,10 @@
     "path": "apps/web/lib/spinner/replay/renderer.ts",
     "fragment": "Mochirii Emoji",
     "reason": "Stable internal canvas font-family identifier."
+  },
+  {
+    "path": "apps/web/components/public-pages/route-pages/MetaDataDeletionPage.tsx",
+    "fragment": "Mochirii data deletion request",
+    "reason": "Stable support-request email subject documented for Meta deletion instructions."
   }
 ]

@@ -32,6 +32,8 @@ const pageUrls = [
   "/recruitment",
   "/join",
   "/events",
+  "/privacy",
+  "/meta-data-deletion",
   "/robots.txt",
   "/sitemap.xml",
 ];
@@ -169,12 +171,30 @@ async function checkMetadata() {
     new RegExp(`<link\\s+rel="canonical"\\s+href="${escapeRegExp(BASE_URL)}/recruitment"`, "i"),
     "recruitment canonical"
   );
+
+  const privacy = await fetchText("/privacy");
+  assertIncludes(privacy.text, /Mōchirīī Privacy Notice/i, "privacy page content");
+  assertIncludes(
+    privacy.text,
+    new RegExp(`<link\\s+rel="canonical"\\s+href="${escapeRegExp(BASE_URL)}/privacy"`, "i"),
+    "privacy canonical"
+  );
+
+  const deletion = await fetchText("/meta-data-deletion");
+  assertIncludes(deletion.text, /Meta Data Deletion Instructions/i, "Meta data deletion page content");
+  assertIncludes(
+    deletion.text,
+    new RegExp(`<link\\s+rel="canonical"\\s+href="${escapeRegExp(BASE_URL)}/meta-data-deletion"`, "i"),
+    "Meta data deletion canonical"
+  );
 }
 
 async function checkDiscoveryFiles() {
   const sitemap = await fetchText("/sitemap.xml");
   assertIncludes(sitemap.text, /<urlset[\s>]/i, "sitemap urlset");
   assertIncludes(sitemap.text, new RegExp(`${escapeRegExp(BASE_URL)}/gallery`, "i"), "gallery sitemap entry");
+  assertIncludes(sitemap.text, new RegExp(`${escapeRegExp(BASE_URL)}/privacy`, "i"), "privacy sitemap entry");
+  assertIncludes(sitemap.text, new RegExp(`${escapeRegExp(BASE_URL)}/meta-data-deletion`, "i"), "Meta data deletion sitemap entry");
 
   const robots = await fetchText("/robots.txt");
   assertIncludes(robots.text, new RegExp(`Sitemap:\\s*${escapeRegExp(BASE_URL)}/sitemap\\.xml`, "i"), "robots sitemap entry");

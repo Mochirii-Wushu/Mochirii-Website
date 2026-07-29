@@ -47,6 +47,7 @@ const routeStyles = [
   "shell-lightbox.css",
   "mochi-pets.css",
   "public-not-found.css",
+  "public-legal.css",
 ];
 
 globalStyles.forEach((style) => expectIncludes("root layout", rootLayout, style));
@@ -81,6 +82,8 @@ const routeContracts = {
   "apps/web/app/tome/page.tsx": ["public-content-shared.css", "public-ceremony.css"],
   "apps/web/app/recruitment/page.tsx": ["public-content-shared.css", "public-profiles.css"],
   "apps/web/app/twills/page.tsx": ["public-content-shared.css", "public-profiles.css"],
+  "apps/web/app/privacy/page.tsx": ["public-content-shared.css", "public-legal.css"],
+  "apps/web/app/meta-data-deletion/page.tsx": ["public-content-shared.css", "public-legal.css"],
   "apps/web/app/account/page.tsx": ["public-content-shared.css", "member-workflow.css", "member-account.css", "member-forms.css"],
   "apps/web/app/auth/page.tsx": ["public-content-shared.css", "member-workflow.css", "member-forms.css"],
   "apps/web/app/social/page.tsx": ["public-content-shared.css", "member-workflow.css"],
