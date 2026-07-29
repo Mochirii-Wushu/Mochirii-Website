@@ -219,8 +219,8 @@ if (nextConfig.includes("'unsafe-eval'")) {
 
 const verifyJwtFalseFunctions = extractVerifyJwtFalseFunctions(supabaseConfig);
 const configuredFunctions = extractConfiguredFunctions(supabaseConfig);
-if (configuredFunctions.length !== 33) {
-  failures.push(`supabase/config.toml: expected 33 configured functions, found ${configuredFunctions.length}.`);
+if (configuredFunctions.length !== 34) {
+  failures.push(`supabase/config.toml: expected 34 configured functions, found ${configuredFunctions.length}.`);
 }
 if (configuredFunctions.length - verifyJwtFalseFunctions.length !== 20) {
   failures.push(

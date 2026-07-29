@@ -148,11 +148,12 @@ destructive actions require a separately reviewed retirement packet.
 
 ## Release inventory
 
-This source reuses the existing public Gallery Edge Function. At this branch
-baseline, `supabase/config.toml` remains exactly 33 functions with 20
-`verify_jwt=true` and 13 false. Recalculate both counts from the final exact
-head before requesting production approval. A future count is not authorized
-by this packet.
+The Gallery delivery change reuses the existing public Gallery Edge Function.
+After the separately disabled monthly-raffle foundation is composed on the
+final release source, `supabase/config.toml` contains exactly 34 functions
+with 20 `verify_jwt=true` and 14 false. Recalculate both counts from the final
+exact head before requesting production approval. Any other inventory is not
+authorized by this packet.
 
 See
 [`../integrations/gallery-public-media-delivery.md`](../integrations/gallery-public-media-delivery.md)

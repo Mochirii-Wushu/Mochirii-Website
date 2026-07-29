@@ -41,8 +41,8 @@ Rules:
 ## Release and Provider Gate
 
 - Merge only after exact release approval names the reviewed head, normal Vercel publication, and the protected-main Supabase Git integration deployment.
-- Never deploy these functions manually. The existing integration redeploys the 33 functions declared in `supabase/config.toml`; post-merge readback must show every function advancing exactly once, all active, with 20 `verify_jwt=true` and 13 false.
-- Before any Discord preview, verify that Vercel production is exactly bound to the merged Website commit and that the automatic Supabase deployment and 20/13 parity readback passed.
+- Never deploy these functions manually. The existing integration redeploys the 34 functions declared in `supabase/config.toml`; post-merge readback must show every function advancing exactly once, all active, with 20 `verify_jwt=true` and 14 false.
+- Before any Discord preview, verify that Vercel production is exactly bound to the merged Website commit and that the automatic Supabase deployment and 20/14 parity readback passed.
 - The existing guild-scoped `/sync-events` command retains its `mode` (`preview` or `apply`) and `confirm` options; this schedule change does not require command re-registration.
 
 Run:

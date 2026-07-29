@@ -359,8 +359,8 @@ assert(gathering?.recurrenceRule?.by_n_weekday?.[0]?.day === 2, "Monthly gatheri
   "/sync-events mode:<preview|apply> confirm:<true|false>",
   "Preview first",
   "protected-main Supabase Git integration",
-  "33 functions declared in `supabase/config.toml`",
-  "20 `verify_jwt=true` and 13 false",
+  "34 functions declared in `supabase/config.toml`",
+  "20 `verify_jwt=true` and 14 false",
   "Do not run `apply` if preview shows duplicate creates",
   "Duplicate removal is intentionally limited to IDs listed in `discordDuplicateEventIds`.",
 ].forEach((snippet) => assertIncludes("event sync runbook", runbook, snippet));
