@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveAuthReturnPath } from "@/lib/supabase/auth-redirect";
 import { exchangeAuthCodeForCookieSession } from "@/lib/supabase/auth-callback-exchange";
+import { PRIVATE_RAFFLE_AUTH_RETURN_PATHS } from "@/lib/supabase/raffle-auth-paths";
 import { PRIVATE_RAFFLE_HEADERS } from "@/lib/supabase/raffle-response-policy";
 import { createRouteHandlerSupabaseClient } from "@/lib/supabase/server";
 
@@ -22,7 +23,10 @@ export async function GET(request: NextRequest) {
   const queryKeys = [...request.nextUrl.searchParams.keys()];
   const nextValues = request.nextUrl.searchParams.getAll("next");
   const codeValues = request.nextUrl.searchParams.getAll("code");
-  const nextPath = resolveAuthReturnPath(nextValues.length === 1 ? nextValues[0] : null);
+  const nextPath = resolveAuthReturnPath(
+    nextValues.length === 1 ? nextValues[0] : null,
+    PRIVATE_RAFFLE_AUTH_RETURN_PATHS,
+  );
   const code = String(codeValues.length === 1 ? codeValues[0] : "").trim();
   if (
     queryKeys.some((key) => key !== "code" && key !== "next") ||

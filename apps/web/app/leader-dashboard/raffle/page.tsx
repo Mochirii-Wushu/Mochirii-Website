@@ -8,6 +8,7 @@ import { notFound, redirect } from "next/navigation";
 import { BodyPageMarker } from "@/components/public-pages/BodyPageMarker";
 import { PageHero } from "@/components/public-pages/common";
 import { authLoginPath } from "@/lib/supabase/auth-redirect";
+import { PRIVATE_RAFFLE_AUTH_RETURN_PATHS } from "@/lib/supabase/raffle-auth-paths";
 import { getRaffleModeratorPageDecision } from "@/lib/supabase/server-auth";
 
 export const dynamic = "force-dynamic";
@@ -31,7 +32,7 @@ export const metadata: Metadata = {
 
 export default async function RaffleLeaderPage() {
   const decision = await getRaffleModeratorPageDecision();
-  if (decision === "redirect-auth") redirect(authLoginPath("/leader-dashboard/raffle"));
+  if (decision === "redirect-auth") redirect(authLoginPath("/leader-dashboard/raffle", PRIVATE_RAFFLE_AUTH_RETURN_PATHS));
   if (decision === "not-found") notFound();
 
   return (

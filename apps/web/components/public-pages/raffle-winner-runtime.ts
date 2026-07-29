@@ -1,4 +1,4 @@
-import { getCurrentSession, onAuthStateChange } from "@/lib/supabase/auth";
+import { getCurrentSession, onAuthStateChange } from "@/lib/supabase/auth-session";
 
 export async function readRaffleWinnerAccessToken() {
   const result = await getCurrentSession();

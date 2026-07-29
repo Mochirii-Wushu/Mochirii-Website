@@ -5,13 +5,12 @@ const SIMPLE_AUTH_RETURN_PATHS = new Set([
   "/gallery-submit",
   "/games/mochi-pets",
   "/leader-dashboard",
-  "/leader-dashboard/raffle",
-  "/raffle/claim",
   "/social",
 ]);
 
 const MAX_RETURN_PATH_LENGTH = 1_024;
 const MAX_AUTHORIZATION_ID_LENGTH = 512;
+const EMPTY_AUTH_RETURN_PATHS: ReadonlySet<string> = new Set();
 
 function safeLocalUrl(value: unknown) {
   const raw = String(value || "").trim();
@@ -48,41 +47,54 @@ function oauthConsentReturnPath(url: URL) {
   return `/oauth/consent?authorization_id=${encodeURIComponent(authorizationId)}`;
 }
 
-export function reviewedAuthReturnPath(value: unknown) {
+export function reviewedAuthReturnPath(
+  value: unknown,
+  additionalSimplePaths: ReadonlySet<string> = EMPTY_AUTH_RETURN_PATHS,
+) {
   const url = safeLocalUrl(value);
   if (!url) return null;
-  if (SIMPLE_AUTH_RETURN_PATHS.has(url.pathname) && !url.search && !url.hash) {
+  if (
+    (SIMPLE_AUTH_RETURN_PATHS.has(url.pathname) || additionalSimplePaths.has(url.pathname))
+    && !url.search
+    && !url.hash
+  ) {
     return url.pathname;
   }
   return oauthConsentReturnPath(url);
 }
 
-export function resolveAuthReturnPath(value: unknown) {
-  return reviewedAuthReturnPath(value) || DEFAULT_AUTH_RETURN_PATH;
+export function resolveAuthReturnPath(value: unknown, additionalSimplePaths?: ReadonlySet<string>) {
+  return reviewedAuthReturnPath(value, additionalSimplePaths) || DEFAULT_AUTH_RETURN_PATH;
 }
 
-export function authCallbackPath(value: unknown) {
-  return `/auth/callback?next=${encodeURIComponent(resolveAuthReturnPath(value))}`;
+export function authCallbackPath(value: unknown, additionalSimplePaths?: ReadonlySet<string>) {
+  return `/auth/callback?next=${encodeURIComponent(resolveAuthReturnPath(value, additionalSimplePaths))}`;
 }
 
-export function authLoginPath(value: unknown) {
-  return `/auth?redirect=${encodeURIComponent(resolveAuthReturnPath(value))}`;
+export function authLoginPath(value: unknown, additionalSimplePaths?: ReadonlySet<string>) {
+  return `/auth?redirect=${encodeURIComponent(resolveAuthReturnPath(value, additionalSimplePaths))}`;
 }
 
-export function freshAuthLoginPath(value: unknown) {
-  return `${authLoginPath(value)}&reauth=1`;
+export function freshAuthLoginPath(value: unknown, additionalSimplePaths?: ReadonlySet<string>) {
+  return `${authLoginPath(value, additionalSimplePaths)}&reauth=1`;
 }
 
-export function reauthLoginPathForLocation(value: unknown) {
+export function reauthLoginPathForLocation(value: unknown, additionalSimplePaths?: ReadonlySet<string>) {
   let url: URL;
   try {
     url = new URL(String(value || ""), "https://auth.mochirii.invalid");
   } catch {
-    return freshAuthLoginPath(DEFAULT_AUTH_RETURN_PATH);
+    return freshAuthLoginPath(DEFAULT_AUTH_RETURN_PATH, additionalSimplePaths);
   }
   if (url.pathname === "/auth") {
     const redirects = url.searchParams.getAll("redirect");
-    return freshAuthLoginPath(redirects.length === 1 ? redirects[0] : DEFAULT_AUTH_RETURN_PATH);
+    return freshAuthLoginPath(
+      redirects.length === 1 ? redirects[0] : DEFAULT_AUTH_RETURN_PATH,
+      additionalSimplePaths,
+    );
   }
-  return freshAuthLoginPath(reviewedAuthReturnPath(`${url.pathname}${url.search}`) || DEFAULT_AUTH_RETURN_PATH);
+  return freshAuthLoginPath(
+    reviewedAuthReturnPath(`${url.pathname}${url.search}`, additionalSimplePaths) || DEFAULT_AUTH_RETURN_PATH,
+    additionalSimplePaths,
+  );
 }

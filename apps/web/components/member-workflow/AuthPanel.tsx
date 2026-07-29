@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { ProviderLogo } from "@/components/member-workflow/ProviderLogo";
 import { enabledAuthProviders, enabledOAuthProviders, placeholderOAuthProviders, type OAuthProviderId } from "@/lib/supabase/auth-providers";
 import { getCurrentUser, onAuthStateChange, signInWithPhoneOtp, signInWithProvider, signOut, verifyPhoneOtp } from "@/lib/supabase/auth";
 import { signedInName } from "@/lib/supabase/profile";
 import { resolveAuthReturnPath } from "@/lib/supabase/auth-redirect";
+import { PRIVATE_RAFFLE_AUTH_RETURN_PATHS } from "@/lib/supabase/raffle-auth-paths";
 import type { User } from "@supabase/supabase-js";
 
 export function AuthPanel() {
@@ -25,10 +26,10 @@ export function AuthPanel() {
   const phoneProvider = providers.find((provider) => provider.id === "phone");
   const requiresFreshSignIn = searchParams.get("reauth") === "1";
   const redirectTo = useMemo(() => {
-    return resolveAuthReturnPath(searchParams.get("redirect"));
+    return resolveAuthReturnPath(searchParams.get("redirect"), PRIVATE_RAFFLE_AUTH_RETURN_PATHS);
   }, [searchParams]);
 
-  async function load() {
+  const load = useCallback(async () => {
     setBusy(true);
     setError("");
     const result = await getCurrentUser();
@@ -42,7 +43,7 @@ export function AuthPanel() {
           : "Choose a sign-in method. Gallery upload access is verified separately.",
     );
     setBusy(false);
-  }
+  }, [requiresFreshSignIn]);
 
   useEffect(() => {
     void Promise.resolve().then(() => load());
@@ -52,7 +53,7 @@ export function AuthPanel() {
     return () => {
       subscription.data?.subscription?.unsubscribe();
     };
-  }, []);
+  }, [load]);
 
   async function login(providerId: OAuthProviderId) {
     setBusy(true);

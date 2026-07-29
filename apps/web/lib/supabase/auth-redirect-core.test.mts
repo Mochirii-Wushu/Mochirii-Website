@@ -6,6 +6,7 @@ import {
   reauthLoginPathForLocation,
   resolveAuthReturnPath,
 } from "./auth-redirect.ts";
+import { PRIVATE_RAFFLE_AUTH_RETURN_PATHS } from "./raffle-auth-paths.ts";
 
 test("auth return paths are restricted to reviewed local destinations", () => {
   for (const path of [
@@ -16,7 +17,7 @@ test("auth return paths are restricted to reviewed local destinations", () => {
     "/leader-dashboard/raffle",
     "/raffle/claim",
     "/social",
-  ]) assert.equal(resolveAuthReturnPath(path), path);
+  ]) assert.equal(resolveAuthReturnPath(path, PRIVATE_RAFFLE_AUTH_RETURN_PATHS), path);
 });
 
 test("auth return paths reject external, malformed, and unreviewed destinations", () => {
@@ -25,6 +26,8 @@ test("auth return paths reject external, malformed, and unreviewed destinations"
     "//example.com/account",
     "/\\example.com",
     "/account?next=https://example.com",
+    "/leader-dashboard/raffle",
+    "/raffle/claim",
     "/unknown",
     "/%2f%2fexample.com",
     "\u0000/account",
@@ -45,9 +48,12 @@ test("OAuth consent preserves only one bounded authorization identifier", () => 
 });
 
 test("callback and login paths encode the reviewed destination", () => {
-  assert.equal(authCallbackPath("/raffle/claim"), "/auth/callback?next=%2Fraffle%2Fclaim");
   assert.equal(
-    authLoginPath("/leader-dashboard/raffle"),
+    authCallbackPath("/raffle/claim", PRIVATE_RAFFLE_AUTH_RETURN_PATHS),
+    "/auth/callback?next=%2Fraffle%2Fclaim",
+  );
+  assert.equal(
+    authLoginPath("/leader-dashboard/raffle", PRIVATE_RAFFLE_AUTH_RETURN_PATHS),
     "/auth?redirect=%2Fleader-dashboard%2Fraffle",
   );
 });
@@ -62,7 +68,10 @@ test("fresh reauthentication follows only the current reviewed auth destination"
     "/auth?redirect=%2Foauth%2Fconsent%3Fauthorization_id%3Dreviewed&reauth=1",
   );
   assert.equal(
-    reauthLoginPathForLocation("/auth?redirect=%2Fraffle%2Fclaim&error=sign_in_failed"),
+    reauthLoginPathForLocation(
+      "/auth?redirect=%2Fraffle%2Fclaim&error=sign_in_failed",
+      PRIVATE_RAFFLE_AUTH_RETURN_PATHS,
+    ),
     "/auth?redirect=%2Fraffle%2Fclaim&reauth=1",
   );
   assert.equal(

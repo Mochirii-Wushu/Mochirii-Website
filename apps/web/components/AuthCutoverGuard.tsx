@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { reauthLoginPathForLocation } from "@/lib/supabase/auth-redirect";
+import { PRIVATE_RAFFLE_AUTH_RETURN_PATHS } from "@/lib/supabase/raffle-auth-paths";
 import { getBrowserAuthCutoverResult } from "@/lib/supabase/client";
 
 export function AuthCutoverGuard() {
@@ -12,7 +13,7 @@ export function AuthCutoverGuard() {
       const reauthPath = result.status === "legacy-oauth"
         ? result.reauthPath
         : result.status === "invalid" || result.status === "reauth-required"
-          ? reauthLoginPathForLocation(window.location.href)
+          ? reauthLoginPathForLocation(window.location.href, PRIVATE_RAFFLE_AUTH_RETURN_PATHS)
           : null;
       if (!reauthPath) return;
       const destination = new URL(reauthPath, window.location.origin).href;
