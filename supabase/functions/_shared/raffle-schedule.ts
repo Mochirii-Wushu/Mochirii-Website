@@ -88,7 +88,7 @@ export function cycleWindowForDraw(
 
   if (expected.getTime() !== drawAt.getTime()) {
     throw new Error(
-      "Draw time must be the first Saturday at 9:30 PM Asia/Singapore.",
+      "Draw time must be the first Saturday at 9:30 PM (UTC+8).",
     );
   }
 
