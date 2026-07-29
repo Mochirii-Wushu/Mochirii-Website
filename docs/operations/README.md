@@ -31,6 +31,10 @@ Web or iOS artifact is connected.
 - `private-spinner.md`: role-separated live-spinner operation, privacy,
   delivery, release, and recovery boundaries.
 - `repository-ownership.md`: source and hosted ownership matrix.
+- `REPOSITORY-SEPARATION-ADR-2026-07-29.md`: proposed, non-activating repository
+  boundary decision for review.
+- `REPOSITORY-REORGANIZATION-THREAT-MODEL-2026-07-29.md`: threat model for
+  staged repository separation without adding a second shared-backend owner.
 - `history/REPOSITORY-RENAME-2026-07-28.md`: canonical Website repository
   rename record and legacy-evidence handling rule.
 - `history/`: superseded plans and dated handoffs retained as evidence.

@@ -27,3 +27,10 @@ machine-checked offline-workstation boundary and its remaining readbacks.
 
 See [Mochirii Social delivery](mochirii-social-delivery.md) for the private
 container, protected environment, deployment, and recovery contract.
+
+The proposed [cross-repository contract registry](cross-repository-contract-registry.v1.json)
+and its [JSON schema](cross-repository-contract-registry.v1.schema.json) provide
+reviewable, no-secret evidence for future repository boundaries. They do not
+activate a cutover or delegate shared Supabase ownership: Website remains the
+sole source and deployer for the shared project, while Reaper consumes the
+published contracts.

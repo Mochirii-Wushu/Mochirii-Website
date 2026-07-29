@@ -1,0 +1,513 @@
+{
+  "$schema": "./cross-repository-contract-registry.v1.schema.json",
+  "schemaVersion": 1,
+  "updatedDate": "2026-07-29",
+  "registryStatus": "target_only_unversioned",
+  "ownership": {
+    "sharedSupabaseSourceRepository": "Mochirii-Wushu/Mochirii-Website",
+    "sharedSupabaseDeploymentRepository": "Mochirii-Wushu/Mochirii-Website",
+    "reaperSharedSupabaseRole": "contract_consumer_only",
+    "copiedFunctionSourceAllowed": false,
+    "socialCurrentSourceRepository": "Mochirii-Wushu/Mochirii-Website",
+    "socialTargetRepository": "Mochirii-Wushu/Mochirii-Social",
+    "socialTargetStatus": "future_staged_not_cut_over"
+  },
+  "repositories": [
+    "Mochirii-Wushu/Mochirii-Website",
+    "Mochirii-Wushu/Mochirii-Social",
+    "Mochirii-Wushu/Mochirii-Social-Mobile",
+    "Mochirii-Wushu/Mochirii-Forums",
+    "Mochirii-Wushu/Reaper-Discord-Bot",
+    "Mochirii-Wushu/Mochirii-Pets"
+  ],
+  "contracts": [
+    {
+      "id": "website-session-guild-entitlement",
+      "name": "Website session and guild entitlement",
+      "status": "unversioned",
+      "version": null,
+      "producerRepositories": [
+        "Mochirii-Wushu/Mochirii-Website"
+      ],
+      "consumerRepositories": [
+        "Mochirii-Wushu/Mochirii-Website",
+        "Mochirii-Wushu/Mochirii-Social",
+        "Mochirii-Wushu/Mochirii-Social-Mobile",
+        "Mochirii-Wushu/Mochirii-Forums",
+        "Mochirii-Wushu/Mochirii-Pets"
+      ],
+      "compatibilityRequirements": [
+        "Verified server-side claims",
+        "Exact audience and origin",
+        "Revocation and expired-membership denial",
+        "Signed-out failure",
+        "No provider login granting guild status"
+      ],
+      "artifacts": [],
+      "tests": [
+        {
+          "repository": "Mochirii-Wushu/Mochirii-Website",
+          "path": "supabase/functions/_shared/member-access-policy_test.ts",
+          "coverage": "producer"
+        }
+      ],
+      "rollbackWindowDays": null,
+      "gaps": [
+        "contract_version",
+        "versioned_artifact",
+        "concrete_artifact",
+        "producer_compatibility_test",
+        "consumer_compatibility_test",
+        "cross_repository_fixture",
+        "rollback_window"
+      ]
+    },
+    {
+      "id": "social-oauth-handoff-account-mapping",
+      "name": "Social OAuth handoff and account mapping",
+      "status": "unversioned",
+      "version": null,
+      "producerRepositories": [
+        "Mochirii-Wushu/Mochirii-Website"
+      ],
+      "consumerRepositories": [
+        "Mochirii-Wushu/Mochirii-Social",
+        "Mochirii-Wushu/Mochirii-Social-Mobile"
+      ],
+      "compatibilityRequirements": [
+        "Authorization Code with PKCE where applicable",
+        "Exact redirect",
+        "State, nonce, and replay checks",
+        "Opaque failures",
+        "social_accounts RLS isolation"
+      ],
+      "artifacts": [
+        {
+          "repository": "Mochirii-Wushu/Mochirii-Website",
+          "path": "docs/integrations/mochirii-social-delivery.md",
+          "kind": "documentation"
+        }
+      ],
+      "tests": [
+        {
+          "repository": "Mochirii-Wushu/Mochirii-Website",
+          "path": "apps/web/lib/oauth/approved-social-redirect.test.mts",
+          "coverage": "producer"
+        }
+      ],
+      "rollbackWindowDays": null,
+      "gaps": [
+        "contract_version",
+        "versioned_artifact",
+        "concrete_artifact",
+        "producer_compatibility_test",
+        "consumer_compatibility_test",
+        "cross_repository_fixture",
+        "rollback_window"
+      ]
+    },
+    {
+      "id": "social-api-media-behavior",
+      "name": "Social API/media behavior",
+      "status": "unversioned",
+      "version": null,
+      "producerRepositories": [
+        "Mochirii-Wushu/Mochirii-Website"
+      ],
+      "consumerRepositories": [
+        "Mochirii-Wushu/Mochirii-Website",
+        "Mochirii-Wushu/Mochirii-Social",
+        "Mochirii-Wushu/Mochirii-Social-Mobile"
+      ],
+      "compatibilityRequirements": [
+        "Versioned endpoint contract",
+        "Private-media authorization",
+        "Bounded upload and download",
+        "No direct provider or storage credential",
+        "Backward-compatible rollback window"
+      ],
+      "artifacts": [
+        {
+          "repository": "Mochirii-Wushu/Mochirii-Website",
+          "path": "docs/integrations/mochirii-social-delivery.md",
+          "kind": "documentation"
+        }
+      ],
+      "tests": [],
+      "rollbackWindowDays": null,
+      "gaps": [
+        "contract_version",
+        "versioned_artifact",
+        "concrete_artifact",
+        "producer_compatibility_test",
+        "consumer_compatibility_test",
+        "cross_repository_fixture",
+        "rollback_window"
+      ]
+    },
+    {
+      "id": "gallery-ingest-moderation",
+      "name": "Gallery ingest and moderation",
+      "status": "unversioned",
+      "version": null,
+      "producerRepositories": [
+        "Mochirii-Wushu/Mochirii-Website"
+      ],
+      "consumerRepositories": [
+        "Mochirii-Wushu/Mochirii-Website",
+        "Mochirii-Wushu/Reaper-Discord-Bot"
+      ],
+      "compatibilityRequirements": [
+        "Immutable source and publication revisions",
+        "Member and moderator RLS",
+        "Idempotent submission",
+        "Approved-media-only public delivery",
+        "Quota",
+        "Redacted failures"
+      ],
+      "artifacts": [
+        {
+          "repository": "Mochirii-Wushu/Mochirii-Website",
+          "path": "docs/gallery-guide.md",
+          "kind": "documentation"
+        }
+      ],
+      "tests": [
+        {
+          "repository": "Mochirii-Wushu/Mochirii-Website",
+          "path": "supabase/tests/gallery_submission_thumbnails_test.sql",
+          "coverage": "producer"
+        }
+      ],
+      "rollbackWindowDays": null,
+      "gaps": [
+        "contract_version",
+        "versioned_artifact",
+        "concrete_artifact",
+        "producer_compatibility_test",
+        "consumer_compatibility_test",
+        "cross_repository_fixture",
+        "rollback_window"
+      ]
+    },
+    {
+      "id": "discord-command-manifest",
+      "name": "Discord command manifest",
+      "status": "unversioned",
+      "version": null,
+      "producerRepositories": [
+        "Mochirii-Wushu/Mochirii-Website"
+      ],
+      "consumerRepositories": [
+        "Mochirii-Wushu/Mochirii-Website",
+        "Mochirii-Wushu/Reaper-Discord-Bot"
+      ],
+      "compatibilityRequirements": [
+        "Every supported handler command appears exactly once",
+        "Guild-scoped registration",
+        "Permissions, options, and test fixtures match"
+      ],
+      "artifacts": [],
+      "tests": [],
+      "rollbackWindowDays": null,
+      "gaps": [
+        "contract_version",
+        "versioned_artifact",
+        "concrete_artifact",
+        "producer_compatibility_test",
+        "consumer_compatibility_test",
+        "cross_repository_fixture",
+        "rollback_window"
+      ]
+    },
+    {
+      "id": "member-synchronization",
+      "name": "Member synchronization",
+      "status": "unversioned",
+      "version": null,
+      "producerRepositories": [
+        "Mochirii-Wushu/Mochirii-Website"
+      ],
+      "consumerRepositories": [
+        "Mochirii-Wushu/Mochirii-Website",
+        "Mochirii-Wushu/Reaper-Discord-Bot"
+      ],
+      "compatibilityRequirements": [
+        "Signed Discord event",
+        "Guild and role checks",
+        "Idempotency",
+        "Stale-event handling",
+        "Least privilege",
+        "No external message during smoke"
+      ],
+      "artifacts": [
+        {
+          "repository": "Mochirii-Wushu/Mochirii-Website",
+          "path": "docs/operations/repository-ownership.md",
+          "kind": "documentation"
+        }
+      ],
+      "tests": [],
+      "rollbackWindowDays": null,
+      "gaps": [
+        "contract_version",
+        "versioned_artifact",
+        "concrete_artifact",
+        "producer_compatibility_test",
+        "consumer_compatibility_test",
+        "cross_repository_fixture",
+        "rollback_window"
+      ]
+    },
+    {
+      "id": "guild-event-schedule",
+      "name": "Guild event schedule",
+      "status": "unversioned",
+      "version": null,
+      "producerRepositories": [
+        "Mochirii-Wushu/Mochirii-Website"
+      ],
+      "consumerRepositories": [
+        "Mochirii-Wushu/Mochirii-Website",
+        "Mochirii-Wushu/Reaper-Discord-Bot"
+      ],
+      "compatibilityRequirements": [
+        "One canonical event ID, time-zone, and recurrence record",
+        "Duplicate prevention",
+        "Preview before apply",
+        "Localized display tests"
+      ],
+      "artifacts": [
+        {
+          "repository": "Mochirii-Wushu/Mochirii-Website",
+          "path": "docs/events-guide.md",
+          "kind": "documentation"
+        }
+      ],
+      "tests": [
+        {
+          "repository": "Mochirii-Wushu/Mochirii-Website",
+          "path": "supabase/functions/_shared/reaper-discord-events_test.ts",
+          "coverage": "producer"
+        }
+      ],
+      "rollbackWindowDays": null,
+      "gaps": [
+        "contract_version",
+        "versioned_artifact",
+        "concrete_artifact",
+        "producer_compatibility_test",
+        "consumer_compatibility_test",
+        "cross_repository_fixture",
+        "rollback_window"
+      ]
+    },
+    {
+      "id": "spinner-draw-publication",
+      "name": "Spinner draw and publication",
+      "status": "unversioned",
+      "version": null,
+      "producerRepositories": [
+        "Mochirii-Wushu/Mochirii-Website"
+      ],
+      "consumerRepositories": [
+        "Mochirii-Wushu/Mochirii-Website",
+        "Mochirii-Wushu/Reaper-Discord-Bot"
+      ],
+      "compatibilityRequirements": [
+        "Immutable official and test classification",
+        "Deterministic result ID",
+        "Timestamp",
+        "Privacy projection",
+        "Outbox idempotency",
+        "No test result changing live publication"
+      ],
+      "artifacts": [
+        {
+          "repository": "Mochirii-Wushu/Mochirii-Website",
+          "path": "docs/operations/private-spinner.md",
+          "kind": "documentation"
+        }
+      ],
+      "tests": [
+        {
+          "repository": "Mochirii-Wushu/Mochirii-Website",
+          "path": "supabase/functions/_shared/spinner-live_test.ts",
+          "coverage": "producer"
+        }
+      ],
+      "rollbackWindowDays": null,
+      "gaps": [
+        "contract_version",
+        "versioned_artifact",
+        "concrete_artifact",
+        "producer_compatibility_test",
+        "consumer_compatibility_test",
+        "cross_repository_fixture",
+        "rollback_window"
+      ]
+    },
+    {
+      "id": "spotlight-vote-workflows",
+      "name": "Spotlight and vote workflows",
+      "status": "unversioned",
+      "version": null,
+      "producerRepositories": [
+        "Mochirii-Wushu/Mochirii-Website"
+      ],
+      "consumerRepositories": [
+        "Mochirii-Wushu/Mochirii-Website",
+        "Mochirii-Wushu/Reaper-Discord-Bot"
+      ],
+      "compatibilityRequirements": [
+        "Shared schema and RPC tests",
+        "Explicit schedule and confirmation",
+        "Idempotent dispatch",
+        "Privacy projection",
+        "Read-side compatibility"
+      ],
+      "artifacts": [
+        {
+          "repository": "Mochirii-Wushu/Mochirii-Website",
+          "path": "docs/vote-reminder-runbook.md",
+          "kind": "documentation"
+        }
+      ],
+      "tests": [
+        {
+          "repository": "Mochirii-Wushu/Mochirii-Website",
+          "path": "supabase/functions/_shared/spotlight-polls_test.ts",
+          "coverage": "producer"
+        }
+      ],
+      "rollbackWindowDays": null,
+      "gaps": [
+        "contract_version",
+        "versioned_artifact",
+        "concrete_artifact",
+        "producer_compatibility_test",
+        "consumer_compatibility_test",
+        "cross_repository_fixture",
+        "rollback_window"
+      ]
+    },
+    {
+      "id": "mochi-pets-launch-ticket",
+      "name": "Mochi Pets launch ticket",
+      "status": "unversioned",
+      "version": null,
+      "producerRepositories": [
+        "Mochirii-Wushu/Mochirii-Website"
+      ],
+      "consumerRepositories": [
+        "Mochirii-Wushu/Mochirii-Pets",
+        "Mochirii-Wushu/Mochirii-Social-Mobile"
+      ],
+      "compatibilityRequirements": [
+        "Short-lived audience-scoped ticket",
+        "Current member entitlement",
+        "No shared password or provider token",
+        "Exact artifact identity",
+        "Fail-closed absence"
+      ],
+      "artifacts": [
+        {
+          "repository": "Mochirii-Wushu/Mochirii-Website",
+          "path": "docs/integrations/mochi-pets-website-contract.md",
+          "kind": "documentation"
+        }
+      ],
+      "tests": [],
+      "rollbackWindowDays": null,
+      "gaps": [
+        "contract_version",
+        "versioned_artifact",
+        "concrete_artifact",
+        "producer_compatibility_test",
+        "consumer_compatibility_test",
+        "cross_repository_fixture",
+        "rollback_window"
+      ]
+    },
+    {
+      "id": "unity-artifact-manifest",
+      "name": "Unity artifact manifest",
+      "status": "unversioned",
+      "version": null,
+      "producerRepositories": [
+        "Mochirii-Wushu/Mochirii-Pets"
+      ],
+      "consumerRepositories": [
+        "Mochirii-Wushu/Mochirii-Website",
+        "Mochirii-Wushu/Mochirii-Social-Mobile"
+      ],
+      "compatibilityRequirements": [
+        "Commit",
+        "Unity version",
+        "Dependency manifest",
+        "Platform",
+        "Checksum",
+        "Build report",
+        "Provenance",
+        "No workstation or local endpoint dependency"
+      ],
+      "artifacts": [
+        {
+          "repository": "Mochirii-Wushu/Mochirii-Website",
+          "path": "docs/integrations/mochi-pets-website-contract.md",
+          "kind": "documentation"
+        }
+      ],
+      "tests": [],
+      "rollbackWindowDays": null,
+      "gaps": [
+        "contract_version",
+        "versioned_artifact",
+        "concrete_artifact",
+        "producer_compatibility_test",
+        "consumer_compatibility_test",
+        "cross_repository_fixture",
+        "rollback_window"
+      ]
+    },
+    {
+      "id": "forum-central-identity",
+      "name": "Forum central identity",
+      "status": "unversioned",
+      "version": null,
+      "producerRepositories": [
+        "Mochirii-Wushu/Mochirii-Website"
+      ],
+      "consumerRepositories": [
+        "Mochirii-Wushu/Mochirii-Forums"
+      ],
+      "compatibilityRequirements": [
+        "Signed nonce-bound payload",
+        "Stable opaque external ID",
+        "Verified email",
+        "Current guild entitlement",
+        "Replay and return-URL validation",
+        "Revocation",
+        "No automatic moderator or admin grant"
+      ],
+      "artifacts": [
+        {
+          "repository": "Mochirii-Wushu/Mochirii-Website",
+          "path": "docs/operations/REPOSITORY-SEPARATION-ADR-2026-07-29.md",
+          "kind": "documentation"
+        }
+      ],
+      "tests": [],
+      "rollbackWindowDays": null,
+      "gaps": [
+        "contract_version",
+        "versioned_artifact",
+        "concrete_artifact",
+        "producer_compatibility_test",
+        "consumer_compatibility_test",
+        "cross_repository_fixture",
+        "rollback_window"
+      ]
+    }
+  ]
+}
