@@ -102,6 +102,7 @@ requireText(responsePolicy, /noindex, nofollow/, "Private raffle responses must 
 requireText(responsePolicy, /"Referrer-Policy": "no-referrer"/, "Private raffle responses must suppress referrers.");
 const sessionProxy = read("lib/supabase/proxy.ts");
 requireText(sessionProxy, /SUPABASE_AUTH_COOKIE_OPTIONS/, "Session refresh must preserve the reviewed secure-cookie policy.");
+requireText(sessionProxy, /fetch:\s*supabaseServerFetch/, "Session refresh must use the bounded server transport.");
 requireText(sessionProxy, /PRIVATE_RAFFLE_HEADERS/, "Session refresh must preserve the complete private response policy.");
 requireText(sessionProxy, /protectedPageContentSecurityPolicy/, "Session refresh must attach the per-request nonce policy.");
 requireText(sessionProxy, /try\s*\{[\s\S]*?auth\.getClaims\(\)[\s\S]*?\}\s*catch/, "Session refresh must fail closed when claims cannot be refreshed.");

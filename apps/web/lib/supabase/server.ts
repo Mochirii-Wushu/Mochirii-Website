@@ -12,10 +12,14 @@ import {
   strictRouteHandlerCookieMethods,
   tolerantServerComponentCookieMethods,
 } from "./server-cookie-adapters";
+import { supabaseServerFetch } from "./server-fetch";
 
 function createCookieClient(cookieMethods: ReturnType<typeof strictRouteHandlerCookieMethods>) {
   return createServerClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     cookieOptions: SUPABASE_AUTH_COOKIE_OPTIONS,
+    global: {
+      fetch: supabaseServerFetch,
+    },
     cookies: cookieMethods,
   });
 }

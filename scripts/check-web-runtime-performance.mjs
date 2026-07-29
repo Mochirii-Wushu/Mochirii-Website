@@ -139,6 +139,29 @@ for (const [file, route] of [
 
 const accountPanel = read("apps/web/components/member-workflow/AccountPanel.tsx");
 const leaderDashboard = read("apps/web/components/member-workflow/LeaderDashboard.tsx");
+const serverFetch = read("apps/web/lib/supabase/server-fetch.ts");
+[
+  "SUPABASE_SERVER_REQUEST_TIMEOUT_MS = 5_000",
+  "SupabaseServerRequestTimeoutError",
+  "controller.abort(reason)",
+  "Promise.race([requestPromise, stopPromise])",
+].forEach((snippet) => assertIncludes("bounded Supabase server transport", serverFetch, snippet));
+for (const file of [
+  "apps/web/lib/supabase/server-client.ts",
+  "apps/web/lib/supabase/server.ts",
+  "apps/web/lib/supabase/proxy.ts",
+]) {
+  const source = read(file);
+  assertIncludes(file, source, 'from "./server-fetch');
+  assertIncludes(file, source, "fetch: supabaseServerFetch");
+}
+const oauthDecisionRoute = read("apps/web/app/api/oauth/decision/route.ts");
+assertIncludes("OAuth decision route", oauthDecisionRoute, 'from "@/lib/supabase/server-fetch"');
+assertIncludes("OAuth decision route", oauthDecisionRoute, "fetch: supabaseServerFetch");
+if ((oauthDecisionRoute.match(/supabaseServerFetch\(/g) || []).length !== 2) {
+  failures.push("OAuth decision route: authorization lookup and consent submission must both use the bounded server transport.");
+}
+assertNotIncludes("OAuth decision route", oauthDecisionRoute, "await fetch(endpoint");
 assertIncludes("Account essential reads", accountPanel, "const [profileResult, accessResult] = await Promise.all([");
 assertIncludes("Account optional reads", accountPanel, "void Promise.allSettled([");
 assertIncludes("Account load generation", accountPanel, "accountLoadGenerationRef.current === loadGeneration");
@@ -210,4 +233,5 @@ console.log("- Events hydration uses one server-generated reference time.");
 console.log("- Public Gallery and profile-card feed code has no Supabase SDK dependency.");
 console.log("- Discord preview is user activated and retains a direct link.");
 console.log("- Authenticated route timings are local, bounded, and identifier-free.");
+console.log("- Server-side Supabase requests share one bounded, cancellation-aware transport.");
 console.log("- Moderator spinner access renders before optional queue reads; queue loading stays scoped to the review panel.");

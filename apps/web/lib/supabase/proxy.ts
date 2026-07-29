@@ -4,6 +4,7 @@ import { NextResponse } from "next/server.js";
 import { protectedPageContentSecurityPolicy } from "../security/protected-csp.ts";
 import { SUPABASE_AUTH_COOKIE_OPTIONS } from "./auth-cookie-policy.ts";
 import { PRIVATE_RAFFLE_HEADERS } from "./raffle-response-policy.ts";
+import { supabaseServerFetch } from "./server-fetch.ts";
 
 function applyPrivateHeaders(response: NextResponse, contentSecurityPolicy: string) {
   Object.entries(PRIVATE_RAFFLE_HEADERS).forEach(([name, value]) => {
@@ -34,6 +35,9 @@ export async function refreshSupabaseSession(request: NextRequest) {
 
   const supabase = createServerClient(supabaseUrl, publishableKey, {
     cookieOptions: SUPABASE_AUTH_COOKIE_OPTIONS,
+    global: {
+      fetch: supabaseServerFetch,
+    },
     cookies: {
       getAll() {
         return request.cookies.getAll();

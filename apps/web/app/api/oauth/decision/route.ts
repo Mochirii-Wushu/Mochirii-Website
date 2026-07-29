@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { runSocialAuthorizationDecision } from "@/lib/oauth/authorization-decision-core";
 import { approvedSocialOAuthRedirect } from "@/lib/oauth/approved-social-redirect";
 import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "@/lib/supabase/config";
+import { supabaseServerFetch } from "@/lib/supabase/server-fetch";
 
 type DecisionBody = {
   authorization_id?: unknown;
@@ -34,7 +35,7 @@ async function loadAuthorizationDetails(authorizationId: string, token: string) 
     `/auth/v1/oauth/authorizations/${encodeURIComponent(authorizationId)}`,
     SUPABASE_URL,
   );
-  const response = await fetch(endpoint, {
+  const response = await supabaseServerFetch(endpoint, {
     method: "GET",
     headers: {
       Accept: "application/json",
@@ -89,28 +90,33 @@ async function submitAuthorizationDecision({
     `/auth/v1/oauth/authorizations/${encodeURIComponent(authorizationId)}/consent`,
     SUPABASE_URL,
   );
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      apikey: SUPABASE_PUBLISHABLE_KEY,
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({ action: decision }),
-  });
-  const payload = (await response.json().catch(() => ({}))) as OAuthConsentPayload;
-  const redirectUrl = approvedSocialOAuthRedirect(payload.redirect_url);
+  try {
+    const response = await supabaseServerFetch(endpoint, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        apikey: SUPABASE_PUBLISHABLE_KEY,
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ action: decision }),
+    });
+    const payload = (await response.json().catch(() => ({}))) as OAuthConsentPayload;
+    const redirectUrl = approvedSocialOAuthRedirect(payload.redirect_url);
 
-  if (!response.ok || !redirectUrl) {
+    if (response.ok && redirectUrl) return { ok: true as const, redirectUrl };
     return {
       ok: false as const,
       status: response.status >= 500 ? 502 : 400,
       error: "Authorization decision could not be completed.",
     };
+  } catch {
+    return {
+      ok: false as const,
+      status: 502,
+      error: "Authorization decision could not be completed.",
+    };
   }
-
-  return { ok: true as const, redirectUrl };
 }
 
 export async function POST(request: Request) {
@@ -142,6 +148,7 @@ export async function POST(request: Request) {
       detectSessionInUrl: false,
     },
     global: {
+      fetch: supabaseServerFetch,
       headers: {
         Authorization: `Bearer ${token}`,
       },

@@ -16,7 +16,7 @@
     "check:client-bundle": "node scripts/check-client-bundle.mjs",
     "check:font-bundle": "node scripts/check-font-bundle.mjs",
     "check:route-css-bundle": "node scripts/check-route-css-bundle.mjs",
-    "test:web-runtime-performance": "node --experimental-default-type=module --experimental-strip-types --test lib/auth-redirect.test.mts lib/auth-load-generation_test.ts lib/events/reference-time_test.ts lib/observability/authenticated-route-timing_test.ts lib/oauth/consent-login-url.test.mts lib/security/protected-csp.test.mts lib/supabase/server-access-policy.test.mts",
+    "test:web-runtime-performance": "node --experimental-default-type=module --experimental-strip-types --test lib/auth-redirect.test.mts lib/auth-load-generation_test.ts lib/events/reference-time_test.ts lib/observability/authenticated-route-timing_test.ts lib/oauth/consent-login-url.test.mts lib/security/protected-csp.test.mts lib/supabase/server-access-policy.test.mts lib/supabase/server-fetch.test.mts",
     "test:raffle-leaderboard": "node --experimental-default-type=module --experimental-strip-types --test lib/raffle/leaderboard-core.test.mts",
     "check:raffle-server-boundary": "node scripts/check-raffle-server-boundary.mjs",
     "test:raffle-server-boundary": "node scripts/test-raffle-server-boundary.mjs",

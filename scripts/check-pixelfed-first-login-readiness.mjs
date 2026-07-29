@@ -251,10 +251,21 @@ const secretPatterns = [
 
 const oauthDecisionRoute = read("apps/web/app/api/oauth/decision/route.ts");
 if (!oauthDecisionRoute.includes("if (!response.ok || !redirectUrl)")) {
-  failures.push("OAuth decision route must accept every successful HTTP 2xx response through Response.ok.");
+  if (!oauthDecisionRoute.includes("if (response.ok && redirectUrl)")) {
+    failures.push("OAuth decision route must accept every successful HTTP 2xx response through Response.ok.");
+  }
 }
 if (/response\.status\s*={2,3}\s*201/.test(oauthDecisionRoute)) {
   failures.push("OAuth decision route must not require the legacy HTTP 201 success status.");
+}
+for (const snippet of [
+  'from "@/lib/supabase/server-fetch"',
+  "fetch: supabaseServerFetch",
+  "await supabaseServerFetch(endpoint",
+]) {
+  if (!oauthDecisionRoute.includes(snippet)) {
+    failures.push(`OAuth decision route must use the bounded server transport: ${snippet}`);
+  }
 }
 
 function read(file) {

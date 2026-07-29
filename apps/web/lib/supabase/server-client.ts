@@ -4,6 +4,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { isSupabaseConfigured, SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "./config";
 import { hasSupabaseAuthCookie } from "./server-access-policy";
+import { supabaseServerFetch } from "./server-fetch";
 
 export async function createServerComponentSupabaseContext() {
   if (!isSupabaseConfigured()) return null;
@@ -12,6 +13,9 @@ export async function createServerComponentSupabaseContext() {
   const client = createServerClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     auth: {
       flowType: "pkce",
+    },
+    global: {
+      fetch: supabaseServerFetch,
     },
     cookies: {
       getAll() {

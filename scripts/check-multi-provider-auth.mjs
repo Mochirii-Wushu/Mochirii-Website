@@ -33,6 +33,11 @@ const supabaseConfig = read("supabase/config.toml");
 const migration = read("supabase/migrations/20260615041842_add_multi_provider_member_verification.sql");
 const verifyMemberAccess = read("supabase/functions/verify-member-access/index.ts");
 const oauthDecisionRoute = read("apps/web/app/api/oauth/decision/route.ts");
+[
+  'from "@/lib/supabase/server-fetch"',
+  "fetch: supabaseServerFetch",
+  "await supabaseServerFetch(endpoint",
+].forEach((snippet) => assertIncludes("OAuth decision bounded transport", oauthDecisionRoute, snippet));
 const verifyDiscordMember = read("supabase/functions/verify-discord-member/index.ts");
 const memberVerificationIdentity = read("supabase/functions/_shared/member-verification-identity.ts");
 const memberVerificationIdentityTest = read("supabase/functions/_shared/member-verification-identity_test.ts");

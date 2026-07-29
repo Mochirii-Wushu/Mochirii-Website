@@ -4,6 +4,7 @@ import { setTimeout as delay } from "node:timers/promises";
 
 const port = Number(process.env.MOCHIRII_AUTH_SMOKE_PORT || 4305);
 const origin = `http://127.0.0.1:${port}`;
+const requestDeadlineMs = 15_000;
 const output = [];
 const server = spawn(
   process.execPath,
@@ -32,7 +33,7 @@ async function waitForServer() {
   for (let attempt = 0; attempt < 40; attempt += 1) {
     if (server.exitCode !== null) break;
     try {
-      const response = await fetch(origin, { redirect: "manual" });
+      const response = await boundedFetch(origin, { redirect: "manual" });
       if (response.status === 200) return;
     } catch {
       // The server is still starting.
@@ -42,8 +43,15 @@ async function waitForServer() {
   throw new Error(`Next server did not become ready.\n${output.join("")}`);
 }
 
+function boundedFetch(input, init = {}) {
+  return fetch(input, {
+    ...init,
+    signal: AbortSignal.timeout(requestDeadlineMs),
+  });
+}
+
 async function assertRedirect(path, expectedLocation, forbiddenCopy) {
-  const response = await fetch(`${origin}${path}`, { redirect: "manual" });
+  const response = await boundedFetch(`${origin}${path}`, { redirect: "manual" });
   const body = await response.text();
   assert.ok([303, 307, 308].includes(response.status), `${path} returned ${response.status}`);
   assert.equal(new URL(String(response.headers.get("location")), origin).pathname + new URL(String(response.headers.get("location")), origin).search, expectedLocation);
@@ -80,7 +88,7 @@ function authCookie(accessToken) {
 }
 
 async function assertCookieRedirect(path, expectedLocation, forbiddenCopy, cookie) {
-  const response = await fetch(`${origin}${path}`, {
+  const response = await boundedFetch(`${origin}${path}`, {
     redirect: "manual",
     headers: { Cookie: cookie },
   });
@@ -92,7 +100,7 @@ async function assertCookieRedirect(path, expectedLocation, forbiddenCopy, cooki
 }
 
 async function assertAuthUnavailable(path, forbiddenCopy, cookie) {
-  const response = await fetch(`${origin}${path}`, {
+  const response = await boundedFetch(`${origin}${path}`, {
     redirect: "manual",
     headers: { Cookie: cookie },
   });
@@ -119,7 +127,7 @@ try {
   );
   await assertRedirect(
     "/auth/callback?next=%2Fleader-dashboard",
-    "/auth?error=session",
+    "/auth?redirect=%2Fleader-dashboard&error=sign_in_failed",
     /Review member image uploads, inspect context/,
   );
   await assertCookieRedirect(
