@@ -67,9 +67,8 @@ export class TremendousApi {
     if (url.origin !== this.baseUrl.origin || !url.pathname.startsWith(this.baseUrl.pathname)) throw new Error("provider_path_escape");
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);
-    let response;
     try {
-      response = await this.fetcher(url, {
+      const response = await this.fetcher(url, {
         method,
         headers: {
           Authorization: `Bearer ${this.apiKey}`,
@@ -81,18 +80,19 @@ export class TremendousApi {
         redirect: "error",
         signal: controller.signal,
       });
+      const parsed = await readJsonBounded(response, this.maximumResponseBytes, controller.signal);
+      return {
+        status: response.status,
+        body: parsed,
+        retryAfterSeconds: retryAfterSeconds(response.headers?.get?.("retry-after")),
+      };
     } catch (error) {
-      const kind = error?.name === "AbortError" ? "timeout" : "transport";
+      if (error instanceof ProviderTransportError) throw error;
+      const kind = controller.signal.aborted || error?.name === "AbortError" ? "timeout" : "transport";
       throw new ProviderTransportError(kind);
     } finally {
       clearTimeout(timer);
     }
-    const parsed = await readJsonBounded(response, this.maximumResponseBytes);
-    return {
-      status: response.status,
-      body: parsed,
-      retryAfterSeconds: retryAfterSeconds(response.headers?.get?.("retry-after")),
-    };
   }
 }
 
@@ -299,11 +299,14 @@ function sanitizeStatus(value) {
   return /^[a-z]/.test(text) ? text : "unknown";
 }
 
-async function readJsonBounded(response, maximumBytes) {
+async function readJsonBounded(response, maximumBytes, signal) {
   const contentLength = Number(response.headers?.get?.("content-length") || 0);
-  if (Number.isFinite(contentLength) && contentLength > maximumBytes) throw new ProviderTransportError("response_too_large");
+  if (Number.isFinite(contentLength) && contentLength > maximumBytes) {
+    await cancelResponseBody(response);
+    throw new ProviderTransportError("response_too_large");
+  }
   if (!response.body || typeof response.body.getReader !== "function") {
-    const text = await response.text();
+    const text = await withAbortDeadline(response.text(), signal, () => cancelResponseBody(response));
     if (Buffer.byteLength(text) > maximumBytes) throw new ProviderTransportError("response_too_large");
     return parseJson(text);
   }
@@ -311,7 +314,7 @@ async function readJsonBounded(response, maximumBytes) {
   const chunks = [];
   let total = 0;
   while (true) {
-    const { done, value } = await reader.read();
+    const { done, value } = await withAbortDeadline(reader.read(), signal, () => reader.cancel());
     if (done) break;
     total += value.byteLength;
     if (total > maximumBytes) {
@@ -321,6 +324,45 @@ async function readJsonBounded(response, maximumBytes) {
     chunks.push(value);
   }
   return parseJson(Buffer.concat(chunks.map((chunk) => Buffer.from(chunk))).toString("utf8"));
+}
+
+async function withAbortDeadline(promise, signal, cancel) {
+  if (!signal || typeof signal.addEventListener !== "function") return promise;
+  if (signal.aborted) {
+    await bestEffortCancel(cancel);
+    throw new ProviderTransportError("timeout");
+  }
+  let onAbort;
+  const aborted = new Promise((_, reject) => {
+    onAbort = () => {
+      void bestEffortCancel(cancel);
+      reject(new ProviderTransportError("timeout"));
+    };
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
+  try {
+    return await Promise.race([promise, aborted]);
+  } finally {
+    signal.removeEventListener("abort", onAbort);
+  }
+}
+
+async function cancelResponseBody(response) {
+  if (typeof response?.body?.cancel !== "function") return;
+  try {
+    await response.body.cancel();
+  } catch {
+    // Cancellation is best effort after a response is already rejected.
+  }
+}
+
+async function bestEffortCancel(cancel) {
+  if (typeof cancel !== "function") return;
+  try {
+    await cancel();
+  } catch {
+    // Cancellation is a containment step; the timeout remains authoritative.
+  }
 }
 
 function parseJson(text) {

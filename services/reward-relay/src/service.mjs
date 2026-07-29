@@ -384,6 +384,9 @@ export class RelayService {
   }
 
   #mapFailure(error) {
+    if (error?.code === "provider_identifier_conflict") {
+      return response(409, { error: "integrity_stop" });
+    }
     if (error instanceof IntegrityFailure) {
       this.state.suspendOrders(error.reasonCode, this.now());
       return response(error.status, { error: error.safeCode });

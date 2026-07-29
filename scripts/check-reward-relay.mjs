@@ -44,6 +44,9 @@ if (!failures.length) {
   requireMatch(env, /^TREMENDOUS_MODE=disabled$/m, ".env.example must default provider mode to disabled");
   requireMatch(env, /^TREMENDOUS_ORDERS_ENABLED=false$/m, ".env.example must default order creation to false");
   requireMatch(env, /^REWARD_RELAY_HOST=127\.0\.0\.1$/m, ".env.example must default to loopback");
+  requireMatch(env, /^REWARD_RELAY_INBOUND_REQUEST_TIMEOUT_MS=10000$/m, ".env.example must retain the reviewed inbound request deadline");
+  requireMatch(env, /^REWARD_RELAY_HEADERS_TIMEOUT_MS=5000$/m, ".env.example must retain the reviewed header deadline");
+  requireMatch(env, /^REWARD_RELAY_KEEP_ALIVE_TIMEOUT_MS=5000$/m, ".env.example must retain the reviewed keep-alive timeout");
   for (const name of ["TREMENDOUS_API_KEY", "REWARD_RELAY_HMAC_SECRET"]) {
     requireMatch(env, new RegExp(`^${name}=$`, "m"), `.env.example must not contain a ${name} value`);
   }
@@ -57,6 +60,9 @@ if (!failures.length) {
     'TREMENDOUS_MODE || "disabled"',
     'TREMENDOUS_ORDERS_ENABLED || "false"',
     "rewardHost: PROVIDER_REWARD_HOSTS[mode] || null",
+    "env.REWARD_RELAY_INBOUND_REQUEST_TIMEOUT_MS, 10_000, 10_000, 10_000",
+    "env.REWARD_RELAY_HEADERS_TIMEOUT_MS, 5_000, 5_000, 5_000",
+    "env.REWARD_RELAY_KEEP_ALIVE_TIMEOUT_MS, 5_000, 5_000, 5_000",
   ], "fixed origins, loopback binding, and closed defaults");
   for (const forbidden of ["TREMENDOUS_BASE_URL", "PROVIDER_BASE_URL", "REWARD_PROVIDER_URL"]) {
     if (configSource.includes(`env.${forbidden}`)) fail(`config must not accept arbitrary provider origin variable ${forbidden}`);
@@ -75,7 +81,10 @@ if (!failures.length) {
     'sandbox: "testflight.tremendous.com"',
     '"cycleId"',
     "EXTERNAL_ID_RE",
+    "compareCodeUnits(left, right)",
+    "leftText < rightText ? -1 : 1",
   ], "mutual relay authentication, freshness, replay prevention, and external ID contract");
+  requireNone(read("src/protocol.mjs"), ["localeCompare"], "locale-dependent canonical sorting");
 
   requireAll(read("src/service.mjs"), [
     "consumeRate",
@@ -86,6 +95,7 @@ if (!failures.length) {
     "buildResponseSignatureHeaders",
     "maximumCycleCostCents",
     "cycle_budget_exceeded",
+    "provider_identifier_conflict",
   ], "rate limiting, uncertain reconciliation, conflict suspension, and signed responses");
 
   const providerSource = read("src/tremendous.mjs");
@@ -93,6 +103,9 @@ if (!failures.length) {
     "AbortController",
     'redirect: "error"',
     "maximumResponseBytes",
+    "readJsonBounded(response, this.maximumResponseBytes, controller.signal)",
+    "withAbortDeadline",
+    "reader.cancel()",
     'delivery: { method: "LINK" }',
     "url.origin !== this.baseUrl.origin",
     "allowedBaseUrls.has(candidateBaseUrl.href)",
@@ -163,11 +176,21 @@ if (!failures.length) {
     "replay_nonces", "order_bindings", "reconciliation_runs", "reward_link_limits",
     "cycle_id TEXT NOT NULL UNIQUE", "reward_value_cents", "BEGIN IMMEDIATE",
     "relay_state_schema_upgrade_required", "expires_at_ms <= ?",
+    "provider_order_id TEXT UNIQUE", "provider_reward_id TEXT UNIQUE",
+    "provider_identifier_conflict",
+    "(provider_order_id IS NULL AND provider_reward_id IS NULL)",
+    "(provider_order_id = ? AND provider_reward_id = ?)",
   ], "durable relay state");
   requireNone(stateSource.toLowerCase(), ["reward_url", "redemption_url", "link_url", "url text"], "persisted reward URL columns");
 
   const serverSource = read("src/server.mjs");
-  requireAll(serverSource, ["endpointClass", "statusCode", "latencyMs", '"Cache-Control": "no-store, max-age=0"'], "metadata-only request logging");
+  requireAll(serverSource, [
+    "endpointClass", "statusCode", "latencyMs", '"Cache-Control": "no-store, max-age=0"',
+    "server.requestTimeout = config.inboundRequestTimeoutMs",
+    "server.headersTimeout = config.headersTimeoutMs",
+    "server.keepAliveTimeout = config.keepAliveTimeoutMs",
+    "request_body_timeout",
+  ], "metadata-only logging and bounded inbound HTTP handling");
   requireNone(serverSource.slice(serverSource.indexOf("function defaultLogger")), ["request", "rawBody", "response", "headers", "body"], "sensitive request or response logging");
 
   const chainTests = read("test/reward-chain.test.mjs");
@@ -190,8 +213,20 @@ if (!failures.length) {
   requireAll(read("test/relay.test.mjs"), [
     "future-dated nonce remains consumed through its absolute signature-validity horizon",
     "cycle reservation atomically enforces its budget and exactly one primary electronic order",
+    "concurrent provider identifier drift preserves one exact pair and suspends orders",
+    "provider deadline remains active through a stalled response body and cancels its reader",
+    "HTTP server applies reviewed inbound deadlines and terminates a stalled request body",
+    "canonical JSON uses locale-independent UTF-16 code-unit ordering",
     "https://unrelated.tremendous.com/rewards/payout/leak",
-  ], "replay, cycle-budget, and exact-host regression coverage");
+  ], "replay, identifier-CAS, timeout, canonicalization, cycle-budget, and exact-host regression coverage");
+
+  const publicConfigCheck = readFileSync(join(root, "scripts", "check-supabase-public-config.mjs"), "utf8");
+  requireAll(publicConfigCheck, [
+    '"services/reward-relay/.env.example"',
+    "untrackedFiles.filter(isEnvPath).forEach((file) => {",
+    'addFailure(file, 0, "untracked environment file is not ignored; update .gitignore before adding secrets locally.");',
+    "trackedFiles.filter((file) => existsSync(path.join(root, file))).filter(isTextFile)",
+  ], "tracked-example scanning and unconditional untracked environment rejection");
 
   const integrationContract = readFileSync(join(root, "docs", "integrations", "reward-relay.md"), "utf8");
   requireAll(integrationContract, [
@@ -228,13 +263,24 @@ if (!failures.length) {
 
 try {
   const { loadConfig, PROVIDER_BASE_URLS } = await import(pathToFileURL(join(serviceRoot, "src", "config.mjs")));
-  const { drawResultIdFromExternalId, PROVIDER_REWARD_HOSTS, safeTremendousHttpsLink } = await import(pathToFileURL(join(serviceRoot, "src", "protocol.mjs")));
+  const {
+    compareCodeUnits,
+    drawResultIdFromExternalId,
+    PROVIDER_REWARD_HOSTS,
+    safeTremendousHttpsLink,
+    sha256Hex,
+    stableJson,
+  } = await import(pathToFileURL(join(serviceRoot, "src", "protocol.mjs")));
   const { buildOrderPayload } = await import(pathToFileURL(join(serviceRoot, "src", "tremendous.mjs")));
   const defaults = loadConfig({});
   assert.equal(defaults.mode, "disabled");
   assert.equal(defaults.ordersEnabled, false);
   assert.equal(defaults.providerBaseUrl, null);
   assert.equal(defaults.host, "127.0.0.1");
+  assert.equal(defaults.inboundRequestTimeoutMs, 10_000);
+  assert.equal(defaults.headersTimeoutMs, 5_000);
+  assert.equal(defaults.keepAliveTimeoutMs, 5_000);
+  assert.throws(() => loadConfig({ REWARD_RELAY_INBOUND_REQUEST_TIMEOUT_MS: "9999" }));
   assert.deepEqual(PROVIDER_BASE_URLS, {
     sandbox: "https://testflight.tremendous.com/api/v2",
     production: "https://api.tremendous.com/api/v2",
@@ -249,6 +295,11 @@ try {
   );
   assert.throws(() => safeTremendousHttpsLink("https://unrelated.tremendous.com/rewards/opaque", "production"));
   assert.throws(() => loadConfig({ REWARD_RELAY_HOST: "0.0.0.0" }), /loopback/);
+  const canonicalValue = { "\uE000": 7, "😀": 6, "𐀀": 5, "é": 4, "e\u0301": 3, a: 2, A: 1 };
+  const canonicalText = "{\"A\":1,\"a\":2,\"é\":3,\"é\":4,\"𐀀\":5,\"😀\":6,\"\":7}";
+  assert.deepEqual(Object.keys(canonicalValue).sort(compareCodeUnits), ["A", "a", "e\u0301", "é", "𐀀", "😀", "\uE000"]);
+  assert.equal(stableJson(canonicalValue), canonicalText);
+  assert.equal(sha256Hex(Buffer.from(canonicalText)), "6e51c32e6eb16192c031414ab34558173076bb9e1a1f9ca4598204a2c6001a1d");
   const drawResultId = "12345678-1234-4234-9234-1234567890ab";
   assert.equal(drawResultIdFromExternalId(`mochirii-mpd-${drawResultId}-v1`), drawResultId);
   const payload = buildOrderPayload({

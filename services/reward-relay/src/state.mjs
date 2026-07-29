@@ -27,7 +27,7 @@ export class RelayState {
         request_hash TEXT NOT NULL,
         request_json TEXT NOT NULL,
         environment TEXT NOT NULL CHECK (environment IN ('sandbox', 'production')),
-        provider_order_id TEXT,
+        provider_order_id TEXT UNIQUE,
         provider_reward_id TEXT UNIQUE,
         sanitized_status TEXT NOT NULL,
         state TEXT NOT NULL CHECK (state IN ('reserved', 'uncertain', 'terminal', 'succeeded')),
@@ -65,6 +65,19 @@ export class RelayState {
     const orderBindingColumns = new Set(this.database.prepare("PRAGMA table_info(order_bindings)").all().map((column) => column.name));
     for (const requiredColumn of ["cycle_id", "reward_value_cents"]) {
       if (!orderBindingColumns.has(requiredColumn)) {
+        this.database.close();
+        throw new Error("relay_state_schema_upgrade_required");
+      }
+    }
+    const uniqueBindingColumns = new Set(
+      this.database.prepare('SELECT name FROM pragma_index_list(\'order_bindings\') WHERE "unique" = 1').all()
+        .flatMap((index) => {
+          const columns = this.database.prepare("SELECT name FROM pragma_index_info(?) ORDER BY seqno").all(index.name);
+          return columns.length === 1 ? [columns[0].name] : [];
+        }),
+    );
+    for (const requiredUniqueColumn of ["provider_order_id", "provider_reward_id"]) {
+      if (!uniqueBindingColumns.has(requiredUniqueColumn)) {
         this.database.close();
         throw new Error("relay_state_schema_upgrade_required");
       }
@@ -149,13 +162,42 @@ export class RelayState {
   }
 
   completeOrder(externalId, { orderReference, rewardReference, sanitizedStatus }, nowMs) {
-    const result = this.database.prepare(`
-      UPDATE order_bindings
-      SET provider_order_id = ?, provider_reward_id = ?, sanitized_status = ?, state = 'succeeded', updated_at_ms = ?
-      WHERE external_id = ?
-    `).run(orderReference, rewardReference, sanitizedStatus, nowMs, externalId);
-    if (result.changes !== 1) throw new Error("missing_order_binding");
-    return this.getOrderByExternalId(externalId);
+    const outcome = this.#transaction(() => {
+      let result;
+      try {
+        result = this.database.prepare(`
+          UPDATE order_bindings
+          SET provider_order_id = ?, provider_reward_id = ?, sanitized_status = ?, state = 'succeeded', updated_at_ms = ?
+          WHERE external_id = ?
+            AND (
+              (provider_order_id IS NULL AND provider_reward_id IS NULL)
+              OR (provider_order_id = ? AND provider_reward_id = ?)
+            )
+        `).run(
+          orderReference,
+          rewardReference,
+          sanitizedStatus,
+          nowMs,
+          externalId,
+          orderReference,
+          rewardReference,
+        );
+      } catch (error) {
+        if (!isUniqueConstraintConflict(error)) throw error;
+        this.suspendOrders("provider_identifier_conflict", nowMs);
+        return { status: "conflict", binding: null };
+      }
+      if (result.changes !== 1) {
+        const binding = this.getOrderByExternalId(externalId);
+        if (!binding) return { status: "missing", binding: null };
+        this.suspendOrders("provider_identifier_conflict", nowMs);
+        return { status: "conflict", binding };
+      }
+      return { status: "completed", binding: this.getOrderByExternalId(externalId) };
+    });
+    if (outcome.status === "missing") throw new Error("missing_order_binding");
+    if (outcome.status === "conflict") throw providerIdentifierConflict();
+    return outcome.binding;
   }
 
   getOrderByExternalId(externalId) {
@@ -262,4 +304,15 @@ export class RelayState {
       throw error;
     }
   }
+}
+
+function isUniqueConstraintConflict(error) {
+  return String(error?.code || "") === "ERR_SQLITE_CONSTRAINT_UNIQUE" ||
+    /UNIQUE constraint failed: order_bindings\.provider_(?:order|reward)_id/i.test(String(error?.message || ""));
+}
+
+function providerIdentifierConflict() {
+  const error = new Error("provider_identifier_conflict");
+  error.code = "provider_identifier_conflict";
+  return error;
 }
