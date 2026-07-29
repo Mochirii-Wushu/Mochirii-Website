@@ -1,29 +1,14 @@
+import { readFileSync } from "node:fs";
+
 const DEFAULT_BASE_URL = "https://mochirii.vercel.app";
 const TIMEOUT_MS = 30000;
 const retiredGameRoute = `/games/${["mochi", "social"].join("-")}`;
 const unknownRoute = "/__mochirii-unknown-route__";
+const routeMatrix = JSON.parse(readFileSync(new URL("../apps/web/config/app-route-matrix.v1.json", import.meta.url), "utf8"));
 
-const cleanRoutes = [
-  "/",
-  "/join",
-  "/ranks",
-  "/leaders",
-  "/tome",
-  "/events",
-  "/announcements",
-  "/raffle",
-  "/raffle/rules",
-  "/gallery",
-  "/spotlight",
-  "/spotify",
-  "/recruitment",
-  "/twills",
-  "/auth",
-  "/account",
-  "/gallery-submit",
-  "/leader-dashboard",
-  "/games/mochi-pets",
-];
+const cleanRoutes = routeMatrix.routes
+  .filter((route) => route.kind === "page" && route.productionSmoke === true)
+  .map((route) => route.path);
 
 const retiredRoutes = [
   "/members",
@@ -31,25 +16,9 @@ const retiredRoutes = [
   retiredGameRoute,
 ];
 
-const legacyRedirects = new Map([
-  ["/index.html", "/"],
-  ["/join.html", "/join"],
-  ["/ranks.html", "/ranks"],
-  ["/leaders.html", "/leaders"],
-  ["/events.html", "/events"],
-  ["/announcements.html", "/announcements"],
-  ["/raffles", "/raffle"],
-  ["/raffles.html", "/raffle"],
-  ["/gallery.html", "/gallery"],
-  ["/spotlight.html", "/spotlight"],
-  ["/spotify.html", "/spotify"],
-  ["/recruitment.html", "/recruitment"],
-  ["/twills.html", "/twills"],
-  ["/auth.html", "/auth"],
-  ["/account.html", "/account"],
-  ["/gallery-submit.html", "/gallery-submit"],
-  ["/leader-dashboard.html", "/leader-dashboard"],
-]);
+const legacyRedirects = new Map(
+  routeMatrix.redirects.map((redirect) => [redirect.source, redirect.destination]),
+);
 
 const bodyChecks = new Map([
   ["/auth", /Mochirii Login|Sign-in connects your website account|Website Sign-In/i],

@@ -1,0 +1,384 @@
+{
+  "schemaVersion": 1,
+  "publicSafe": true,
+  "routes": [
+    {
+      "path": "/",
+      "kind": "page",
+      "source": "app/page.tsx",
+      "surface": "public",
+      "productionSmoke": true
+    },
+    {
+      "path": "/[...not-found]",
+      "kind": "page",
+      "source": "app/[...not-found]/page.tsx",
+      "surface": "not-found",
+      "productionSmoke": false
+    },
+    {
+      "path": "/account",
+      "kind": "page",
+      "source": "app/account/page.tsx",
+      "surface": "member",
+      "productionSmoke": true
+    },
+    {
+      "path": "/announcements",
+      "kind": "page",
+      "source": "app/announcements/page.tsx",
+      "surface": "public",
+      "productionSmoke": true
+    },
+    {
+      "path": "/api/oauth/decision",
+      "kind": "handler",
+      "source": "app/api/oauth/decision/route.ts",
+      "surface": "member",
+      "productionSmoke": false,
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/raffle/latest-winner",
+      "kind": "handler",
+      "source": "app/api/raffle/latest-winner/route.ts",
+      "surface": "public",
+      "productionSmoke": false,
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/auth",
+      "kind": "page",
+      "source": "app/auth/page.tsx",
+      "surface": "public",
+      "productionSmoke": true
+    },
+    {
+      "path": "/events",
+      "kind": "page",
+      "source": "app/events/page.tsx",
+      "surface": "public",
+      "productionSmoke": true
+    },
+    {
+      "path": "/gallery",
+      "kind": "page",
+      "source": "app/gallery/page.tsx",
+      "surface": "public",
+      "productionSmoke": true
+    },
+    {
+      "path": "/gallery-submit",
+      "kind": "page",
+      "source": "app/gallery-submit/page.tsx",
+      "surface": "member",
+      "productionSmoke": true
+    },
+    {
+      "path": "/games/mochi-pets",
+      "kind": "page",
+      "source": "app/games/mochi-pets/page.tsx",
+      "surface": "public",
+      "productionSmoke": true
+    },
+    {
+      "path": "/games/mochi-pets/member-access",
+      "kind": "handler",
+      "source": "app/games/mochi-pets/member-access/route.ts",
+      "surface": "member",
+      "productionSmoke": false,
+      "methods": [
+        "POST",
+        "DELETE"
+      ]
+    },
+    {
+      "path": "/games/mochi-pets/tester-login",
+      "kind": "handler",
+      "source": "app/games/mochi-pets/tester-login/route.ts",
+      "surface": "member",
+      "productionSmoke": false,
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/games/mochi-pets/tester-logout",
+      "kind": "handler",
+      "source": "app/games/mochi-pets/tester-logout/route.ts",
+      "surface": "member",
+      "productionSmoke": false,
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/join",
+      "kind": "page",
+      "source": "app/join/page.tsx",
+      "surface": "public",
+      "productionSmoke": true
+    },
+    {
+      "path": "/leader-dashboard",
+      "kind": "page",
+      "source": "app/leader-dashboard/page.tsx",
+      "surface": "moderator",
+      "productionSmoke": true
+    },
+    {
+      "path": "/leaders",
+      "kind": "page",
+      "source": "app/leaders/page.tsx",
+      "surface": "public",
+      "productionSmoke": true
+    },
+    {
+      "path": "/oauth/consent",
+      "kind": "page",
+      "source": "app/oauth/consent/page.tsx",
+      "surface": "member",
+      "productionSmoke": false
+    },
+    {
+      "path": "/raffle",
+      "kind": "page",
+      "source": "app/raffle/page.tsx",
+      "surface": "public",
+      "productionSmoke": true
+    },
+    {
+      "path": "/raffle-render-fixtures-internal/[scenario]",
+      "kind": "page",
+      "source": "app/raffle-render-fixtures-internal/[scenario]/page.tsx",
+      "surface": "internal",
+      "productionSmoke": false
+    },
+    {
+      "path": "/raffle/rules",
+      "kind": "page",
+      "source": "app/raffle/rules/page.tsx",
+      "surface": "public",
+      "productionSmoke": true
+    },
+    {
+      "path": "/raffle/rules/[version]",
+      "kind": "page",
+      "source": "app/raffle/rules/[version]/page.tsx",
+      "surface": "public",
+      "productionSmoke": false
+    },
+    {
+      "path": "/ranks",
+      "kind": "page",
+      "source": "app/ranks/page.tsx",
+      "surface": "public",
+      "productionSmoke": true
+    },
+    {
+      "path": "/recruitment",
+      "kind": "page",
+      "source": "app/recruitment/page.tsx",
+      "surface": "public",
+      "productionSmoke": true
+    },
+    {
+      "path": "/social",
+      "kind": "page",
+      "source": "app/social/page.tsx",
+      "surface": "public",
+      "productionSmoke": true
+    },
+    {
+      "path": "/spinner",
+      "kind": "page",
+      "source": "app/spinner/page.tsx",
+      "surface": "private",
+      "productionSmoke": false
+    },
+    {
+      "path": "/spinner/[...not-found]",
+      "kind": "page",
+      "source": "app/spinner/[...not-found]/page.tsx",
+      "surface": "private",
+      "productionSmoke": false
+    },
+    {
+      "path": "/spinner/live",
+      "kind": "handler",
+      "source": "app/spinner/live/route.ts",
+      "surface": "private",
+      "productionSmoke": false,
+      "methods": [
+        "GET",
+        "POST",
+        "PUT",
+        "PATCH",
+        "DELETE",
+        "HEAD",
+        "OPTIONS"
+      ]
+    },
+    {
+      "path": "/spinner/media/render",
+      "kind": "handler",
+      "source": "app/spinner/media/render/route.ts",
+      "surface": "private",
+      "productionSmoke": false,
+      "methods": [
+        "GET",
+        "POST",
+        "PUT",
+        "PATCH",
+        "DELETE",
+        "HEAD",
+        "OPTIONS"
+      ]
+    },
+    {
+      "path": "/spinner/session",
+      "kind": "handler",
+      "source": "app/spinner/session/route.ts",
+      "surface": "private",
+      "productionSmoke": false,
+      "methods": [
+        "GET",
+        "POST",
+        "PUT",
+        "PATCH",
+        "DELETE",
+        "HEAD",
+        "OPTIONS"
+      ]
+    },
+    {
+      "path": "/spotify",
+      "kind": "page",
+      "source": "app/spotify/page.tsx",
+      "surface": "public",
+      "productionSmoke": true
+    },
+    {
+      "path": "/spotlight",
+      "kind": "page",
+      "source": "app/spotlight/page.tsx",
+      "surface": "public",
+      "productionSmoke": true
+    },
+    {
+      "path": "/tome",
+      "kind": "page",
+      "source": "app/tome/page.tsx",
+      "surface": "public",
+      "productionSmoke": true
+    },
+    {
+      "path": "/twills",
+      "kind": "page",
+      "source": "app/twills/page.tsx",
+      "surface": "public",
+      "productionSmoke": true
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/account.html",
+      "destination": "/account",
+      "permanent": true
+    },
+    {
+      "source": "/announcements.html",
+      "destination": "/announcements",
+      "permanent": true
+    },
+    {
+      "source": "/auth.html",
+      "destination": "/auth",
+      "permanent": true
+    },
+    {
+      "source": "/events.html",
+      "destination": "/events",
+      "permanent": true
+    },
+    {
+      "source": "/gallery-submit.html",
+      "destination": "/gallery-submit",
+      "permanent": true
+    },
+    {
+      "source": "/gallery.html",
+      "destination": "/gallery",
+      "permanent": true
+    },
+    {
+      "source": "/index.html",
+      "destination": "/",
+      "permanent": true
+    },
+    {
+      "source": "/join.html",
+      "destination": "/join",
+      "permanent": true
+    },
+    {
+      "source": "/leader-dashboard.html",
+      "destination": "/leader-dashboard",
+      "permanent": true
+    },
+    {
+      "source": "/leaders.html",
+      "destination": "/leaders",
+      "permanent": true
+    },
+    {
+      "source": "/raffles",
+      "destination": "/raffle",
+      "permanent": true
+    },
+    {
+      "source": "/raffles.html",
+      "destination": "/raffle",
+      "permanent": true
+    },
+    {
+      "source": "/ranks.html",
+      "destination": "/ranks",
+      "permanent": true
+    },
+    {
+      "source": "/recruitment.html",
+      "destination": "/recruitment",
+      "permanent": true
+    },
+    {
+      "source": "/social.html",
+      "destination": "/social",
+      "permanent": true
+    },
+    {
+      "source": "/spotify.html",
+      "destination": "/spotify",
+      "permanent": true
+    },
+    {
+      "source": "/spotlight.html",
+      "destination": "/spotlight",
+      "permanent": true
+    },
+    {
+      "source": "/tome.html",
+      "destination": "/tome",
+      "permanent": true
+    },
+    {
+      "source": "/twills.html",
+      "destination": "/twills",
+      "permanent": true
+    }
+  ]
+}

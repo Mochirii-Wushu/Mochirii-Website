@@ -6,6 +6,12 @@ const root = process.cwd();
 const failures = [];
 const notes = [];
 const retiredGameSlug = ["mochi", "social"].join("-");
+const routeMatrix = JSON.parse(readFileSync(path.join(root, "apps/web/config/app-route-matrix.v1.json"), "utf8"));
+const productionSmokeRoutes = new Set(
+  routeMatrix.routes
+    .filter((route) => route.kind === "page" && route.productionSmoke === true)
+    .map((route) => route.path),
+);
 
 const publicRoutes = [
   { route: "/", label: "home", file: "apps/web/app/page.tsx", metadataFile: "apps/web/app/layout.tsx" },
@@ -150,9 +156,11 @@ function checkDiscoveryFiles() {
 
 function checkProductionSmokeCoverage() {
   const smoke = read("scripts/smoke-vercel-production.mjs");
+  assertIncludes("production route smoke", smoke, "app-route-matrix.v1.json");
+  assertIncludes("production route smoke", smoke, "route.productionSmoke === true");
 
   for (const route of allSmokeRoutes) {
-    assertRouteListed("production route smoke", smoke, route);
+    assert(productionSmokeRoutes.has(route), `production route matrix: expected route ${route}`);
   }
 
   for (const route of ["/auth", "/account", "/gallery-submit", "/leader-dashboard", "/games/mochi-pets"]) {

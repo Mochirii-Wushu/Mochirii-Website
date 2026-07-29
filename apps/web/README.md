@@ -117,34 +117,21 @@ NEXT_PUBLIC_SITE_URL
 
 Do not print or commit secret values. Do not add service-role keys, Discord bot tokens, Instagram access tokens, OAuth client secrets, or other privileged credentials to browser code. Privileged verification, moderation, Instagram publishing, signed preview URLs, and audit behavior stay inside Supabase Edge Functions.
 
-## Migrated Routes
+## App Router Contract
 
-Current Next routes:
+`config/app-route-matrix.v1.json` is the versioned, public-safe inventory of
+every App Router page, route handler, explicit handler method, route surface,
+production document smoke, and legacy redirect. It contains no credentials,
+request payloads, provider identifiers, or private evidence.
 
-- `/`
-- `/join`
-- `/ranks`
-- `/leaders`
-- `/tome`
-- `/events`
-- `/announcements`
-- `/raffle`
-- `/raffle/rules`
-- `/gallery`
-- `/spotlight`
-- `/spotify`
-- `/recruitment`
-- `/twills`
-- `/auth`
-- `/account`
-- `/social`
-- `/oauth/consent`
-- `/gallery-submit`
-- `/leader-dashboard`
-- `/games/mochi-pets`
-- `/spinner` (private, dynamic, and excluded from the ordinary site shell)
-
-Legacy `.html` redirects for migrated pages are configured in `next.config.ts`.
+Run `npm run check:app-route-inventory` from the repository root after adding,
+removing, or moving an `app/**/page.*` or `app/**/route.*` file. The check
+derives the implemented inventory from the filesystem, fails on undocumented
+or stale entries and handler-method drift, and requires the redirect matrix to
+match `next.config.ts`. `npm run test:app-route-inventory` covers the fail-closed
+discovery and redirect parser. The production smoke consumes this same matrix,
+including `/tome.html` and `/social.html`, instead of maintaining another route
+list.
 
 ## Mochi Pets Tester Doorway
 
