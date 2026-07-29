@@ -23,6 +23,7 @@ export function AuthPanel() {
   const oauthProviders = useMemo(() => enabledOAuthProviders(), []);
   const placeholderProviders = useMemo(() => placeholderOAuthProviders(), []);
   const phoneProvider = providers.find((provider) => provider.id === "phone");
+  const requiresFreshSignIn = searchParams.get("reauth") === "1";
   const redirectTo = useMemo(() => {
     return resolveAuthReturnPath(searchParams.get("redirect"));
   }, [searchParams]);
@@ -36,7 +37,9 @@ export function AuthPanel() {
     setStatus(
       currentUser
         ? `Signed in as ${signedInName(currentUser)}. Open Account to check member verification.`
-        : "Choose a sign-in method. Gallery upload access is verified separately.",
+        : requiresFreshSignIn
+          ? "Sign in again to finish the secure session update."
+          : "Choose a sign-in method. Gallery upload access is verified separately.",
     );
     setBusy(false);
   }

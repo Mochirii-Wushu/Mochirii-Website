@@ -119,7 +119,7 @@ const snippetChecks = [
     label: "OAuth PKCE callback",
     file: "apps/web/app/auth/callback/route.ts",
     snippets: [
-      "exchangeCodeForSession(code)",
+      "exchangeAuthCodeForCookieSession(supabase.auth, code)",
       "resolveAuthReturnPath",
       'getAll("code")',
     ],

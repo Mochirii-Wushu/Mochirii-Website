@@ -13,6 +13,7 @@ export const SUPABASE_AUTH_COOKIE_OPTIONS = {
   sameSite: "lax" as const,
   secure: process.env.NODE_ENV === "production",
 };
+export const SUPABASE_AUTH_STORAGE_KEY = `sb-${SUPABASE_PROJECT_REF}-auth-token`;
 
 export const DISCORD_GUILD_ID = "1078630751077142608";
 export const DISCORD_REQUIRED_ROLE_IDS = ["1468659807736299520", "1078630751077142615"] as const;

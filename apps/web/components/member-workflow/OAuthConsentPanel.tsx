@@ -20,7 +20,7 @@ import { oauthConsentLoginHref } from "@/lib/oauth/consent-login-url";
 import { priorConsentRedirect } from "@/lib/oauth/prior-consent-redirect";
 import { SOCIAL_HOST } from "@/lib/public-urls";
 import { getCurrentSession, onAuthStateChange } from "@/lib/supabase/auth";
-import { requireBrowserSupabaseClient } from "@/lib/supabase/client";
+import { requireReadyBrowserSupabaseClient } from "@/lib/supabase/client";
 import { profileIsActive, verifyMemberAccess } from "@/lib/supabase/profile";
 import { text, type MemberAccessResponse } from "@/lib/supabase/types";
 import { WorkflowNotice } from "./WorkflowState";
@@ -95,7 +95,7 @@ export function OAuthConsentPanel() {
         return;
       }
 
-      const client = requireBrowserSupabaseClient();
+      const client = await requireReadyBrowserSupabaseClient();
       const { data, error: detailsError } = await client.auth.oauth.getAuthorizationDetails(authorizationId);
       if (detailsError || !data) {
         const failure = classifyAuthorizationDetailsFailure(detailsError);

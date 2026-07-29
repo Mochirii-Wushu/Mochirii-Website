@@ -68,6 +68,7 @@ const files = {
   auth: "apps/web/lib/supabase/auth.ts",
   layout: "apps/web/app/layout.tsx",
   siteShell: "apps/web/components/SiteRouteShell.tsx",
+  ordinaryShell: "apps/web/components/OrdinarySiteShell.tsx",
   nextConfig: "apps/web/next.config.ts",
   robots: "apps/web/public/robots.txt",
   sitemap: "apps/web/public/sitemap.xml",
@@ -414,7 +415,7 @@ for (const snippet of [
   "<Analytics />",
   "<SpeedInsights />",
 ]) {
-  includes("ordinary route site shell", source.siteShell, snippet);
+  includes("ordinary route site shell", source.ordinaryShell, snippet);
   excludes("root layout", source.layout, snippet.slice(0, -3));
 }
 includes("root layout", source.layout, "<SiteRouteShell>{children}</SiteRouteShell>");

@@ -7,12 +7,16 @@ import {
   type OAuthProviderId,
 } from "./auth-providers";
 import { authCallbackPath, resolveAuthReturnPath } from "./auth-redirect";
-import { requireBrowserSupabaseClient } from "./client";
+import {
+  clearLegacyBrowserAuthStorage,
+  requireBrowserSupabaseClient,
+  requireReadyBrowserSupabaseClient,
+} from "./client";
 import { failedResult, okResult, createResult, createError, type AuthSessionResult, type AuthUserResult } from "./types";
 
 export async function getCurrentSession() {
   try {
-    const client = requireBrowserSupabaseClient();
+    const client = await requireReadyBrowserSupabaseClient();
     const { data, error } = await client.auth.getSession();
     if (error) return failedResult<AuthSessionResult>(error);
     return okResult<AuthSessionResult>({ session: data.session || null });
@@ -23,7 +27,7 @@ export async function getCurrentSession() {
 
 export async function getCurrentUser() {
   try {
-    const client = requireBrowserSupabaseClient();
+    const client = await requireReadyBrowserSupabaseClient();
     const { data, error } = await client.auth.getUser();
     if (error) return failedResult<AuthUserResult>(error);
     if (!data.user) {
@@ -60,7 +64,7 @@ export async function signInWithProvider(provider: OAuthProviderId, options: { r
   try {
     if (!isOAuthProviderId(provider)) throw new Error("That sign-in provider is not supported.");
 
-    const client = requireBrowserSupabaseClient();
+    const client = await requireReadyBrowserSupabaseClient();
     const config = AUTH_PROVIDER_REGISTRY[provider];
     const { data, error } = await client.auth.signInWithOAuth({
       provider: providerToSupabaseProvider(provider),
@@ -80,7 +84,7 @@ export async function linkProviderIdentity(provider: OAuthProviderId, options: {
   try {
     if (!isOAuthProviderId(provider)) throw new Error("That sign-in provider is not supported.");
 
-    const client = requireBrowserSupabaseClient();
+    const client = await requireReadyBrowserSupabaseClient();
     const config = AUTH_PROVIDER_REGISTRY[provider];
     const { data, error } = await client.auth.linkIdentity({
       provider: providerToSupabaseProvider(provider),
@@ -98,7 +102,7 @@ export async function linkProviderIdentity(provider: OAuthProviderId, options: {
 
 export async function getLinkedIdentities() {
   try {
-    const client = requireBrowserSupabaseClient();
+    const client = await requireReadyBrowserSupabaseClient();
     const authWithIdentities = client.auth as typeof client.auth & {
       getUserIdentities?: () => Promise<{ data?: { identities?: unknown[] } | unknown[] | null; error?: unknown }>;
     };
@@ -130,7 +134,7 @@ export async function signInWithPhoneOtp({
     const cleanPhone = String(phone || "").trim();
     if (!cleanPhone) throw new Error("Enter a phone number before requesting a code.");
 
-    const client = requireBrowserSupabaseClient();
+    const client = await requireReadyBrowserSupabaseClient();
     const { data, error } = await client.auth.signInWithOtp({
       phone: cleanPhone,
       options: {
@@ -151,7 +155,7 @@ export async function verifyPhoneOtp({ phone, token }: { phone: string; token: s
     const cleanToken = String(token || "").trim();
     if (!cleanPhone || !cleanToken) throw new Error("Enter the phone number and verification code.");
 
-    const client = requireBrowserSupabaseClient();
+    const client = await requireReadyBrowserSupabaseClient();
     const { data, error } = await client.auth.verifyOtp({
       phone: cleanPhone,
       token: cleanToken,
@@ -255,11 +259,13 @@ export async function clearPrivateSpinnerSession() {
 export async function signOut() {
   try {
     await clearPrivateSpinnerSession();
-    const client = requireBrowserSupabaseClient();
+    const client = await requireReadyBrowserSupabaseClient();
     const { error } = await client.auth.signOut();
+    clearLegacyBrowserAuthStorage();
     if (error) return failedResult(error);
     return okResult(true, "Signed out.");
   } catch (error) {
+    clearLegacyBrowserAuthStorage();
     return failedResult(error);
   }
 }

@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
+import { validatePrivateRaffleOperationAllowlist } from "./private-raffle-operation-policy.mjs";
 
 const appRoot = path.resolve(import.meta.dirname, "..");
 const failures = [];
@@ -34,7 +35,7 @@ requireText(publicConfig, /sameSite:\s*"lax"/, "Auth cookies must retain OAuth-c
 requireText(publicConfig, /secure:\s*process\.env\.NODE_ENV\s*===\s*"production"/, "Auth cookies must be Secure in production.");
 
 const callback = read("app/auth/callback/route.ts");
-requireText(callback, /exchangeCodeForSession\(code\)/, "The PKCE callback must exchange the server auth code.");
+requireText(callback, /exchangeAuthCodeForCookieSession\(supabase\.auth, code\)/, "The PKCE callback must exchange the server auth code through the fail-closed helper.");
 requireText(callback, /resolveAuthReturnPath/, "The PKCE callback must apply the return-path allowlist.");
 requireText(callback, /getAll\("code"\)/, "The PKCE callback must reject ambiguous duplicate codes.");
 requireText(callback, /PRIVATE_RAFFLE_HEADERS/, "The PKCE callback must be private and non-cacheable.");
@@ -48,6 +49,18 @@ requireText(serverAuth, /verify-discord-member/, "Member routes must request fre
 requireText(serverAuth, /list-gallery-review-queue/, "Moderator routes must request fresh moderator verification.");
 requireText(serverAuth, /authorizeRaffleClaimRequest/, "Future claim operations need an independent authorization entrypoint.");
 requireText(serverAuth, /authorizeRaffleModeratorRequest/, "Future moderator operations need an independent authorization entrypoint.");
+
+const serverClient = read("lib/supabase/server.ts");
+requireText(serverClient, /createServerComponentSupabaseClient/, "Server Components must use their tolerant read client.");
+requireText(serverClient, /createRouteHandlerSupabaseClient/, "Route Handlers must use their strict write client.");
+requireText(serverClient, /strictRouteHandlerCookieMethods/, "Callback cookie writes must use the strict adapter.");
+const cookieAdapters = read("lib/supabase/server-cookie-adapters.ts");
+requireText(cookieAdapters, /strictRouteHandlerCookieMethods/, "Strict Route Handler cookie methods must remain explicit.");
+requireText(cookieAdapters, /tolerantServerComponentCookieMethods/, "Server Component cookie methods must remain separately tolerant.");
+
+const authCutover = read("lib/supabase/legacy-auth-cutover.ts");
+requireText(authCutover, /clearLegacyAuthStorage\(storage, storageKey\)/, "Legacy token material must be cleared during cutover.");
+requireText(authCutover, /legacyOAuthCutoverForUrl/, "Old in-flight OAuth results must use the reviewed cutover path.");
 
 for (const [relativePath, decisionFunction, loginPath] of [
   ["app/raffle/claim/page.tsx", "getRaffleClaimPageDecision", "/raffle/claim"],
@@ -77,25 +90,31 @@ requireText(responsePolicy, /"Referrer-Policy": "no-referrer"/, "Private raffle 
 const publicRaffle = read("app/raffle/page.tsx");
 rejectText(publicRaffle, /createServerSupabaseClient|getRaffleClaimPageDecision|getRaffleModeratorPageDecision|force-dynamic|cookies\(/, "The public raffle route must stay cacheable and independent from cookie auth.");
 
-for (const relativePath of [
-  "app/raffle/claim/actions.ts",
-  "app/raffle/claim/route.ts",
-  "app/leader-dashboard/raffle/actions.ts",
-  "app/leader-dashboard/raffle/route.ts",
-]) {
-  const absolutePath = path.join(appRoot, relativePath);
-  if (!fs.existsSync(absolutePath)) continue;
-  const source = fs.readFileSync(absolutePath, "utf8");
-  const required = relativePath.includes("leader-dashboard")
-    ? /authorizeRaffleModeratorRequest\(\)/
-    : /authorizeRaffleClaimRequest\(\)/;
-  requireText(source, required, `${relativePath} must independently authorize every operation.`);
-}
+const operationPolicy = validatePrivateRaffleOperationAllowlist(appRoot);
+operationPolicy.failures.forEach((failure) => failures.push(`Private raffle operation policy: ${failure}`));
+const previewSmoke = read("scripts/smoke-raffle-auth-preview.mjs");
+requireText(previewSmoke, /MOCHIRII_RAFFLE_PREVIEW_AUTH_FIXTURE/, "Preview auth evidence must come from the ignored one-use fixture.");
+requireText(previewSmoke, /responseCookiePairs/, "Preview auth must verify callback Set-Cookie behavior.");
+requireText(previewSmoke, /destination\.pathname !== "\/raffle\/claim"/, "Preview auth must follow the exact protected claim destination.");
+rejectText(previewSmoke, /console\.(?:log|error)\([^\n]*(?:callbackUrl|cookieHeader|codes\[|fixture\.)/, "Preview auth must never print callback or cookie material.");
 
 const routeShell = read("components/SiteRouteShell.tsx");
 requireText(routeShell, /isIsolatedPrivateRafflePath/, "Private raffle routes must use the isolated shell.");
 requireText(routeShell, /pathname === "\/raffle\/claim"/, "The claim route must stay isolated from analytics and header auth.");
 requireText(routeShell, /pathname === "\/leader-dashboard\/raffle"/, "The moderator route must stay isolated from analytics and header auth.");
+requireText(routeShell, /dynamic\(\(\) => import\("@\/components\/OrdinarySiteShell"\)/, "The ordinary shell must remain a conditional chunk.");
+requireText(routeShell, /dynamic\(\(\) => import\("@\/components\/AuthCutoverGuard"\)/, "The auth cutover guard must remain a conditional chunk.");
+requireText(routeShell, /AUTH_CUTOVER_PATHS\.has\(pathname\)/, "Legacy reauthentication must run only on explicit auth surfaces.");
+rejectText(routeShell, /ssr:\s*false/, "The ordinary shell must retain server rendering.");
+for (const marker of ["SiteHeader", "SiteFooter", "useHeaderAuthState", "Analytics", "SpeedInsights"]) {
+  rejectText(routeShell, new RegExp(marker), `The route selector must not statically import ${marker}.`);
+}
+
+const ordinaryShell = read("components/OrdinarySiteShell.tsx");
+for (const marker of ["SiteHeader", "SiteFooter", "useHeaderAuthState", "Analytics", "SpeedInsights"]) {
+  requireText(ordinaryShell, new RegExp(marker), `The ordinary shell must own ${marker}.`);
+}
+rejectText(ordinaryShell, /AuthCutoverGuard/, "Public ordinary pages must not eagerly load the legacy auth cutover.");
 
 if (failures.length) {
   failures.forEach((failure) => console.error(`- ${failure}`));

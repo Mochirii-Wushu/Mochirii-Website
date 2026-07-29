@@ -69,6 +69,7 @@ function assertRouteListed(label, text, route) {
 function checkLayoutObservability() {
   const layout = read("apps/web/app/layout.tsx");
   const routeShell = read("apps/web/components/SiteRouteShell.tsx");
+  const ordinaryShell = read("apps/web/components/OrdinarySiteShell.tsx");
 
   assertIncludes("root layout", layout, 'import { SiteRouteShell } from "@/components/SiteRouteShell";');
   assertIncludes("root layout", layout, 'import { SITE_ORIGIN } from "@/lib/public-urls";');
@@ -76,14 +77,15 @@ function checkLayoutObservability() {
   assertIncludes("root layout", layout, "metadataBase: new URL(SITE_ORIGIN)");
   assertIncludes("root layout", layout, 'canonical: "/"');
 
-  assertIncludes("route-aware site shell", routeShell, 'import { Analytics } from "@vercel/analytics/next";');
-  assertIncludes("route-aware site shell", routeShell, 'import { SpeedInsights } from "@vercel/speed-insights/next";');
   assertIncludes("route-aware site shell", routeShell, 'pathname === "/spinner"');
   assertIncludes("route-aware site shell", routeShell, 'pathname.startsWith("/spinner/")');
   assertIncludes("route-aware site shell", routeShell, "isIsolatedPrivateRafflePath(pathname)");
   assertIncludes("route-aware site shell", routeShell, "return children;");
-  assertIncludes("route-aware site shell", routeShell, "<Analytics />");
-  assertIncludes("route-aware site shell", routeShell, "<SpeedInsights />");
+  assertIncludes("route-aware site shell", routeShell, 'import("@/components/OrdinarySiteShell")');
+  assertIncludes("ordinary site shell", ordinaryShell, 'import { Analytics } from "@vercel/analytics/next";');
+  assertIncludes("ordinary site shell", ordinaryShell, 'import { SpeedInsights } from "@vercel/speed-insights/next";');
+  assertIncludes("ordinary site shell", ordinaryShell, "<Analytics />");
+  assertIncludes("ordinary site shell", ordinaryShell, "<SpeedInsights />");
 }
 
 function checkPublicMetadata() {

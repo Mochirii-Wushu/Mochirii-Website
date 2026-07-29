@@ -10,7 +10,7 @@ import {
   type ClaimPageDecision,
   type ModeratorPageDecision,
 } from "./raffle-access-policy";
-import { createServerSupabaseClient } from "./server";
+import { createServerComponentSupabaseClient } from "./server";
 
 type VerifiedServerIdentity = {
   client: SupabaseClient;
@@ -34,7 +34,7 @@ function functionPayload(value: unknown) {
 }
 
 export async function getVerifiedServerIdentity(): Promise<VerifiedServerIdentity | null> {
-  const client = await createServerSupabaseClient();
+  const client = await createServerComponentSupabaseClient();
   if (!client) return null;
   try {
     const { data, error } = await client.auth.getClaims();

@@ -116,7 +116,7 @@ const thumbnailValidatorModulePath = "supabase/functions/_shared/vendor/libwebp/
 const thumbnailValidatorModule = read(thumbnailValidatorModulePath);
 const thumbnailValidatorDigest = read(`${thumbnailValidatorModulePath}.sha256`).trim().split(/\s+/)[0];
 const homePage = read("apps/web/app/page.tsx");
-const routeShell = read("apps/web/components/SiteRouteShell.tsx");
+const ordinaryShell = read("apps/web/components/OrdinarySiteShell.tsx");
 const sharedPublicComponents = read("apps/web/components/public-pages/common.tsx");
 const siteHeader = read("apps/web/components/SiteHeader.tsx");
 const siteFooter = read("apps/web/components/SiteFooter.tsx");
@@ -338,7 +338,7 @@ assert(homePriorityCount === 1, `Home page should have exactly one priority imag
   "fill",
   'sizes="100vw"',
   'loading="eager"',
-].forEach((snippet) => assertIncludes("responsive global background", routeShell, snippet));
+].forEach((snippet) => assertIncludes("responsive global background", ordinaryShell, snippet));
 assertIncludes("responsive global background styles", tokenStyles, ".bg-photo__image{");
 assertIncludes("responsive global background styles", tokenStyles, "object-fit:cover;");
 assert(!tokenStyles.includes('background:url("/assets/bg/wuxia-bg.webp")'), "Next background must not retain the full-size CSS request.");

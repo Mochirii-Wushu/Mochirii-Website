@@ -94,6 +94,28 @@ and noindex responses, and render no claim or administration controls while the
 raffle foundation is disabled. `/raffle` remains cacheable and uses its existing
 lazy authenticated APIs; it does not enter the cookie-refresh matcher.
 
+The first cookie release retires bounded legacy browser sessions only when an
+auth client is needed. An ordinary signed-out public page performs no cutover
+auth request and never redirects because stale browser storage exists. Old
+in-flight implicit/PKCE results are stripped from reviewed auth destinations.
+A valid legacy session is handed once to the cookie client; malformed or failed
+handoffs delete the token, verifier, and user cache and require a fresh sign-in
+on the next authenticated surface. Rollback to the prior browser-storage build
+can therefore require members to sign in again; it never restores retired token
+material.
+
+Before merging this boundary, run `npm run smoke:raffle-auth-preview` against
+the exact protected Preview with a one-use JSON fixture stored only under the
+ignored `.artifacts/operations` boundary. Set
+`MOCHIRII_RAFFLE_PREVIEW_BASE_URL` to the HTTPS Preview origin and
+`MOCHIRII_RAFFLE_PREVIEW_AUTH_FIXTURE` to an absolute file containing only
+`callbackUrl` and `cookieHeader`. The input must be a fresh `/auth/callback`
+for `/raffle/claim`, its PKCE verifier cookie, and no existing auth-session
+cookie. The smoke records no URL, code, cookie, or member data; it requires the
+callback to set the cookie session and the same session to pass the freshly
+verified protected claim boundary. Delete the private one-use fixture after the
+run. Never place it in source, CI logs, PR text, or durable documentation.
+
 Essential Account and leader-dashboard access reads run together. Optional submission,
 Gallery, Instagram, and Social status reads settle afterward; the moderator spinner card
 renders before its independent moderation queues complete. The live-spinner proxy

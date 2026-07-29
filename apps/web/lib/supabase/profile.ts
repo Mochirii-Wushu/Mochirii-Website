@@ -1,5 +1,5 @@
 import type { User } from "@supabase/supabase-js";
-import { invokeEdgeFunction, requireBrowserSupabaseClient } from "./client";
+import { invokeEdgeFunction, requireReadyBrowserSupabaseClient } from "./client";
 import { RECENT_VERIFICATION_MS, SAFE_PROFILE_FIELDS } from "./config";
 import { getCurrentUser, requireAuth } from "./auth";
 import { isRecentPastTimestamp } from "./profile-verification-time";
@@ -78,7 +78,7 @@ export function cleanProfilePayload(payload: EditableProfilePayload = {}) {
 
 export async function getCurrentProfile() {
   try {
-    const client = requireBrowserSupabaseClient();
+    const client = await requireReadyBrowserSupabaseClient();
     const userResult = await getCurrentUser();
     const user = userResult.data?.user;
     if (!userResult.ok || !user) {
@@ -115,7 +115,7 @@ export async function getCurrentProfile() {
 
 export async function updateCurrentProfile(payload: EditableProfilePayload) {
   try {
-    const client = requireBrowserSupabaseClient();
+    const client = await requireReadyBrowserSupabaseClient();
     const userResult = await getCurrentUser();
     const user = userResult.data?.user;
     if (!userResult.ok || !user) throw new Error("Sign in before updating your profile.");

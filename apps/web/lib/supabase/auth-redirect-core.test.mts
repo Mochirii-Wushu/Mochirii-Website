@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { authCallbackPath, authLoginPath, resolveAuthReturnPath } from "./auth-redirect.ts";
+import {
+  authCallbackPath,
+  authLoginPath,
+  reauthLoginPathForLocation,
+  resolveAuthReturnPath,
+} from "./auth-redirect.ts";
 
 test("auth return paths are restricted to reviewed local destinations", () => {
   for (const path of [
@@ -44,5 +49,24 @@ test("callback and login paths encode the reviewed destination", () => {
   assert.equal(
     authLoginPath("/leader-dashboard/raffle"),
     "/auth?redirect=%2Fleader-dashboard%2Fraffle",
+  );
+});
+
+test("fresh reauthentication follows only the current reviewed auth destination", () => {
+  assert.equal(
+    reauthLoginPathForLocation("https://preview.example/account"),
+    "/auth?redirect=%2Faccount&reauth=1",
+  );
+  assert.equal(
+    reauthLoginPathForLocation("/oauth/consent?authorization_id=reviewed"),
+    "/auth?redirect=%2Foauth%2Fconsent%3Fauthorization_id%3Dreviewed&reauth=1",
+  );
+  assert.equal(
+    reauthLoginPathForLocation("/auth?redirect=%2Fraffle%2Fclaim&error=sign_in_failed"),
+    "/auth?redirect=%2Fraffle%2Fclaim&reauth=1",
+  );
+  assert.equal(
+    reauthLoginPathForLocation("https://example.com/unreviewed"),
+    "/auth?redirect=%2Faccount&reauth=1",
   );
 });

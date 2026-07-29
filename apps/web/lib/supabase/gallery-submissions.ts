@@ -1,4 +1,4 @@
-import { requireBrowserSupabaseClient } from "./client";
+import { requireReadyBrowserSupabaseClient } from "./client";
 import {
   ACCEPTED_IMAGE_TYPES,
   INSTAGRAM_WEBSITE_OPT_IN_COPY_VERSION,
@@ -92,7 +92,7 @@ export function cleanSubmissionMetadata(metadata: GallerySubmissionMetadata = {}
 
 export async function uploadMemberGalleryImage(file: File | null | undefined, metadata: GallerySubmissionMetadata = {}) {
   try {
-    const client = requireBrowserSupabaseClient();
+    const client = await requireReadyBrowserSupabaseClient();
     validateGalleryFile(file);
     const validFile = file as File;
     await validateGalleryFileDimensions(validFile);
@@ -152,7 +152,7 @@ export async function uploadMemberGalleryImage(file: File | null | undefined, me
 
 export async function listMyGallerySubmissions() {
   try {
-    const client = requireBrowserSupabaseClient();
+    const client = await requireReadyBrowserSupabaseClient();
     const auth = await requireAuth();
     if (!auth.ok || !auth.data?.user) return auth;
 
