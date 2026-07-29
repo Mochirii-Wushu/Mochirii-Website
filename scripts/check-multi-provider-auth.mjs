@@ -90,6 +90,7 @@ assertIncludes("check-all", checkAll, '["test:member-access-refresh", ["deno", "
 [
   "signInWithProvider",
   "signInWithPhoneOtp",
+  "shouldCreateUser = false",
   "verifyPhoneOtp",
   "linkProviderIdentity",
   "getLinkedIdentities",

@@ -118,7 +118,7 @@ export async function getLinkedIdentities() {
 export async function signInWithPhoneOtp({
   phone,
   captchaToken,
-  shouldCreateUser = true,
+  shouldCreateUser = false,
 }: {
   phone: string;
   captchaToken?: string;
