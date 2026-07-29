@@ -383,16 +383,38 @@ body[data-page="spotify"] .spotify-toolbar{
     flex-direction:column;
   }
 
+  .gallery-page .gallery-controls{
+    flex-direction:column;
+  }
+
+  .gallery-page .gallery-controls,
+  .gallery-page .gallery-filters{
+    width:100%;
+    min-width:0;
+  }
+
   .gallery-page .gallery-filter,
   .gallery-page .gallery-copy-link,
   .gallery-page .gallery-order,
   .gallery-page .gallery-order__select{
     flex:1 1 auto;
+    max-width:100%;
+    min-width:0;
     min-height:44px;
+  }
+
+  .gallery-page .gallery-filter{
+    flex-basis:calc(50% - 5px);
   }
 
   .gallery-page .gallery-order{
     flex-wrap:wrap;
+    width:100%;
+  }
+
+  .gallery-page .gallery-order__select,
+  .gallery-page .gallery-copy-link{
+    width:100%;
   }
 }
 
