@@ -2,6 +2,7 @@ import {
   constantTimeSecretEquals,
   downloadAllowlistedAttachment,
   GalleryDiscordIngestError,
+  galleryDiscordIngestErrorCode,
   readBoundedJsonRecord,
 } from "./gallery-discord-ingest.ts";
 
@@ -114,4 +115,44 @@ Deno.test("attachment bodies and deadlines fail closed", async () => {
     timedOut = error instanceof GalleryDiscordIngestError && error.code === "attachment_timeout";
   }
   assert(timedOut, "attachment timeout was not enforced");
+});
+
+Deno.test("attachment fetch failures never retain signed URL details", async () => {
+  const sentinel = "SIGNED_URL_SECRET_MUST_NOT_REACH_LOGS";
+  const signedUrl =
+    `https://cdn.discordapp.com/attachments/1/2/image.png?ex=1&is=2&hm=${sentinel}`;
+  let failure: unknown;
+
+  try {
+    await downloadAllowlistedAttachment({
+      initialUrl: signedUrl,
+      isAllowedUrl: allow,
+      maximumBytes: 32,
+      timeoutMs: 500,
+      fetcher: (async () => {
+        throw new Error(`network failure while requesting ${signedUrl}`);
+      }) as typeof fetch,
+    });
+  } catch (error) {
+    failure = error;
+  }
+
+  assert(
+    failure instanceof GalleryDiscordIngestError,
+    "raw attachment fetch error escaped the ingest boundary",
+  );
+  assert(
+    galleryDiscordIngestErrorCode(failure) === "attachment_fetch_failed",
+    "raw attachment fetch error did not map to the fixed fallback code",
+  );
+  assert(
+    !String(failure).includes(sentinel),
+    "signed attachment URL detail survived error normalization",
+  );
+  assert(
+    galleryDiscordIngestErrorCode(
+      new Error(`unexpected failure containing ${sentinel}`),
+    ) === "attachment_fetch_failed",
+    "unexpected errors did not map to the fixed fallback code",
+  );
 });

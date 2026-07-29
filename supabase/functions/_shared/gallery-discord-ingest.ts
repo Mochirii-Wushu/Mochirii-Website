@@ -1,10 +1,36 @@
 type JsonRecord = Record<string, unknown>;
 
+const GALLERY_DISCORD_INGEST_ERROR_CODES = [
+  "attachment_fetch_failed",
+  "attachment_http_error",
+  "attachment_redirect_invalid",
+  "attachment_redirect_limit",
+  "attachment_timeout",
+  "attachment_too_large",
+  "attachment_url_invalid",
+] as const;
+
+type GalleryDiscordIngestErrorCode =
+  (typeof GALLERY_DISCORD_INGEST_ERROR_CODES)[number];
+
+const galleryDiscordIngestErrorCodeSet = new Set<string>(
+  GALLERY_DISCORD_INGEST_ERROR_CODES,
+);
+
 export class GalleryDiscordIngestError extends Error {
-  constructor(readonly code: string) {
+  constructor(readonly code: GalleryDiscordIngestErrorCode) {
     super(code);
     this.name = "GalleryDiscordIngestError";
   }
+}
+
+export function galleryDiscordIngestErrorCode(
+  error: unknown,
+): GalleryDiscordIngestErrorCode {
+  const code = error instanceof GalleryDiscordIngestError ? error.code : "";
+  return galleryDiscordIngestErrorCodeSet.has(code)
+    ? code as GalleryDiscordIngestErrorCode
+    : "attachment_fetch_failed";
 }
 
 function record(value: unknown): JsonRecord | null {
@@ -174,6 +200,13 @@ export async function downloadAllowlistedAttachment({
       };
     }
     throw new GalleryDiscordIngestError("attachment_redirect_limit");
+  } catch (error) {
+    if (error instanceof GalleryDiscordIngestError) throw error;
+    throw new GalleryDiscordIngestError(
+      controller.signal.aborted
+        ? "attachment_timeout"
+        : "attachment_fetch_failed",
+    );
   } finally {
     clearTimeout(timeout);
   }
