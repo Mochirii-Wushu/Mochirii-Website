@@ -164,6 +164,8 @@ assert(!homeGalleryLightbox.includes("HomeGalleryLightboxFallback"), "Home Galle
   'id="galleryLoadMore"',
   "src: submission.thumbnail_url,",
   "thumb: submission.thumbnail_url,",
+  "thumbnailWidth: submission.thumbnail_width,",
+  "thumbnailHeight: submission.thumbnail_height,",
   "submission.categories",
   "nextCursor",
   "hasMore",
@@ -198,7 +200,15 @@ assertFileExists("shared Gallery media styles", sharedGalleryMediaStylesPath);
   'status: "ready"',
   'status: "error"',
   "Image unavailable",
+  "intrinsicWidth?: number;",
+  "intrinsicHeight?: number;",
+  "width={imageWidth}",
+  "height={imageHeight}",
 ].forEach((snippet) => assertIncludes("shared Gallery media component", responsiveGalleryMedia, snippet));
+[
+  "intrinsicWidth={item.thumbnailWidth}",
+  "intrinsicHeight={item.thumbnailHeight}",
+].forEach((snippet) => assertIncludes("Gallery intrinsic thumbnail geometry", galleryBrowser, snippet));
 [
   ".responsive-gallery-frame{",
   "aspect-ratio:16 / 10;",
@@ -242,6 +252,7 @@ assertIncludes("approved gallery client", approvedGalleryFeed, 'action: "full" |
 assertIncludes("approved gallery client", approvedGalleryFeed, 'url.searchParams.set("asset", kind)');
 assertIncludes("approved gallery client", approvedGalleryFeed, 'url.searchParams.set("id", id)');
 assertIncludes("approved gallery client", approvedGalleryFeed, "refreshApprovedGalleryThumbnail");
+assertIncludes("approved gallery full-image loader", approvedGalleryFeed, "loadApprovedGalleryOriginal");
 assertIncludes("approved gallery client", approvedGalleryFeed, "nextCursor");
 
 const approvedTypeMatch = approvedGalleryFeed.match(/export type ApprovedGallerySubmission = \{[\s\S]*?\n\};/);

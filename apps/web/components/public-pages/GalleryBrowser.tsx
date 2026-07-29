@@ -14,8 +14,8 @@ import { useBodyPortalRoot, useBodyScrollLock } from "@/components/useLightboxOv
 import {
   APPROVED_GALLERY_PAGE_SIZE,
   listApprovedGallerySubmissions,
+  loadApprovedGalleryOriginal,
   refreshApprovedGalleryThumbnail,
-  resolveApprovedGalleryOriginal,
   type ApprovedGalleryFacets,
   type ApprovedGallerySubmission,
 } from "@/lib/gallery/approved-feed";
@@ -33,6 +33,7 @@ import {
 } from "@/lib/gallery/categories";
 import {
   GALLERY_DEFAULT_SORT,
+  galleryRouteHref,
   normalizeGalleryRouteState,
   normalizeGallerySort,
   orderGalleryPresentation,
@@ -58,6 +59,8 @@ type GalleryItem = {
   categories?: string[];
   galleryAddedAt?: string;
   approvedSubmissionId?: string;
+  thumbnailWidth?: number;
+  thumbnailHeight?: number;
 };
 
 type ApprovedFeedState = "loading" | "ready" | "empty" | "error";
@@ -139,8 +142,13 @@ function fallbackCopyText(value: string) {
 
 async function copyText(value: string) {
   if (navigator.clipboard?.writeText && window.isSecureContext) {
-    await navigator.clipboard.writeText(value);
-    return true;
+    try {
+      await navigator.clipboard.writeText(value);
+      return true;
+    } catch {
+      // Permission and transient clipboard failures retain the synchronous
+      // copy fallback available from this user-activated handler.
+    }
   }
   return fallbackCopyText(value);
 }
@@ -171,6 +179,8 @@ function approvedSubmissionToGalleryItem(submission: ApprovedGallerySubmission):
     category: submission.category || GALLERY_MEMBER_SUBMISSIONS_CATEGORY,
     categories: submission.categories,
     galleryAddedAt: submission.reviewed_at || submission.created_at || "",
+    thumbnailWidth: submission.thumbnail_width,
+    thumbnailHeight: submission.thumbnail_height,
   };
 }
 
@@ -224,7 +234,6 @@ export function GalleryBrowser({
   const [approvedTotal, setApprovedTotal] = useState(0);
   const [approvedHasMore, setApprovedHasMore] = useState(false);
   const [approvedCursor, setApprovedCursor] = useState<string | null>(null);
-  const [approvedPartial, setApprovedPartial] = useState(false);
   const [approvedFeedState, setApprovedFeedState] = useState<ApprovedFeedState>("loading");
   const [approvedFeedAttempt, setApprovedFeedAttempt] = useState(0);
   const [approvedLoadMoreBusy, setApprovedLoadMoreBusy] = useState(false);
@@ -244,7 +253,6 @@ export function GalleryBrowser({
     setApprovedTotal(0);
     setApprovedHasMore(false);
     setApprovedCursor(null);
-    setApprovedPartial(false);
     setApprovedFeedState("loading");
     setApprovedLoadMoreBusy(false);
     setApprovedFeedAttempt((attempt) => attempt + 1);
@@ -274,13 +282,7 @@ export function GalleryBrowser({
 
   useEffect(() => {
     const replaceWithCanonicalState = (url: URL, state: GalleryRouteState) => {
-      if (state.category === GALLERY_ALL_CATEGORY) url.searchParams.delete("category");
-      else url.searchParams.set("category", state.category);
-      if (state.sort === GALLERY_DEFAULT_SORT) url.searchParams.delete("sort");
-      else url.searchParams.set("sort", state.sort);
-      if (state.query) url.searchParams.set("q", state.query);
-      else url.searchParams.delete("q");
-      const canonical = `${url.pathname}${url.search}${url.hash}`;
+      const canonical = galleryRouteHref(url, state);
       const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
       if (canonical !== current) window.history.replaceState(window.history.state, "", canonical);
     };
@@ -293,6 +295,7 @@ export function GalleryBrowser({
       setActiveSort(state.sort);
       setActiveQuery(state.query);
       setQueryDraft(state.query);
+      setShareStatus("");
       replaceWithCanonicalState(url, state);
     };
 
@@ -319,7 +322,6 @@ export function GalleryBrowser({
       setApprovedTotal(result.data.totalEligible);
       setApprovedHasMore(result.data.hasMore);
       setApprovedCursor(result.data.nextCursor);
-      setApprovedPartial(result.data.partial);
       setApprovedFeedState(result.data.totalEligible > 0 ? "ready" : "empty");
     }).catch((error) => {
       if (controller.signal.aborted || (error instanceof DOMException && error.name === "AbortError")) return;
@@ -415,20 +417,16 @@ export function GalleryBrowser({
 
   const resolveOpenFullImage = useCallback((signal: AbortSignal) => {
     if (!openApprovedSubmissionId) return Promise.reject(new Error("The full image is unavailable."));
-    return resolveApprovedGalleryOriginal(openApprovedSubmissionId, signal);
+    return loadApprovedGalleryOriginal(openApprovedSubmissionId, signal);
   }, [openApprovedSubmissionId]);
 
   useBodyScrollLock(Boolean(openItem));
 
   const updateUrl = (category: GalleryFilterSlug, sort: GallerySortMode, query: string) => {
-    const url = new URL(window.location.href);
-    if (category === GALLERY_ALL_CATEGORY) url.searchParams.delete("category");
-    else url.searchParams.set("category", category);
-    if (sort === GALLERY_DEFAULT_SORT) url.searchParams.delete("sort");
-    else url.searchParams.set("sort", sort);
-    if (query) url.searchParams.set("q", query);
-    else url.searchParams.delete("q");
-    const next = `${url.pathname}${url.search}${url.hash}`;
+    const next = galleryRouteHref(
+      new URL(window.location.href),
+      { category, sort, query },
+    );
     const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
     if (next !== current) window.history.pushState({ galleryCategory: category, gallerySort: sort, galleryQuery: query }, "", next);
   };
@@ -518,7 +516,6 @@ export function GalleryBrowser({
       setApprovedTotal(page.totalEligible);
       setApprovedHasMore(page.hasMore);
       setApprovedCursor(page.nextCursor);
-      setApprovedPartial((partial) => partial || page.partial);
       setApprovedFeedState("ready");
       return true;
     } catch (error) {
@@ -549,12 +546,31 @@ export function GalleryBrowser({
   };
 
   const copyCurrentLink = async () => {
+    const url = window.location.href;
     try {
-      const copied = await copyText(window.location.href);
+      const copied = await copyText(url);
       setShareStatus(copied ? "Link copied" : "Copy failed");
     } catch {
       setShareStatus("Copy failed");
     }
+  };
+
+  const shareCurrentGallery = async () => {
+    if (typeof navigator.share === "function") {
+      try {
+        await navigator.share({
+          title: "Mōchirīī Gallery",
+          text: "Browse the Mōchirīī guild gallery.",
+          url: window.location.href,
+        });
+        setShareStatus("Gallery shared");
+        return;
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+      }
+    }
+
+    await copyCurrentLink();
   };
 
   return (
@@ -605,6 +621,9 @@ export function GalleryBrowser({
               <button className="gallery-copy-link" type="button" onClick={clearQuery}>Clear</button>
             ) : null}
           </form>
+          <button id="galleryShareLink" className="gallery-copy-link" type="button" onClick={shareCurrentGallery}>
+            Share gallery
+          </button>
           <button id="galleryCopyLink" className="gallery-copy-link" type="button" onClick={copyCurrentLink}>
             Copy link
           </button>
@@ -634,9 +653,7 @@ export function GalleryBrowser({
                 ? "No member-submitted images are available yet."
                 : approvedLoadMoreBusy
                   ? "Loading more member-submitted images…"
-                  : approvedPartial
-                    ? "Some member-submitted images could not be shown."
-                    : "Member-submitted images loaded."}
+                  : "Member-submitted images loaded."}
         </p>
         {approvedFeedState === "error" ? (
           <button className="gallery-feed-retry" type="button" aria-describedby="galleryMemberFeedStatus" onClick={retryApprovedFeed}>
@@ -677,6 +694,8 @@ export function GalleryBrowser({
             <ResponsiveGalleryMedia
               src={item.thumb}
               alt={item.alt}
+              intrinsicWidth={item.thumbnailWidth}
+              intrinsicHeight={item.thumbnailHeight}
               refreshSource={item.approvedSubmissionId
                 ? (signal) => refreshApprovedGalleryThumbnail(item.approvedSubmissionId || "", signal)
                 : undefined}

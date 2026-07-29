@@ -12,6 +12,8 @@ type ResponsiveGalleryMediaProps = {
   src: string;
   alt: string;
   loading?: "eager" | "lazy";
+  intrinsicWidth?: number;
+  intrinsicHeight?: number;
   fullSource?: string;
   caption?: string;
   focalPoint?: GalleryFocalPoint;
@@ -28,12 +30,20 @@ export function ResponsiveGalleryMedia({
   src,
   alt,
   loading = "lazy",
+  intrinsicWidth = 16,
+  intrinsicHeight = 10,
   fullSource,
   caption,
   focalPoint,
   refreshSource,
   onSourceRefresh,
 }: ResponsiveGalleryMediaProps) {
+  const imageWidth = Number.isSafeInteger(intrinsicWidth) && intrinsicWidth > 0
+    ? intrinsicWidth
+    : 16;
+  const imageHeight = Number.isSafeInteger(intrinsicHeight) && intrinsicHeight > 0
+    ? intrinsicHeight
+    : 10;
   const [imageState, setImageState] = useState<{
     attempt: number;
     propSrc: string;
@@ -135,8 +145,8 @@ export function ResponsiveGalleryMedia({
         className="responsive-gallery-media__image"
         src={current.currentSrc}
         alt={alt}
-        width={16}
-        height={10}
+        width={imageWidth}
+        height={imageHeight}
         loading={loading}
         decoding="async"
         data-full={fullSource}

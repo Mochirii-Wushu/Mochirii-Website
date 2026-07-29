@@ -778,12 +778,14 @@ async function assertNarrowGalleryControlGeometry(page, label) {
     const filters = document.querySelector(".gallery-filters");
     const orders = [...document.querySelectorAll(".gallery-order")];
     const fields = [...document.querySelectorAll(".gallery-order__select")];
+    const shareLink = document.querySelector("#galleryShareLink");
     const copyLink = document.querySelector("#galleryCopyLink");
 
     if (
       !(toolbar instanceof HTMLElement)
       || !(controls instanceof HTMLElement)
       || !(filters instanceof HTMLElement)
+      || !(shareLink instanceof HTMLElement)
       || !(copyLink instanceof HTMLElement)
       || orders.length !== 2
       || fields.length !== 2
@@ -818,6 +820,7 @@ async function assertNarrowGalleryControlGeometry(page, label) {
       filters: bounds(filters, "filters"),
       orders: orders.map((element, index) => bounds(element, `order ${index + 1}`)),
       fields: fields.map((element, index) => bounds(element, `field ${index + 1}`)),
+      shareLink: bounds(shareLink, "Share gallery"),
       copyLink: bounds(copyLink, "Copy link"),
     };
   });
@@ -832,18 +835,21 @@ async function assertNarrowGalleryControlGeometry(page, label) {
     geometry.filters,
     ...geometry.orders,
     ...geometry.fields,
+    geometry.shareLink,
     geometry.copyLink,
   ];
   const fullWidth = [
     geometry.filters,
     ...geometry.orders,
     ...geometry.fields,
+    geometry.shareLink,
     geometry.copyLink,
   ];
   const overflowSafe = [
     geometry.controls,
     geometry.filters,
     ...geometry.orders,
+    geometry.shareLink,
     geometry.copyLink,
   ];
 
@@ -876,11 +882,11 @@ async function assertNarrowGalleryControlGeometry(page, label) {
     );
   }
 
-  for (const item of [...geometry.fields, geometry.copyLink]) {
+  for (const item of [...geometry.fields, geometry.shareLink, geometry.copyLink]) {
     assert(item.height >= 44, `${label}: ${item.name} was smaller than 44px.`);
   }
 
-  const stack = [geometry.filters, ...geometry.orders, geometry.copyLink];
+  const stack = [geometry.filters, ...geometry.orders, geometry.shareLink, geometry.copyLink];
   for (let index = 1; index < stack.length; index += 1) {
     assert(
       stack[index].top >= stack[index - 1].bottom - tolerance,
@@ -1006,7 +1012,7 @@ try {
     const selectedId = fixtureRows.at(-1).id;
     await page.click(normalTrigger);
     await waitForMediaCount(fullActionCounts, selectedId, 1, "normal full-image request");
-    await assertSharedLightboxContract(page, "approved Gallery", displayUrl(selectedId));
+    await assertSharedLightboxContract(page, "approved Gallery", "blob:");
     await assertNoSeriousAccessibilityViolations(page, "approved Gallery viewer", "#lightbox");
     assert(requestsByAction(feedRequests, "full").length === 0, "Opening one approved item used a POST media resolver.");
     assert(fullActionCounts.get(selectedId) === 1, "Normal full request did not use the selected opaque ID exactly once.");
@@ -1051,7 +1057,7 @@ try {
     await waitForReadyFeed(page);
     await page.click("#galleryGrid .gallery-thumb:first-child");
     await waitForMediaCount(fullActionCounts, expiredId, 2, "expired full-image refresh");
-    await assertSharedLightboxContract(page, "expired full image", displayUrl(expiredId));
+    await assertSharedLightboxContract(page, "expired full image", "blob:");
     await page.waitForTimeout(400);
     assert(fullActionCounts.get(expiredId) === 2, "Expired full image did not stop after one bounded refresh.");
     assert(requestsByAction(feedRequests, "full").length === 0, "Expired full image used a POST media resolver.");
@@ -1099,6 +1105,15 @@ try {
   {
     const checked = await newCheckedPage(context);
     const { page, errors, feedRequests } = checked;
+    await page.addInitScript(() => {
+      window.__galleryShareCalls = [];
+      Object.defineProperty(navigator, "share", {
+        configurable: true,
+        value: async (data) => {
+          window.__galleryShareCalls.push(data);
+        },
+      });
+    });
     await page.goto(`${baseUrl}/gallery?category=member-submissions&sort=newest`, { waitUntil: "domcontentloaded" });
     await waitForReadyFeed(page);
 
@@ -1115,6 +1130,14 @@ try {
       () => requestsByAction(feedRequests, "list").some((request) => request.body.category === "action"),
       "action category request",
     );
+    await waitForReadyFeed(page);
+
+    await page.goBack({ waitUntil: "domcontentloaded" });
+    await page.waitForURL((url) => url.searchParams.get("category") === "member-submissions" && url.searchParams.get("sort") === "oldest");
+    await waitForReadyFeed(page);
+    await page.goForward({ waitUntil: "domcontentloaded" });
+    await page.waitForURL((url) => url.searchParams.get("category") === "action" && url.searchParams.get("sort") === "oldest");
+    await waitForReadyFeed(page);
 
     await page.fill("#gallerySearch", "Approved Smoke Submission 003");
     await page.getByRole("button", { name: "Search", exact: true }).click();
@@ -1137,6 +1160,17 @@ try {
     state = await visibleState(page);
     assert(state.imageAlts[0] === portraitRow.title, "Canonical category search returned the wrong publication.");
 
+    const expectedShareUrl = page.url();
+    await page.getByRole("button", { name: "Share gallery", exact: true }).click();
+    await page.waitForFunction(() => window.__galleryShareCalls?.length === 1);
+    const nativeShare = await page.evaluate(() => window.__galleryShareCalls[0]);
+    assert(nativeShare.url === expectedShareUrl, "Native Gallery sharing did not preserve the canonical filter URL.");
+    assert(nativeShare.title === "Mōchirīī Gallery", "Native Gallery sharing lost the public brand title.");
+    assert(
+      (await page.locator("#galleryShareStatus").textContent()) === "Gallery shared",
+      "Native Gallery sharing did not announce success.",
+    );
+
     await page.click('#galleryFilters [data-category="scenery"]');
     await waitForEmptyFeed(page);
     await page.waitForSelector("#galleryEmpty:not([hidden])");
@@ -1145,6 +1179,51 @@ try {
     assert(state.bodyText.includes("No images match this search."), "Zero-result search state was not rendered.");
     assert(!state.filters.some((filter) => !publicFilterCategories.includes(filter.slug)), "Noncanonical filter leaked into the zero state.");
     await assertNoErrors(errors, "URL state and category contract");
+    await page.close();
+  }
+
+  // Browsers without Web Share use the explicit copy fallback without adding
+  // a provider request or changing the canonical Gallery URL.
+  {
+    const checked = await newCheckedPage(context);
+    const { page, errors } = checked;
+    await page.addInitScript(() => {
+      window.__galleryCopiedValue = "";
+      window.__galleryClipboardAttempts = 0;
+      Object.defineProperty(navigator, "share", { configurable: true, value: undefined });
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: {
+          writeText: async () => {
+            window.__galleryClipboardAttempts += 1;
+            throw new DOMException("Clipboard permission denied", "NotAllowedError");
+          },
+        },
+      });
+      document.execCommand = (command) => {
+        if (command !== "copy") return false;
+        window.__galleryCopiedValue = document.querySelector("textarea")?.value || "";
+        return true;
+      };
+    });
+    await page.goto(`${baseUrl}/gallery?category=scenery&sort=oldest`, { waitUntil: "domcontentloaded" });
+    await waitForReadyFeed(page);
+    const expectedCopyUrl = page.url();
+    await page.getByRole("button", { name: "Share gallery", exact: true }).click();
+    await page.waitForFunction(() => window.__galleryCopiedValue !== "");
+    assert(
+      await page.evaluate(() => window.__galleryCopiedValue) === expectedCopyUrl,
+      "Gallery copy fallback did not preserve the canonical filter URL.",
+    );
+    assert(
+      await page.evaluate(() => window.__galleryClipboardAttempts) === 1,
+      "Gallery copy fallback did not exercise the rejected async Clipboard path exactly once.",
+    );
+    assert(
+      (await page.locator("#galleryShareStatus").textContent()) === "Link copied",
+      "Gallery copy fallback did not announce success.",
+    );
+    await assertNoErrors(errors, "Gallery share fallback");
     await page.close();
   }
 
@@ -1192,7 +1271,7 @@ try {
       assert(card && card.x >= -1 && card.x + card.width <= 321, "Gallery card escaped the 320px viewport.");
       await page.click("#galleryGrid .gallery-thumb");
       await waitForMediaCount(fullActionCounts, fixtureRows[0].id, 1, "narrow full-image request");
-      await assertSharedLightboxContract(page, "320px/200% Gallery", displayUrl(fixtureRows[0].id));
+      await assertSharedLightboxContract(page, "320px/200% Gallery", "blob:");
       const reachable = await page.evaluate(() => {
         const root = document.querySelector("#lightbox");
         const card = document.querySelector("#lightbox .lightbox-card");

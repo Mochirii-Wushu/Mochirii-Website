@@ -107,14 +107,16 @@ Valid examples:
 
 Invalid categories fall back to All and clean the URL. Browser Back and Forward should preserve the selected filter, image count, and `aria-pressed` state.
 
-## 8. Copy Link
+## 8. Share and Copy Links
 
+- Share gallery opens the browser or operating system share sheet when Web Share is available from the user-activated control.
+- If Web Share is unavailable or fails, Share gallery uses the same local copy fallback as Copy link. Canceling the share sheet does not copy anything.
 - Copy link copies the current Gallery URL.
 - Category URLs include the selected category.
 - All uses the clean `/gallery` URL where possible.
 - `/gallery.html` remains redirect compatibility for legacy and rollback links; do not emit it as the canonical Next URL.
 - Feedback uses a short `aria-live` status message.
-- Keep the control plain: `Copy link`, `Link copied`, and `Copy failed`.
+- Keep feedback plain: `Gallery shared`, `Link copied`, and `Copy failed`.
 
 ## 9. Counts
 
@@ -178,7 +180,8 @@ runtime noise.
 - Check a physical iPhone in portrait and both landscape directions, plus an iPad in portrait and landscape, with Safari browser chrome expanded and collapsed. Confirm the header, footer, skip link, mobile menu, both lightboxes, captions, close controls, touch dismissal, and focus return stay inside the nonzero safe area.
 - Confirm All shows the current static Gallery image count before approved member submissions load.
 - Confirm counts match current data.
-- Confirm Copy link works.
+- Confirm Share gallery uses Web Share when available and copies the exact current URL as its fallback.
+- Confirm Copy link works independently.
 - Confirm Browser Back and Forward update the selected filter.
 - Confirm the lightbox opens full images, not `/thumbs/`.
 - Confirm Escape, backdrop, and close-button dismissal restore focus and page scroll.
