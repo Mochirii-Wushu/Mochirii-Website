@@ -7,7 +7,12 @@
   expose secret values.
 - Browser and leader-facing messages use product language such as `Member user
   ID`, not infrastructure terminology.
-- Reaper remains hosted in Edge Functions. Preserve Discord signature checks,
-  role authorization, and `allowed_mentions` containment.
+- The Website repository remains the production owner of every configured Edge
+  Function until an exact, separately approved cutover. The Reaper target may
+  prepare only the six bot-owned candidates named in the repository-separation
+  ADR; candidate source must not deploy, remove Website source, change the
+  configured inventory, or create a second active deployment owner. Preserve
+  Discord signature checks, role authorization, and `allowed_mentions`
+  containment throughout the transition.
 - Do not deploy functions, mutate secrets, or change the production database
   outside an explicitly approved release packet.

@@ -8,19 +8,21 @@ changes. No packet is approved merely because it is documented.
 ## Packet A: canonical-name check repair
 
 Purpose: finish the already-open Website and Mochirii Pets naming pull requests
-after their first exact heads exposed deterministic CI defects.
+without mixing repository naming with an unrelated CI-policy change or
+rewriting sealed launch evidence.
 
-- Website corrected local head:
-  `4f9d798b2477b5d3e57efb67ff8e80f007584b53`.
-- Mochirii Pets corrected local head:
-  `146f5de0217360b65d40231ef06a8d68697b9118`.
-- Website fix: align the immutable approved-copy digest and record the already
-  merged Social Mobile canonical-name result.
-- Pets fix: keep the dormant, credential-gated Unity build manual while its
-  repository contract remains automatic.
+- Capture both exact heads and trees again immediately before approval. A
+  locally reviewed head is evidence, not standing authorization.
+- Website scope: preserve the sealed approved-copy packet and its historical
+  provenance byte-for-byte, teach active validators to recognize that sealed
+  evidence boundary, and record the already merged Social Mobile result.
+- Pets scope: retain only the canonical-name and portable repository-contract
+  corrections. The separate proposal to make the credential-gated Unity build
+  manual is excluded and requires its own policy review.
 
-The earlier SHA-specific approval does not cover either corrected descendant.
-A fresh exact-head approval must authorize all of the following together:
+The earlier SHA-specific approval does not cover a changed Website descendant
+or any mixed Pets descendant. A fresh exact-head approval must authorize all
+of the following together:
 
 - push only those two descendants to Website PR #538 and Pets PR #4;
 - run their exact-head checks and merge only if the base, head, review state,
@@ -29,11 +31,12 @@ A fresh exact-head approval must authorize all of the following together:
   automatic redeployment of the unchanged 33 declared Supabase functions with
   20/13 JWT parity, and the reviewed immutable Social GHCR image with SBOM and
   provenance;
-- restore Vercel deployment `dpl_2GniCebzrLxhUebJ7x7MibS2oDDM` if Website
-  application acceptance fails;
+- capture the current production deployment immediately before merge and
+  restore that exact deployment if Website application acceptance fails;
 - for Pets, allow repository CI only and no Unity, Apple, or provider
   deployment;
-- after verified merges, delete only the two merged remote feature branches.
+- after verified merges, delete only the two exact merged remote feature
+  branches.
 
 The approval must continue to prohibit manual Supabase/GHCR deployment,
 DigitalOcean deployment, Shopify publication, secrets, and all unrelated
