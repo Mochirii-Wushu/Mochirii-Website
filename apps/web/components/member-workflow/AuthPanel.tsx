@@ -1,14 +1,30 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { ProviderLogo } from "@/components/member-workflow/ProviderLogo";
 import { safeInternalRedirectPath } from "@/lib/auth-redirect";
 import { enabledAuthProviders, enabledOAuthProviders, placeholderOAuthProviders, type OAuthProviderId } from "@/lib/supabase/auth-providers";
 import { getCurrentUser, onAuthStateChange, signInWithPhoneOtp, signInWithProvider, signOut, verifyPhoneOtp } from "@/lib/supabase/auth";
+import { NEXT_PUBLIC_AUTH_CAPTCHA_SITE_KEY } from "@/lib/supabase/config";
+import {
+  createPhoneOtpResendDeadline,
+  phoneOtpResendSecondsRemaining,
+  readPhoneOtpResendDeadline,
+  writePhoneOtpResendDeadline,
+} from "@/lib/supabase/phone-auth-policy";
 import { signedInName } from "@/lib/supabase/profile";
 import type { User } from "@supabase/supabase-js";
+
+const AuthCaptcha = dynamic(
+  () => import("@/components/member-workflow/AuthCaptcha").then((module) => module.AuthCaptcha),
+  {
+    ssr: false,
+    loading: () => <p className="auth-status muted" role="status">Loading verification challenge.</p>,
+  },
+);
 
 export function AuthPanel() {
   const searchParams = useSearchParams();
@@ -19,6 +35,10 @@ export function AuthPanel() {
   const [phone, setPhone] = useState("");
   const [phoneCode, setPhoneCode] = useState("");
   const [phoneCodeSent, setPhoneCodeSent] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState("");
+  const [captchaResetKey, setCaptchaResetKey] = useState(0);
+  const [resendDeadline, setResendDeadline] = useState(0);
+  const [resendSeconds, setResendSeconds] = useState(0);
   const providers = useMemo(() => enabledAuthProviders(), []);
   const oauthProviders = useMemo(() => enabledOAuthProviders(), []);
   const placeholderProviders = useMemo(() => placeholderOAuthProviders(), []);
@@ -52,6 +72,36 @@ export function AuthPanel() {
     };
   }, [load]);
 
+  useEffect(() => {
+    let active = true;
+    void Promise.resolve().then(() => {
+      if (!active) return;
+      try {
+        const restoredDeadline = readPhoneOtpResendDeadline(window.sessionStorage, Date.now());
+        setResendDeadline(restoredDeadline);
+        setResendSeconds(phoneOtpResendSecondsRemaining(restoredDeadline, Date.now()));
+      } catch {
+        setResendDeadline(0);
+        setResendSeconds(0);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!resendDeadline) return;
+
+    const update = () => {
+      const remaining = phoneOtpResendSecondsRemaining(resendDeadline, Date.now());
+      setResendSeconds(remaining);
+      if (!remaining) setResendDeadline(0);
+    };
+    const timer = window.setInterval(update, 1_000);
+    return () => window.clearInterval(timer);
+  }, [resendDeadline]);
+
   async function login(providerId: OAuthProviderId) {
     setBusy(true);
     setError("");
@@ -67,16 +117,30 @@ export function AuthPanel() {
 
   async function requestPhoneCode(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (resendSeconds > 0) {
+      setError(`Wait ${resendSeconds} seconds before requesting another code.`);
+      return;
+    }
     setBusy(true);
     setError("");
     setStatus("Sending phone verification code.");
-    const result = await signInWithPhoneOtp({ phone });
+    const result = await signInWithPhoneOtp({ phone, captchaToken });
+    setCaptchaToken("");
+    setCaptchaResetKey((current) => current + 1);
     if (!result.ok) {
       setError(result.message || "Phone code could not be sent.");
       setStatus("");
       setBusy(false);
       return;
     }
+    const deadline = createPhoneOtpResendDeadline(Date.now());
+    try {
+      writePhoneOtpResendDeadline(window.sessionStorage, deadline);
+    } catch {
+      // Supabase enforces the authoritative send window if browser storage is unavailable.
+    }
+    setResendDeadline(deadline);
+    setResendSeconds(phoneOtpResendSecondsRemaining(deadline, Date.now()));
     setPhoneCodeSent(true);
     setStatus(result.message || "Code sent. Check your phone.");
     setBusy(false);
@@ -109,6 +173,17 @@ export function AuthPanel() {
   }
 
   const signedIn = Boolean(user);
+  const canRequestPhoneCode = !busy && Boolean(captchaToken) && resendSeconds === 0;
+  const resendLabel = resendSeconds > 0 ? `Send another code in ${resendSeconds}s` : "Send another code";
+
+  function useAnotherPhone() {
+    setPhoneCode("");
+    setPhoneCodeSent(false);
+    setCaptchaToken("");
+    setCaptchaResetKey((current) => current + 1);
+    setError("");
+    setStatus("Enter a phone number with its country code.");
+  }
 
   return (
     <section className="glass-card glass-card--primary glass-pad auth-panel" aria-labelledby="authTitle">
@@ -183,33 +258,61 @@ export function AuthPanel() {
                   type="tel"
                   autoComplete="tel"
                   inputMode="tel"
+                  enterKeyHint="next"
                   value={phone}
                   disabled={busy}
                   onChange={(event) => setPhone(event.target.value)}
                   placeholder="+1 555 010 0000"
+                  aria-describedby="phoneNumberHelp"
+                  required
                 />
               </label>
+              <p className="auth-status muted" id="phoneNumberHelp">Include the country code, beginning with +.</p>
+              <AuthCaptcha
+                key={captchaResetKey}
+                siteKey={NEXT_PUBLIC_AUTH_CAPTCHA_SITE_KEY}
+                onTokenChange={setCaptchaToken}
+              />
               <div className="auth-actions">
-                <button className="hero-cta" type="submit" disabled={busy}>Send code</button>
+                <button className="hero-cta" type="submit" disabled={!canRequestPhoneCode}>
+                  {resendSeconds > 0 ? `Send code in ${resendSeconds}s` : "Send code"}
+                </button>
               </div>
             </form>
           ) : (
-            <form className="auth-form" onSubmit={verifyPhoneCode}>
-              <label className="form-field">
-                <span>Verification code</span>
-                <input
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  value={phoneCode}
-                  disabled={busy}
-                  onChange={(event) => setPhoneCode(event.target.value)}
+            <div className="phone-auth-panel__code-flow">
+              <form className="auth-form" onSubmit={verifyPhoneCode}>
+                <label className="form-field">
+                  <span>Verification code</span>
+                  <input
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    enterKeyHint="done"
+                    pattern="[0-9]*"
+                    minLength={6}
+                    maxLength={10}
+                    value={phoneCode}
+                    disabled={busy}
+                    onChange={(event) => setPhoneCode(event.target.value)}
+                    required
+                  />
+                </label>
+                <div className="auth-actions">
+                  <button className="hero-cta hero-cta--primary" type="submit" disabled={busy}>Verify code</button>
+                  <button className="hero-cta" type="button" onClick={useAnotherPhone} disabled={busy}>Use another phone</button>
+                </div>
+              </form>
+              <form className="auth-form phone-auth-panel__resend" onSubmit={requestPhoneCode}>
+                <AuthCaptcha
+                  key={captchaResetKey}
+                  siteKey={NEXT_PUBLIC_AUTH_CAPTCHA_SITE_KEY}
+                  onTokenChange={setCaptchaToken}
                 />
-              </label>
-              <div className="auth-actions">
-                <button className="hero-cta hero-cta--primary" type="submit" disabled={busy}>Verify code</button>
-                <button className="hero-cta" type="button" onClick={() => setPhoneCodeSent(false)} disabled={busy}>Use another phone</button>
-              </div>
-            </form>
+                <button className="hero-cta" type="submit" disabled={!canRequestPhoneCode} aria-live="off">
+                  {resendLabel}
+                </button>
+              </form>
+            </div>
           )}
           <p className="auth-status muted">{phoneProvider.setupNote}</p>
         </div>

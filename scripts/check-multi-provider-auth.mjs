@@ -90,6 +90,9 @@ assertIncludes("check-all", checkAll, '["test:member-access-refresh", ["deno", "
 [
   "signInWithProvider",
   "signInWithPhoneOtp",
+  "shouldCreateUser: false",
+  "captchaToken: cleanCaptchaToken",
+  "requirePhoneCaptchaToken",
   "verifyPhoneOtp",
   "linkProviderIdentity",
   "getLinkedIdentities",
@@ -109,6 +112,8 @@ assertIncludes("check-all", checkAll, '["test:member-access-refresh", ["deno", "
   "ProviderLogo",
   "signInWithProvider",
   "signInWithPhoneOtp",
+  "AuthCaptcha",
+  "readPhoneOtpResendDeadline",
   "verifyPhoneOtp",
   "placeholderOAuthProviders",
   "Setup pending",

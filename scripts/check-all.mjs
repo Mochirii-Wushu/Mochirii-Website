@@ -49,6 +49,8 @@ const checks = [
   ["check:multi-provider-auth", ["node", "scripts/check-multi-provider-auth.mjs"]],
   ["check:apple-auth-readiness", ["node", "scripts/check-apple-auth-readiness.mjs"]],
   ["check:auth-provider-state-cleanup", ["node", "scripts/check-auth-provider-state-cleanup.mjs"]],
+  ["check:phone-auth-abuse-controls", ["node", "scripts/check-phone-auth-abuse-controls.mjs"]],
+  ["test:phone-auth-policy", [...npmCommand, "--prefix", "apps/web", "run", "test:phone-auth-policy"]],
   ["check:mochi-pets-tester-doorway", ["node", "scripts/check-mochi-pets-tester-doorway.mjs"]],
   ["test:mochi-pets-member-verification", ["node", "--experimental-default-type=module", "--experimental-strip-types", "apps/web/lib/mochi-pets/member-verification-core.test.mts"]],
   ["test:mochi-pets-tester-access-policy", ["node", "--experimental-default-type=module", "--experimental-strip-types", "apps/web/lib/mochi-pets/tester-access-policy-core.test.mts"]],
