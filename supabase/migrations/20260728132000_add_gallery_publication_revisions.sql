@@ -84,6 +84,8 @@ create table private.gallery_source_validations (
 alter table private.gallery_source_validations enable row level security;
 revoke all on table private.gallery_source_validations
 from public, anon, authenticated, service_role;
+create policy service_only_default_deny on private.gallery_source_validations
+  as restrictive for all to anon, authenticated using (false) with check (false);
 
 create table private.gallery_publication_revisions (
   id uuid primary key,
@@ -164,6 +166,8 @@ create table private.gallery_publication_revisions (
 alter table private.gallery_publication_revisions enable row level security;
 revoke all on table private.gallery_publication_revisions
 from public, anon, authenticated, service_role;
+create policy service_only_default_deny on private.gallery_publication_revisions
+  as restrictive for all to anon, authenticated using (false) with check (false);
 
 create table private.gallery_public_delivery_windows (
   window_started_at timestamptz not null,
@@ -183,6 +187,8 @@ create table private.gallery_public_delivery_windows (
 alter table private.gallery_public_delivery_windows enable row level security;
 revoke all on table private.gallery_public_delivery_windows
 from public, anon, authenticated, service_role;
+create policy service_only_default_deny on private.gallery_public_delivery_windows
+  as restrictive for all to anon, authenticated using (false) with check (false);
 
 create index gallery_public_delivery_window_cleanup_idx
 on private.gallery_public_delivery_windows (window_started_at);
@@ -204,6 +210,8 @@ create table private.gallery_moderation_preview_windows (
 alter table private.gallery_moderation_preview_windows enable row level security;
 revoke all on table private.gallery_moderation_preview_windows
 from public, anon, authenticated, service_role;
+create policy service_only_default_deny on private.gallery_moderation_preview_windows
+  as restrictive for all to anon, authenticated using (false) with check (false);
 
 create index gallery_moderation_preview_window_cleanup_idx
 on private.gallery_moderation_preview_windows (window_started_at);
@@ -481,6 +489,7 @@ as $$
 declare
   delivery_reservation jsonb;
 begin
+  perform p_limit, p_offset;
   delivery_reservation := public.gallery_reserve_public_delivery('list', 65536);
   if coalesce((delivery_reservation ->> 'allowed')::boolean, false) is not true then
     raise exception 'Gallery public delivery temporarily unavailable.' using errcode = 'P0001';
