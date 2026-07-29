@@ -57,7 +57,15 @@ test("active-source paths reject file and directory symlinks", (t) => {
   writeFileSync(regularFile, "inside");
   writeFileSync(outsideFile, "outside");
   assert.equal(resolveContainedManifestPath(repository, regularFile, "file"), regularFile);
+  assert.throws(() => resolveContainedManifestPath(repository, outsideFile, "file"), /escapes/u);
   assert.throws(() => resolveContainedManifestPath(repository, regularFile, "socket"), /file or directory/u);
+
+  if (process.platform !== "win32") {
+    const fifo = path.join(repository, "named-pipe");
+    const result = spawnSync("mkfifo", [fifo], { encoding: "utf8" });
+    assert.equal(result.status, 0, result.stderr);
+    assert.throws(() => resolveContainedManifestPath(repository, fifo, "file"), /regular file/u);
+  }
 
   try {
     const fileLink = path.join(repository, "file-link.txt");
