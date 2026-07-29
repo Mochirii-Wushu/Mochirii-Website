@@ -6,8 +6,9 @@ create schema if not exists private;
 revoke all on schema private from public, anon;
 
 -- Each authenticated ingest request consumes one short-lived nonce. This
--- relation is deliberately outside the Data API, has no policies, and is
--- reachable only through the narrowly granted service-role RPC below.
+-- relation is deliberately outside the Data API, has an explicit restrictive
+-- deny policy, and is reachable only through the narrowly granted
+-- service-role RPC below.
 create table private.discord_gallery_ingest_nonces (
   key_id text not null,
   nonce text not null,
@@ -32,6 +33,14 @@ alter table private.discord_gallery_ingest_nonces enable row level security;
 alter table private.discord_gallery_ingest_nonces force row level security;
 revoke all on table private.discord_gallery_ingest_nonces
 from public, anon, authenticated, service_role;
+
+create policy discord_gallery_ingest_nonces_default_deny
+on private.discord_gallery_ingest_nonces
+as restrictive
+for all
+to public
+using (false)
+with check (false);
 
 create or replace function public.consume_discord_gallery_ingest_nonce(
   p_key_id text,

@@ -158,6 +158,28 @@ for (const entry of functions.values()) {
   else verifyJwtFalse += 1;
 }
 
+const galleryIngestAuth = authProfiles.get("discord-gallery-ingest-hmac");
+const galleryIngestFunction = functions.get("submit-discord-gallery-image");
+if (authProfiles.has("reaper-ingest-secret")) {
+  fail("retired static-secret Gallery ingest auth profile must not remain in the catalog");
+}
+if (galleryIngestFunction?.auth !== "discord-gallery-ingest-hmac") {
+  fail("submit-discord-gallery-image must reference the body-bound HMAC auth profile");
+}
+for (const detail of ["HMAC-SHA256", "method", "exact function path", "one-use nonce"]) {
+  if (!String(galleryIngestAuth?.boundary || "").includes(detail)) {
+    fail(`Gallery ingest HMAC boundary must document ${detail}`);
+  }
+}
+for (const sourceRef of [
+  "supabase/functions/_shared/discord-gallery-ingest-auth.ts",
+  "supabase/migrations/20260729130654_add_discord_gallery_ingest_hmac_replay_guard.sql",
+]) {
+  if (!galleryIngestAuth?.sourceRefs?.includes(sourceRef)) {
+    fail(`Gallery ingest HMAC profile must reference ${sourceRef}`);
+  }
+}
+
 if (verifyJwtTrue !== 20 || verifyJwtFalse !== 13) {
   fail(`Edge Function JWT split must remain 20 true / 13 false, found ${verifyJwtTrue}/${verifyJwtFalse}`);
 }

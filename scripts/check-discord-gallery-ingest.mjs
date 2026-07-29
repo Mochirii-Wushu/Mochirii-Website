@@ -15,6 +15,7 @@ const files = {
   sourceMigration: "supabase/migrations/20260524114802_add_discord_gallery_submission_source.sql",
   revokeMigration: "supabase/migrations/20260524115932_revoke_public_rls_auto_enable_execute.sql",
   previousGalleryMigration: "supabase/migrations/20260513081523_create_discord_role_gated_gallery_uploads.sql",
+  exposureCatalog: "docs/integrations/integration-exposure-catalog.v1.json",
   readme: "supabase/README.md",
 };
 
@@ -81,6 +82,7 @@ const nonceDbTest = read(files.nonceDbTest);
 const sourceMigration = read(files.sourceMigration);
 const revokeMigration = read(files.revokeMigration);
 const previousGalleryMigration = read(files.previousGalleryMigration);
+const exposureCatalog = read(files.exposureCatalog);
 const readme = read(files.readme);
 const authenticatedInsertGrant = previousGalleryMigration.match(
   /grant insert \(([\s\S]*?)\) on table public\.gallery_submissions to authenticated;/,
@@ -102,7 +104,11 @@ assertIncludes("import map", importMap, '"@supabase/supabase-js": "npm:@supabase
   'const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);',
   'const DISCORD_CDN_HOSTS = new Set(["cdn.discordapp.com", "media.discordapp.net", "media.discordapp.com"]);',
   "const RECENT_VERIFICATION_MS = 7 * 24 * 60 * 60 * 1000;",
-  '"Access-Control-Allow-Methods": "POST, OPTIONS"',
+  'allowedMethods: "POST, OPTIONS"',
+  "allowedHeaders:",
+  "withProtectedCors(req, handleRequest(req), CORS_OPTIONS)",
+  "exactDiscordGalleryIngestPath(req.url)",
+  "path: requestPath",
   "DISCORD_GALLERY_INGEST_HMAC_KEYS_ENV",
   "verifyDiscordGalleryIngestRequest",
   "readDiscordGalleryIngestBody",
@@ -150,6 +156,13 @@ assertMatches(
   functionSource,
   /readDiscordGalleryIngestBody\(req\)[\s\S]*verifyDiscordGalleryIngestRequest\([\s\S]*parseJsonBody\(rawBody\)/,
   "raw request bytes must be bounded and authenticated before JSON parsing.",
+);
+
+assertMatches(
+  "submit-discord-gallery-image",
+  functionSource,
+  /exactDiscordGalleryIngestPath\(req\.url\)[\s\S]*return jsonResponse\(\{ ok: false, error: "not_found"[\s\S]*readDiscordGalleryIngestBody\(req\)/,
+  "the exact deployed path must be checked before the request body is read.",
 );
 
 assertNotMatches(
@@ -207,6 +220,10 @@ assertNotMatches(
   "alter table private.discord_gallery_ingest_nonces enable row level security",
   "alter table private.discord_gallery_ingest_nonces force row level security",
   "revoke all on table private.discord_gallery_ingest_nonces",
+  "create policy discord_gallery_ingest_nonces_default_deny",
+  "as restrictive",
+  "using (false)",
+  "with check (false)",
   "create or replace function public.consume_discord_gallery_ingest_nonce",
   "request_role <> 'service_role'",
   "on conflict (key_id, nonce) do nothing",
@@ -215,11 +232,27 @@ assertNotMatches(
 
 [
   "private Discord gallery ingest nonce table exists",
+  "nonce table has one explicit restrictive default-deny policy",
   "same key and nonce cannot be replayed",
   "invalid key identifiers fail closed",
   "expired nonce leases fail closed",
   "overlong nonce leases fail closed",
 ].forEach((snippet) => assertIncludes("nonce database tests", nonceDbTest, snippet));
+
+[
+  '"id": "discord-gallery-ingest-hmac"',
+  '"auth": "discord-gallery-ingest-hmac"',
+  "Body-bound HMAC-SHA256",
+  "exact function path",
+  "one-use nonce",
+].forEach((snippet) => assertIncludes("integration exposure catalog", exposureCatalog, snippet));
+
+assertNotMatches(
+  "integration exposure catalog",
+  exposureCatalog,
+  /"id": "reaper-ingest-secret"|"auth": "reaper-ingest-secret"/,
+  "the retired static-secret auth profile must not remain in the integration catalog.",
+);
 
 assertMatches(
   "submit-discord-gallery-image",

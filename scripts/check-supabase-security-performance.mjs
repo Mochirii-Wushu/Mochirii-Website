@@ -285,7 +285,10 @@ assertIncludes("Supabase README Pixelfed mapping docs", readme, "`social_account
 
 for (const name of protectedFunctions) {
   const source = read(`supabase/functions/${name}/index.ts`);
-  assertIncludes(`${name} CORS wrapper`, source, "withProtectedCors(req, handleRequest(req))");
+  const corsWrapper = name === "submit-discord-gallery-image"
+    ? "withProtectedCors(req, handleRequest(req), CORS_OPTIONS)"
+    : "withProtectedCors(req, handleRequest(req))";
+  assertIncludes(`${name} CORS wrapper`, source, corsWrapper);
   assertIncludes(`${name} request handler`, source, "async function handleRequest(req: Request): Promise<Response>");
 }
 

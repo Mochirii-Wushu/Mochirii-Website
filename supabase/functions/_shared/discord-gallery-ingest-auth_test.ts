@@ -5,6 +5,7 @@ import {
   DISCORD_GALLERY_INGEST_MAX_SKEW_SECONDS,
   DISCORD_GALLERY_INGEST_PATH,
   discordGalleryIngestActiveKey,
+  exactDiscordGalleryIngestPath,
   parseDiscordGalleryIngestHmacKeys,
   readDiscordGalleryIngestBody,
   verifyDiscordGalleryIngestRequest,
@@ -15,6 +16,22 @@ const SECRET_B = "b".repeat(32);
 const NOW_MS = 1_790_000_000_000;
 const RAW_BODY = JSON.stringify({ guildId: "1078630751077142608" });
 const NONCE = "0123456789abcdef0123456789abcdef";
+
+Deno.test("gallery ingest accepts only the exact deployed function path", () => {
+  assertEquals(
+    exactDiscordGalleryIngestPath(
+      `https://example.supabase.co${DISCORD_GALLERY_INGEST_PATH}`,
+    ),
+    DISCORD_GALLERY_INGEST_PATH,
+  );
+  assertEquals(
+    exactDiscordGalleryIngestPath(
+      `https://example.supabase.co${DISCORD_GALLERY_INGEST_PATH}/other`,
+    ),
+    null,
+  );
+  assertEquals(exactDiscordGalleryIngestPath("not a URL"), null);
+});
 
 Deno.test("gallery ingest HMAC accepts one fresh body-bound request", async () => {
   const keys = requiredKeys();

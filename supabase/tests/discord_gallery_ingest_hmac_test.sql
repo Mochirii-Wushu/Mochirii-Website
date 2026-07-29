@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(11);
+SELECT plan(12);
 
 SELECT has_table(
   'private',
@@ -11,6 +11,18 @@ SELECT ok(
    FROM pg_class
    WHERE oid = 'private.discord_gallery_ingest_nonces'::regclass),
   'nonce table enables and forces RLS'
+);
+SELECT ok(
+  (
+    SELECT count(*) = 1
+      AND bool_and(permissive = 'RESTRICTIVE')
+      AND bool_and(cmd = 'ALL')
+    FROM pg_policies
+    WHERE schemaname = 'private'
+      AND tablename = 'discord_gallery_ingest_nonces'
+      AND policyname = 'discord_gallery_ingest_nonces_default_deny'
+  ),
+  'nonce table has one explicit restrictive default-deny policy'
 );
 SELECT ok(
   NOT has_table_privilege('anon', 'private.discord_gallery_ingest_nonces', 'select')

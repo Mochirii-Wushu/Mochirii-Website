@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import {
   DISCORD_GALLERY_INGEST_HEADERS,
   DISCORD_GALLERY_INGEST_HMAC_KEYS_ENV,
-  DISCORD_GALLERY_INGEST_PATH,
+  exactDiscordGalleryIngestPath,
   parseDiscordGalleryIngestHmacKeys,
   readDiscordGalleryIngestBody,
   verifyDiscordGalleryIngestRequest,
@@ -13,11 +13,10 @@ import { getServiceRoleKey } from "../_shared/supabase-service-role.ts";
 
 type JsonRecord = Record<string, unknown>;
 
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
+const CORS_OPTIONS = {
+  allowedHeaders:
     `content-type, ${DISCORD_GALLERY_INGEST_HEADERS.keyId}, ${DISCORD_GALLERY_INGEST_HEADERS.timestamp}, ${DISCORD_GALLERY_INGEST_HEADERS.nonce}, ${DISCORD_GALLERY_INGEST_HEADERS.signature}`,
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  allowedMethods: "POST, OPTIONS",
 };
 
 const MEMBER_GALLERY_BUCKET = "member-gallery";
@@ -33,7 +32,6 @@ function jsonResponse(body: JsonRecord, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
-      ...CORS_HEADERS,
       "Content-Type": "application/json",
     },
   });
@@ -174,11 +172,16 @@ function parseJsonBody(rawBody: string): JsonRecord | null {
   }
 }
 
-Deno.serve((req: Request) => withProtectedCors(req, handleRequest(req)));
+Deno.serve((req: Request) => withProtectedCors(req, handleRequest(req), CORS_OPTIONS));
 
 async function handleRequest(req: Request): Promise<Response> {
+  const requestPath = exactDiscordGalleryIngestPath(req.url);
+  if (!requestPath) {
+    return jsonResponse({ ok: false, error: "not_found", message: "Not found." }, 404);
+  }
+
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: CORS_HEADERS });
+    return new Response("ok");
   }
 
   if (req.method !== "POST") {
@@ -253,7 +256,7 @@ async function handleRequest(req: Request): Promise<Response> {
     {
       keys: ingestKeys,
       method: req.method,
-      path: DISCORD_GALLERY_INGEST_PATH,
+      path: requestPath,
       consumeNonce: async (keyId, nonce, expiresAt) => {
         const { data, error } = await adminClient.rpc(
           "consume_discord_gallery_ingest_nonce",

@@ -14,6 +14,17 @@ export const DISCORD_GALLERY_INGEST_HEADERS = {
   signature: "x-mochirii-gallery-signature",
 } as const;
 
+export function exactDiscordGalleryIngestPath(
+  requestUrl: string,
+): string | null {
+  try {
+    const path = new URL(requestUrl).pathname;
+    return path === DISCORD_GALLERY_INGEST_PATH ? path : null;
+  } catch {
+    return null;
+  }
+}
+
 const AUTH_VERSION = "v1";
 const MAX_KEY_COUNT = 3;
 const MAX_KEY_SET_BYTES = 4 * 1024;
