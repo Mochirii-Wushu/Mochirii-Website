@@ -3,10 +3,14 @@
 ## Status
 
 The Gallery publishes reviewed, immutable, service-owned WebP derivatives from
-the private `member-gallery` bucket. Visitors receive stable, credential-free
-Edge media URLs keyed only by an opaque publication UUID. Member upload paths,
-member identity, raw originals, provider credentials, and bearer-capability
-URLs never cross the public DTO boundary.
+the private `member-gallery` bucket. The current schema-v2 application gives
+visitors stable, credential-free Edge media URLs keyed only by an opaque
+publication UUID. Member upload paths, member identity, raw originals,
+provider credentials, and bearer-capability URLs never cross that current
+public DTO boundary. A tightly bounded legacy response remains available only
+so a reviewed application rollback does not fail during the release window;
+it can expose signed URLs for the same bounded service-owned derivatives, but
+never for member-owned originals.
 
 This document describes source behavior only. Migration application, function
 deployment, historical publication work, and Website release remain separately
@@ -181,9 +185,22 @@ later head. No provider write, preview, migration application, function deploy,
 or Website publication follows from this document alone.
 
 Application rollback may restore the prior Vercel deployment and reviewed
-function source. It must not delete publication objects, immutable revisions,
-moderation evidence, or additive schema. Data cleanup requires a separately
-reviewed destructive-action packet.
+function source. During the bounded rollback window, the service-role-only
+`gallery_publishable_submissions(integer, integer)` compatibility RPC keeps
+that prior Edge source functional. It caps the former 80-row request at 24,
+charges the shared list-delivery budget, requires current approval plus exact
+immutable Storage-object evidence, and synthesizes the legacy response from
+the active publication revision. Its legacy `storage_path` is the metadata-
+stripped display derivative (at most 2 MiB), never the member-owned source;
+member, filename, moderator, and rejection identity fields are blanked. The
+thumbnail remains the matching metadata-stripped derivative (at most 80 KiB).
+
+Do not remove this compatibility RPC until the rollback window has formally
+closed and no retained deployment or reviewed rollback source depends on it.
+Removal requires a separate reviewed retirement migration. A rollback must not
+delete publication objects, immutable revisions, moderation evidence, or
+additive schema. Data cleanup requires a separately reviewed destructive-action
+packet.
 
 ## Primary references
 

@@ -44,6 +44,10 @@ asset.
 - `list-approved-gallery-submissions` returns schema-v2 pages with at most 24
   stable, credential-free thumbnail Edge URLs. It delivers one bounded display
   derivative only after the viewer requests the stable opaque publication ID.
+- The service-role-only v1 compatibility RPC remains available for the bounded
+  application rollback window. It caps the old request at 24 rows and maps the
+  old response shape to the same immutable display and thumbnail derivatives,
+  with source paths and member/moderator identity removed.
 
 The list contract is all-or-nothing. If any publication selected for a page is
 missing, mismatched, malformed, or outside the delivery budget, the function returns a redacted
@@ -141,8 +145,18 @@ constraints or data.
 ## Rollback
 
 Application rollback may restore the prior Vercel deployment and prior Edge
-Function source. Additive columns, the immutable publication ledger, and its
-evidence remain in place. Do not drop columns, delete revision rows, delete
+Function source. The temporary
+`gallery_publishable_submissions(integer, integer)` RPC is retained so that
+combination remains functional: it is service-role-only, charges the list
+budget, caps results at 24, requires exact active revision/object evidence, and
+returns only the bounded service-owned display and thumbnail derivatives in
+the legacy shape. It never returns the member-owned source original or member,
+filename, moderator, or rejection identity fields.
+
+Additive columns, the immutable publication ledger, and its evidence remain in
+place. Do not remove the compatibility RPC until the rollback window has
+closed and retained rollback source is no longer usable; retire it only in a
+separate reviewed migration. Do not drop columns, delete revision rows, delete
 publication objects, or rewrite moderation evidence during an incident; those
 destructive actions require a separately reviewed retirement packet.
 

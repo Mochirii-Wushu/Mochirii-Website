@@ -48,8 +48,6 @@ update storage.buckets
 set file_size_limit = 8388608
 where id = 'member-gallery';
 
-drop function if exists public.gallery_publishable_submissions(integer, integer);
-
 create table private.gallery_source_validations (
   submission_id uuid primary key
     references public.gallery_submissions(id) on delete cascade,
@@ -342,6 +340,119 @@ on private.gallery_publication_revisions (
   source_created_at desc,
   id desc
 );
+
+-- Keep the exact v1 RPC signature during the bounded application rollback
+-- window. Prior reviewed Edge source signs the two paths returned by this
+-- function, so synthesize its legacy row shape only from current immutable
+-- publication derivatives. Member-owned source paths and identity fields must
+-- never cross this compatibility boundary.
+create or replace function public.gallery_publishable_submissions(
+  p_limit integer default 24,
+  p_offset integer default 0
+)
+returns setof public.gallery_submissions
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  requested_limit integer := least(greatest(coalesce(p_limit, 24), 1), 24);
+  requested_offset integer := least(greatest(coalesce(p_offset, 0), 0), 10000);
+  delivery_reservation jsonb;
+begin
+  if coalesce(auth.role(), '') <> 'service_role' then
+    raise exception 'Service role required.' using errcode = '42501';
+  end if;
+
+  delivery_reservation := public.gallery_reserve_public_delivery('list', 65536);
+  if coalesce((delivery_reservation ->> 'allowed')::boolean, false) is not true then
+    raise exception 'Gallery public delivery temporarily unavailable.' using errcode = 'P0001';
+  end if;
+
+  return query
+  select (
+    pg_catalog.jsonb_populate_record(
+      null::public.gallery_submissions,
+      pg_catalog.jsonb_build_object(
+        'id', publication.publication_id,
+        'user_id', '00000000-0000-0000-0000-000000000000'::uuid,
+        'storage_bucket', publication.storage_bucket,
+        'storage_path', publication.original_storage_path,
+        'original_filename', null,
+        'mime_type', publication.original_mime_type,
+        'size_bytes', publication.original_size_bytes,
+        'title', publication.title,
+        'caption', publication.caption,
+        'category', publication.public_category,
+        'status', 'approved',
+        'rejection_reason', null,
+        'reviewed_by', null,
+        'reviewed_at', publication.source_reviewed_at,
+        'created_at', publication.source_created_at,
+        'updated_at', publication.visible_from,
+        'thumbnail_revision_id', publication.id,
+        'thumbnail_storage_path', publication.thumbnail_storage_path,
+        'thumbnail_mime_type', publication.thumbnail_mime_type,
+        'thumbnail_size_bytes', publication.thumbnail_size_bytes,
+        'thumbnail_width', publication.thumbnail_width,
+        'thumbnail_height', publication.thumbnail_height,
+        'gallery_publication_id', publication.publication_id
+      )
+    )
+  ).*
+  from private.gallery_publication_revisions as publication
+  join public.gallery_submissions as submission
+    on submission.id = publication.submission_id
+  join storage.objects as display_object
+    on display_object.id = publication.original_storage_object_id
+    and display_object.bucket_id = publication.storage_bucket
+    and display_object.name = publication.original_storage_path
+    and display_object.version is not distinct from publication.original_storage_object_version
+    and display_object.updated_at = publication.original_storage_object_updated_at
+  join storage.objects as thumbnail_object
+    on thumbnail_object.id = publication.thumbnail_storage_object_id
+    and thumbnail_object.bucket_id = publication.storage_bucket
+    and thumbnail_object.name = publication.thumbnail_storage_path
+    and thumbnail_object.version is not distinct from publication.thumbnail_storage_object_version
+    and thumbnail_object.updated_at = publication.thumbnail_storage_object_updated_at
+  where publication.visible_until is null
+    and submission.status = 'approved'
+    and publication.original_mime_type = 'image/webp'
+    and publication.original_size_bytes between 1 and 2097152
+    and publication.original_width between 1 and 2560
+    and publication.original_height between 1 and 2560
+    and publication.thumbnail_mime_type = 'image/webp'
+    and publication.thumbnail_size_bytes between 1 and 81920
+    and publication.thumbnail_width between 1 and 720
+    and publication.thumbnail_height between 1 and 720
+    and (case
+      when coalesce(display_object.metadata ->> 'size', '') ~ '^[0-9]+$'
+        then (display_object.metadata ->> 'size')::bigint
+      else null
+    end) = publication.original_size_bytes
+    and lower(coalesce(display_object.metadata ->> 'mimetype', '')) = publication.original_mime_type
+    and (case
+      when coalesce(thumbnail_object.metadata ->> 'size', '') ~ '^[0-9]+$'
+        then (thumbnail_object.metadata ->> 'size')::bigint
+      else null
+    end) = publication.thumbnail_size_bytes
+    and lower(coalesce(thumbnail_object.metadata ->> 'mimetype', '')) = publication.thumbnail_mime_type
+  order by
+    publication.source_reviewed_at desc,
+    publication.source_created_at desc,
+    publication.id desc
+  limit requested_limit
+  offset requested_offset;
+end;
+$$;
+
+revoke all on function public.gallery_publishable_submissions(integer, integer)
+from public, anon, authenticated;
+grant execute on function public.gallery_publishable_submissions(integer, integer)
+to service_role;
+
+comment on function public.gallery_publishable_submissions(integer, integer) is
+  'Temporary service-only rollback compatibility over bounded immutable Gallery derivatives; never returns member source originals.';
 
 create or replace function private.enforce_gallery_publication_immutability()
 returns trigger
