@@ -1,0 +1,355 @@
+export const DISCORD_GALLERY_INGEST_HMAC_KEYS_ENV =
+  "DISCORD_GALLERY_INGEST_HMAC_KEYS_JSON";
+export const DISCORD_GALLERY_INGEST_ACTIVE_KEY_ID_ENV =
+  "DISCORD_GALLERY_INGEST_HMAC_ACTIVE_KEY_ID";
+export const DISCORD_GALLERY_INGEST_PATH =
+  "/functions/v1/submit-discord-gallery-image";
+export const DISCORD_GALLERY_INGEST_MAX_SKEW_SECONDS = 60;
+export const DISCORD_GALLERY_INGEST_MAX_BODY_BYTES = 16 * 1024;
+
+export const DISCORD_GALLERY_INGEST_HEADERS = {
+  keyId: "x-mochirii-gallery-key-id",
+  timestamp: "x-mochirii-gallery-timestamp",
+  nonce: "x-mochirii-gallery-nonce",
+  signature: "x-mochirii-gallery-signature",
+} as const;
+
+const AUTH_VERSION = "v1";
+const MAX_KEY_COUNT = 3;
+const MAX_KEY_SET_BYTES = 4 * 1024;
+const MIN_SECRET_BYTES = 32;
+const MAX_SECRET_BYTES = 128;
+const KEY_ID_RE = /^[a-z0-9][a-z0-9_-]{0,31}$/;
+const TIMESTAMP_RE = /^[1-9][0-9]{9,12}$/;
+const NONCE_RE = /^[0-9a-f]{32}$/;
+const SIGNATURE_RE = /^v1=([0-9a-f]{64})$/;
+const encoder = new TextEncoder();
+
+export type DiscordGalleryIngestHmacKeys = Readonly<Record<string, string>>;
+
+export type DiscordGalleryIngestVerification =
+  | { ok: true; keyId: string }
+  | {
+    ok: false;
+    status: 401 | 503;
+    error:
+      | "invalid_request"
+      | "replayed_request"
+      | "verification_unavailable";
+  };
+
+export type DiscordGalleryIngestVerificationDependencies = {
+  keys: DiscordGalleryIngestHmacKeys;
+  consumeNonce: (
+    keyId: string,
+    nonce: string,
+    expiresAt: string,
+  ) => Promise<boolean>;
+  nowMs?: number;
+  method?: string;
+  path?: string;
+};
+
+export type DiscordGalleryIngestBodyRead =
+  | { ok: true; rawBody: string }
+  | {
+    ok: false;
+    status: 400 | 413;
+    error: "invalid_request_body" | "request_too_large";
+  };
+
+function bytesToHex(bytes: Uint8Array): string {
+  return Array.from(bytes, (value) => value.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function secretIsValid(secret: string): boolean {
+  const length = encoder.encode(secret).byteLength;
+  return length >= MIN_SECRET_BYTES && length <= MAX_SECRET_BYTES;
+}
+
+export async function readDiscordGalleryIngestBody(
+  request: Request,
+  maxBytes = DISCORD_GALLERY_INGEST_MAX_BODY_BYTES,
+): Promise<DiscordGalleryIngestBodyRead> {
+  if (!Number.isSafeInteger(maxBytes) || maxBytes < 1) {
+    return { ok: false, status: 400, error: "invalid_request_body" };
+  }
+
+  const mediaType = (request.headers.get("content-type") || "")
+    .split(";", 1)[0]
+    .trim()
+    .toLowerCase();
+  if (mediaType !== "application/json") {
+    return { ok: false, status: 400, error: "invalid_request_body" };
+  }
+
+  const declaredLength = request.headers.get("content-length");
+  if (declaredLength !== null) {
+    const normalizedLength = declaredLength.trim();
+    if (!/^\d+$/.test(normalizedLength)) {
+      return { ok: false, status: 400, error: "invalid_request_body" };
+    }
+    const declaredBytes = Number(normalizedLength);
+    if (!Number.isSafeInteger(declaredBytes)) {
+      return { ok: false, status: 400, error: "invalid_request_body" };
+    }
+    if (declaredBytes > maxBytes) {
+      return { ok: false, status: 413, error: "request_too_large" };
+    }
+  }
+
+  if (!request.body) return { ok: true, rawBody: "" };
+  const reader = request.body.getReader();
+  const decoder = new TextDecoder("utf-8", { fatal: true });
+  let totalBytes = 0;
+  let rawBody = "";
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      totalBytes += value.byteLength;
+      if (totalBytes > maxBytes) {
+        await reader.cancel().catch(() => undefined);
+        return { ok: false, status: 413, error: "request_too_large" };
+      }
+      rawBody += decoder.decode(value, { stream: true });
+    }
+    rawBody += decoder.decode();
+  } catch {
+    await reader.cancel().catch(() => undefined);
+    return { ok: false, status: 400, error: "invalid_request_body" };
+  } finally {
+    reader.releaseLock();
+  }
+
+  return { ok: true, rawBody };
+}
+
+export function parseDiscordGalleryIngestHmacKeys(
+  rawValue: string | null | undefined,
+): DiscordGalleryIngestHmacKeys | null {
+  const raw = String(rawValue || "").trim();
+  if (!raw || encoder.encode(raw).byteLength > MAX_KEY_SET_BYTES) return null;
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return null;
+  }
+
+  const entries = Object.entries(parsed as Record<string, unknown>);
+  if (entries.length < 1 || entries.length > MAX_KEY_COUNT) return null;
+
+  const keys = Object.create(null) as Record<string, string>;
+  const uniqueSecrets = new Set<string>();
+  for (const [keyId, value] of entries) {
+    if (
+      !KEY_ID_RE.test(keyId) ||
+      typeof value !== "string" ||
+      !secretIsValid(value) ||
+      uniqueSecrets.has(value)
+    ) return null;
+    uniqueSecrets.add(value);
+    keys[keyId] = value;
+  }
+
+  return Object.freeze(keys);
+}
+
+export function discordGalleryIngestActiveKey(
+  keys: DiscordGalleryIngestHmacKeys,
+  rawKeyId: string | null | undefined,
+): { keyId: string; secret: string } | null {
+  const keyId = String(rawKeyId || "").trim();
+  const secret = keys[keyId];
+  return KEY_ID_RE.test(keyId) && secretIsValid(secret || "")
+    ? { keyId, secret }
+    : null;
+}
+
+export function randomDiscordGalleryIngestNonce(): string {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return bytesToHex(bytes);
+}
+
+async function sha256Hex(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", encoder.encode(value));
+  return bytesToHex(new Uint8Array(digest));
+}
+
+export async function discordGalleryIngestCanonicalBytes(input: {
+  keyId: string;
+  method: string;
+  path: string;
+  timestamp: string;
+  nonce: string;
+  rawBody: string;
+}): Promise<Uint8Array<ArrayBuffer>> {
+  const bodyDigest = await sha256Hex(input.rawBody);
+  return encoder.encode([
+    AUTH_VERSION,
+    input.keyId,
+    input.method.toUpperCase(),
+    input.path,
+    input.timestamp,
+    input.nonce,
+    bodyDigest,
+  ].join("\n"));
+}
+
+async function hmacHex(
+  secret: string,
+  canonicalBytes: Uint8Array<ArrayBuffer>,
+): Promise<string> {
+  if (!secretIsValid(secret)) throw new Error("gallery_ingest_hmac_invalid");
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = await crypto.subtle.sign("HMAC", key, canonicalBytes);
+  return bytesToHex(new Uint8Array(signature));
+}
+
+export async function createDiscordGalleryIngestSignature(input: {
+  secret: string;
+  keyId: string;
+  timestamp: string;
+  nonce: string;
+  rawBody: string;
+  method?: string;
+  path?: string;
+}): Promise<string> {
+  if (
+    !KEY_ID_RE.test(input.keyId) ||
+    !TIMESTAMP_RE.test(input.timestamp) ||
+    !NONCE_RE.test(input.nonce) ||
+    encoder.encode(input.rawBody).byteLength >
+      DISCORD_GALLERY_INGEST_MAX_BODY_BYTES
+  ) throw new Error("gallery_ingest_hmac_invalid");
+
+  const canonicalBytes = await discordGalleryIngestCanonicalBytes({
+    keyId: input.keyId,
+    method: input.method || "POST",
+    path: input.path || DISCORD_GALLERY_INGEST_PATH,
+    timestamp: input.timestamp,
+    nonce: input.nonce,
+    rawBody: input.rawBody,
+  });
+  return `${AUTH_VERSION}=${await hmacHex(input.secret, canonicalBytes)}`;
+}
+
+export async function createDiscordGalleryIngestHeaders(input: {
+  keys: DiscordGalleryIngestHmacKeys;
+  activeKeyId: string;
+  rawBody: string;
+  nowMs?: number;
+  nonce?: string;
+  method?: string;
+  path?: string;
+}): Promise<Record<string, string>> {
+  const activeKey = discordGalleryIngestActiveKey(
+    input.keys,
+    input.activeKeyId,
+  );
+  if (!activeKey) throw new Error("gallery_ingest_hmac_not_configured");
+
+  const timestamp = Math.floor((input.nowMs ?? Date.now()) / 1000).toString();
+  const nonce = input.nonce || randomDiscordGalleryIngestNonce();
+  const signature = await createDiscordGalleryIngestSignature({
+    secret: activeKey.secret,
+    keyId: activeKey.keyId,
+    timestamp,
+    nonce,
+    rawBody: input.rawBody,
+    method: input.method,
+    path: input.path,
+  });
+  return {
+    [DISCORD_GALLERY_INGEST_HEADERS.keyId]: activeKey.keyId,
+    [DISCORD_GALLERY_INGEST_HEADERS.timestamp]: timestamp,
+    [DISCORD_GALLERY_INGEST_HEADERS.nonce]: nonce,
+    [DISCORD_GALLERY_INGEST_HEADERS.signature]: signature,
+  };
+}
+
+export function constantTimeLowerHexMatches(
+  expected: string,
+  actual: string,
+): boolean {
+  if (
+    expected.length !== actual.length ||
+    !/^[0-9a-f]+$/.test(expected) ||
+    !/^[0-9a-f]+$/.test(actual)
+  ) return false;
+  let mismatch = 0;
+  for (let index = 0; index < expected.length; index += 1) {
+    mismatch |= expected.charCodeAt(index) ^ actual.charCodeAt(index);
+  }
+  return mismatch === 0;
+}
+
+export async function verifyDiscordGalleryIngestRequest(
+  headers: Headers,
+  rawBody: string,
+  dependencies: DiscordGalleryIngestVerificationDependencies,
+): Promise<DiscordGalleryIngestVerification> {
+  const keyId = headers.get(DISCORD_GALLERY_INGEST_HEADERS.keyId) || "";
+  const timestamp = headers.get(DISCORD_GALLERY_INGEST_HEADERS.timestamp) || "";
+  const nonce = headers.get(DISCORD_GALLERY_INGEST_HEADERS.nonce) || "";
+  const signature = headers.get(DISCORD_GALLERY_INGEST_HEADERS.signature) || "";
+  const signatureMatch = SIGNATURE_RE.exec(signature);
+  const secret = dependencies.keys[keyId] || "";
+
+  if (
+    !KEY_ID_RE.test(keyId) ||
+    !TIMESTAMP_RE.test(timestamp) ||
+    !NONCE_RE.test(nonce) ||
+    !signatureMatch ||
+    !secretIsValid(secret) ||
+    encoder.encode(rawBody).byteLength > DISCORD_GALLERY_INGEST_MAX_BODY_BYTES
+  ) return { ok: false, status: 401, error: "invalid_request" };
+
+  const requestSeconds = Number(timestamp);
+  const nowSeconds = Math.floor((dependencies.nowMs ?? Date.now()) / 1000);
+  if (
+    !Number.isSafeInteger(requestSeconds) ||
+    Math.abs(nowSeconds - requestSeconds) >
+      DISCORD_GALLERY_INGEST_MAX_SKEW_SECONDS
+  ) return { ok: false, status: 401, error: "invalid_request" };
+
+  const canonicalBytes = await discordGalleryIngestCanonicalBytes({
+    keyId,
+    method: dependencies.method || "POST",
+    path: dependencies.path || DISCORD_GALLERY_INGEST_PATH,
+    timestamp,
+    nonce,
+    rawBody,
+  });
+  const expected = await hmacHex(secret, canonicalBytes);
+  if (!constantTimeLowerHexMatches(expected, signatureMatch[1])) {
+    return { ok: false, status: 401, error: "invalid_request" };
+  }
+
+  const expiresAt = new Date(
+    (requestSeconds + DISCORD_GALLERY_INGEST_MAX_SKEW_SECONDS + 5) * 1000,
+  ).toISOString();
+  try {
+    if (!await dependencies.consumeNonce(keyId, nonce, expiresAt)) {
+      return { ok: false, status: 401, error: "replayed_request" };
+    }
+  } catch {
+    return { ok: false, status: 503, error: "verification_unavailable" };
+  }
+
+  return { ok: true, keyId };
+}

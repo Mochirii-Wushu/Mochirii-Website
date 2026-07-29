@@ -101,7 +101,12 @@ const secretProtectedFunctions = [
   },
   {
     name: "submit-discord-gallery-image",
-    secretHeader: "x-mochirii-reaper-secret",
+    invalidHeaders: {
+      "x-mochirii-gallery-key-id": "primary",
+      "x-mochirii-gallery-timestamp": "0",
+      "x-mochirii-gallery-nonce": "00000000000000000000000000000000",
+      "x-mochirii-gallery-signature": `v1=${"0".repeat(64)}`,
+    },
     body: {
       guildId: "1078630751077142608",
       channelId: "1078630751077142608",

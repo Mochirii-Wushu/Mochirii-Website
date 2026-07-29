@@ -1,6 +1,14 @@
 import { withProtectedCors } from "../_shared/cors.ts";
 import "@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "@supabase/supabase-js";
+import {
+  DISCORD_GALLERY_INGEST_HEADERS,
+  DISCORD_GALLERY_INGEST_HMAC_KEYS_ENV,
+  DISCORD_GALLERY_INGEST_PATH,
+  parseDiscordGalleryIngestHmacKeys,
+  readDiscordGalleryIngestBody,
+  verifyDiscordGalleryIngestRequest,
+} from "../_shared/discord-gallery-ingest-auth.ts";
 import { getServiceRoleKey } from "../_shared/supabase-service-role.ts";
 
 type JsonRecord = Record<string, unknown>;
@@ -8,7 +16,7 @@ type JsonRecord = Record<string, unknown>;
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-mochirii-reaper-secret",
+    `content-type, ${DISCORD_GALLERY_INGEST_HEADERS.keyId}, ${DISCORD_GALLERY_INGEST_HEADERS.timestamp}, ${DISCORD_GALLERY_INGEST_HEADERS.nonce}, ${DISCORD_GALLERY_INGEST_HEADERS.signature}`,
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -158,17 +166,9 @@ function verificationIsRecent(value: unknown): boolean {
   return timestamp <= now + 5 * 60 * 1000 && now - timestamp <= RECENT_VERIFICATION_MS;
 }
 
-function bearerOrHeaderSecret(req: Request): string {
-  const headerSecret = req.headers.get("x-mochirii-reaper-secret") || "";
-  if (headerSecret) return headerSecret.trim();
-
-  const authHeader = req.headers.get("authorization") || "";
-  return authHeader.replace(/^Bearer\s+/i, "").trim();
-}
-
-async function readJsonBody(req: Request): Promise<JsonRecord | null> {
+function parseJsonBody(rawBody: string): JsonRecord | null {
   try {
-    return asRecord(await req.json());
+    return asRecord(JSON.parse(rawBody));
   } catch {
     return null;
   }
@@ -187,7 +187,9 @@ async function handleRequest(req: Request): Promise<Response> {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
   const serviceRoleKey = getServiceRoleKey();
-  const ingestSecret = Deno.env.get("DISCORD_GALLERY_INGEST_SECRET") || "";
+  const ingestKeys = parseDiscordGalleryIngestHmacKeys(
+    Deno.env.get(DISCORD_GALLERY_INGEST_HMAC_KEYS_ENV),
+  );
   const configuredGuildId = Deno.env.get("DISCORD_GUILD_ID") || "";
   const configuredChannelId = Deno.env.get("DISCORD_GALLERY_CHANNEL_ID") || "";
   const configuredRequiredRoleIds = parseCsv(Deno.env.get("DISCORD_REQUIRED_ROLE_IDS"));
@@ -197,7 +199,7 @@ async function handleRequest(req: Request): Promise<Response> {
   if (
     !supabaseUrl ||
     !serviceRoleKey ||
-    !ingestSecret ||
+    !ingestKeys ||
     !configuredGuildId ||
     !configuredChannelId ||
     !guildConfigMatches ||
@@ -206,7 +208,7 @@ async function handleRequest(req: Request): Promise<Response> {
     console.error("submit-discord-gallery-image missing required server configuration", {
       hasSupabaseUrl: Boolean(supabaseUrl),
       hasServiceRoleKey: Boolean(serviceRoleKey),
-      hasIngestSecret: Boolean(ingestSecret),
+      hasIngestHmacKeys: Boolean(ingestKeys),
       hasGuildId: Boolean(configuredGuildId),
       hasGalleryChannelId: Boolean(configuredChannelId),
       guildConfigMatches,
@@ -224,18 +226,66 @@ async function handleRequest(req: Request): Promise<Response> {
     );
   }
 
-  if (bearerOrHeaderSecret(req) !== ingestSecret) {
+  const bodyRead = await readDiscordGalleryIngestBody(req);
+  if (!bodyRead.ok) {
     return jsonResponse(
       {
         ok: false,
-        error: "invalid_ingest_secret",
+        error: bodyRead.error,
+        message: bodyRead.status === 413
+          ? "Discord gallery submission metadata was too large."
+          : "Discord gallery submission metadata could not be read.",
+      },
+      bodyRead.status,
+    );
+  }
+  const { rawBody } = bodyRead;
+
+  const adminClient = createClient(supabaseUrl, serviceRoleKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
+  const verification = await verifyDiscordGalleryIngestRequest(
+    req.headers,
+    rawBody,
+    {
+      keys: ingestKeys,
+      method: req.method,
+      path: DISCORD_GALLERY_INGEST_PATH,
+      consumeNonce: async (keyId, nonce, expiresAt) => {
+        const { data, error } = await adminClient.rpc(
+          "consume_discord_gallery_ingest_nonce",
+          {
+            p_key_id: keyId,
+            p_nonce: nonce,
+            p_expires_at: expiresAt,
+          },
+        );
+        if (error) {
+          console.error("submit-discord-gallery-image nonce consumption failed", {
+            code: error.code,
+            message: error.message,
+          });
+          throw new Error("gallery_ingest_nonce_unavailable");
+        }
+        return data === true;
+      },
+    },
+  );
+  if (!verification.ok) {
+    return jsonResponse(
+      {
+        ok: false,
+        error: verification.error,
         message: "Discord gallery submissions could not be authenticated.",
       },
-      401,
+      verification.status,
     );
   }
 
-  const body = await readJsonBody(req);
+  const body = parseJsonBody(rawBody);
   if (!body) {
     return jsonResponse(
       {
@@ -279,13 +329,6 @@ async function handleRequest(req: Request): Promise<Response> {
       400,
     );
   }
-
-  const adminClient = createClient(supabaseUrl, serviceRoleKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-  });
 
   const { data: existingSubmission, error: existingError } = await adminClient
     .from("gallery_submissions")
