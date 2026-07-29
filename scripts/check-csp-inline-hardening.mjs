@@ -32,6 +32,17 @@ const routeMatrix = [
 const nextConfigPath = resolve(root, "apps/web/next.config.ts");
 const nextConfig = readRequired(nextConfigPath);
 const policy = inspectPolicy(nextConfig);
+const protectedCspSource = readRequired(resolve(root, "apps/web/lib/security/protected-csp.ts"));
+const proxySource = readRequired(resolve(root, "apps/web/proxy.ts"));
+const protectedRouteHardening = {
+  routes: ["/leader-dashboard", "/oauth/consent"],
+  nonceBound: protectedCspSource.includes("'nonce-${nonce}'"),
+  strictDynamic: protectedCspSource.includes("'strict-dynamic'"),
+  scriptUnsafeInline: /script-src[^\n]*unsafe-inline/.test(protectedCspSource),
+  proxyApplied:
+    proxySource.includes('const SUPABASE_SESSION_PATHS = new Set(["/leader-dashboard", "/oauth/consent"])') &&
+    proxySource.includes('requestHeaders.set("Content-Security-Policy", contentSecurityPolicy)'),
+};
 const sourceInventory = inspectSource(policy.directiveMap);
 for (const origin of sourceInventory.externalOrigins.filter((entry) => entry.allowedBy.length === 0)) {
   warnings.push(`${origin.origin} appears in app source but is not currently allowed by CSP; confirm it is not runtime-loaded before tightening.`);
@@ -45,6 +56,14 @@ if (policy.unsafeEvalDirectives.length) {
 }
 if (policy.unsafeInlineDirectives.some((directive) => !["script-src", "style-src"].includes(directive))) {
   failures.push(`unsafe-inline is only expected in script-src/style-src during this staged pass.`);
+}
+if (
+  !protectedRouteHardening.nonceBound ||
+  !protectedRouteHardening.strictDynamic ||
+  protectedRouteHardening.scriptUnsafeInline ||
+  !protectedRouteHardening.proxyApplied
+) {
+  failures.push("Protected auth routes must use the reviewed nonce-bound strict script policy.");
 }
 if (sourceInventory.blockingHits.length) {
   for (const hit of sourceInventory.blockingHits) {
@@ -68,6 +87,7 @@ const report = {
     "CSP inline hardening inventory for the Vercel/Next production app. This is a no-secret, read-only pass that prepares the later browser-verified unsafe-inline reduction.",
   baseUrl,
   policy,
+  protectedRouteHardening,
   sourceInventory,
   routeMatrix,
   live,
@@ -76,8 +96,8 @@ const report = {
     "Run a Vercel Preview browser pass before removing style-src unsafe-inline because framework-managed image/route helpers can still emit runtime style attributes.",
     "Keep Spotify iframe routes in the browser route sweep.",
     "Verify Supabase auth/storage, Discord handoff links, Vercel Analytics, and Speed Insights before tightening CSP.",
-    "Treat Next.js nonce-based CSP as a separate compatibility PR because nonce middleware makes pages dynamically rendered instead of static/prerendered.",
-    "Remove script-src unsafe-inline only after choosing a Next-compatible nonce or SRI path and proving no analytics, auth, or embed regressions.",
+    "Keep nonce-based strict script CSP on the already-dynamic auth routes and include them in every browser release sweep.",
+    "Keep public routes static while Turbopack lacks stable hash-based SRI; reconsider global script-src unsafe-inline only when a cache-compatible stable path exists.",
   ],
   warnings,
   failures,
@@ -102,6 +122,7 @@ if (!report.ok) {
 
 console.log("CSP inline hardening inventory OK.");
 console.log(`- unsafe-inline directives: ${policy.unsafeInlineDirectives.join(", ") || "none"}`);
+console.log(`- strict protected routes: ${protectedRouteHardening.routes.join(", ")}`);
 console.log(`- React inline style props: ${sourceInventory.patterns.inlineStyleProp.count}`);
 console.log(`- iframe elements: ${sourceInventory.patterns.iframeElement.count}`);
 console.log(`- live header check: ${live.status}`);

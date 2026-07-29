@@ -48,6 +48,14 @@ async function assertRedirect(path, expectedLocation, forbiddenCopy) {
   assert.ok([303, 307, 308].includes(response.status), `${path} returned ${response.status}`);
   assert.equal(new URL(String(response.headers.get("location")), origin).pathname + new URL(String(response.headers.get("location")), origin).search, expectedLocation);
   assert.doesNotMatch(body, forbiddenCopy);
+  if (path.startsWith("/leader-dashboard") || path.startsWith("/oauth/consent")) {
+    const policy = String(response.headers.get("content-security-policy") || "");
+    const scriptDirective = policy.split("; ").find((directive) => directive.startsWith("script-src ")) || "";
+    assert.match(scriptDirective, /'nonce-[A-Fa-f0-9]{32}'/);
+    assert.match(scriptDirective, /'strict-dynamic'/);
+    assert.doesNotMatch(scriptDirective, /'unsafe-inline'/);
+    assert.match(String(response.headers.get("cache-control") || ""), /\bno-store\b/);
+  }
 }
 
 try {
