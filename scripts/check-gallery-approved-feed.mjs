@@ -57,6 +57,11 @@ const galleryGuide = read("docs/gallery-guide.md");
 const moderationRunbook = read("docs/member-gallery-moderation-runbook.md");
 const deliveryContract = read("docs/integrations/gallery-public-media-delivery.md");
 
+const rollbackCompatibilityMatch = publicationMigration.match(
+  /create or replace function public\.gallery_publishable_submissions\([\s\S]*?comment on function public\.gallery_publishable_submissions\(integer, integer\) is[\s\S]*?;\r?\n/,
+);
+const rollbackCompatibility = rollbackCompatibilityMatch?.[0] || "";
+
 const functionBlocks = [...supabaseConfig.matchAll(/\[functions\.([^\]]+)\]([\s\S]*?)(?=\n\[functions\.|\s*$)/g)];
 const verifyJwtFalse = functionBlocks.filter(([, , body]) => /verify_jwt\s*=\s*false/.test(body));
 const verifyJwtTrue = functionBlocks.filter(([, , body]) => /verify_jwt\s*=\s*true/.test(body));
@@ -560,7 +565,6 @@ if (/create policy "Members update own pending gallery originals"/.test(publicat
 ].forEach((snippet) => assertIncludes("Gallery v2 compatibility migration", publicFeedMigration, snippet));
 
 [
-  "drop function if exists public.gallery_publishable_submissions",
   "create table private.gallery_publication_revisions",
   "create table private.gallery_public_delivery_windows",
   "create table private.gallery_source_validations",
@@ -618,6 +622,47 @@ if (/create policy "Members update own pending gallery originals"/.test(publicat
   "grant execute on function public.gallery_public_original_v2",
   "to service_role;",
 ].forEach((snippet) => assertIncludes("immutable Gallery publication database contract", publicationMigration, snippet));
+
+assertNotIncludes(
+  "Gallery v1 rollback compatibility",
+  publicationMigration,
+  "drop function if exists public.gallery_publishable_submissions",
+);
+
+[
+  "create or replace function public.gallery_publishable_submissions",
+  "returns setof public.gallery_submissions",
+  "requested_limit integer := least(greatest(coalesce(p_limit, 24), 1), 24)",
+  "requested_offset integer := least(greatest(coalesce(p_offset, 0), 0), 10000)",
+  "public.gallery_reserve_public_delivery('list', 65536)",
+  "null::public.gallery_submissions",
+  "'id', publication.publication_id",
+  "'user_id', '00000000-0000-0000-0000-000000000000'::uuid",
+  "'storage_path', publication.original_storage_path",
+  "'original_filename', null",
+  "'reviewed_by', null",
+  "publication.visible_until is null",
+  "submission.status = 'approved'",
+  "publication.original_size_bytes between 1 and 2097152",
+  "publication.thumbnail_size_bytes between 1 and 81920",
+  "revoke all on function public.gallery_publishable_submissions(integer, integer)",
+  "grant execute on function public.gallery_publishable_submissions(integer, integer)",
+  "Temporary service-only rollback compatibility over bounded immutable Gallery derivatives",
+].forEach((snippet) => assertIncludes("Gallery v1 rollback compatibility", rollbackCompatibility, snippet));
+
+[
+  "submission.storage_path",
+  "submission.original_filename",
+  "submission.user_id",
+  "publication.uploader_display_name",
+].forEach((snippet) => assertNotIncludes("Gallery v1 rollback compatibility", rollbackCompatibility, snippet));
+
+[
+  "legacy rollback compatibility is callable only through the service role",
+  "legacy rollback compatibility caps its old 80-row request at 24 publications",
+  "legacy rows expose only opaque service-owned publication paths",
+  "legacy rows omit member, filename, moderator, and rejection identity fields",
+].forEach((snippet) => assertIncludes("Gallery v1 rollback database regression", publicFeedDatabaseTests, snippet));
 
 assertIncludes(
   "Gallery publication foreign-key index regression",

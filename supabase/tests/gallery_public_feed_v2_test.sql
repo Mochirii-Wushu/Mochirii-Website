@@ -1,5 +1,5 @@
 begin;
-select plan(53);
+select plan(59);
 
 select has_table(
   'private',
@@ -76,6 +76,13 @@ select ok(
   and not has_function_privilege('authenticated', 'public.gallery_reserve_public_delivery(text,bigint)', 'execute')
   and has_function_privilege('service_role', 'public.gallery_reserve_public_delivery(text,bigint)', 'execute'),
   'global delivery reservations are service-role only'
+);
+
+select ok(
+  not has_function_privilege('anon', 'public.gallery_publishable_submissions(integer,integer)', 'execute')
+  and not has_function_privilege('authenticated', 'public.gallery_publishable_submissions(integer,integer)', 'execute')
+  and has_function_privilege('service_role', 'public.gallery_publishable_submissions(integer,integer)', 'execute'),
+  'legacy rollback compatibility is callable only through the service role'
 );
 
 select ok(
@@ -494,6 +501,68 @@ insert into private.gallery_publication_revisions (
 );
 
 set local "request.jwt.claim.role" = 'service_role';
+
+create temporary table gallery_v1_compatibility on commit drop as
+select * from public.gallery_publishable_submissions(80, 0);
+
+select is(
+  (select count(*)::integer from gallery_v1_compatibility),
+  24,
+  'legacy rollback compatibility caps its old 80-row request at 24 publications'
+);
+
+select ok(
+  (
+    select bool_and(
+      id = gallery_publication_id
+      and storage_path = '_approved/publications/' || id::text || '/display.webp'
+      and thumbnail_storage_path = (
+        '_approved/publications/' || id::text || '/revisions/' ||
+          thumbnail_revision_id::text || '/thumbnail.webp'
+      )
+    )
+    from gallery_v1_compatibility
+  ),
+  'legacy rows expose only opaque service-owned publication paths'
+);
+
+select ok(
+  (
+    select bool_and(
+      storage_bucket = 'member-gallery'
+      and mime_type = 'image/webp'
+      and size_bytes between 1 and 2097152
+      and thumbnail_mime_type = 'image/webp'
+      and thumbnail_size_bytes between 1 and 81920
+      and thumbnail_width between 1 and 720
+      and thumbnail_height between 1 and 720
+    )
+    from gallery_v1_compatibility
+  ),
+  'legacy rows retain the bounded display and thumbnail derivative contract'
+);
+
+select ok(
+  (
+    select bool_and(
+      user_id = '00000000-0000-0000-0000-000000000000'::uuid
+      and original_filename is null
+      and reviewed_by is null
+      and rejection_reason is null
+    )
+    from gallery_v1_compatibility
+  ),
+  'legacy rows omit member, filename, moderator, and rejection identity fields'
+);
+
+select ok(
+  not exists (
+    select 1
+    from gallery_v1_compatibility
+    where id = '10000000-0000-4000-8000-000000000092'::uuid
+  ),
+  'legacy rollback compatibility rejects mismatched immutable object evidence'
+);
 
 select throws_ok(
   $$select public.gallery_reserve_public_delivery('unknown', 1)$$,

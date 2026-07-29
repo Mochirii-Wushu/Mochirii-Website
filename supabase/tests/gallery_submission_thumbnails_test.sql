@@ -74,8 +74,11 @@ select ok(
   'source validation RPCs are service-role only'
 );
 select ok(
-  to_regprocedure('public.gallery_publishable_submissions(integer,integer)') is null,
-  'fixed-limit v1 feed function is retired'
+  to_regprocedure('public.gallery_publishable_submissions(integer,integer)') is not null
+  and not has_function_privilege('anon', 'public.gallery_publishable_submissions(integer,integer)', 'execute')
+  and not has_function_privilege('authenticated', 'public.gallery_publishable_submissions(integer,integer)', 'execute')
+  and has_function_privilege('service_role', 'public.gallery_publishable_submissions(integer,integer)', 'execute'),
+  'bounded v1 rollback compatibility remains service-role only'
 );
 
 insert into auth.users (
