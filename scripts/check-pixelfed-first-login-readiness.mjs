@@ -110,8 +110,18 @@ const snippetChecks = [
     label: "OAuth browser client",
     file: "apps/web/lib/supabase/client.ts",
     snippets: [
+      "createBrowserClient",
       'flowType: "pkce"',
-      "detectSessionInUrl: true",
+      "detectSessionInUrl: false",
+    ],
+  },
+  {
+    label: "OAuth PKCE callback",
+    file: "apps/web/app/auth/callback/route.ts",
+    snippets: [
+      "exchangeCodeForSession(code)",
+      "resolveAuthReturnPath",
+      'getAll("code")',
     ],
   },
   {

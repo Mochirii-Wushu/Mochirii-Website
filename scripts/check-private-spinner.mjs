@@ -132,7 +132,8 @@ for (const snippet of [
   "new NextResponse(null, {",
   "status: 404",
   "NextResponse.next()",
-  'matcher: ["/spinner"]',
+  "matcher: [",
+  '"/spinner",',
   'path: SPINNER_PAGE_PATH',
   "httpOnly: true",
   "secure: true",
@@ -404,7 +405,8 @@ includes("central sign-out", source.auth, "await clearPrivateSpinnerSession();")
 for (const snippet of [
   'pathname === "/spinner"',
   'pathname.startsWith("/spinner/")',
-  "if (isIsolatedSpinnerPath(pathname)) return children;",
+  "isIsolatedSpinnerPath(pathname) ||",
+  "return children;",
 ]) includes("route-aware site shell", source.siteShell, snippet);
 for (const snippet of [
   "<SiteHeader {...auth} />",
