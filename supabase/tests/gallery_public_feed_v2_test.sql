@@ -1,5 +1,5 @@
 begin;
-select plan(70);
+select plan(72);
 
 select has_table(
   'private',
@@ -450,7 +450,7 @@ insert into public.gallery_submissions (
   'Mismatched display metadata',
   'This item must fail closed.',
   'action',
-  'approved',
+  'pending',
   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
   '2026-07-01 03:02:00+00',
   '2026-07-01 03:02:00+00',
@@ -827,6 +827,26 @@ select ok(
     limit 1
   ),
   'anonymous feed rows expose neither member attribution nor private Storage paths'
+);
+
+update public.gallery_submissions
+set status = 'approved', reviewed_at = statement_timestamp()
+where id = '00000000-0000-4000-8000-000000000092';
+
+create temporary table gallery_incomplete_publication_page (payload jsonb) on commit drop;
+insert into gallery_incomplete_publication_page
+select public.gallery_public_feed_page_v2(24, null, null, null, null, 'newest', null, null);
+
+select is(
+  (select (payload ->> 'sourceApprovedCount')::integer from gallery_incomplete_publication_page),
+  91,
+  'an approved source remains visible to the independent parity count'
+);
+
+select is(
+  (select (payload ->> 'publicationReadyCount')::integer from gallery_incomplete_publication_page),
+  90,
+  'mismatched public object evidence cannot satisfy publication readiness'
 );
 
 delete from private.gallery_public_delivery_windows;

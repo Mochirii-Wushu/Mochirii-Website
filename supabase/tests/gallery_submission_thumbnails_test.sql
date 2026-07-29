@@ -1,5 +1,5 @@
 begin;
-select plan(61);
+select plan(62);
 
 select has_column('public', 'gallery_submissions', 'thumbnail_width', 'thumbnail width exists');
 select has_column('public', 'gallery_submissions', 'thumbnail_height', 'thumbnail height exists');
@@ -39,6 +39,27 @@ select ok(
   and not has_table_privilege('authenticated', 'private.gallery_source_validations', 'select')
   and not has_table_privilege('service_role', 'private.gallery_source_validations', 'select'),
   'source validation evidence has RLS and no direct API grants'
+);
+select is(
+  (
+    select count(*)::integer
+    from pg_policies
+    where schemaname = 'private'
+      and tablename in (
+        'gallery_source_validations',
+        'gallery_publication_revisions',
+        'gallery_public_delivery_windows',
+        'gallery_moderation_preview_windows'
+      )
+      and policyname = 'service_only_default_deny'
+      and permissive = 'RESTRICTIVE'
+      and cmd = 'ALL'
+      and roles @> array['anon', 'authenticated']::name[]
+      and qual = 'false'
+      and with_check = 'false'
+  ),
+  4,
+  'private Gallery ledgers retain explicit restrictive client-deny policies'
 );
 select ok(
   exists (select 1 from pg_indexes where schemaname = 'private' and tablename = 'gallery_publication_revisions' and indexname = 'gallery_publication_one_active_per_submission_idx'),
