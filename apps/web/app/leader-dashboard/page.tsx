@@ -6,11 +6,13 @@ import "../styles/member-leader-dashboard.css";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { LeaderDashboard } from "@/components/member-workflow/LeaderDashboard";
+import { ProtectedAccessUnavailable } from "@/components/member-workflow/ProtectedAccessUnavailable";
 import { BodyPageMarker } from "@/components/public-pages/BodyPageMarker";
 import { PageHero } from "@/components/public-pages/common";
 import { SITE_ORIGIN } from "@/lib/public-urls";
 import { SITE_OG_LOCALE } from "@/lib/site-metadata";
 import { getVerifiedServerSession, verifyServerModeratorAccess } from "@/lib/supabase/server-access";
+import { leaderDashboardAccessDisposition } from "@/lib/supabase/server-access-policy";
 
 export const dynamic = "force-dynamic";
 
@@ -45,13 +47,24 @@ export default async function LeaderDashboardPage() {
   const session = await getVerifiedServerSession();
   if (!session.ok) {
     if (session.reason === "signed-out") redirect("/auth?redirect=%2Fleader-dashboard");
-    throw new Error("Leader access is unavailable.");
+    return (
+      <>
+        <BodyPageMarker page="leader-dashboard" />
+        <ProtectedAccessUnavailable />
+      </>
+    );
   }
 
   const access = await verifyServerModeratorAccess(session.accessToken);
-  if (!access.ok) {
-    if (access.reason === "denied" || access.reason === "invalid-token") notFound();
-    throw new Error("Leader access is unavailable.");
+  const accessDisposition = leaderDashboardAccessDisposition(access);
+  if (accessDisposition === "not-found") notFound();
+  if (accessDisposition === "unavailable") {
+    return (
+      <>
+        <BodyPageMarker page="leader-dashboard" />
+        <ProtectedAccessUnavailable />
+      </>
+    );
   }
 
   return (
