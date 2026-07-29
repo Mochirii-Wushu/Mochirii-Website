@@ -38,6 +38,10 @@ Web or iOS artifact is connected.
   mapping from current owners to the target canonical repositories.
 - `CROSS-REPOSITORY-CONTRACT-MAP-2026-07-29.md`: producer, consumer,
   compatibility, security, and rollback requirements.
+- `REPOSITORY-GOVERNANCE-AND-CI-MATRIX-2026-07-29.md`: present enforcement,
+  CODEOWNERS, workflow, security, and plan-limitation controls.
+- `SOURCE-SEPARATION-AND-DUPLICATE-REMOVAL-PROPOSAL-2026-07-29.md`: gated
+  retirement order for source, branches, worktrees, and empty local paths.
 - `REPOSITORY-MIGRATION-APPROVAL-PACKETS-2026-07-29.md`: exact boundaries
   between source preparation, provider effects, and destructive cleanup.
 - `private-spinner.md`: role-separated live-spinner operation, privacy,
