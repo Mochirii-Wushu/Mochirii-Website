@@ -176,6 +176,8 @@ jobs:
             services/social/scripts/backup-production-runtime.sh
             services/social/scripts/restore-production-runtime.sh
             services/social/scripts/deploy-production-entrypoint.sh
+            services/social/systemd/mochirii-social-cutover-boot-guard.service
+            services/social/systemd/docker.service.d/10-mochirii-social-cutover-guard.conf
           )
           runtime_targets=(
             /usr/local/lib/mochirii-social/production-runtime-lib.sh
@@ -183,6 +185,8 @@ jobs:
             /usr/local/sbin/mochirii-social-backup
             /usr/local/sbin/mochirii-social-restore
             /usr/local/sbin/mochirii-social-deploy-entry
+            /etc/systemd/system/mochirii-social-cutover-boot-guard.service
+            /etc/systemd/system/docker.service.d/10-mochirii-social-cutover-guard.conf
           )
           : > release-bundle/runtime-contract.manifest
           for index in "${!runtime_sources[@]}"; do

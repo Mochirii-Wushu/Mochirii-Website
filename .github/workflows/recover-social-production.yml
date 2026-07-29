@@ -64,6 +64,7 @@ jobs:
       - name: Configure private recovery inputs
         env:
           BACKUP_AGE_IDENTITY: ${{ secrets.BACKUP_AGE_IDENTITY }}
+          BACKUP_PRODUCER_PUBLIC_KEY: ${{ secrets.BACKUP_PRODUCER_PUBLIC_KEY }}
           BACKUP_S3_ACCESS_KEY_ID: ${{ secrets.BACKUP_S3_ACCESS_KEY_ID }}
           BACKUP_S3_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_S3_SECRET_ACCESS_KEY }}
           BACKUP_S3_BUCKET: ${{ vars.BACKUP_S3_BUCKET }}
@@ -73,11 +74,16 @@ jobs:
         run: |
           set -Eeuo pipefail
           [[ -n "$BACKUP_AGE_IDENTITY" ]]
+          [[ -n "$BACKUP_PRODUCER_PUBLIC_KEY" ]]
           [[ "$BACKUP_S3_BUCKET" =~ ^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$ ]]
           [[ "$BACKUP_S3_ENDPOINT" =~ ^https://[a-z0-9-]+[.]digitaloceanspaces[.]com$ ]]
           install -d -m 0700 recovery
           printf '%s\n' "$BACKUP_AGE_IDENTITY" | tr -d '\r' > recovery/identity
-          chmod 0600 recovery/identity
+          printf '%s\n' "$BACKUP_PRODUCER_PUBLIC_KEY" | tr -d '\r' \
+            > recovery/backup-producer.pub
+          chmod 0600 recovery/identity recovery/backup-producer.pub
+          source services/social/scripts/production-runtime-lib.sh
+          verify_secure_backup_producer_public_key_file recovery/backup-producer.pub
           {
             printf 'RCLONE_CONFIG_MOCHIRII_BACKUP_TYPE=s3\n'
             printf 'RCLONE_CONFIG_MOCHIRII_BACKUP_PROVIDER=DigitalOcean\n'
@@ -99,10 +105,29 @@ jobs:
           [[ -n "$OBJECT_KEY" ]]
           [[ "$OBJECT_KEY" =~ ^(daily|weekly|monthly|manual)/[0-9]{8}T[0-9]{6}Z-[A-Za-z0-9._-]+[.]tar[.]age$ ]]
           remote_object="MOCHIRII_BACKUP:$BACKUP_S3_BUCKET/$OBJECT_KEY"
+          remote_producer_manifest="$remote_object.manifest"
+          remote_producer_signature="$remote_object.manifest.sig"
           remote_metadata="recovery/remote-object-size.json"
           rclone_error="$(mktemp recovery/rclone-error.XXXXXX)"
           chmod 0600 "$rclone_error"
           trap 'rm -f -- "$rclone_error" "$remote_metadata"' EXIT
+          if ! rclone --config /dev/null --quiet copyto --s3-no-check-bucket \
+            --max-size "$BACKUP_PRODUCER_MANIFEST_MAX_BYTES" \
+            "$remote_producer_manifest" \
+            recovery/recovery.tar.age.manifest 2>"$rclone_error"; then
+            echo "The backup-producer manifest could not be downloaded." >&2
+            exit 1
+          fi
+          if ! rclone --config /dev/null --quiet copyto --s3-no-check-bucket \
+            --max-size "$BACKUP_PRODUCER_SIGNATURE_MAX_BYTES" \
+            "$remote_producer_signature" \
+            recovery/recovery.tar.age.manifest.sig 2>"$rclone_error"; then
+            echo "The backup-producer signature could not be downloaded." >&2
+            exit 1
+          fi
+          chmod 0600 \
+            recovery/recovery.tar.age.manifest \
+            recovery/recovery.tar.age.manifest.sig
           if ! rclone --config /dev/null --quiet size --json --s3-no-check-bucket \
             "$remote_object" >"$remote_metadata" 2>"$rclone_error"; then
             echo "The private recovery object metadata could not be read." >&2
@@ -137,6 +162,12 @@ jobs:
           trap 'rm -f -- "$remote_metadata"' EXIT
           verify_bounded_encrypted_recovery_file \
             recovery/recovery.tar.age "$remote_bytes"
+          verify_authenticated_backup_producer_bundle \
+            recovery/recovery.tar.age.manifest \
+            recovery/recovery.tar.age.manifest.sig \
+            recovery/backup-producer.pub \
+            recovery/recovery.tar.age \
+            "$OBJECT_KEY"
           plaintext_candidate="recovery/recovery.tar.candidate"
           if ! age --decrypt --identity recovery/identity recovery/recovery.tar.age \
             | head -c "$((RECOVERY_PAYLOAD_MAX_BYTES + 1))" \
@@ -165,6 +196,9 @@ jobs:
           install -d -m 0700 recovery/extracted
           extract_validated_recovery_payload recovery/recovery.tar recovery/extracted
           validate_recovery_payload_manifest recovery/extracted \
+            recovery/extracted/validated.manifest
+          verify_backup_producer_payload_binding \
+            recovery/recovery.tar.age.manifest \
             recovery/extracted/validated.manifest
           recovery_format="$(sed -n 's/^format=//p' \
             recovery/extracted/validated.manifest)"

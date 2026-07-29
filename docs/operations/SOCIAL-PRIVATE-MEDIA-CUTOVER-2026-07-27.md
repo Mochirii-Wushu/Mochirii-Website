@@ -99,22 +99,21 @@ Stop before any write unless all of the following are true:
 Each step is fail-closed. Record only counts, hashes, status, and redacted route
 categories; never retain object signatures or authentication headers.
 
-**P2 production-runtime activation blocker:** the reviewed scripts close on
-catchable nonzero exit, `HUP`, `INT`, and `TERM`, but this source-only preview
-does not install a boot or container-prestart visibility guard. `SIGKILL`, host
-power loss, or Docker restart after `php artisan up` and before final durable
-acceptance can restart an unaccepted application image publicly. Caddy still
-denies the reviewed raw private-media roots, but that does not close the full
-application. Do not install the runtime updater or dispatch staging,
+**P2 production-runtime activation blocker:** the reviewed source now includes
+a fail-closed systemd boot guard and Docker dependency drop-in. Every Docker
+start verifies the exact seven-file version-3 runtime contract and accepts only
+absent or completed private-media cutover and restore states. Active, malformed,
+unsafe, or contract-drifted state blocks startup. This source-only branch has not
+installed or read back that guard on the host. Do not dispatch staging,
 finalization, ordinary deployment, or production restore until a separately
-reviewed boot visibility guard is active or the release owner gives exact
-written risk acceptance.
+approved rollback-safe host packet installs it and proves both systemd
+dependency edges and phase behavior.
 
 1. Under a separate rollback-safe host prerequisite packet, align only the
    root-owned deployment library, deploy/backup/restore runtimes, runtime byte
    contract, and forced entrypoint from the exact clean merged commit using the
    reviewed atomic updater and a unique UUIDv4 operation ID. Its durable update
-   state, canonical root-owned backup, exact five-path contract, preimage
+   state, canonical root-owned backup, exact seven-path contract, preimage
    verification, entrypoint-last install, fsync transitions, and consumed-ID
    rules must pass; restart or reload nothing. A source PR or preview must not
    run it. Install the reviewed Caddy raw-storage denial only through its own
@@ -199,8 +198,9 @@ written risk acceptance.
 
 Encrypted backups use recovery manifest format 2. They bind the database and
 configuration hashes, release identity, independently validated historical
-cutover state/proof when present, and the current exact five-file deployment
-runtime contract. A later legitimate runtime update does not rewrite the
+cutover state/proof when present, and the current exact seven-file deployment
+runtime contract. Historical version-2 five-file contracts remain bounded
+recovery evidence. A later legitimate runtime update does not rewrite the
 historical bootstrap contract recorded in `cutover.state`.
 
 Restore accepts only bounded regular archive members and validates every hash
@@ -216,22 +216,23 @@ regular-member parser and exact format-2 manifest validation; raw `tar`
 inspection or extraction is not accepted. Restore does not automatically
 install archived host configuration. Before destructive database replacement
 it atomically writes root-owned `restore.state`; `intent` and
-`recovery_required` block backup, deploy, deploy-runtime update, and online
-verification after a managed/catchable process failure. Without the separately
-required boot visibility guard they do not by themselves prevent Docker from
-restarting an app after uncatchable host loss. The same bound payload may resume
-recovery. Only full application, worker, exact-image, private-gateway, and
+`recovery_required` block backup, deploy, deploy-runtime update, online
+verification, and—after its separately approved host installation—Docker
+startup. The same bound payload may resume recovery. Only full application,
+worker, exact-image, private-gateway, and
 raw-storage acceptance changes the restore phase to `completed`.
 
-All new recovery points use the exact ten-line format-2 manifest. Existing
-format-1 points that successfully decrypt from the protected private object
-boundary remain recoverable only through their exact four-line schema. They
+All new recovery points use the exact ten-line format-2 manifest plus a signed
+outer producer manifest. The parser retains existing format-1 points only
+through their exact four-line schema and only when separately approved valid
+producer authentication accompanies the ciphertext. The automated recovery
+workflow rejects unsigned historical objects. Accepted legacy points
 receive the same archive/path/size validation, and their
 database and configuration hashes are computed into a root-private normalized
 manifest before durable restore state is written. Mixed, extra, duplicate, or
 reordered schemas are rejected. Format 1 contains no archived deploy-runtime or
 cutover binding, so recovery retains the currently installed verified
-five-file runtime as authority and never applies archived host configuration.
+runtime contract as authority and never applies archived host configuration.
 
 ## Rollback
 

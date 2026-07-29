@@ -296,8 +296,10 @@ checks the downloaded ciphertext against that count, and streams successful
 decryption through a 512 MiB plus one-byte capture. Encrypted recovery archives
 use manifest format 2. They bind database and
 configuration hashes, release metadata, independently validated historical
-cutover state/proof when present, and the current exact five-file deployment
-runtime. The decrypted transport is capped at exactly 512 MiB: the compressed
+cutover state/proof when present, and either the historical exact five-file
+version-2 deployment runtime or the current seven-file version-3 runtime,
+including its boot guard and Docker dependency drop-in. The decrypted transport
+is capped at exactly 512 MiB: the compressed
 database member is capped at 480 MiB, configuration at 16 MiB, and the manifest
 at 4 KiB, leaving more than 12 MiB for archive framing. Backup creation, the
 GitHub isolated-restore gate, the restricted SSH entrypoint, and host restore
@@ -310,12 +312,13 @@ bundle before database restore; this source does not provide or authorize that
 fresh-host activation path.
 
 Recipient encryption protects confidentiality and detects ciphertext
-tampering, but it does not prove which producer created an archive. A writer
-that knows the public recipient can create a decryptable replacement. Treat
-private object IAM, exact object/size selection, schema validation, and workflow
-evidence as operational controls only; authenticated production recovery still
-requires a signed or MACed manifest, or an immutable archive digest supplied by
-an independently trusted approval record.
+tampering. New source separately signs a bounded manifest with an Ed25519
+producer identity and verifies that signature, the selected object basename,
+ciphertext size and SHA-256, public-key hash, release commit, and image digest
+before decryption. Private object IAM and strict schemas remain independent
+defense-in-depth controls. This producer-authentication claim becomes live only
+after the root-owned signing key and protected recovery public key are installed
+through an approved provider packet and a real recovery-point readback passes.
 
 These archives cover the database and reviewed host/runtime configuration, not
 the primary private member-media objects in Spaces. Full recovery therefore
@@ -323,16 +326,28 @@ also requires a separately approved independent object backup and a successful
 object restore/readback exercise. Database/configuration restore evidence alone
 must not be used to claim member-media recoverability.
 
-New backups always use the exact ten-line format-2 manifest. Historical backups
-that successfully decrypt from the protected private object boundary remain
-accepted only with their exact four-line format-1 schema during the transition.
-The same bounded parser handles both. For legacy
+New backups always use the exact ten-line format-2 manifest. The parser retains
+the exact four-line format-1 schema for a historical recovery point that also
+has separately approved valid producer authentication; the automated workflow
+rejects unsigned historical objects. The same bounded parser handles both. For legacy
 payloads it computes database and configuration SHA-256 values locally into a
 root-private normalized companion manifest, which binds crash recovery and
 replay. Mixed, reordered, duplicate, or extra fields fail closed. Format 1
 predates archived runtime/cutover bindings, so the already installed verified
-five-file runtime remains authoritative and archived host settings remain
+runtime contract remains authoritative and archived host settings remain
 read-only evidence.
+
+The version-3 runtime adds
+`mochirii-social-cutover-boot-guard.service` as a required ordered dependency of
+`docker.service`. Every Docker start calls the deployment runtime's bounded
+`--verify-boot-safety` action under the deployment lock. Only an absent or
+completed cutover state and an absent or completed restore state pass;
+`intent`, `staged`, `finalizing`, `recovery_required`, malformed state,
+contract drift, or unsafe ownership blocks Docker startup. The source, atomic
+updater, rollback snapshot, and archived
+runtime contract include both the guard unit and Docker drop-in. This does not
+describe current host state until a separately approved installation and
+systemd readback prove the exact files and dependency edges are active.
 
 ## Secret Boundary
 

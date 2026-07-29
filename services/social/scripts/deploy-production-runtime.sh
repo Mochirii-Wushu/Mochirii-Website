@@ -23,6 +23,16 @@ acquire_deploy_lock() {
   }
 }
 
+if [[ "${1:-}" == "--verify-boot-safety" ]]; then
+  [[ "$#" -eq 1 ]] || {
+    echo "Boot-safety verification accepts no additional arguments." >&2
+    exit 1
+  }
+  acquire_deploy_lock
+  verify_private_media_boot_safety
+  exit 0
+fi
+
 if [[ "${1:-}" == "--verify-online-hosting" ]]; then
   [[ "$#" -eq 1 ]] || {
     echo "Online-hosting verification accepts no additional arguments." >&2

@@ -76,7 +76,9 @@ require_clean_installer_checkout \
   services/social/scripts/deploy-production-runtime.sh \
   services/social/scripts/backup-production-runtime.sh \
   services/social/scripts/restore-production-runtime.sh \
-  services/social/scripts/deploy-production-entrypoint.sh
+  services/social/scripts/deploy-production-entrypoint.sh \
+  services/social/systemd/mochirii-social-cutover-boot-guard.service \
+  services/social/systemd/docker.service.d/10-mochirii-social-cutover-guard.conf
 
 [[ -f "$public_key_file" ]] || {
   echo "Usage: install-production-runtime.sh <deploy-public-key-file>" >&2
@@ -92,7 +94,8 @@ grep -Eq '^ssh-ed25519 [A-Za-z0-9+/=]+( .*)?$' "$public_key_file" || {
 }
 
 for command_name in \
-  bash curl docker flock git install mktemp mv python3 rsync sha256sum stat sudo tar visudo; do
+  bash curl docker flock git grep install mktemp mv python3 rsync sha256sum stat sudo \
+  systemctl systemd-analyze tar tr visudo; do
   command -v "$command_name" >/dev/null || {
     echo "Missing required command: $command_name" >&2
     exit 1
@@ -125,6 +128,15 @@ install -m 0755 -o root -g root \
 install -m 0755 -o root -g root \
   "$repo_root/scripts/restore-production-runtime.sh" \
   /usr/local/sbin/mochirii-social-restore
+systemd-analyze verify \
+  "$repo_root/systemd/mochirii-social-cutover-boot-guard.service" >/dev/null
+install -d -m 0755 -o root -g root /etc/systemd/system/docker.service.d
+install -m 0644 -o root -g root \
+  "$repo_root/systemd/mochirii-social-cutover-boot-guard.service" \
+  /etc/systemd/system/mochirii-social-cutover-boot-guard.service
+install -m 0644 -o root -g root \
+  "$repo_root/systemd/docker.service.d/10-mochirii-social-cutover-guard.conf" \
+  /etc/systemd/system/docker.service.d/10-mochirii-social-cutover-guard.conf
 contract_manifest="$(mktemp)"
 trap 'rm -f "$contract_manifest"' EXIT
 {
@@ -143,11 +155,17 @@ trap 'rm -f "$contract_manifest"' EXIT
   printf '%s  %s\n' \
     "$(sha256sum "$repo_root/scripts/deploy-production-entrypoint.sh" | cut -d' ' -f1)" \
     /usr/local/sbin/mochirii-social-deploy-entry
+  printf '%s  %s\n' \
+    "$(sha256sum "$repo_root/systemd/mochirii-social-cutover-boot-guard.service" | cut -d' ' -f1)" \
+    /etc/systemd/system/mochirii-social-cutover-boot-guard.service
+  printf '%s  %s\n' \
+    "$(sha256sum "$repo_root/systemd/docker.service.d/10-mochirii-social-cutover-guard.conf" | cut -d' ' -f1)" \
+    /etc/systemd/system/docker.service.d/10-mochirii-social-cutover-guard.conf
 } >"$contract_manifest"
 contract_sha256="$(sha256sum "$contract_manifest" | cut -d' ' -f1)"
 {
   printf '%s\n' \
-    'version=2' \
+    'version=3' \
     "installed_from_commit=$source_commit" \
     "contract_sha256=$contract_sha256"
   cat "$contract_manifest"
@@ -162,6 +180,13 @@ trap - EXIT
 # shellcheck source=/dev/null
 source /usr/local/lib/mochirii-social/production-runtime-lib.sh
 verify_installed_deploy_runtime_contract "$contract_sha256"
+systemctl daemon-reload
+systemctl show docker.service --property=Requires --value \
+  | tr ' ' '\n' \
+  | grep -Fxq mochirii-social-cutover-boot-guard.service
+systemctl show docker.service --property=After --value \
+  | tr ' ' '\n' \
+  | grep -Fxq mochirii-social-cutover-boot-guard.service
 
 if ! id "$deploy_user" >/dev/null 2>&1; then
   useradd --create-home --shell /bin/bash "$deploy_user"
