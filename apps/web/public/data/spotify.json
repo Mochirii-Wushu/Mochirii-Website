@@ -1,5 +1,5 @@
 {
-  "intro": "A listening room for reading, planning, and rest between runs.",
+  "intro": "Music selected for build review, route planning, exploration, material gathering & event preparation.",
   "items": [
     {
       "title": "Guild Album - Ambient Rotation",
@@ -8,25 +8,25 @@
       "tags": ["Ambient", "Focus", "Atmosphere"],
       "embed": "https://open.spotify.com/embed/album/2GDgMnMjBf1GXVKPQUzsR7?utm_source=generator",
       "height": 352,
-      "description": "An album stream for reading, planning & coordination."
+      "description": "An album stream for build notes, route planning & party preparation."
     },
     {
-      "title": "Guild Album - Evening Drift",
+      "title": "Guild Album - Event Preparation",
       "subtitle": "Album",
       "type": "album",
-      "tags": ["Ambient", "Evening", "Calm"],
+      "tags": ["Ambient", "Events", "Planning"],
       "embed": "https://open.spotify.com/embed/album/70G9dgVWkyBweJ3kJYJm0Y?utm_source=generator",
       "height": 352,
-      "description": "An album set for winding down & guild hours."
+      "description": "An album for gathering materials, crafting & reviewing event notes."
     },
     {
-      "title": "Guild Album - Quiet Current",
+      "title": "Guild Album - Build Focus",
       "subtitle": "Album",
       "type": "album",
-      "tags": ["Ambient", "Night", "Flow"],
+      "tags": ["Ambient", "Builds", "Focus"],
       "embed": "https://open.spotify.com/embed/album/7hHtZyabiHgej67ie0Q5JZ?utm_source=generator",
       "height": 352,
-      "description": "An album for long listening & focus."
+      "description": "An album for build testing, exploration & weekly activity preparation."
     },
     {
       "title": "Guild Artist - Featured Rotation",
@@ -35,43 +35,43 @@
       "tags": ["Ambient", "Artist", "Discovery"],
       "embed": "https://open.spotify.com/embed/artist/4TcOznbEZBqev21LzAH4KE?utm_source=generator",
       "height": 352,
-      "description": "An artist profile for wandering through ambient sounds."
+      "description": "An artist catalog for exploration routes, material gathering & map review."
     },
     {
-      "title": "Guild Artist - Quiet Explorations",
+      "title": "Guild Artist - Exploration Rotation",
       "subtitle": "Artist",
       "type": "artist",
       "tags": ["Ambient", "Artist", "Minimal"],
       "embed": "https://open.spotify.com/embed/artist/3Qixo9YdP8BDSOID2uHeyl?utm_source=generator",
       "height": 352,
-      "description": "An artist catalog for slow listening & calm sessions."
+      "description": "An artist catalog for exploration, route planning & build review."
     },
     {
-      "title": "Guild Artist - Soft Horizons",
+      "title": "Guild Artist - Open Horizons",
       "subtitle": "Artist",
       "type": "artist",
       "tags": ["Ambient", "Artist", "Drift"],
       "embed": "https://open.spotify.com/embed/artist/7hmSHY9HVVQKejpGbPbo16?utm_source=generator",
       "height": 352,
-      "description": "Ambient works for long listening & low-motion evenings."
+      "description": "Ambient works for gathering materials, reviewing builds & preparing for events."
     },
     {
-      "title": "Guild Artist - Still Air",
+      "title": "Guild Artist - Build Review",
       "subtitle": "Artist",
       "type": "artist",
-      "tags": ["Ambient", "Artist", "Stillness"],
+      "tags": ["Ambient", "Artist", "Planning"],
       "embed": "https://open.spotify.com/embed/artist/4XBG26mgvzGqT09eopG4d9?utm_source=generator",
       "height": 352,
-      "description": "Sparse, slow pieces for quiet focus & mental rest."
+      "description": "Sparse pieces for reviewing builds and party notes before events."
     },
     {
-      "title": "Guild Track - Night Walk",
+      "title": "Guild Track - Exploration Route",
       "subtitle": "Single track",
       "type": "track",
-      "tags": ["Ambient", "Night", "Focus"],
+      "tags": ["Ambient", "Exploration", "Focus"],
       "embed": "https://open.spotify.com/embed/track/3fuyYaLhZ2RoP9eWpvfP1H?utm_source=generator",
       "height": 152,
-      "description": "A short piece for late hours & a slower tempo."
+      "description": "A short track for route planning and material gathering."
     }
   ]
 }

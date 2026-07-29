@@ -31,3 +31,11 @@ container, protected environment, deployment, and recovery contract.
 See [Gallery public media delivery](gallery-public-media-delivery.md) for the
 versioned thumbnail-only list, opaque-ID original resolution, keyset snapshot,
 and private Storage boundary.
+
+See [Facebook Page Gallery publishing](facebook-page-gallery-publishing.md) for
+the Page-only approval outbox, immutable consent, exact-media verification,
+Meta permission boundary, and manual Facebook Group handoff.
+
+See [Instagram Gallery publishing](instagram-gallery-publishing.md) for the
+official Business-account identity, Page-linked Graph API boundary,
+moderator-approved queue, server activation flag, and current manual gates.

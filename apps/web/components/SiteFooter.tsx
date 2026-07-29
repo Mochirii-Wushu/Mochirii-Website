@@ -3,13 +3,19 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import type { HeaderAuthState } from "@/components/site-header/header-navigation";
 import { SpinnerViewerNavLink } from "@/components/site-header/spinner-viewer-nav-link";
-import { DISCORD_INVITE_URL, SOCIAL_HOST } from "@/lib/public-urls";
+import {
+  DISCORD_INVITE_URL,
+  OFFICIAL_GUILD_CHANNELS,
+  SITE_DISPLAY_NAME,
+  SOCIAL_HOST,
+} from "@/lib/public-urls";
 import { accountWorkflowLinks } from "@/lib/site-navigation";
 
 type FooterLink = {
   href: string;
   label: string;
   external?: boolean;
+  newTab?: boolean;
 };
 
 const guildLinks = [
@@ -34,6 +40,12 @@ const updateLinks = [
   { href: "/raffle", label: "Raffle" },
 ] satisfies FooterLink[];
 
+const channelLinks = OFFICIAL_GUILD_CHANNELS.map((link) => ({
+  ...link,
+  external: true,
+  newTab: true,
+})) satisfies FooterLink[];
+
 function FooterColumn({
   title,
   links,
@@ -48,7 +60,13 @@ function FooterColumn({
       <div className="footer-col-title">{title}</div>
       {links.map((link) => (
         link.external ? (
-          <a className="footer-nav" href={link.href} key={`${title}-${link.href}`}>
+          <a
+            className="footer-nav"
+            href={link.href}
+            key={`${title}-${link.href}`}
+            target={link.newTab ? "_blank" : undefined}
+            rel={link.newTab ? "noopener noreferrer" : undefined}
+          >
             {link.label}
           </a>
         ) : (
@@ -129,6 +147,7 @@ export function SiteFooter({
                 />
               ) : null}
             </FooterColumn>
+            <FooterColumn title="Channels" links={channelLinks} />
           </div>
         </div>
 
@@ -136,7 +155,7 @@ export function SiteFooter({
           <div className="footer-meta">
             <span id="copyright-text">© {year} Mōchirīī</span>
             <span className="dot" aria-hidden="true">•</span>
-            <span className="footer-dim">Where Winds Meet</span>
+            <span className="footer-dim">{SITE_DISPLAY_NAME}</span>
           </div>
         </div>
       </div>

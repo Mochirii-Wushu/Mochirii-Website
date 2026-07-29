@@ -9,15 +9,97 @@ import {
   safeString,
 } from "../_shared/gallery-moderation.ts";
 
-const SIGNED_URL_SECONDS = 10 * 60;
-const QUEUE_LIMIT = 50;
+const DEFAULT_QUEUE_LIMIT = 25;
+const MAX_QUEUE_LIMIT = 50;
 const EVENT_LIMIT = 250;
-const MEMBER_GALLERY_BUCKET = "member-gallery";
-const VALID_STATUSES = new Set(["queued", "ineligible", "publishing", "published", "failed", "canceled", "shared_manually"]);
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const TIMESTAMPTZ_RE =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/;
+const VALID_STATUSES = new Set([
+  "queued",
+  "ineligible",
+  "publishing",
+  "published",
+  "failed",
+  "reconcile_required",
+  "canceled",
+  "shared_manually",
+]);
+
+type QueueCursor = {
+  version: 1;
+  status: string;
+  updatedAt: string;
+  id: string;
+};
 
 function normalizeStatus(value: unknown): string {
   const status = safeString(value, 20)?.toLowerCase() || "queued";
   return status === "all" || VALID_STATUSES.has(status) ? status : "queued";
+}
+
+function normalizeLimit(value: unknown): number {
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed >= 1
+    ? Math.min(parsed, MAX_QUEUE_LIMIT)
+    : DEFAULT_QUEUE_LIMIT;
+}
+
+function encodeCursor(cursor: QueueCursor): string {
+  return btoa(JSON.stringify(cursor))
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replace(/=+$/g, "");
+}
+
+function cursorTimestamp(value: unknown): string | null {
+  const timestamp = safeString(value, 80);
+  if (!timestamp || !TIMESTAMPTZ_RE.test(timestamp)) return null;
+  return Number.isFinite(Date.parse(timestamp)) ? timestamp : null;
+}
+
+function decodeCursor(value: unknown, status: string): QueueCursor | null {
+  const encoded = safeString(value, 512);
+  if (!encoded) return null;
+  if (!/^[A-Za-z0-9_-]+$/.test(encoded)) return null;
+
+  try {
+    const padded = encoded.replaceAll("-", "+").replaceAll("_", "/")
+      .padEnd(Math.ceil(encoded.length / 4) * 4, "=");
+    const parsed = JSON.parse(atob(padded)) as Partial<QueueCursor>;
+    const updatedAt = cursorTimestamp(parsed.updatedAt);
+    const id = safeString(parsed.id, 80);
+    const parsedStatus = safeString(parsed.status, 20);
+    if (
+      parsed.version !== 1 || parsedStatus !== status || !updatedAt || !id ||
+      !UUID_RE.test(id)
+    ) return null;
+    return {
+      version: 1,
+      status,
+      updatedAt,
+      id: id.toLowerCase(),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function publicThumbnailUrl(
+  supabaseUrl: string,
+  publicationId: string | null,
+): string | null {
+  if (!supabaseUrl || !publicationId || !UUID_RE.test(publicationId)) {
+    return null;
+  }
+  const url = new URL(
+    "/functions/v1/list-approved-gallery-submissions",
+    supabaseUrl,
+  );
+  url.searchParams.set("asset", "thumbnail");
+  url.searchParams.set("id", publicationId);
+  return url.toString();
 }
 
 function displayName(profile: JsonRecord | null | undefined): string {
@@ -29,7 +111,9 @@ function displayName(profile: JsonRecord | null | undefined): string {
   );
 }
 
-function profileSummary(profile: JsonRecord | null | undefined): JsonRecord | null {
+function profileSummary(
+  profile: JsonRecord | null | undefined,
+): JsonRecord | null {
   if (!profile) return null;
 
   return {
@@ -58,7 +142,46 @@ async function handleRequest(req: Request): Promise<Response> {
   if (!bodyResult.ok) return bodyResult.response;
 
   const requestedStatus = normalizeStatus(bodyResult.body.status);
-  const summary: Record<string, number | string> = { status: requestedStatus, total: 0, shown: 0 };
+  const requestedLimit = normalizeLimit(bodyResult.body.limit);
+  const rawCursor = safeString(bodyResult.body.cursor, 512);
+  const cursor = decodeCursor(rawCursor, requestedStatus);
+  if (rawCursor && !cursor) {
+    return jsonResponse(
+      {
+        ok: false,
+        error: "invalid_instagram_queue_cursor",
+        message:
+          "The Instagram queue cursor is invalid or belongs to another status.",
+      },
+      400,
+    );
+  }
+
+  const { error: quarantineError } = await access.adminClient.rpc(
+    "gallery_instagram_quarantine_stale_publish_jobs",
+  );
+  if (quarantineError) {
+    console.error(
+      "list-instagram-publish-queue stale lease quarantine failed",
+      {
+        code: quarantineError.code,
+        message: quarantineError.message,
+      },
+    );
+    return jsonResponse(
+      {
+        ok: false,
+        error: "instagram_stale_lease_quarantine_failed",
+        message: "Instagram publishing safety state could not be loaded.",
+      },
+      500,
+    );
+  }
+  const summary: Record<string, number | string> = {
+    status: requestedStatus,
+    total: 0,
+    shown: 0,
+  };
 
   const countResults = await Promise.all(
     [...VALID_STATUSES].map(async (status) => ({
@@ -95,16 +218,24 @@ async function handleRequest(req: Request): Promise<Response> {
 
   let jobQuery = access.adminClient
     .from("gallery_instagram_publish_jobs")
-    .select("id,submission_id,status,eligibility_reason,caption,alt_text,instagram_media_id,instagram_permalink,last_error,attempt_count,published_by,published_at,created_at,updated_at")
-    .limit(QUEUE_LIMIT);
+    .select(
+      "id,submission_id,status,eligibility_reason,caption,alt_text,instagram_container_id,instagram_media_id,instagram_permalink,last_error,attempt_count,attempt_started_at,published_by,published_at,created_at,updated_at",
+    )
+    .limit(requestedLimit + 1);
 
   if (requestedStatus !== "all") {
     jobQuery = jobQuery.eq("status", requestedStatus);
   }
 
+  if (cursor) {
+    jobQuery = jobQuery.or(
+      `updated_at.lt.${cursor.updatedAt},and(updated_at.eq.${cursor.updatedAt},id.lt.${cursor.id})`,
+    );
+  }
+
   const { data: jobData, error: jobError } = await jobQuery
     .order("updated_at", { ascending: false })
-    .order("created_at", { ascending: false });
+    .order("id", { ascending: false });
 
   if (jobError) {
     console.error("list-instagram-publish-queue job lookup failed", {
@@ -122,7 +253,9 @@ async function handleRequest(req: Request): Promise<Response> {
     );
   }
 
-  const jobs = Array.isArray(jobData) ? jobData as JsonRecord[] : [];
+  const pageRows = Array.isArray(jobData) ? jobData as JsonRecord[] : [];
+  const hasMore = pageRows.length > requestedLimit;
+  const jobs = pageRows.slice(0, requestedLimit);
   const jobIds = [
     ...new Set(
       jobs
@@ -140,9 +273,12 @@ async function handleRequest(req: Request): Promise<Response> {
 
   const submissionsById = new Map<string, JsonRecord>();
   if (submissionIds.length > 0) {
-    const { data: submissionData, error: submissionError } = await access.adminClient
+    const { data: submissionData, error: submissionError } = await access
+      .adminClient
       .from("gallery_submissions")
-      .select("id,user_id,storage_bucket,storage_path,original_filename,mime_type,size_bytes,title,caption,category,status,reviewed_at,created_at,submission_source,discord_guild_id,discord_channel_id,discord_message_id,discord_attachment_id,discord_user_id,instagram_opt_in,instagram_opt_in_at,instagram_opt_in_source,instagram_opt_in_copy_version")
+      .select(
+        "id,user_id,gallery_publication_id,original_filename,mime_type,size_bytes,title,caption,category,status,reviewed_at,created_at,submission_source,discord_guild_id,discord_channel_id,discord_message_id,discord_attachment_id,discord_user_id,instagram_opt_in,instagram_opt_in_at,instagram_opt_in_source,instagram_opt_in_copy_version,instagram_opt_in_contract_version",
+      )
       .in("id", submissionIds);
 
     if (submissionError) {
@@ -161,10 +297,11 @@ async function handleRequest(req: Request): Promise<Response> {
       );
     }
 
-    (Array.isArray(submissionData) ? submissionData as JsonRecord[] : []).forEach((submission) => {
-      const id = safeString(submission.id, 80);
-      if (id) submissionsById.set(id, submission);
-    });
+    (Array.isArray(submissionData) ? submissionData as JsonRecord[] : [])
+      .forEach((submission) => {
+        const id = safeString(submission.id, 80);
+        if (id) submissionsById.set(id, submission);
+      });
   }
 
   const eventsByJobId = new Map<string, JsonRecord[]>();
@@ -193,7 +330,9 @@ async function handleRequest(req: Request): Promise<Response> {
       );
     }
 
-    allEvents.push(...(Array.isArray(eventData) ? eventData as JsonRecord[] : []));
+    allEvents.push(
+      ...(Array.isArray(eventData) ? eventData as JsonRecord[] : []),
+    );
     allEvents.forEach((event) => {
       const jobId = safeString(event.job_id, 80);
       if (!jobId) return;
@@ -206,7 +345,9 @@ async function handleRequest(req: Request): Promise<Response> {
   const userIds = [
     ...new Set(
       [
-        ...[...submissionsById.values()].map((submission) => safeString(submission.user_id, 80)),
+        ...[...submissionsById.values()].map((submission) =>
+          safeString(submission.user_id, 80)
+        ),
         ...jobs.map((job) => safeString(job.published_by, 80)),
         ...allEvents.map((event) => safeString(event.actor_id, 80)),
       ].filter((value): value is string => Boolean(value)),
@@ -217,7 +358,9 @@ async function handleRequest(req: Request): Promise<Response> {
   if (userIds.length > 0) {
     const { data: profileData, error: profileError } = await access.adminClient
       .from("member_profiles")
-      .select("id,display_name,discord_username,discord_global_name,discord_user_id")
+      .select(
+        "id,display_name,discord_username,discord_global_name,discord_user_id",
+      )
       .in("id", userIds);
 
     if (profileError) {
@@ -236,10 +379,12 @@ async function handleRequest(req: Request): Promise<Response> {
       );
     }
 
-    (Array.isArray(profileData) ? profileData as JsonRecord[] : []).forEach((profile) => {
-      const id = safeString(profile.id, 80);
-      if (id) profilesById.set(id, profile);
-    });
+    (Array.isArray(profileData) ? profileData as JsonRecord[] : []).forEach(
+      (profile) => {
+        const id = safeString(profile.id, 80);
+        if (id) profilesById.set(id, profile);
+      },
+    );
   }
 
   const queue = [];
@@ -248,24 +393,11 @@ async function handleRequest(req: Request): Promise<Response> {
     const jobId = safeString(job.id, 80) || "";
     const submissionId = safeString(job.submission_id, 80) || "";
     const submission = submissionsById.get(submissionId) || {};
-    const bucket = safeString(submission.storage_bucket, 80) || MEMBER_GALLERY_BUCKET;
-    const storagePath = safeString(submission.storage_path, 1000);
-    let signedPreviewUrl: string | null = null;
-    let previewError: string | null = null;
-
-    if (bucket !== MEMBER_GALLERY_BUCKET || !storagePath) {
-      previewError = "invalid_storage_reference";
-    } else {
-      const { data: signedData, error: signedError } = await access.adminClient.storage
-        .from(bucket)
-        .createSignedUrl(storagePath, SIGNED_URL_SECONDS);
-
-      if (signedError || !signedData?.signedUrl) {
-        previewError = "preview_unavailable";
-      } else {
-        signedPreviewUrl = signedData.signedUrl;
-      }
-    }
+    const publicationId = safeString(submission.gallery_publication_id, 80);
+    const thumbnailUrl = publicThumbnailUrl(
+      Deno.env.get("SUPABASE_URL") || "",
+      publicationId,
+    );
 
     const userId = safeString(submission.user_id, 80) || "";
     const profile = profilesById.get(userId) || {};
@@ -275,7 +407,9 @@ async function handleRequest(req: Request): Promise<Response> {
         id: safeString(event.id, 80),
         action: safeString(event.action, 40),
         createdAt: safeString(event.created_at, 80),
-        actor: actorId ? profileSummary(profilesById.get(actorId) || null) : null,
+        actor: actorId
+          ? profileSummary(profilesById.get(actorId) || null)
+          : null,
       };
     });
 
@@ -285,15 +419,18 @@ async function handleRequest(req: Request): Promise<Response> {
       eligibilityReason: safeString(job.eligibility_reason, 300),
       caption: safeString(job.caption, 2200),
       altText: safeString(job.alt_text, 1000),
+      instagramContainerId: safeString(job.instagram_container_id, 255),
       instagramMediaId: safeString(job.instagram_media_id, 100),
       instagramPermalink: safeString(job.instagram_permalink, 500),
       lastError: safeString(job.last_error, 500),
       attemptCount: Number(job.attempt_count || 0),
+      attemptStartedAt: safeString(job.attempt_started_at, 80),
       publishedAt: safeString(job.published_at, 80),
       createdAt: safeString(job.created_at, 80),
       updatedAt: safeString(job.updated_at, 80),
-      signedPreviewUrl,
-      previewError,
+      galleryPublicationId: publicationId,
+      thumbnailUrl,
+      previewError: thumbnailUrl ? null : "approved_thumbnail_unavailable",
       submission: {
         id: submissionId,
         status: safeString(submission.status, 20),
@@ -319,27 +456,48 @@ async function handleRequest(req: Request): Promise<Response> {
         sizeBytes: Number(submission.size_bytes || 0),
         createdAt: safeString(submission.created_at, 80),
         reviewedAt: safeString(submission.reviewed_at, 80),
-        storageBucket: bucket,
-        storagePath,
         instagramOptIn: submission.instagram_opt_in === true,
         instagramOptInAt: safeString(submission.instagram_opt_in_at, 80),
-        instagramOptInSource: safeString(submission.instagram_opt_in_source, 80),
-        instagramOptInCopyVersion: safeString(submission.instagram_opt_in_copy_version, 80),
+        instagramOptInSource: safeString(
+          submission.instagram_opt_in_source,
+          80,
+        ),
+        instagramOptInCopyVersion: safeString(
+          submission.instagram_opt_in_copy_version,
+          80,
+        ),
+        instagramOptInContractVersion: safeString(
+          submission.instagram_opt_in_contract_version,
+          80,
+        ),
       },
       events,
     });
   }
 
   summary.shown = queue.length;
+  const lastJob = hasMore ? jobs.at(-1) : null;
+  const lastUpdatedAt = cursorTimestamp(lastJob?.updated_at);
+  const lastJobId = safeString(lastJob?.id, 80);
+  const nextCursor = hasMore && lastUpdatedAt && lastJobId &&
+      UUID_RE.test(lastJobId)
+    ? encodeCursor({
+      version: 1,
+      status: requestedStatus,
+      updatedAt: lastUpdatedAt,
+      id: lastJobId.toLowerCase(),
+    })
+    : null;
 
   return jsonResponse({
     ok: true,
     data: {
-      jobs: queue,
+      items: queue,
+      nextCursor,
       count: queue.length,
       status: requestedStatus,
       summary,
-      signedUrlSeconds: SIGNED_URL_SECONDS,
+      pageSize: requestedLimit,
     },
     message: queue.length
       ? `${requestedStatus} Instagram publishing jobs loaded.`

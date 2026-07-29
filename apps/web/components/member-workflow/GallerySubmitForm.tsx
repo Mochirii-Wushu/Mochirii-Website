@@ -16,6 +16,14 @@ function SubmissionStatus({ status }: { status?: string | null }) {
 
 function SubmissionItem({ item }: { item: GallerySubmission }) {
   const instagramOptIn = item.instagram_opt_in === true;
+  const facebookPageOptIn = item.facebook_page_opt_in === true;
+  const sharingLabel = instagramOptIn && facebookPageOptIn
+    ? "Instagram and Facebook opt-in"
+    : instagramOptIn
+      ? "Instagram opt-in"
+      : facebookPageOptIn
+        ? "Facebook opt-in"
+        : "Site Gallery only";
 
   return (
     <article className="submission-item">
@@ -27,7 +35,7 @@ function SubmissionItem({ item }: { item: GallerySubmission }) {
       <div className="submission-meta">
         <span>{formatDateShort(item.created_at, "Unknown date")}</span>
         {item.category ? <span>{item.category}</span> : null}
-        <span>{instagramOptIn ? "Instagram opt-in" : "Site Gallery only"}</span>
+        <span>{sharingLabel}</span>
       </div>
     </article>
   );
@@ -44,6 +52,7 @@ export function GallerySubmitForm() {
   const [category, setCategory] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [instagramOptIn, setInstagramOptIn] = useState(false);
+  const [facebookPageOptIn, setFacebookPageOptIn] = useState(false);
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const [submissionsError, setSubmissionsError] = useState("");
@@ -108,7 +117,14 @@ export function GallerySubmitForm() {
     setError("");
     setStatus("Submitting image for moderation.");
 
-    const result = await uploadMemberGalleryImage(file, { title, caption, category, instagramOptIn });
+    if ((instagramOptIn || facebookPageOptIn) && file?.type.toLowerCase() !== "image/jpeg") {
+      setError("Instagram or Facebook publishing requires a JPEG source. Uncheck both social options to submit a PNG or WebP image to the Gallery only.");
+      setStatus("");
+      setBusy(false);
+      return;
+    }
+
+    const result = await uploadMemberGalleryImage(file, { title, caption, category, instagramOptIn, facebookPageOptIn });
     if (!result.ok) {
       setError(result.message || "Upload failed.");
       setStatus("");
@@ -121,6 +137,7 @@ export function GallerySubmitForm() {
     setCategory("");
     setFile(null);
     setInstagramOptIn(false);
+    setFacebookPageOptIn(false);
     await checkAccess();
     await loadSubmissions();
     setStatus("Image submitted for moderation. It will not appear in the public Gallery until Moderator approval.");
@@ -231,7 +248,21 @@ export function GallerySubmitForm() {
                   disabled={busy}
                   onChange={(event) => setInstagramOptIn(event.target.checked)}
                 />
-                <span>Allow Mōchirīī to share this image on our official Instagram if approved.</span>
+                <span>I authorize Mōchirīī moderators to publish this image and its moderator-approved caption on the public official Mōchirīī Instagram account after gallery approval. <small className="muted">Social eligibility requires a JPEG 320–1440 pixels wide, no more than 1800 pixels high, within the 4:5 through 1.91:1 ratio, with at most one strict minimal JFIF APP0 segment first, and with no other APP0, JFXX, or APP1–APP15 metadata. JPEG comments are removed. Anything else remains Gallery-only.</small></span>
+              </label>
+
+              <label className="form-check">
+                <input
+                  id="facebookPageOptIn"
+                  name="facebookPageOptIn"
+                  type="checkbox"
+                  checked={facebookPageOptIn}
+                  disabled={busy}
+                  onChange={(event) => setFacebookPageOptIn(event.target.checked)}
+                />
+                <span>
+                  I authorize Mōchirīī moderators to publish this image and its moderator-approved caption on the public official Mōchirīī Facebook Page after gallery approval, and optionally share that Page post manually to the private official Mōchirīī Guild group. <small className="muted">Social eligibility requires a JPEG 320–1440 pixels wide, no more than 1800 pixels high, within the 4:5 through 1.91:1 ratio, with at most one strict minimal JFIF APP0 segment first, and with no other APP0, JFXX, or APP1–APP15 metadata. JPEG comments are removed. Anything else remains Gallery-only.</small>
+                </span>
               </label>
 
               <div className="auth-actions">

@@ -18,8 +18,10 @@ export const MAX_GALLERY_SOURCE_EDGE = 4096;
 export const MAX_GALLERY_SOURCE_PIXELS = 12_600_000;
 export const RECENT_VERIFICATION_MS = 7 * 24 * 60 * 60 * 1000;
 export const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
-export const INSTAGRAM_WEBSITE_OPT_IN_COPY_VERSION = "2026-06-website-upload-v1";
-
+export const INSTAGRAM_WEBSITE_CONSENT_CONTRACT_VERSION =
+  "2026-07-website-public-instagram-publish-v2";
+export const FACEBOOK_WEBSITE_CONSENT_CONTRACT_VERSION =
+  "2026-07-website-public-facebook-page-group-v2";
 export const SAFE_PROFILE_FIELDS = {
   display_name: { max: 40, min: 2, required: true },
   game_uid: { max: 40 },

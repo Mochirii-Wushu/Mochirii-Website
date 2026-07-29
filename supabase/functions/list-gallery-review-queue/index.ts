@@ -412,7 +412,7 @@ async function handleRequest(req: Request): Promise<Response> {
   let submissionQuery = access.adminClient
     .from("gallery_submissions")
     .select(
-      "id,user_id,storage_bucket,storage_path,gallery_publication_id,thumbnail_revision_id,thumbnail_storage_path,thumbnail_mime_type,thumbnail_size_bytes,thumbnail_width,thumbnail_height,original_filename,mime_type,size_bytes,title,caption,category,status,rejection_reason,reviewed_by,reviewed_at,created_at,updated_at,submission_source,discord_guild_id,discord_channel_id,discord_message_id,discord_attachment_id,discord_user_id,instagram_opt_in,instagram_opt_in_at,instagram_opt_in_source,instagram_opt_in_copy_version",
+      "id,user_id,storage_bucket,storage_path,gallery_publication_id,thumbnail_revision_id,thumbnail_storage_path,thumbnail_mime_type,thumbnail_size_bytes,thumbnail_width,thumbnail_height,original_filename,mime_type,size_bytes,title,caption,category,status,rejection_reason,reviewed_by,reviewed_at,created_at,updated_at,submission_source,discord_guild_id,discord_channel_id,discord_message_id,discord_attachment_id,discord_user_id,instagram_opt_in,instagram_opt_in_at,instagram_opt_in_source,instagram_opt_in_copy_version,instagram_opt_in_contract_version,facebook_page_opt_in,facebook_page_opt_in_at,facebook_page_opt_in_source,facebook_page_opt_in_copy_version,facebook_page_opt_in_contract_version",
       { count: "exact" },
     )
     .eq("status", requestedStatus);
@@ -678,6 +678,23 @@ async function handleRequest(req: Request): Promise<Response> {
       instagramOptInSource: safeString(submission.instagram_opt_in_source, 80),
       instagramOptInCopyVersion: safeString(
         submission.instagram_opt_in_copy_version,
+        80,
+      ),
+      facebookPageOptIn: submission.facebook_page_opt_in === true,
+      facebookPageOptInAt: safeString(
+        submission.facebook_page_opt_in_at,
+        80,
+      ),
+      facebookPageOptInSource: safeString(
+        submission.facebook_page_opt_in_source,
+        80,
+      ),
+      facebookPageOptInCopyVersion: safeString(
+        submission.facebook_page_opt_in_copy_version,
+        80,
+      ),
+      facebookPageOptInContractVersion: safeString(
+        submission.facebook_page_opt_in_contract_version,
         80,
       ),
       moderationEvents: events,

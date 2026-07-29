@@ -15,6 +15,10 @@ const requiredIndexSnippets = [
   "gallery_instagram_publish_jobs_queued_by_idx",
   "gallery_instagram_publish_jobs_published_by_idx",
   "gallery_instagram_publish_events_actor_id_idx",
+  "gallery_facebook_page_publish_jobs_queued_by_idx",
+  "gallery_facebook_page_publish_jobs_published_by_idx",
+  "gallery_facebook_page_publish_jobs_stale_lease_idx",
+  "gallery_facebook_page_publish_events_actor_id_idx",
   "member_profile_media_reviewed_by_idx",
   "member_profile_media_events_actor_id_idx",
   "member_verifications_reviewed_by_idx",
@@ -59,6 +63,8 @@ const serviceOnlyTables = [
   "discord_sync_log",
   "gallery_instagram_publish_events",
   "gallery_instagram_publish_jobs",
+  "gallery_facebook_page_publish_events",
+  "gallery_facebook_page_publish_jobs",
   "gallery_moderation_events",
   "member_auth_identities",
   "member_verifications",
@@ -72,6 +78,10 @@ const serviceOnlyTables = [
 const serviceOnlyPolicyMigration = read(
   "supabase/migrations/20260712164503_service_only_default_deny_policies.sql",
 );
+const facebookPagePublishingMigration = read(
+  "supabase/migrations/20260729042835_add_facebook_page_gallery_publishing.sql",
+);
+const serviceOnlyPolicySql = `${serviceOnlyPolicyMigration}\n${facebookPagePublishingMigration}`;
 
 const socialAccountSnippets = [
   "create table if not exists public.social_accounts",
@@ -97,7 +107,13 @@ const protectedFunctions = [
   "moderate-gallery-submission",
   "list-instagram-publish-queue",
   "publish-instagram-gallery-submission",
+  "resolve-instagram-publish-reconciliation",
   "mark-instagram-gallery-submission-shared",
+  "check-instagram-api-status",
+  "list-facebook-page-publish-queue",
+  "publish-facebook-page-gallery-submission",
+  "resolve-facebook-page-publish-reconciliation",
+  "check-facebook-page-api-status",
   "list-member-profiles",
   "get-member-profile",
   "submit-member-profile-media",
@@ -199,7 +215,7 @@ function assertServiceOnlyBoundary(table) {
   ];
 
   for (const [label, pattern] of checks) {
-    if (!pattern.test(serviceOnlyPolicyMigration)) {
+    if (!pattern.test(serviceOnlyPolicySql)) {
       failures.push(`Service-only boundary for public.${table}: missing ${label}.`);
     }
   }

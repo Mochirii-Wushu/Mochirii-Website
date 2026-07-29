@@ -55,6 +55,15 @@ const protectedFunctions = [
     },
   },
   {
+    name: "resolve-instagram-publish-reconciliation",
+    body: {
+      job_id: "00000000-0000-4000-8000-000000000000",
+      resolution: "confirmed_not_published",
+      note: "Smoke test only.",
+      confirm_reconciliation: true,
+    },
+  },
+  {
     name: "mark-instagram-gallery-submission-shared",
     body: {
       job_id: "00000000-0000-4000-8000-000000000000",
@@ -65,6 +74,31 @@ const protectedFunctions = [
   },
   {
     name: "check-instagram-api-status",
+    body: {},
+  },
+  {
+    name: "list-facebook-page-publish-queue",
+    body: { status: "queued", page_size: 20 },
+  },
+  {
+    name: "publish-facebook-page-gallery-submission",
+    body: {
+      job_id: "00000000-0000-4000-8000-000000000000",
+      message: "Smoke test only.",
+      confirm_facebook_publish: true,
+    },
+  },
+  {
+    name: "resolve-facebook-page-publish-reconciliation",
+    body: {
+      job_id: "00000000-0000-4000-8000-000000000000",
+      resolution: "confirmed_not_published",
+      note: "Smoke test only.",
+      confirm_reconciliation: true,
+    },
+  },
+  {
+    name: "check-facebook-page-api-status",
     body: {},
   },
   {

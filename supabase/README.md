@@ -98,7 +98,7 @@ It also exposes Auth/profile/gallery helpers:
 - `publishInstagramGallerySubmission(options)`
 - `listApprovedGallerySubmissions()`
 
-Instagram production migration and Edge Functions are deployed. Reaper rollout, Instagram secret setup, dry-run payloads, and any live Instagram post are tracked in [`../docs/instagram-gallery-publishing-deployment-runbook.md`](../docs/instagram-gallery-publishing-deployment-runbook.md).
+The hardened Facebook Page and Instagram publishing packet in this source tree has not been deployed to the hosted Website or Supabase project. Both publishing flags remain `false`, no Meta credential or private Instagram Graph account ID is stored in source, and no live Meta post was created. Owner checkpoint and two-factor authentication are complete. The first token appeared in an automation snapshot and was revoked immediately without being stored or used; its replacement stayed opaque. Graph API v25 readback with the replacement employee system-user authorization verified exactly one linked Mōchirīī Page, its `CREATE_CONTENT` task, the required scopes, and the linked `@mochirii_guild` Business identity. Hosted Supabase secrets hold the exact Page and Instagram Graph IDs, replacement token, and Meta app secret. The publisher additionally requires the verified private Instagram Graph ID independently in both `INSTAGRAM_ACCOUNT_ID` and `INSTAGRAM_EXPECTED_ACCOUNT_ID`, an exact secret-to-secret match, and a fresh username/account-type identity read. Release gates are tracked in [`../docs/instagram-gallery-publishing-deployment-runbook.md`](../docs/instagram-gallery-publishing-deployment-runbook.md).
 
 Migration history note: keep `supabase/migrations/20260607094500_restore_instagram_gallery_publishing_history.sql` and `supabase/migrations/20260608093407_restore_manual_instagram_share_history.sql` in place. The Instagram publishing schema now lives in `supabase/migrations/20260607125027_add_instagram_gallery_publishing.sql`, and the manual sharing status schema now lives in `supabase/migrations/20260608173000_add_manual_instagram_share_status.sql`, but Supabase Preview compares remote migration versions to local files and needs the original timestamps represented locally.
 
@@ -336,9 +336,12 @@ VOTE_REMINDER_CRON_SECRET=<set manually, never commit>
 # DISCORD_VOTE_LINKS_JSON=<optional JSON links secret, never commit real private targets if sensitive>
 GUILD_SCHEDULE_URL=https://mochirii.com/data/guild-schedule.json
 INSTAGRAM_ACCOUNT_ID=<set manually, never commit>
+INSTAGRAM_EXPECTED_ACCOUNT_ID=<set independently to the same verified Graph user ID, never commit>
 INSTAGRAM_ACCESS_TOKEN=<set manually, never commit>
-INSTAGRAM_API_VERSION=<set manually, never commit>
-INSTAGRAM_API_BASE_URL=<optional Meta-compatible test base URL>
+INSTAGRAM_API_VERSION=v25.0
+INSTAGRAM_PUBLISH_ENABLED=false
+META_APP_ID=4210347289109364
+META_APP_SECRET=<set manually, never commit>
 DISCORD_WEBHOOK_GALLERY_APPROVED=<set manually, never commit>
 DISCORD_WEBHOOK_MOD_LOG=<set manually, never commit>
 DISCORD_EVENTS_CHANNEL_ID=<set per environment>
@@ -363,6 +366,7 @@ supabase functions serve list-instagram-publish-queue --env-file supabase/functi
 supabase functions serve mark-instagram-gallery-submission-shared --env-file supabase/functions/.env.local
 supabase functions serve check-instagram-api-status --env-file supabase/functions/.env.local
 supabase functions serve publish-instagram-gallery-submission --env-file supabase/functions/.env.local
+supabase functions serve resolve-instagram-publish-reconciliation --env-file supabase/functions/.env.local
 ```
 
 Production secret examples:
@@ -383,13 +387,17 @@ supabase secrets set VOTE_REMINDER_TIME_ZONE=America/Los_Angeles
 supabase secrets set VOTE_REMINDER_CRON_SECRET=<set manually, never commit>
 supabase secrets set GUILD_SCHEDULE_URL=https://mochirii.com/data/guild-schedule.json
 supabase secrets set INSTAGRAM_ACCOUNT_ID=<set manually, never commit>
+supabase secrets set INSTAGRAM_EXPECTED_ACCOUNT_ID=<set independently to the same verified Graph user ID, never commit>
 supabase secrets set INSTAGRAM_ACCESS_TOKEN=<set manually, never commit>
-supabase secrets set INSTAGRAM_API_VERSION=<set manually, never commit>
+supabase secrets set INSTAGRAM_API_VERSION=v25.0
+supabase secrets set INSTAGRAM_PUBLISH_ENABLED=false
+supabase secrets set META_APP_ID=4210347289109364
+supabase secrets set META_APP_SECRET=<set manually, never commit>
 ```
 
 `supabase secrets set ...` writes remote project secrets. Run it only from a trusted shell and never paste tokens into tracked files.
 
-Instagram credentials live only in Supabase secrets. Do not place Instagram access tokens, account IDs, API base URLs, or API versions in Vercel, browser code, GitHub Actions logs, issue comments, PR text, or public docs with real values.
+Instagram credentials live only in Supabase secrets. Do not place Instagram access tokens, Graph account IDs, or environment values in Vercel, browser code, GitHub Actions logs, issue comments, PR text, or public docs with real values. Provider inventory identifiers may appear only in the no-secret integration contract and must not be treated as runtime credentials.
 
 Verify remote secrets without printing secret values:
 
@@ -568,10 +576,15 @@ Browser clients do not receive direct insert, update, or delete privileges for m
 - job status: `queued`, `ineligible`, `publishing`, `published`, `failed`, `canceled`, or `shared_manually`
 - eligibility reason for unsupported v1 media
 - moderator-editable Instagram caption and alt text
-- Meta container/media/permalink IDs after an API publish attempt, or a manually pasted permalink after moderator sharing
+- Meta container/media/permalink IDs after an API publish attempt; historical
+  manual-share records may retain their old permalink evidence
 - attempt count, last error, queued/published actors, and timestamps
 
-`gallery_instagram_publish_events` stores service-role audit events for Instagram publishing jobs. Browser clients receive no direct table privileges for either Instagram publishing table.
+`gallery_instagram_publish_events` stores audit events for Instagram publishing
+jobs. Browser clients receive no direct table privileges for either Instagram
+publishing table. Edge service-role access is SELECT-only; lifecycle mutations
+run only through the reviewed service-only security-definer RPCs. No
+manual-share mutation RPC is exposed.
 
 ## Storage Bucket Plan
 
@@ -642,6 +655,13 @@ No public read access is granted.
 - anon and authenticated browser clients receive no direct table privileges.
 - service_role can manage rows from trusted Edge Functions after moderator verification.
 
+`gallery_facebook_page_publish_jobs` and `gallery_facebook_page_publish_events`:
+
+- RLS is enabled with an explicit restrictive client-role deny policy.
+- anon and authenticated browser clients receive no direct table privileges.
+- direct service_role table access is SELECT-only; all state changes must use the reviewed security-definer RPCs after moderator verification.
+- each job freezes the validated source MIME, byte count, and SHA-256 used by the Page publisher.
+
 `discord_managed_permission_overwrites`:
 
 - RLS is enabled.
@@ -658,6 +678,8 @@ The following tables are service-role-only audit, sync, moderation, or poll inte
 - `discord_sync_log`
 - `gallery_instagram_publish_events`
 - `gallery_instagram_publish_jobs`
+- `gallery_facebook_page_publish_events`
+- `gallery_facebook_page_publish_jobs`
 - `gallery_moderation_events`
 - `member_auth_identities`
 - `member_verifications`
@@ -842,25 +864,41 @@ See [`../docs/member-profiles-and-rank-roles.md`](../docs/member-profiles-and-ra
 
 ## Instagram Publishing Queue
 
-Instagram publishing uses three moderator-only Edge Functions:
+Instagram publishing uses five moderator-only Edge Functions:
 
 - `list-instagram-publish-queue`
 - `check-instagram-api-status`
 - `publish-instagram-gallery-submission`
+- `resolve-instagram-publish-reconciliation`
 - `mark-instagram-gallery-submission-shared`
 
-All four require a signed-in Supabase user JWT and server-side Discord Moderator verification. They use service-role credentials only inside the Edge runtime. The `member-gallery` bucket remains private. Current launch mode is manual sharing: moderators download the signed preview, copy caption and alt text, post through the official Instagram account or Meta Business Suite, optionally paste the permalink, and mark the job `shared_manually`. The Meta API status function is diagnostic-only and must not create media containers or publish posts. The API publishing function remains available only after the diagnostic passes; it creates a short-lived signed URL only when sending the image URL to Meta.
+All five require a signed-in Supabase user JWT and server-side Discord Moderator verification. They use service-role credentials only inside the Edge runtime. The `member-gallery` bucket remains private. The Meta API status function is diagnostic-only and must not create media containers or publish posts. The API publisher uses the fixed `https://graph.facebook.com` origin for the Page-linked Facebook Login model, pins `META_APP_ID=4210347289109364`, requires `META_APP_SECRET`, attaches server-computed HMAC-SHA256 `appsecret_proof` to every token-bearing request, requires the exact `INSTAGRAM_PUBLISH_ENABLED=true` server flag, and verifies the configured Graph id resolves to the `@mochirii_guild` Business account before reading or locking a job. It creates a short-lived signed URL only for Meta after verifying the frozen metadata-stripped social JPEG's exact object evidence, bytes, dimensions, MIME, and SHA-256. Tokens, secrets, proofs, object paths, hashes, and signed URLs are never returned to the browser.
 
 Approval behavior:
 
 - Non-opted-in approved images do not create an Instagram job.
-- Opted-in JPEG images create a `queued` Instagram job.
-- Opted-in PNG or WebP images create an `ineligible` job with a clear reason.
-- Existing submissions are not retroactively opted in.
+- New website opt-ins send the boolean plus the exact non-secret `2026-07-website-public-instagram-publish-v2` contract handshake; the database authors the timestamp/source/copy provenance. Missing, stale, or arbitrary handshakes remain historical and API-ineligible instead of being silently upgraded.
+- Historical v1 website and Discord opt-ins remain accurately labeled and API-ineligible until separately re-consented.
+- New website social opt-ins require a JPEG already within the 8 MiB provider limit, 320–1440 pixels wide, no more than 1800 pixels high, and within the 4:5 through 1.91:1 feed ratio. Moderation never accepts browser-supplied social bytes. The Edge boundary binds the validated consented source SHA/object evidence, permits at most one strict minimal first-segment JFIF APP0 marker, rejects every APP1–APP15 segment, strips comments without changing the JPEG frame or entropy-coded data, and freezes the resulting private derivative. PNG, WebP, out-of-ratio, EXIF-bearing, ICC-profiled, SPIFF, HDR, Photoshop, Adobe-transform, arbitrary APP0/JFXX, or other APP-bearing sources can still be Gallery-approved but their social jobs are explicitly ineligible.
 
-The Leader Dashboard shows the Instagram Queue with preview, title, caption/subtitle, uploader, consent, eligibility, job state, last error, and permalink after publish or manual share. Moderators can edit caption and alt text, download the image, copy caption and alt text, enter a manual permalink/note, and mark a job shared manually. The dashboard must show a visible in-card confirmation before calling `mark-instagram-gallery-submission-shared` or future `publish-instagram-gallery-submission` because both record an external publishing decision.
+The Leader Dashboard shows the Instagram Queue with a credential-free approved thumbnail, title, caption/subtitle, uploader, consent, eligibility, job state, last error, and permalink after Graph publishing or on a historical record. The queue uses status-bound stable keyset pagination, not a fixed-row cap, and never exposes storage paths or signed object URLs. Manual completion is disabled: the compatibility Edge route returns a moderator-gated `409`, both database RPC signatures are dropped, and `shared_manually` remains historical read state only. Network failures or 5xx results from `/media_publish`, missing media ids, failed success audits, and stale leases enter `reconcile_required`; retry is blocked until a moderator inspects the official account and records either published (media id, Instagram permalink, note, and confirmation) or not published (note and confirmation). Every later publish still requires separate visible confirmation.
 
-V1 supports single-image Instagram feed posts only. Reels, Stories, carousels, hashtags automation, scheduling, and image conversion are out of scope. Any future live Meta setup, Supabase secret change, Edge Function redeployment, slash-command registration, or real Instagram post requires explicit owner approval.
+V1 supports single-image Instagram feed posts only. Reels, Stories, carousels, hashtags automation, scheduling, and image conversion are out of scope. Keep the activation flag false while the provider link restriction and human review gate remain incomplete. Any live Meta setup, Supabase secret change, Edge Function redeployment, slash-command registration, activation-flag change, or real Instagram post requires explicit owner approval. See [`../docs/integrations/instagram-gallery-publishing.md`](../docs/integrations/instagram-gallery-publishing.md).
+
+## Facebook Page Publishing Queue
+
+Facebook Page publishing uses four moderator-only Edge Functions:
+
+- `list-facebook-page-publish-queue`
+- `check-facebook-page-api-status`
+- `publish-facebook-page-gallery-submission`
+- `resolve-facebook-page-publish-reconciliation`
+
+All four require a signed-in Supabase user JWT plus current Discord Moderator verification. The website sends the unchecked-by-default Facebook consent boolean and exact non-secret `2026-07-website-public-facebook-page-group-v2` contract claim. An insert trigger accepts only that exact website handshake for current publishable consent, authors its timestamp/source/copy provenance, and marks missing or stale claims unverified instead of silently upgrading them; a second trigger makes the contract immutable. Explicit member consent and gallery approval create exactly one service-only Page job in the same database transaction as the moderation and Instagram outbox records. New opt-ins require an already feed-compatible JPEG. Gallery-only JPEG, PNG, and WebP uploads remain accepted; unsupported or legacy opted-in sources create an ineligible audited job instead of falling back to browser media. Existing submissions remain opted out.
+
+The publisher requires the exact server-only `FACEBOOK_PAGE_PUBLISH_ENABLED=true` activation flag before it locks a job. It locks only `queued` or `failed` jobs, resolves the immutable source-bound social derivative at its unpredictable `_social/submissions/{submission UUID}/{revision UUID}.jpg` path, downloads that private derivative server-side, verifies its exact object identity, version, timestamp, size, MIME, dimensions, and SHA-256, and uploads multipart bytes to the configured Facebook Page. Page id, Page access token, Graph API version, and the activation flag stay in Supabase Edge configuration; the flag starts false. Network failures, Meta server errors, responses without an external id, and attempts left `publishing` beyond their 15-minute lease enter `reconcile_required`; they must be inspected on the Page before any retry because the Graph photo endpoint has no client idempotency key. The automatic lease event has no moderator actor. Any returned provider ids remain on the reconciliation audit record as lookup evidence without marking the job published. A moderator can explicitly resolve the inspected result as published only after a read-only Graph lookup proves every supplied photo/post ID belongs to the pinned Page and yields a canonical HTTPS Facebook post/photo permalink. A not-published resolution rejects provider IDs and permalinks and returns the job to retryable `failed`. Both outcomes require a note and durable actor audit. The status function performs a read-only Page identity check; Page task evidence is optional and never substitutes for the server activation gate. Raw Meta error messages and payloads are not returned; only fixed operator-safe messages and allowlisted non-secret classifications cross the Edge boundary.
+
+If the moderation RPC has a definite non-commit, the provisional social derivative is removed. A transport failure with an unknown commit outcome returns `moderation_commit_outcome_unknown`, preserves the provisional object, and requires a state reload/reconciliation before cleanup so a committed derivative is never deleted speculatively.
 
 ## Approved Public Gallery Feed
 
@@ -890,7 +928,7 @@ If an older approved `gallery_submissions` row has blank `title` and `caption` v
 
 Public Gallery ordering uses one normalized timestamp model. Static curated images use `galleryAddedAt` in `data/gallery.json`; published member items use their frozen reviewed and created timestamps with the stable publication ID as the final key. The default Gallery order is computed before first paint and runtime cards append without moving rendered static cards. Visitors may choose `Newest first` or `Oldest first`; cross-source results are exposed only through the proven keyset boundary. Runtime thumbnails and display derivatives use stable credential-free Edge URLs backed by private, immutable media evidence; source originals and unpublished submissions remain private.
 
-The source contract keeps the existing inventory at exactly 33 configured Edge Functions with 20 `verify_jwt=true` and 13 false. It reuses `list-approved-gallery-submissions`; no 34th function is introduced. Recalculate that parity at the final exact release head before provider approval.
+The source contract contains exactly 38 configured Edge Functions with 25 `verify_jwt=true` and 13 false. Recalculate that parity from the final exact release head before provider approval.
 
 Before release, run `operations/reconcile_gallery_public_feed_v2.sql` from a
 trusted read-only session. It reports only public-safe counts and verifies that

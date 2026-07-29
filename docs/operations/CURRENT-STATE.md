@@ -1,6 +1,6 @@
 # Current Mochirii State
 
-Updated: 2026-07-27 PDT
+Updated: 2026-07-29 PDT
 
 This no-secret file records the current hosted and repository state. Update it
 after a completed release or ownership change; do not place credentials,
@@ -78,6 +78,47 @@ Generated local evidence now lives only under ignored `.artifacts/operations`.
   workstation. Complete auxiliary continuity remains Pending until the Reaper
   Gateway worker's hosted supervisor and a current Social backup/restore drill
   are read back; see [`HOST-INDEPENDENCE.md`](./HOST-INDEPENDENCE.md).
+
+## Meta Publishing Source Packet
+
+- The moderator-reviewed Facebook Page and Instagram publishing packet is
+  source-only and has not been deployed to the hosted Website or Supabase
+  project. It makes no automatic Facebook Group mutation; a published Page post
+  can only be handed off to the official private guild Group manually.
+- `FACEBOOK_PAGE_PUBLISH_ENABLED=false` and
+  `INSTAGRAM_PUBLISH_ENABLED=false`. Owner checkpoint and two-factor
+  authentication are complete. The first token appeared in an automation
+  snapshot and was revoked immediately without being stored or used; its
+  replacement remained opaque. No live post was created.
+- Graph API v25 readback with the replacement employee system-user
+  authorization verified exactly one linked Mōchirīī Page, its
+  `CREATE_CONTENT` task, required scopes, and the linked `@mochirii_guild`
+  Business identity. Hosted Supabase secrets hold the exact Page and Instagram
+  Graph IDs, replacement token, and Meta app secret. No private value is stored
+  in Git or documentation.
+- Public profile readback shows the Facebook Page website label as exactly
+  `mochirii.com`, public email `support@mochirii.com`, and Instagram
+  `mochirii_guild` beside its existing TikTok and Twitch links. The Instagram
+  bio has no website text and its Website field is empty; desktop web exposes no
+  Instagram public-contact email control.
+- Instagram and TikTok use the preferred `mochirii_guild` handle. Facebook
+  does not permit underscores and the preferred non-underscore variants were
+  unavailable, so the Page is `mochiriiguildpage` and the existing Group stays
+  `mochiriiguild`. Twitch remains `mochiriiguild` until its rename cooldown
+  ends and the preferred handle can be checked in account settings.
+- Facebook, Instagram, TikTok, and Twitch use the same canonical lotus emblem.
+  The Facebook Page, Facebook Group, and Twitch use the matching banner family;
+  Instagram and TikTok do not expose an equivalent profile-banner surface.
+- The final source-only 46-migration packet was validated on 2026-07-29 in a
+  uniquely named isolated local Supabase project: all 46 migrations reset,
+  all 109 focused Meta pgTAP assertions passed, and strict warning-level
+  database lint returned no findings. The migration manifest SHA-256 is
+  `8E9062A5452D40C7859F74FD47552322B030CCFF4724A6A9EC090961DC7C0A46`.
+  This is local source evidence only; the hosted project and quarantined shared
+  local stack were not contacted.
+- Any hosted migration, Edge Function deployment, Meta secret change,
+  activation, or first genuine post remains separately approval-gated and
+  requires current provider readback.
 
 GitHub protects `main` with strict required checks for `validate`,
 `validate-next`, `validate-theme`, `validate-social`, `Vercel`, and

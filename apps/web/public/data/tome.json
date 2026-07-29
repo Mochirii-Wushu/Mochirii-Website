@@ -4,10 +4,10 @@
     "title": "The Tome",
     "image": "./assets/img/tome/hero.webp",
     "introBody": [
-      "The Tome is about how Mōchirīī speaks, gathers & looks after each other.",
-      "Read it once, revisit it often & use it to remind yourself to be nice."
+      "The Tome defines how Mōchirīī members communicate, join events & raise moderation concerns.",
+      "Review it before your first guild event and return when conduct, role or escalation questions arise."
     ],
-    "pills": ["Values in practice", "Etiquette with dignity", "Consistency with ease"]
+    "pills": ["Conduct in practice", "Event etiquette", "Moderation process"]
   },
 
   "intro": {
@@ -22,7 +22,7 @@
 
   "tenets": {
     "title": "Tenets",
-    "description": "These tenets shape our tone in parties, chat & guild spaces so every member feels welcomed.",
+    "description": "These tenets define conduct in parties, chat & guild spaces.",
     "image": "./assets/img/tome/tenets.webp",
     "captionTitle": "Values made practical",
     "caption": "A shared standard turns good intent into grounded conduct when disputes happen.",
@@ -31,11 +31,11 @@
     "items": [
       {
         "title": "Harmony",
-        "description": "Stay coordinated, be nice & communicate clearly."
+        "description": "Coordinate party roles and communicate objective changes clearly."
       },
       {
         "title": "Generosity",
-        "description": "Offer help as an invitation & match the other person's pace."
+        "description": "Offer build or mechanics help when asked and respect the member's chosen pace."
       },
       {
         "title": "Respect",
@@ -43,15 +43,15 @@
       },
       {
         "title": "Reliability",
-        "description": "Show up in small, repeatable ways that keep momentum & trust intact."
+        "description": "RSVP accurately, arrive at posted times & report availability changes."
       },
       {
         "title": "Craft",
-        "description": "Improve with patience & pass knowledge in clear steps that others can follow."
+        "description": "Test builds, document mechanics & share steps that others can verify."
       },
       {
         "title": "Joy",
-        "description": "Keep the guild bright by celebrating wins & having fun together."
+        "description": "Recognize event clears, progression milestones & member contributions."
       }
     ]
   },
@@ -101,10 +101,10 @@
 
   "rhythm": {
     "title": "Rhythm",
-    "description": "Rhythm is our pace: enough structure to meet & grow, enough ease to keep play restful.",
+    "description": "Guild rhythm follows published schedules, clear objectives & room for real-life commitments.",
     "image": "./assets/img/tome/rituals.webp",
-    "captionTitle": "A gentle pace",
-    "caption": "Mōchirīī favors patient participation & leaves room for real life.",
+    "captionTitle": "A sustainable schedule",
+    "caption": "Mōchirīī values consistent participation while respecting real-life commitments.",
     "pills": ["Gather", "Practice", "Rest"],
     "note": "Post plans early, communicate changes plainly & keep the pace in reach.",
     "items": [
@@ -114,27 +114,27 @@
       },
       {
         "title": "Raffles",
-        "description": "A thank-you for presence & spirit; the current raffle status stays public & clearly labeled."
+        "description": "Monthly raffles follow public eligibility, entry, prize, status & result rules."
       },
       {
         "title": "Notices",
         "description": "Patch notes that affect builds & guild decisions are shared with enough lead time to plan."
       },
       {
-        "title": "Quiet Time",
-        "description": "Roam, farm, craft, or chat while staying connected to the guild at a pace that leaves room for real life."
+        "title": "Independent Progression",
+        "description": "Explore, gather materials, craft or review builds outside scheduled guild events."
       }
     ]
   },
 
   "recognition": {
     "title": "Recognition",
-    "description": "Recognition is how we say “we see you,” marking effort, care & consistency that helps others feel known.",
+    "description": "Recognition records reliable event participation, guides, mentoring & moderation support.",
     "image": "./assets/img/tome/recognition.webp",
     "items": [
       {
         "title": "Follow-through",
-        "description": "Showing up over time through team play, events, chat help & small acts that keep the guild moving forward."
+        "description": "Participating reliably in parties, events and member support over time."
       },
       {
         "title": "Service",
@@ -142,7 +142,7 @@
       },
       {
         "title": "Composure",
-        "description": "Keeping a clear tone under stress, honoring commitments & protecting harmony in public channels."
+        "description": "Keeping a clear tone under stress, honoring commitments & escalating public-channel disputes to moderators."
       }
     ],
     "ranksHref": "./ranks.html"

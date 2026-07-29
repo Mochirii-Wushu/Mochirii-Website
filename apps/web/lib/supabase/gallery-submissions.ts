@@ -1,7 +1,8 @@
 import { requireBrowserSupabaseClient } from "./client";
 import {
   ACCEPTED_IMAGE_TYPES,
-  INSTAGRAM_WEBSITE_OPT_IN_COPY_VERSION,
+  FACEBOOK_WEBSITE_CONSENT_CONTRACT_VERSION,
+  INSTAGRAM_WEBSITE_CONSENT_CONTRACT_VERSION,
   MAX_GALLERY_SOURCE_EDGE,
   MAX_GALLERY_SOURCE_PIXELS,
   MAX_UPLOAD_BYTES,
@@ -60,8 +61,15 @@ export function validateGalleryFile(file: File | null | undefined) {
   if (file.size > MAX_UPLOAD_BYTES) throw new Error("Images must be 8 MB or smaller.");
 }
 
-async function validateGalleryFileDimensions(file: File) {
-  if (typeof createImageBitmap !== "function") return;
+async function validateGalleryFileDimensions(file: File, socialOptIn: boolean) {
+  if (typeof createImageBitmap !== "function") {
+    if (socialOptIn) {
+      throw new Error(
+        "This browser cannot verify the JPEG feed dimensions. Uncheck social publishing to submit to the Gallery only.",
+      );
+    }
+    return;
+  }
   const image = await createImageBitmap(file, { imageOrientation: "from-image" });
   try {
     if (
@@ -71,6 +79,18 @@ async function validateGalleryFileDimensions(file: File) {
       image.width * image.height > MAX_GALLERY_SOURCE_PIXELS
     ) {
       throw new Error("Images must be no larger than 4096 pixels per edge and 12.6 megapixels.");
+    }
+    if (
+      socialOptIn &&
+      (
+        image.width < 320 || image.width > 1440 || image.height > 1800 ||
+        image.width * 5 < image.height * 4 ||
+        image.width * 100 > image.height * 191
+      )
+    ) {
+      throw new Error(
+        "Social publishing requires a JPEG already 320–1440 pixels wide and within the 4:5 through 1.91:1 feed ratio. Uncheck both social options to submit it to the Gallery only.",
+      );
     }
   } finally {
     image.close();
@@ -95,7 +115,14 @@ export async function uploadMemberGalleryImage(file: File | null | undefined, me
     const client = requireBrowserSupabaseClient();
     validateGalleryFile(file);
     const validFile = file as File;
-    await validateGalleryFileDimensions(validFile);
+    const socialOptIn = metadata.instagramOptIn === true ||
+      metadata.facebookPageOptIn === true;
+    if (socialOptIn && validFile.type.toLowerCase() !== "image/jpeg") {
+      throw new Error(
+        "Instagram or Facebook publishing requires a JPEG source. Uncheck both social options to submit a PNG or WebP image to the Gallery only.",
+      );
+    }
+    await validateGalleryFileDimensions(validFile, socialOptIn);
 
     const access = await requireActiveMember({ refresh: true });
     if (!access.ok || !access.data?.user) return access;
@@ -122,9 +149,14 @@ export async function uploadMemberGalleryImage(file: File | null | undefined, me
       size_bytes: validFile.size,
       ...cleanMetadata,
       instagram_opt_in: metadata.instagramOptIn === true,
-      instagram_opt_in_at: metadata.instagramOptIn === true ? new Date().toISOString() : null,
-      instagram_opt_in_source: metadata.instagramOptIn === true ? "website_upload" : null,
-      instagram_opt_in_copy_version: metadata.instagramOptIn === true ? INSTAGRAM_WEBSITE_OPT_IN_COPY_VERSION : null,
+      instagram_opt_in_contract_version: metadata.instagramOptIn === true
+        ? INSTAGRAM_WEBSITE_CONSENT_CONTRACT_VERSION
+        : null,
+      facebook_page_opt_in: metadata.facebookPageOptIn === true,
+      facebook_page_opt_in_contract_version:
+        metadata.facebookPageOptIn === true
+          ? FACEBOOK_WEBSITE_CONSENT_CONTRACT_VERSION
+          : null,
     };
 
     const { data: submission, error: insertError } = await client
@@ -158,7 +190,7 @@ export async function listMyGallerySubmissions() {
 
     const { data, error, status, statusText } = await client
       .from("gallery_submissions")
-      .select("id,storage_bucket,storage_path,original_filename,mime_type,size_bytes,title,caption,category,status,rejection_reason,reviewed_at,created_at,updated_at,submission_source,instagram_opt_in,instagram_opt_in_at,instagram_opt_in_source,instagram_opt_in_copy_version")
+      .select("id,storage_bucket,storage_path,original_filename,mime_type,size_bytes,title,caption,category,status,rejection_reason,reviewed_at,created_at,updated_at,submission_source,instagram_opt_in,instagram_opt_in_at,instagram_opt_in_source,instagram_opt_in_copy_version,instagram_opt_in_contract_version,facebook_page_opt_in,facebook_page_opt_in_at,facebook_page_opt_in_source,facebook_page_opt_in_copy_version,facebook_page_opt_in_contract_version")
       .eq("user_id", auth.data.user.id)
       .order("created_at", { ascending: false });
 

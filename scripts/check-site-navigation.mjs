@@ -1,9 +1,20 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { SOCIAL_HOST } from "./lib/public-urls.mjs";
+import {
+  OFFICIAL_GUILD_CHANNELS,
+  SITE_DISPLAY_NAME,
+  SOCIAL_HOST,
+} from "./lib/public-urls.mjs";
 
 const root = process.cwd();
 const failures = [];
+const expectedOfficialGuildChannels = [
+  { label: "Facebook Page", href: "https://www.facebook.com/mochiriiguildpage" },
+  { label: "Facebook Group", href: "https://www.facebook.com/groups/mochiriiguild" },
+  { label: "Instagram", href: "https://www.instagram.com/mochirii_guild/" },
+  { label: "TikTok", href: "https://www.tiktok.com/@mochirii_guild" },
+  { label: "Twitch", href: "https://www.twitch.tv/mochiriiguild" },
+];
 
 const header = read("apps/web/components/SiteHeader.tsx");
 const headerAuthState = read("apps/web/components/site-header/use-header-auth-state.ts");
@@ -15,6 +26,7 @@ const footer = read("apps/web/components/SiteFooter.tsx");
 const socialPanel = read("apps/web/components/member-workflow/SocialHubPanel.tsx");
 const socialPage = read("apps/web/app/social/page.tsx");
 const accountPanel = read("apps/web/components/member-workflow/AccountPanel.tsx");
+const facebookPagePublishQueue = read("apps/web/components/member-workflow/FacebookPagePublishQueue.tsx");
 const currentState = read("docs/current-live-state.md");
 const runbook = read("docs/operations/integration-operations-runbook.md");
 
@@ -78,12 +90,28 @@ for (const file of retiredMembersRouteFiles) {
 assertIncludes("SiteFooter public URL config", footer, `"@/lib/public-urls"`);
 assertIncludes("SiteFooter Social", footer, `href: SOCIAL_HOST, label: "Social", external: true`);
 assertIncludes("SiteFooter Mochi Pets", footer, `href: "/games/mochi-pets", label: "Mochi Pets"`);
+assertIncludes("SiteFooter official channels", footer, "OFFICIAL_GUILD_CHANNELS.map");
+assertIncludes("SiteFooter official channels", footer, `<FooterColumn title="Channels" links={channelLinks} />`);
+assertIncludes("SiteFooter exact website display", footer, "{SITE_DISPLAY_NAME}");
 assertNotIncludes("SiteFooter", footer, "hidden:");
 assertNotIncludes("SiteFooter", footer, "data-auth-");
 assertNotIncludes("SiteFooter public Social", footer, `href: "/social", label: "Social"`);
 assertNotIncludes("SiteFooter signed-out HTML", footer, `href="/spinner"`);
 assertIncludes("SiteFooter authenticated Spinner", footer, "<SpinnerViewerNavLink");
 assertIncludes("SiteFooter authenticated Spinner", footer, "hidden={!authState.spinnerViewer}");
+
+if (SITE_DISPLAY_NAME !== "mochirii.com") {
+  failures.push(`public website display must be exactly mochirii.com; found ${JSON.stringify(SITE_DISPLAY_NAME)}.`);
+}
+if (JSON.stringify(OFFICIAL_GUILD_CHANNELS) !== JSON.stringify(expectedOfficialGuildChannels)) {
+  failures.push("official guild channel URLs or handle choices do not match the approved canonical set.");
+}
+if (OFFICIAL_GUILD_CHANNELS.some((channel) => /(?:^|\.)mochirii\.com\b/iu.test(new URL(channel.href).hostname))) {
+  failures.push("official channel entries must stay provider-profile URLs and must not configure a mochirii.com Instagram profile link.");
+}
+assertIncludes("Facebook Group handoff public URL config", facebookPagePublishQueue, `"@/lib/public-urls"`);
+assertIncludes("Facebook Group handoff", facebookPagePublishQueue, "href={FACEBOOK_GROUP_URL}");
+assertNotIncludes("Facebook Group handoff duplicate URL", facebookPagePublishQueue, "https://www.facebook.com/groups/mochiriiguild");
 
 assertIncludes("SocialHubPanel public URL config", socialPanel, `"@/lib/public-urls"`);
 assertIncludes("SocialHubPanel", socialPanel, `href={SOCIAL_HOST}`);
@@ -123,6 +151,8 @@ if (failures.length) {
 console.log("Site navigation OK.");
 console.log("- Header Social and the public Mochi Pets page live in the Guild dropdown.");
 console.log("- Footer Social and Mochi Pets links are public.");
+console.log("- Footer Channels pins the approved Facebook Page, Facebook Group, Instagram, TikTok, and Twitch URLs.");
+console.log("- Visible website text is exactly mochirii.com; no Instagram profile website link is configured.");
 console.log("- Watch Spinner appears only after exact active verified viewer authorization.");
 console.log("- /social redirects signed-in members and keeps signed-out help.");
 

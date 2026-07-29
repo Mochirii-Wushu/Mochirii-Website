@@ -1,6 +1,29 @@
 {
   "siteOrigin": "https://mochirii.com",
+  "siteDisplayName": "mochirii.com",
   "socialHost": "https://social.mochirii.com",
   "discordInviteUrl": "https://discord.com/invite/dPafqMwWPK",
-  "supabaseProjectRef": "deyvmtncimmcinldjyqe"
+  "supabaseProjectRef": "deyvmtncimmcinldjyqe",
+  "officialGuildChannels": {
+    "facebookPage": {
+      "label": "Facebook Page",
+      "href": "https://www.facebook.com/mochiriiguildpage"
+    },
+    "facebookGroup": {
+      "label": "Facebook Group",
+      "href": "https://www.facebook.com/groups/mochiriiguild"
+    },
+    "instagram": {
+      "label": "Instagram",
+      "href": "https://www.instagram.com/mochirii_guild/"
+    },
+    "tiktok": {
+      "label": "TikTok",
+      "href": "https://www.tiktok.com/@mochirii_guild"
+    },
+    "twitch": {
+      "label": "Twitch",
+      "href": "https://www.twitch.tv/mochiriiguild"
+    }
+  }
 }

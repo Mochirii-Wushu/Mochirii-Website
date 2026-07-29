@@ -137,7 +137,7 @@ The Instagram Queue is a moderator-only second step for approved images where th
 
 The queue may show:
 
-- preview image from signed preview URLs
+- credential-free approved Gallery thumbnail
 - title
 - caption/subtitle
 - uploader and submission source
@@ -145,21 +145,21 @@ The queue may show:
 - eligibility
 - job state
 - last error
-- Instagram permalink after publish or manual share
+- Instagram permalink after Graph publishing or on a historical record
 
 JPEG images are eligible for the v1 single-image feed workflow. PNG and WebP submissions are marked ineligible instead of being converted or posted.
 
-Current launch mode is manual sharing:
+Current launch mode is queue review only. Manual Instagram completion is
+disabled because the Leader Dashboard does not expose the private frozen
+metadata-stripped JPEG. The compatibility endpoint returns `409`, and no
+database RPC can mark a job `shared_manually`. That status is historical only.
 
-- review the image and consent state
-- review or edit the Instagram caption
-- review or edit the alt text
-- download the image from the signed preview URL
-- copy the caption and alt text
-- post manually from the official Instagram account or Meta Business Suite
-- paste the Instagram permalink if available
-- click `Mark shared manually`
-- review the in-card confirmation prompt and click `Confirm manual share`
+- review the consent state, caption, alt text, and approved Gallery thumbnail
+- leave the job queued while Graph publishing is unavailable
+- do not download or substitute the Gallery thumbnail, WebP display asset, or
+  original member upload for an Instagram post
+- use reconciliation only when an actual Graph attempt has an ambiguous result
+  and the job is already `reconcile_required`
 
 Meta API publishing should remain disabled until Meta developer registration is complete, `INSTAGRAM_*` Supabase secrets are set, and the moderator-only `Check Meta API` diagnostic passes. The diagnostic does not create media containers or publish posts.
 

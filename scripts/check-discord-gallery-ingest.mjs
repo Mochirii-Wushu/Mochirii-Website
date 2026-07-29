@@ -106,10 +106,15 @@ assertIncludes("import map", importMap, '"@supabase/supabase-js": "npm:@supabase
   "discord_attachment_id: attachmentId",
   "discord_user_id: discordUserId",
   "instagramOptIn",
-  "INSTAGRAM_OPT_IN_COPY_VERSION",
   "instagram_opt_in: instagramOptIn",
-  'instagram_opt_in_source: instagramOptIn ? "discord_slash_command" : null',
 ].forEach((snippet) => assertIncludes("submit-discord-gallery-image", functionSource, snippet));
+
+assertNotMatches(
+  "submit-discord-gallery-image",
+  functionSource,
+  /instagram_opt_in_(?:at|source|copy_version)\s*:/,
+  "Discord ingest must submit only the Instagram consent boolean; the database owns provenance.",
+);
 
 [
   "crypto.subtle.digest(\"SHA-256\"",

@@ -5,6 +5,8 @@ import {
   startGalleryPreviewRequest,
   type GalleryPreviewLease,
 } from "@/lib/gallery/safe-preview";
+import { normalizeInstagramPostPermalink } from "@/lib/gallery/instagram-action-confirmation";
+import { SUPABASE_URL } from "@/lib/supabase/config";
 import {
   text,
   type GalleryReviewQueue,
@@ -27,6 +29,7 @@ export const instagramStatuses: Array<{ id: string; label: string; empty: string
   { id: "queued", label: "Queued", empty: "No Instagram-ready images." },
   { id: "ineligible", label: "Ineligible", empty: "No ineligible Instagram jobs." },
   { id: "failed", label: "Failed", empty: "No failed Instagram jobs." },
+  { id: "reconcile_required", label: "Needs reconciliation", empty: "No Instagram jobs need reconciliation." },
   { id: "published", label: "Published", empty: "No published Instagram posts." },
   { id: "shared_manually", label: "Shared manually", empty: "No manually shared Instagram jobs." },
   { id: "all", label: "All", empty: "No Instagram publishing jobs." },
@@ -43,7 +46,10 @@ export const memberVerificationMethods = [
   { id: "spotify", label: "Spotify" },
 ];
 
-export type InstagramAction = "manual-share" | "publish";
+export type InstagramAction =
+  | "publish"
+  | "reconcile-published"
+  | "reconcile-not-published";
 export type InstagramJobMessage = {
   kind: "status" | "error" | "success";
   message: string;
@@ -62,6 +68,16 @@ export function instagramStatusConfig(status: string) {
   return instagramStatuses.find((entry) => entry.id === status) || instagramStatuses[0];
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function approvedInstagramThumbnailUrl(job: InstagramPublishJob) {
+  const publicationId = text(job.galleryPublicationId);
+  const thumbnailUrl = text(job.thumbnailUrl);
+  if (!SUPABASE_URL || !UUID_RE.test(publicationId) || !thumbnailUrl) return "";
+  const expectedUrl = `${SUPABASE_URL}/functions/v1/list-approved-gallery-submissions?asset=thumbnail&id=${encodeURIComponent(publicationId)}`;
+  return thumbnailUrl === expectedUrl ? thumbnailUrl : "";
+}
+
 function uploaderName(item: GalleryReviewSubmission) {
   const uploader = item.uploader || {};
   return uploader.discordGlobalName || uploader.displayName || uploader.discordUsername || "Mōchirīī Member";
@@ -74,7 +90,15 @@ function discordDetail(item: GalleryReviewSubmission) {
 }
 
 function instagramConsentLabel(item: GalleryReviewSubmission) {
-  return item.instagramOptIn ? "Instagram opt-in" : "Site Gallery only";
+  return item.instagramOptIn
+    ? "Official Instagram account publication"
+    : "No Instagram publication opt-in";
+}
+
+function facebookPageConsentLabel(item: GalleryReviewSubmission) {
+  return item.facebookPageOptIn
+    ? "Public official Facebook Page; optional moderator share to the private guild group"
+    : "No Facebook Page publication opt-in";
 }
 
 function moderatorName(event: NonNullable<GalleryReviewSubmission["moderationEvents"]>[number]) {
@@ -318,6 +342,8 @@ export function SubmissionCard({
             ["Submitted", formatDate(item.createdAt, "Not set")],
             ["Reviewed", item.reviewedAt ? formatDate(item.reviewedAt, "Not reviewed") : "Not reviewed"],
             ["Instagram", instagramConsentLabel(item)],
+            ["Facebook Page", facebookPageConsentLabel(item)],
+            ["Facebook consent handshake", item.facebookPageOptInContractVersion || "Not current"],
           ].map(([label, value]) => (
             <div key={label}>
               <dt>{label}</dt>
@@ -361,6 +387,15 @@ export function SubmissionCard({
             </div>
           </section>
         ) : null}
+        {status === "pending" && (item.instagramOptIn || item.facebookPageOptIn) ? (
+          <section className="review-history" aria-label="Social publication eligibility">
+            <h4>Social publication eligibility</h4>
+            <p className="review-action-note">
+              The server queues a private derivative only when the consented source is a metadata-strippable JPEG already within 320–1440 pixels wide and the 4:5 through 1.91:1 feed ratio. It may retain one strict minimal first JFIF APP0 segment and strips comments. PNG, WebP, out-of-ratio, arbitrary APP0 or JFXX, duplicate JFIF, or any APP1–APP15 metadata (including EXIF, ICC, SPIFF, HDR, Photoshop, and Adobe transforms) can still be approved for the Gallery but remain explicitly ineligible for social publishing.
+            </p>
+            <p className="muted">The safe source preview above is for composition review. Gallery approval queues only; the separate destination queue shows the exact caption and requires explicit public-post confirmation.</p>
+          </section>
+        ) : null}
         {status === "pending" ? (
           <>
             <label className="form-field review-reason">
@@ -375,8 +410,17 @@ export function SubmissionCard({
                 disabled={busy}
               />
             </label>
+            {item.facebookPageOptIn ? (
+              <p className="review-action-note" role="status">
+                Facebook consent covers this image plus a later moderator-approved caption on the public official Facebook Page, with an optional moderator share of that Page post into the private official guild group. This Gallery action only queues the separate Page review.
+              </p>
+            ) : null}
             <div className="auth-actions">
-              <button className="hero-cta hero-cta--primary" type="button" onClick={() => onModerate(item, "approved")} disabled={busy || !previewReady}>Approve</button>
+              <button className="hero-cta hero-cta--primary" type="button" onClick={() => onModerate(item, "approved")} disabled={busy || !previewReady}>
+                {item.facebookPageOptIn || item.instagramOptIn
+                  ? "Approve for Gallery only"
+                  : "Approve for Gallery"}
+              </button>
               <button className="hero-cta" type="button" onClick={() => onModerate(item, "rejected")} disabled={busy}>Decline</button>
             </div>
           </>
@@ -431,6 +475,7 @@ export function InstagramJobCard({
   busy,
   caption,
   altText,
+  mediaIdValue,
   permalinkValue,
   moderatorNote,
   confirmation,
@@ -438,20 +483,22 @@ export function InstagramJobCard({
   metaPublishAvailable,
   onCaptionChange,
   onAltTextChange,
+  onMediaIdChange,
   onPermalinkChange,
   onModeratorNoteChange,
   onCopyCaption,
   onCopyAltText,
-  onArmManualShare,
-  onConfirmManualShare,
   onArmPublish,
   onConfirmPublish,
+  onArmReconciliation,
+  onConfirmReconciliation,
   onCancelAction,
 }: {
   job: InstagramPublishJob;
   busy: boolean;
   caption: string;
   altText: string;
+  mediaIdValue: string;
   permalinkValue: string;
   moderatorNote: string;
   confirmation?: InstagramAction;
@@ -459,32 +506,35 @@ export function InstagramJobCard({
   metaPublishAvailable: boolean;
   onCaptionChange: (value: string) => void;
   onAltTextChange: (value: string) => void;
+  onMediaIdChange: (value: string) => void;
   onPermalinkChange: (value: string) => void;
   onModeratorNoteChange: (value: string) => void;
   onCopyCaption: () => void;
   onCopyAltText: () => void;
-  onArmManualShare: (job: InstagramPublishJob) => void;
-  onConfirmManualShare: (job: InstagramPublishJob) => void;
   onArmPublish: (job: InstagramPublishJob) => void;
   onConfirmPublish: (job: InstagramPublishJob) => void;
+  onArmReconciliation: (job: InstagramPublishJob, resolution: "confirmed_published" | "confirmed_not_published") => void;
+  onConfirmReconciliation: (job: InstagramPublishJob, resolution: "confirmed_published" | "confirmed_not_published") => void;
   onCancelAction: (job: InstagramPublishJob) => void;
 }) {
   const submission = job.submission || {};
   const title = text(submission.title || submission.originalFilename, "Untitled image");
   const sourceLabel = text(submission.source, "website").toLowerCase() === "discord" ? "Discord" : "Website";
   const status = text(job.status, "queued").toLowerCase();
+  const thumbnailUrl = approvedInstagramThumbnailUrl(job);
   const canEditPublishText = status === "queued" || status === "failed";
   const canPublish = canEditPublishText && metaPublishAvailable;
-  const canShareManually = status === "queued";
   const permalink = text(job.instagramPermalink);
-  const manualShareArmed = confirmation === "manual-share";
   const publishArmed = confirmation === "publish";
+  const reconcilable = status === "reconcile_required";
+  const reconcilePublishedArmed = confirmation === "reconcile-published";
+  const reconcileNotPublishedArmed = confirmation === "reconcile-not-published";
 
   return (
     <article className={`review-item review-item--${status}`} data-instagram-job-id={job.id || ""}>
       <div className="review-preview">
-        {job.signedPreviewUrl ? (
-          <img src={job.signedPreviewUrl} alt={`${title} Instagram preview`} loading="lazy" decoding="async" />
+        {thumbnailUrl ? (
+          <img src={thumbnailUrl} alt={`${title} approved Gallery preview`} loading="lazy" decoding="async" />
         ) : (
           <div className="review-preview__empty">
             <span>Preview unavailable</span>
@@ -515,6 +565,8 @@ export function InstagramJobCard({
           {[
             ["Consent", submission.instagramOptIn ? "Instagram opt-in" : "No opt-in"],
             ["Consent source", submission.instagramOptInSource || "Not set"],
+            ["Consent version", submission.instagramOptInCopyVersion || "Not set"],
+            ["Consent handshake", submission.instagramOptInContractVersion || "Not set"],
             ["Type", submission.mimeType || "Unknown"],
             ["Size", formatBytes(submission.sizeBytes)],
             ["Attempts", String(job.attemptCount || 0)],
@@ -547,34 +599,48 @@ export function InstagramJobCard({
             onChange={(event) => onAltTextChange(event.target.value.slice(0, 1000))}
           />
         </label>
-        <label className="form-field">
-          <span>Instagram permalink after manual post</span>
-          <input
-            type="url"
-            maxLength={500}
-            value={permalinkValue}
-            disabled={busy || !canShareManually}
-            onChange={(event) => onPermalinkChange(event.target.value.slice(0, 500))}
-            placeholder="https://www.instagram.com/p/..."
-          />
-        </label>
-        <label className="form-field">
-          <span>Manual share note</span>
-          <textarea
-            maxLength={500}
-            rows={2}
-            value={moderatorNote}
-            disabled={busy || !canShareManually}
-            onChange={(event) => onModeratorNoteChange(event.target.value.slice(0, 500))}
-            placeholder="Optional moderator note."
-          />
-        </label>
-        {!canShareManually ? (
-          <p className="review-action-note">Manual sharing is available only for queued Instagram jobs.</p>
+        {reconcilable ? (
+          <label className="form-field">
+            <span>Instagram media ID when publication is confirmed</span>
+            <input
+              inputMode="numeric"
+              maxLength={255}
+              value={mediaIdValue}
+              disabled={busy}
+              onChange={(event) => onMediaIdChange(event.target.value.replace(/\D/g, "").slice(0, 255))}
+              placeholder="Numeric media ID"
+            />
+          </label>
         ) : null}
-        {manualShareArmed ? (
-          <p className="review-action-note" role="status">
-            Confirm only after this image has been posted manually from the official account.
+        {reconcilable ? (
+          <>
+            <label className="form-field">
+              <span>Official Instagram permalink</span>
+              <input
+                type="url"
+                maxLength={1000}
+                value={permalinkValue}
+                disabled={busy}
+                onChange={(event) => onPermalinkChange(event.target.value.slice(0, 1000))}
+                placeholder="https://www.instagram.com/p/..."
+              />
+            </label>
+            <label className="form-field">
+              <span>Required reconciliation note</span>
+              <textarea
+                maxLength={500}
+                rows={2}
+                value={moderatorNote}
+                disabled={busy}
+                onChange={(event) => onModeratorNoteChange(event.target.value.slice(0, 500))}
+                placeholder="Record what you inspected on the official account."
+              />
+            </label>
+          </>
+        ) : null}
+        {status === "queued" && !metaPublishAvailable ? (
+          <p className="review-action-note">
+            Manual Instagram sharing is disabled. This job remains queued until reviewed Graph publishing is activated.
           </p>
         ) : null}
         {publishArmed ? (
@@ -582,22 +648,48 @@ export function InstagramJobCard({
             Confirm only with action-time approval to publish this image through the Meta API.
           </p>
         ) : null}
+        {reconcilePublishedArmed || reconcileNotPublishedArmed ? (
+          <p className="review-action-note" role="status">
+            Confirm this result only after inspecting the public official Mōchirīī Instagram account. This does not publish a new post.
+          </p>
+        ) : null}
         <div className="auth-actions">
-          {job.signedPreviewUrl ? (
-            <a className="hero-cta" href={job.signedPreviewUrl} download target="_blank" rel="noopener noreferrer">Download image</a>
+          {thumbnailUrl ? (
+            <a className="hero-cta" href={thumbnailUrl} target="_blank" rel="noopener noreferrer">Open approved Gallery preview</a>
           ) : (
-            <button className="hero-cta" type="button" disabled>Download image</button>
+            <button className="hero-cta" type="button" disabled>Preview unavailable</button>
           )}
           <button className="hero-cta" type="button" disabled={busy || !caption.trim()} onClick={onCopyCaption}>Copy caption</button>
           <button className="hero-cta" type="button" disabled={busy || !altText.trim()} onClick={onCopyAltText}>Copy alt text</button>
-          <button
-            className="hero-cta hero-cta--primary"
-            type="button"
-            disabled={busy || !canShareManually}
-            onClick={() => manualShareArmed ? onConfirmManualShare(job) : onArmManualShare(job)}
-          >
-            {manualShareArmed ? "Confirm manual share" : "Mark shared manually"}
-          </button>
+          {reconcilable ? (
+            <>
+              <button
+                className="hero-cta hero-cta--primary"
+                type="button"
+                disabled={
+                  busy ||
+                  !moderatorNote.trim() ||
+                  !/^\d{5,255}$/.test(mediaIdValue.trim()) ||
+                  !normalizeInstagramPostPermalink(permalinkValue)
+                }
+                onClick={() => reconcilePublishedArmed
+                  ? onConfirmReconciliation(job, "confirmed_published")
+                  : onArmReconciliation(job, "confirmed_published")}
+              >
+                {reconcilePublishedArmed ? "Confirm recorded publication" : "Record as published"}
+              </button>
+              <button
+                className="hero-cta"
+                type="button"
+                disabled={busy || !moderatorNote.trim()}
+                onClick={() => reconcileNotPublishedArmed
+                  ? onConfirmReconciliation(job, "confirmed_not_published")
+                  : onArmReconciliation(job, "confirmed_not_published")}
+              >
+                {reconcileNotPublishedArmed ? "Confirm no post exists" : "Record as not published"}
+              </button>
+            </>
+          ) : null}
           {confirmation ? (
             <button className="hero-cta" type="button" disabled={busy} onClick={() => onCancelAction(job)}>
               Cancel
@@ -661,7 +753,8 @@ export function InstagramApiStatusCard({
   const configured = Boolean(status?.configured);
   const accountReachable = Boolean(status?.accountReachable);
   const publishEnabled = Boolean(status?.publishEnabled);
-  const ready = configured && accountReachable && publishEnabled;
+  const accountIdPinned = Boolean(status?.accountIdPinned);
+  const ready = configured && accountReachable && accountIdPinned && publishEnabled;
   const label = ready ? "Configured" : configured ? "Needs review" : "Not configured";
   const message = text(status?.message, "Meta API status has not been checked yet.");
 
@@ -673,12 +766,20 @@ export function InstagramApiStatusCard({
       </div>
       <dl className="review-meta instagram-api-status__meta" aria-label="Meta API diagnostic details">
         <div>
+          <dt>Account</dt>
+          <dd>{status?.account?.username ? `@${status.account.username}` : "Not verified"}</dd>
+        </div>
+        <div>
           <dt>Account check</dt>
           <dd>{accountReachable ? "Passed" : "Not passed"}</dd>
         </div>
         <div>
-          <dt>Publishing</dt>
-          <dd>{publishEnabled ? "Available" : "Unavailable"}</dd>
+          <dt>Graph user ID pin</dt>
+          <dd>{accountIdPinned ? "Pinned" : "Required"}</dd>
+        </div>
+        <div>
+          <dt>Server activation</dt>
+          <dd>{publishEnabled ? "On" : "Off"}</dd>
         </div>
         <div>
           <dt>Checked</dt>

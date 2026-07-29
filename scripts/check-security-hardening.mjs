@@ -217,12 +217,18 @@ if (nextConfig.includes("'unsafe-eval'")) {
 
 const verifyJwtFalseFunctions = extractVerifyJwtFalseFunctions(supabaseConfig);
 const configuredFunctions = extractConfiguredFunctions(supabaseConfig);
-if (configuredFunctions.length !== 33) {
-  failures.push(`supabase/config.toml: expected 33 configured functions, found ${configuredFunctions.length}.`);
+const verifyJwtDeclarations = [...supabaseConfig.matchAll(/^verify_jwt\s*=\s*(?:true|false)\s*$/gm)];
+if (configuredFunctions.length !== 38) {
+  failures.push(`supabase/config.toml: expected 38 configured functions, found ${configuredFunctions.length}.`);
 }
-if (configuredFunctions.length - verifyJwtFalseFunctions.length !== 20) {
+if (configuredFunctions.length - verifyJwtFalseFunctions.length !== 25) {
   failures.push(
-    `supabase/config.toml: expected 20 verify_jwt=true functions, found ${configuredFunctions.length - verifyJwtFalseFunctions.length}.`,
+    `supabase/config.toml: expected 25 verify_jwt=true functions, found ${configuredFunctions.length - verifyJwtFalseFunctions.length}.`,
+  );
+}
+if (verifyJwtDeclarations.length !== configuredFunctions.length) {
+  failures.push(
+    "supabase/config.toml: every configured function must declare exactly one verify_jwt classification.",
   );
 }
 const expectedUnauthenticatedFunctions = [

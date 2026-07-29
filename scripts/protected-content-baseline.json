@@ -18,7 +18,7 @@
         "content",
         "paragraphs"
       ],
-      "sha256": "95be33bd983815eea0f44e74a38ab7a115f23c23ae6fa40039e8cbb02c26fb3e"
+      "sha256": "9839a13ea1579caa7e4bf94ba04e0f34b89aaa332ea12588518a3c945a77c444"
     },
     {
       "id": "recruitment.content.conclusion",
@@ -27,7 +27,7 @@
         "content",
         "conclusion"
       ],
-      "sha256": "2085d44fb151369cfe75e8f5c83bde5470da2cbfb9f3ada147901aa889b42fee"
+      "sha256": "997976f0d46458d55812f6b1f3d04741c5b144b0fb5fe34db0485778a7785b2a"
     },
     {
       "id": "twills.profile.bio",
@@ -36,7 +36,7 @@
         "profile",
         "bio"
       ],
-      "sha256": "15933d24e9b325948fc74de7e05e4c8f84b1b8c06e2d7a657bf416fc9bf28503"
+      "sha256": "ddb8ef949de9f724526bf15b9ba09ed95890850cd01e8e6ea9bb89e486596a94"
     }
   ]
 }

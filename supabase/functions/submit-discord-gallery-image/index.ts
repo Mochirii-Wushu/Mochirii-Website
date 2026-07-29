@@ -35,7 +35,6 @@ const DISCORD_CDN_HOSTS = new Set([
   "media.discordapp.com",
 ]);
 const RECENT_VERIFICATION_MS = 7 * 24 * 60 * 60 * 1000;
-const INSTAGRAM_OPT_IN_COPY_VERSION = "2026-06-discord-submit-v1";
 
 function jsonResponse(body: JsonRecord, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -514,11 +513,6 @@ async function handleRequest(req: Request): Promise<Response> {
       discord_attachment_id: attachmentId,
       discord_user_id: discordUserId,
       instagram_opt_in: instagramOptIn,
-      instagram_opt_in_at: instagramOptIn ? new Date().toISOString() : null,
-      instagram_opt_in_source: instagramOptIn ? "discord_slash_command" : null,
-      instagram_opt_in_copy_version: instagramOptIn
-        ? INSTAGRAM_OPT_IN_COPY_VERSION
-        : null,
     })
     .select("id,status,created_at")
     .maybeSingle();
