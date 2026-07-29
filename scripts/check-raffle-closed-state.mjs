@@ -32,8 +32,6 @@ const files = {
 const forbiddenOperationalSurfaces = [
   "apps/web/app/raffle/rules/page.tsx",
   "apps/web/app/raffle/rules/[version]/page.tsx",
-  "apps/web/app/raffle/claim",
-  "apps/web/app/leader-dashboard/raffle",
   "apps/web/app/raffles/page.tsx",
   "apps/web/components/prize-draw",
   "apps/web/lib/prize-draw.ts",

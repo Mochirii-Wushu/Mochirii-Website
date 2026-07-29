@@ -86,6 +86,14 @@ Analytics and Core Web Vitals data can take a few minutes, and enough real produ
 
 The account, OAuth consent, and leader-dashboard clients also record a local User Timing measure when Supabase Auth emits the initial session event and on later auth-state loads. The components do not start a second eager load before that event. Measure names contain only the fixed route, `load` phase, completion state, and one of five bounded duration buckets. The helper sends no network request, has no production collector, and records no member identifier; developers inspect it manually in browser performance tooling before changing those authenticated routes.
 
+Supabase Auth uses cookie-based PKCE through `@supabase/ssr`. The allowlisted
+`/auth/callback` exchanges OAuth codes server-side, and Proxy refreshes sessions
+only for `/raffle/claim` and `/leader-dashboard/raffle`. Both private routes
+authorize again in their request-scoped data-access boundary, return no-store
+and noindex responses, and render no claim or administration controls while the
+raffle foundation is disabled. `/raffle` remains cacheable and uses its existing
+lazy authenticated APIs; it does not enter the cookie-refresh matcher.
+
 Essential Account and leader-dashboard access reads run together. Optional submission,
 Gallery, Instagram, and Social status reads settle afterward; the moderator spinner card
 renders before its independent moderation queues complete. The live-spinner proxy

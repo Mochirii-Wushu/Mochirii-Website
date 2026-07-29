@@ -18,6 +18,8 @@ const checks = [
   ["test:raffle-public", ["node", "--experimental-default-type=module", "--experimental-strip-types", "--test", "apps/web/lib/raffle/public-view_test.ts"]],
   ["test:raffle-latest-winner", ["node", "--experimental-default-type=module", "--experimental-strip-types", "--test", "apps/web/lib/raffle/latest-winner-core.test.mts"]],
   ["test:raffle-leaderboard", [...npmCommand, "--prefix", "apps/web", "run", "test:raffle-leaderboard"]],
+  ["check:raffle-server-boundary", [...npmCommand, "--prefix", "apps/web", "run", "check:raffle-server-boundary"]],
+  ["test:raffle-server-boundary", [...npmCommand, "--prefix", "apps/web", "run", "test:raffle-server-boundary"]],
   ["test:raffle-leaderboard-edge", ["deno", "test", "--allow-env", "--node-modules-dir=auto", "--config=supabase/functions/get-current-raffle/deno.json", "--lock=supabase/functions/get-current-raffle/deno.lock", "--frozen=true", "supabase/functions/_shared/raffle-core_test.ts", "supabase/functions/_shared/raffle-current_test.ts", "supabase/functions/_shared/raffle-edge_test.ts", "supabase/functions/_shared/raffle-leaderboard_test.ts"]],
   ["check:recruitment-audio-player", ["node", "scripts/check-recruitment-audio-player.mjs"]],
   ["check:content", ["node", "scripts/check-content-guardrails.mjs"]],

@@ -6,6 +6,7 @@ import {
   decodeSpinnerSessionCookie,
   validateSpinnerAccessTokenForMode,
 } from "./lib/spinner/session-policy.ts";
+import { refreshSupabaseSession } from "./lib/supabase/proxy.ts";
 
 const SPINNER_PAGE_PATH = "/spinner";
 
@@ -37,7 +38,7 @@ export async function proxy(request: NextRequest) {
   if (
     request.nextUrl.pathname !== SPINNER_PAGE_PATH &&
     request.nextUrl.pathname !== `${SPINNER_PAGE_PATH}/`
-  ) return NextResponse.next();
+  ) return refreshSupabaseSession(request);
   if (request.method !== "GET" && request.method !== "HEAD") return opaqueDenied();
 
   const session = decodeSpinnerSessionCookie(
@@ -57,5 +58,9 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/spinner"],
+  matcher: [
+    "/spinner",
+    "/raffle/claim/:path*",
+    "/leader-dashboard/raffle/:path*",
+  ],
 };

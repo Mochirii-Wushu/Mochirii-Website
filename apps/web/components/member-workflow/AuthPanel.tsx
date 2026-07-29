@@ -7,6 +7,7 @@ import { ProviderLogo } from "@/components/member-workflow/ProviderLogo";
 import { enabledAuthProviders, enabledOAuthProviders, placeholderOAuthProviders, type OAuthProviderId } from "@/lib/supabase/auth-providers";
 import { getCurrentUser, onAuthStateChange, signInWithPhoneOtp, signInWithProvider, signOut, verifyPhoneOtp } from "@/lib/supabase/auth";
 import { signedInName } from "@/lib/supabase/profile";
+import { resolveAuthReturnPath } from "@/lib/supabase/auth-redirect";
 import type { User } from "@supabase/supabase-js";
 
 export function AuthPanel() {
@@ -23,9 +24,7 @@ export function AuthPanel() {
   const placeholderProviders = useMemo(() => placeholderOAuthProviders(), []);
   const phoneProvider = providers.find((provider) => provider.id === "phone");
   const redirectTo = useMemo(() => {
-    const raw = String(searchParams.get("redirect") || "").trim();
-    if (!raw.startsWith("/") || raw.startsWith("//")) return "/account";
-    return raw;
+    return resolveAuthReturnPath(searchParams.get("redirect"));
   }, [searchParams]);
 
   async function load() {

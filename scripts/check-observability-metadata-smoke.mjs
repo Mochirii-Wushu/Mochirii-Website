@@ -80,7 +80,8 @@ function checkLayoutObservability() {
   assertIncludes("route-aware site shell", routeShell, 'import { SpeedInsights } from "@vercel/speed-insights/next";');
   assertIncludes("route-aware site shell", routeShell, 'pathname === "/spinner"');
   assertIncludes("route-aware site shell", routeShell, 'pathname.startsWith("/spinner/")');
-  assertIncludes("route-aware site shell", routeShell, "if (isIsolatedSpinnerPath(pathname)) return children;");
+  assertIncludes("route-aware site shell", routeShell, "isIsolatedPrivateRafflePath(pathname)");
+  assertIncludes("route-aware site shell", routeShell, "return children;");
   assertIncludes("route-aware site shell", routeShell, "<Analytics />");
   assertIncludes("route-aware site shell", routeShell, "<SpeedInsights />");
 }

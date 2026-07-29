@@ -139,6 +139,23 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      {
+        source: "/auth/callback",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "private, no-cache, no-store, must-revalidate, max-age=0",
+          },
+          {
+            key: "X-Robots-Tag",
+            value: "noindex, nofollow, noarchive, nosnippet, noimageindex",
+          },
+          {
+            key: "Referrer-Policy",
+            value: "no-referrer",
+          },
+        ],
+      },
     ];
   },
   async redirects() {
