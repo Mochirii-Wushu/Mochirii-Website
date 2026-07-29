@@ -8,10 +8,12 @@
     "npm": ">=10 <11"
   },
   "scripts": {
-    "check": "npm run scan:brand-boundaries && npm run check:migration-manifest && npm run check:prepayment-config && npm run check:contract-tests && npm run check:generic-tooling && npm run check:sbom && npm run check:theme-js && npm run theme:check",
+    "check": "npm run scan:brand-boundaries && npm run check:migration-manifest && npm run check:active-source-manifest && npm run check:prepayment-config && npm run check:contract-tests && npm run check:generic-tooling && npm run check:sbom && npm run check:theme-js && npm run theme:check",
     "scan:brand-boundaries": "node ../../scripts/check-brand-boundaries.mjs",
     "generate:migration-manifest": "node scripts/generate-migration-manifest.mjs",
+    "generate:active-source-manifest": "node scripts/generate-active-source-manifest.mjs",
     "check:migration-manifest": "node scripts/check-migration-manifest.mjs",
+    "check:active-source-manifest": "node scripts/check-active-source-manifest.mjs",
     "check:prepayment-config": "npm run check:release-safety && npm run check:approved-copy && npm run check:product-facts && npm run check:launch-content-contracts && npm run check:provider-surfaces && npm run check:customer-facing-copy",
     "check:release-safety": "node scripts/check-release-safety.mjs",
     "check:approved-copy": "node scripts/check-approved-customer-copy.mjs",
@@ -22,7 +24,7 @@
     "check:provider-surfaces": "node scripts/check-provider-surfaces.mjs",
     "gate:provider-surfaces": "node scripts/check-provider-surfaces.mjs --require-provider-ready",
     "check:customer-facing-copy": "node scripts/check-customer-facing-copy.mjs",
-    "check:contract-tests": "node --test scripts/product-facts-contract.test.mjs scripts/private-price-rule.test.mjs scripts/private-artifact-index.test.mjs scripts/launch-content-contracts.test.mjs scripts/provider-surfaces-contract.test.mjs scripts/prepayment-evidence-gate.test.mjs",
+    "check:contract-tests": "node --test scripts/active-source-manifest.test.mjs scripts/checkout-cta-safety.test.mjs scripts/cli-help.test.mjs scripts/product-facts-contract.test.mjs scripts/private-price-rule.test.mjs scripts/private-artifact-index.test.mjs scripts/launch-content-contracts.test.mjs scripts/provider-surfaces-contract.test.mjs scripts/prepayment-evidence-gate.test.mjs",
     "verify:private-prices": "node scripts/verify-private-prices.mjs",
     "gate:prepayment-complete": "node scripts/check-prepayment-evidence.mjs",
     "check:payment-dependent": "node scripts/check-payment-dependent-boundary.mjs",

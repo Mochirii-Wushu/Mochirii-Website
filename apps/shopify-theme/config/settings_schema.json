@@ -80,9 +80,9 @@
     "settings": [
       {
         "type": "checkbox",
-        "id": "checkout_enabled",
-        "label": "Enable checkout",
-        "info": "Enable only after payment setup and checkout testing are complete.",
+        "id": "checkout_cta_enabled",
+        "label": "Show checkout button in the theme",
+        "info": "Controls only this theme's cart-page button. It does not disable other checkout routes. Keep off until payment testing and store review are complete.",
         "default": false
       }
     ]

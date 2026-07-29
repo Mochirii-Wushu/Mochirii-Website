@@ -29,6 +29,7 @@ import {
   validateProviderSurfaceReadback,
   validateProviderSurfacesContract,
 } from "./provider-surfaces-contract.mjs";
+import { validateActiveSourceManifest } from "./active-source-manifest.mjs";
 
 export const PREPAYMENT_GATE_POLICY = Object.freeze({
   gate: "mochirii-prepayment-complete",
@@ -761,7 +762,8 @@ function validateShopifyProductReadback(
 function loadSourceContracts(repositoryRoot, issues) {
   const gate = "source-contracts";
   const files = {
-    manifest: "apps/shopify-theme/MIGRATION-MANIFEST.json",
+    activeSourceManifest: "apps/shopify-theme/ACTIVE-SOURCE-MANIFEST.v1.json",
+    activeSourceManifestSchema: "apps/shopify-theme/ACTIVE-SOURCE-MANIFEST.v1.schema.json",
     productFacts: "apps/shopify-theme/content/product-facts.v3.json",
     launchPages: "apps/shopify-theme/content/launch-pages.v1.json",
     mandatoryNames: "apps/shopify-theme/content/mandatory-name-exceptions.v1.json",
@@ -1801,7 +1803,7 @@ function validateThemePackageArtifact(record, context, issues) {
     "package_path",
     "package_sha256",
     "size_bytes",
-    "manifest_sha256",
+    "active_source_manifest_sha256",
     "runtime_file_count",
     "source_commit_sha",
     "source_tree_sha",
@@ -1835,28 +1837,41 @@ function validateThemePackageArtifact(record, context, issues) {
       add(issues, gate, "artifact.zip-structure");
       return;
     }
-    const manifest = context.sourceContracts?.manifest;
-    if (!manifest || !Array.isArray(manifest.files)) {
-      add(issues, gate, "artifact.manifest");
+    const manifest = context.sourceContracts?.activeSourceManifest;
+    const manifestSchema = context.sourceContracts?.activeSourceManifestSchema;
+    const manifestFailures = validateActiveSourceManifest(
+      manifest,
+      manifestSchema,
+      path.join(context.repositoryRoot, "apps/shopify-theme"),
+      context.repositoryRoot,
+    );
+    if (manifestFailures.length > 0) {
+      add(issues, gate, "artifact.active-source-manifest");
       return;
     }
-    exactValue(claim.manifest_sha256, contractDigest(manifest), issues, gate, "artifact.manifest-sha");
+    exactValue(
+      claim.active_source_manifest_sha256,
+      contractDigest(manifest),
+      issues,
+      gate,
+      "artifact.active-source-manifest-sha",
+    );
     exactValue(claim.runtime_file_count, manifest.files.length, issues, gate, "artifact.runtime-file-count");
     const expectedFiles = new Map();
     for (const entry of manifest.files) {
       if (!entry || typeof entry.path !== "string" || !entry.path.startsWith("apps/shopify-theme/") ||
           !validSha256(entry.sha256)) {
-        add(issues, gate, "artifact.manifest-entry");
+        add(issues, gate, "artifact.active-source-manifest-entry");
         continue;
       }
       const packageName = entry.path.slice("apps/shopify-theme/".length);
       if (packageName.length === 0 || packageName.includes("\\") || path.posix.isAbsolute(packageName) ||
           packageName.split("/").includes("..") || path.posix.normalize(packageName) !== packageName) {
-        add(issues, gate, "artifact.manifest-path");
+        add(issues, gate, "artifact.active-source-manifest-path");
         continue;
       }
       if (expectedFiles.has(packageName)) {
-        add(issues, gate, "artifact.manifest-duplicate");
+        add(issues, gate, "artifact.active-source-manifest-duplicate");
         continue;
       }
       expectedFiles.set(packageName, entry.sha256);
@@ -2036,7 +2051,7 @@ function validateSource(source, evidence, referencedIds, issues, now) {
     "package_path",
     "package_sha256",
     "size_bytes",
-    "manifest_sha256",
+    "active_source_manifest_sha256",
     "runtime_file_count",
     "source_commit_sha",
     "source_tree_sha",
@@ -2056,7 +2071,7 @@ function validateCandidate(candidate, source, evidence, referencedIds, issues, n
     "captured_at",
     "theme_id",
     "status",
-    "checkout_enabled",
+    "checkout_cta_enabled",
     "password_protected",
     "published",
     "dedicated_hero_pass",
@@ -2073,7 +2088,7 @@ function validateCandidate(candidate, source, evidence, referencedIds, issues, n
   requireFreshCapture(candidate.captured_at, issues, gate, "capture", now);
   exactValue(candidate.theme_id, PREPAYMENT_GATE_POLICY.candidate_theme_id, issues, gate, "theme-id");
   exactValue(candidate.status, PREPAYMENT_GATE_POLICY.candidate_theme_status, issues, gate, "status");
-  exactBoolean(candidate.checkout_enabled, false, issues, gate, "checkout-enabled");
+  exactBoolean(candidate.checkout_cta_enabled, false, issues, gate, "checkout-cta-enabled");
   exactBoolean(candidate.password_protected, true, issues, gate, "password-protected");
   exactBoolean(candidate.published, false, issues, gate, "published");
   exactBoolean(candidate.dedicated_hero_pass, true, issues, gate, "dedicated-hero");
@@ -2111,7 +2126,7 @@ function validateCandidate(candidate, source, evidence, referencedIds, issues, n
     "theme_name",
     "theme_id",
     "status",
-    "checkout_enabled",
+    "checkout_cta_enabled",
     "password_protected",
     "published",
     "dedicated_hero_pass",
@@ -2129,7 +2144,7 @@ function validateCandidate(candidate, source, evidence, referencedIds, issues, n
   for (const field of [
     "theme_id",
     "status",
-    "checkout_enabled",
+    "checkout_cta_enabled",
     "password_protected",
     "published",
     "dedicated_hero_pass",

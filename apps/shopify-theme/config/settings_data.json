@@ -17,6 +17,6 @@
     "empty_catalog_heading": "No products found.",
     "empty_catalog_body": "Clear a filter or browse all skincare.",
     "footer_summary": "Cleansers, hydrating products, brightening products, and moisturizers for daily skincare routines.",
-    "checkout_enabled": false
+    "checkout_cta_enabled": false
   }
 }

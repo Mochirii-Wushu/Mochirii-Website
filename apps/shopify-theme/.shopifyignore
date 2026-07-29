@@ -10,6 +10,8 @@ node_modules/**
 AGENTS.md
 README.md
 MIGRATION-MANIFEST.json
+ACTIVE-SOURCE-MANIFEST.v1.json
+ACTIVE-SOURCE-MANIFEST.v1.schema.json
 .gitignore
 package.json
 package-lock.json

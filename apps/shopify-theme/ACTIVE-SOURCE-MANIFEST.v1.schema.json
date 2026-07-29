@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mochirii.com/contracts/active-source-manifest.v1.schema.json",
+  "title": "Mochirii Shopify active-source manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schemaVersion",
+    "manifestId",
+    "recordedDate",
+    "scope",
+    "historicalMigrationEvidence",
+    "authority",
+    "includedRoots",
+    "genericTooling",
+    "publicLaunchContracts",
+    "files"
+  ],
+  "properties": {
+    "$schema": { "const": "./ACTIVE-SOURCE-MANIFEST.v1.schema.json" },
+    "schemaVersion": { "const": 1 },
+    "manifestId": { "const": "mochirii-shopify-active-source-v1" },
+    "recordedDate": { "type": "string", "format": "date" },
+    "scope": { "const": "current-mutable-theme-runtime-tooling-and-public-launch-contracts" },
+    "historicalMigrationEvidence": { "const": "apps/shopify-theme/MIGRATION-MANIFEST.json" },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "providerMutationAuthorized",
+        "paymentSetupAuthorized",
+        "publicationAuthorized",
+        "commerceAuthorized"
+      ],
+      "properties": {
+        "providerMutationAuthorized": { "const": false },
+        "paymentSetupAuthorized": { "const": false },
+        "publicationAuthorized": { "const": false },
+        "commerceAuthorized": { "const": false }
+      }
+    },
+    "includedRoots": {
+      "type": "array",
+      "prefixItems": [
+        { "const": "assets" },
+        { "const": "blocks" },
+        { "const": "config" },
+        { "const": "layout" },
+        { "const": "locales" },
+        { "const": "sections" },
+        { "const": "snippets" },
+        { "const": "templates" }
+      ],
+      "items": false,
+      "minItems": 8,
+      "maxItems": 8
+    },
+    "genericTooling": { "$ref": "#/$defs/fileGroup" },
+    "publicLaunchContracts": { "$ref": "#/$defs/fileGroup" },
+    "files": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/fileEntry" }
+    }
+  },
+  "$defs": {
+    "fileGroup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["files"],
+      "properties": {
+        "files": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/fileEntry" }
+        }
+      }
+    },
+    "fileEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^apps/shopify-theme/(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]+$"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    }
+  }
+}

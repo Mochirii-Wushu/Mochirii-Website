@@ -28,36 +28,63 @@ accidentally recreating or deleting variants. It cannot verify provider
 freshness, never invents option values, and neither reads nor writes provider
 state. Generating a validated CSV does not authorize importing it.
 
-The runtime is reconciled from the current live theme so its twenty products,
-navigation, cart, and provider-managed theme behavior remain visible. The
-obsolete `product_publication_approved` switch and optional internal-product
-metadata control are intentionally absent. `checkout_enabled` remains false,
-and the disabled cart control states that checkout opens when the store
-launches. These repository controls do not replace provider-side product status
-or storefront-password review. Store password state, checkout activation,
-theme publication, shared product/page/policy changes, domains, payments,
-orders, and paid applications remain separate provider-side actions and are
-never performed by repository CI.
+The runtime was reconciled from the 2026-07-18 live-theme baseline so its
+twenty products, navigation, cart, and provider-managed theme behavior remained
+visible at that time. The obsolete `product_publication_approved` switch and
+optional internal-product metadata control are intentionally absent.
+`checkout_cta_enabled` remains false, so the theme does not render its cart-page
+checkout button and instead states that checkout opens when the store launches.
+This is a presentation-only control: it does not disable Shopify checkout,
+payment links, cart permalinks, or other provider-controlled routes. Prepayment
+containment therefore also requires the exact candidate to remain unpublished,
+storefront password protection to remain enabled, and fresh authenticated
+provider readback. Store password state, checkout availability, theme
+publication, shared product/page/policy changes, domains, payments, orders, and
+paid applications remain separate provider-side actions and are never
+performed by repository CI.
 
-The migration manifest records the 2026-07-18 reconciliation from the current
-live Shopify theme into the canonical repository, followed by the customer-copy
-v2 packet. It covers the selected runtime, public copy contract, and pure
-generic CSV/tooling contract, but deliberately excludes private evidence and
-provider workflows. It is unsigned because no approved signing identity was
-available. Existing public history was not rewritten by this import.
+`MIGRATION-MANIFEST.json` is byte-sealed historical evidence of the 2026-07-18
+reconciliation into the canonical repository and the subsequent customer-copy
+v2 packet. It is never regenerated and does not describe current mutable source.
+It remains unsigned because no approved signing identity was available, and
+existing public history was not rewritten by the import.
+
+`ACTIVE-SOURCE-MANIFEST.v1.json` is the versioned current hash authority for the
+complete theme runtime, sanitized generic tooling, and public launch contracts.
+Package and prepayment validators consume this active manifest. After an
+approved source change, refresh it with `npm run generate:active-source-manifest`
+and review the resulting hash diff. That command never reads from or writes to
+Shopify and never modifies the sealed migration manifest.
 
 ## Validate locally
 
 ```powershell
 npm ci
+npm run check:active-source-manifest
 npm run check
 npm run theme:package
 git diff --check
 ```
 
+The evidence gates expose their complete local-only syntax through real help:
+
+```powershell
+npm run gate:prepayment-complete -- --help
+npm run gate:provider-surfaces -- --help
+
+npm run gate:prepayment-complete -- --bundle <ignored-prepayment-bundle.json>
+npm run gate:provider-surfaces -- --private-readback <ignored-provider-readback.json> --candidate-theme-id <theme-id> --package-sha256 <sha256>
+```
+
+Keep those evidence files under the ignored `.artifacts/operations` boundary.
+The commands read local files only; they neither access nor mutate Shopify and
+do not grant provider, publication, payment, or commerce authority.
+
 `theme:package` creates a local ignored archive. It does not upload or publish
-the theme. `check:release-safety` fails if checkout, internal-product-data,
-warning-copy, navigation, or title/SEO safeguards regress.
+the theme. `check:release-safety` fails if the theme checkout CTA, direct
+checkout primitives, internal-product-data, warning-copy, navigation, or
+title/SEO safeguards regress. It does not claim server-side checkout is
+disabled.
 `check:customer-facing-copy` rejects internal operator phrasing, supplier names,
 filler, obsolete availability labels, and repeated metadata regressions.
 `check:approved-copy` validates the customer-copy schema, exact counts, varied

@@ -17,6 +17,11 @@ const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 const repositoryRoot = path.resolve(appRoot, "../..");
 const contractPath = path.join(appRoot, "content/provider-surfaces.v1.json");
 const schemaPath = path.join(appRoot, "content/provider-surfaces.v1.schema.json");
+const HELP = `Usage:
+  npm run gate:provider-surfaces -- --private-readback <ignored-provider-readback.json> --candidate-theme-id <theme-id> --package-sha256 <sha256>
+
+The readback must be a regular ignored, untracked JSON file under .artifacts/operations.
+This command reads local evidence only. It does not access or mutate Shopify.\n`;
 const readKnownText = (relativePath) => {
   const absolute = resolveContainedRegularFile(appRoot, relativePath);
   if (!absolute) throw new Error("unsafe-source-path");
@@ -24,8 +29,8 @@ const readKnownText = (relativePath) => {
 };
 
 function parseArguments(argv) {
+  if (argv.includes("--help")) return { help: true };
   if (argv.length === 0) return { requireProviderReady: false };
-  if (argv.length === 1 && argv[0] === "--help") return { help: true };
   if (argv[0] !== "--require-provider-ready") return null;
   const result = { requireProviderReady: true };
   for (let index = 1; index < argv.length; index += 2) {
@@ -75,7 +80,7 @@ function privateReadbackPathIsSafe(candidate) {
 
 const args = parseArguments(process.argv.slice(2));
 if (args?.help) {
-  output("provider-surfaces", "usage");
+  process.stdout.write(HELP);
   process.exit(0);
 }
 if (!args) {
