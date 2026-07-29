@@ -428,8 +428,17 @@ Deno.test("alternate transition preserves a full claim window inside 30-day expi
     "active recipient was replaced",
   );
   assert(
-    alternateTransition(expiry, expiry, true, true) === "complete",
-    "30-day award expiry did not complete the cycle",
+    alternateTransition(expiry, expiry, true, true) === "wait",
+    "cycle completed before the inclusive award expiry elapsed",
+  );
+  assert(
+    alternateTransition(
+      new Date("2026-08-31T13:30:00.001Z"),
+      expiry,
+      true,
+      true,
+    ) === "complete",
+    "cycle remained open after the award expiry elapsed",
   );
   assert(
     alternateTransition(now, expiry, false, true) === "promote",
@@ -511,26 +520,109 @@ Deno.test("active overlapping cycle wins over the prior unexpired results cycle"
   );
 });
 
-Deno.test("salted ledger hash and draw are reproducible without duplicate members", async () => {
-  const salt = "11".repeat(32);
-  const seed = "22".repeat(32);
+Deno.test("one-plus-nine ledger matches the database bytewise deterministic vector", async () => {
+  const salt = "5".repeat(32);
+  const seed = "6".repeat(64);
   const source = [
-    { memberId: "00000000-0000-4000-8000-000000000001", entryCount: 5 },
-    { memberId: "00000000-0000-4000-8000-000000000002", entryCount: 10 },
-    { memberId: "00000000-0000-4000-8000-000000000003", entryCount: 7 },
-    { memberId: "00000000-0000-4000-8000-000000000004", entryCount: 6 },
-    { memberId: "00000000-0000-4000-8000-000000000005", entryCount: 8 },
+    { memberId: "20000000-0000-4000-8000-000000000001", entryCount: 1 },
+    { memberId: "20000000-0000-4000-8000-000000000002", entryCount: 2 },
+    { memberId: "20000000-0000-4000-8000-000000000003", entryCount: 4 },
+    { memberId: "20000000-0000-4000-8000-000000000004", entryCount: 10 },
   ];
   const ledger = await buildFrozenLedger(source, salt);
   const hash = await frozenLedgerHash(ledger);
   const first = await drawRaffle(ledger, seed);
   const retry = await drawRaffle(ledger, seed);
 
+  const expectedLedger = [
+    {
+      memberId: "20000000-0000-4000-8000-000000000004",
+      entryCount: 10,
+      pseudonymousMemberId:
+        "4642d2941ef6adacf9ce914c0b6d77f0a2d82604fa690ec1c20645491949f4fd",
+      firstOrdinal: 1,
+      lastOrdinal: 10,
+    },
+    {
+      memberId: "20000000-0000-4000-8000-000000000003",
+      entryCount: 4,
+      pseudonymousMemberId:
+        "58f585c7bd041dba45605d4a29bf6ecc1daf9a21377dd6237442ba1eb154f17c",
+      firstOrdinal: 11,
+      lastOrdinal: 14,
+    },
+    {
+      memberId: "20000000-0000-4000-8000-000000000002",
+      entryCount: 2,
+      pseudonymousMemberId:
+        "9ef80648f10316335e97608b27b46d395c87cb5a92c2bee888710e72a2203e29",
+      firstOrdinal: 15,
+      lastOrdinal: 16,
+    },
+    {
+      memberId: "20000000-0000-4000-8000-000000000001",
+      entryCount: 1,
+      pseudonymousMemberId:
+        "a2f9b4b93835c09bba6d906a802b4c5aa46c2b2d656e63888880580ec712320a",
+      firstOrdinal: 17,
+      lastOrdinal: 17,
+    },
+  ];
+  const expectedResults = [
+    {
+      memberId: "20000000-0000-4000-8000-000000000003",
+      pseudonymousMemberId:
+        "58f585c7bd041dba45605d4a29bf6ecc1daf9a21377dd6237442ba1eb154f17c",
+      entryOrdinal: 11,
+      selectionOrder: 1,
+      kind: "paid_winner",
+      alternateRank: null,
+    },
+    {
+      memberId: "20000000-0000-4000-8000-000000000004",
+      pseudonymousMemberId:
+        "4642d2941ef6adacf9ce914c0b6d77f0a2d82604fa690ec1c20645491949f4fd",
+      entryOrdinal: 6,
+      selectionOrder: 2,
+      kind: "honor",
+      alternateRank: null,
+    },
+    {
+      memberId: "20000000-0000-4000-8000-000000000002",
+      pseudonymousMemberId:
+        "9ef80648f10316335e97608b27b46d395c87cb5a92c2bee888710e72a2203e29",
+      entryOrdinal: 16,
+      selectionOrder: 3,
+      kind: "honor",
+      alternateRank: null,
+    },
+    {
+      memberId: "20000000-0000-4000-8000-000000000001",
+      pseudonymousMemberId:
+        "a2f9b4b93835c09bba6d906a802b4c5aa46c2b2d656e63888880580ec712320a",
+      entryOrdinal: 17,
+      selectionOrder: 4,
+      kind: "alternate",
+      alternateRank: 1,
+    },
+  ];
+
   assert(
     hash === await frozenLedgerHash(ledger),
     "ledger hash is not deterministic",
   );
-  assert(hash.length === 64, "ledger hash is malformed");
+  assert(
+    hash === "59d35f30f662fbafc8dd1ad30fb23834002ba31de3e51a74f4aa8ecda1982b1a",
+    "ledger hash diverged from the database vector",
+  );
+  assert(
+    JSON.stringify(ledger) === JSON.stringify(expectedLedger),
+    "bytewise ledger order diverged from the database vector",
+  );
+  assert(
+    JSON.stringify(first) === JSON.stringify(expectedResults),
+    "draw results diverged from the database vector",
+  );
   assert(
     JSON.stringify(first) === JSON.stringify(retry),
     "draw retry changed results",
@@ -552,7 +644,7 @@ Deno.test("salted ledger hash and draw are reproducible without duplicate member
   );
   assert(
     first.every((selection) =>
-      selection.entryOrdinal > 0 && selection.entryOrdinal <= 36
+      selection.entryOrdinal > 0 && selection.entryOrdinal <= 17
     ),
     "ordinal outside frozen ledger",
   );

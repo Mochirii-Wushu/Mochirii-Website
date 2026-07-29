@@ -83,10 +83,10 @@ export async function buildFrozenLedger(
       throw new Error("Frozen ledger member IDs must be unique.");
     }
     if (
-      !Number.isInteger(entry.entryCount) || entry.entryCount < 5 ||
+      !Number.isInteger(entry.entryCount) || entry.entryCount < 1 ||
       entry.entryCount > 10
     ) {
-      throw new Error("Frozen entry count must be between 5 and 10.");
+      throw new Error("Frozen entry count must be between 1 and 10.");
     }
     memberIds.add(entry.memberId);
     rows.push({
@@ -98,8 +98,14 @@ export async function buildFrozenLedger(
     });
   }
 
+  // Pseudonyms are lowercase SHA-256 hex. Explicit code-unit comparison is
+  // identical to PostgreSQL COLLATE "C" and cannot drift with an ICU locale.
   rows.sort((left, right) =>
-    left.pseudonymousMemberId.localeCompare(right.pseudonymousMemberId)
+    left.pseudonymousMemberId === right.pseudonymousMemberId
+      ? 0
+      : left.pseudonymousMemberId < right.pseudonymousMemberId
+      ? -1
+      : 1
   );
   let nextOrdinal = 1;
   return rows.map((row) => {
