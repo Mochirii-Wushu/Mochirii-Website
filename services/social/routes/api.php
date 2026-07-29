@@ -12,7 +12,13 @@ Route::get('media/private/{kind}/{id}/{variant?}', 'MochiriiPrivateMediaControll
         'id' => '[0-9]+',
         'variant' => 'original|preview|optimized|avatar|header',
     ])
-    ->middleware(['private-media', 'mochirii.private:private-media', 'validemail'])
+    ->middleware([
+        'private-media',
+        'mochirii.private:private-media',
+        'throttle:private-media',
+        'mochirii.private-media-2fa',
+        'validemail',
+    ])
     ->name('mochirii.private-media.show');
 
 Route::middleware('mochirii.federation-disabled')->group(function () {
@@ -218,6 +224,10 @@ Route::group(['prefix' => 'api'], function () use ($middleware) {
     });
 
     Route::group(['prefix' => 'v1.1'], function () use ($middleware) {
+        Route::post('security/private-media-assurance', 'Api\PrivateMediaTwoFactorController@store')
+            ->middleware($middleware)
+            ->middleware('throttle:private-media-checkpoint');
+
         Route::post('report', 'Api\ApiV1Dot1Controller@report')->middleware($middleware);
 
         Route::group(['prefix' => 'accounts'], function () use ($middleware) {

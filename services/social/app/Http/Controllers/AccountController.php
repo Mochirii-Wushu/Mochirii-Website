@@ -13,6 +13,7 @@ use App\Notification;
 use App\Profile;
 use App\Services\AccountService;
 use App\Services\FollowerService;
+use App\Services\MochiriiPrivateMediaTwoFactor;
 use App\Services\NotificationService;
 use App\Services\RelationshipService;
 use App\Services\UserFilterService;
@@ -27,7 +28,6 @@ use Illuminate\Support\Str;
 use League\Fractal;
 use League\Fractal\Serializer\ArraySerializer;
 use Mail;
-use PragmaRX\Google2FA\Google2FA;
 
 class AccountController extends Controller
 {
@@ -40,7 +40,7 @@ class AccountController extends Controller
 
     const FILTER_LIMIT_BLOCK_TEXT = 'You cannot block more than ';
 
-    public function __construct()
+    public function __construct(private MochiriiPrivateMediaTwoFactor $twoFactorAssurance)
     {
         $this->middleware('auth');
     }
@@ -473,7 +473,7 @@ class AccountController extends Controller
     public function sudoMode(Request $request)
     {
         if ($request->session()->has('sudoModeAttempts') && $request->session()->get('sudoModeAttempts') >= 3) {
-            $request->session()->pull('2fa.session.active');
+            $this->twoFactorAssurance->clearBrowser($request);
             $request->session()->pull('redirectNext');
             $request->session()->pull('sudoModeAttempts');
             Auth::logout();
@@ -532,18 +532,13 @@ class AccountController extends Controller
         ]);
         $user = Auth::user();
         $code = $request->input('code');
-        $google2fa = new Google2FA;
-        $verify = $google2fa->verifyKey($user->{'2fa_secret'}, $code);
-        if ($verify) {
-            $request->session()->push('2fa.session.active', true);
+        $verified = $this->twoFactorAssurance->verifyAndConsumeCode($user, $code);
+        $current = $verified ? $user->fresh() : null;
+        if ($current && $this->twoFactorAssurance->markBrowserSatisfied($request, $current)) {
+            $request->session()->forget('2fa.attempts');
 
             return redirect('/');
         } else {
-
-            if ($this->twoFactorBackupCheck($request, $code, $user)) {
-                return redirect('/');
-            }
-
             if ($request->session()->has('2fa.attempts')) {
                 $count = (int) $request->session()->get('2fa.attempts');
                 if ($count == 3) {
@@ -559,28 +554,6 @@ class AccountController extends Controller
             return redirect('/i/auth/checkpoint')->withErrors([
                 'code' => 'Invalid code',
             ]);
-        }
-    }
-
-    protected function twoFactorBackupCheck($request, $code, User $user)
-    {
-        $backupCodes = $user->{'2fa_backup_codes'};
-        if ($backupCodes) {
-            $codes = json_decode($backupCodes, true);
-            foreach ($codes as $c) {
-                if (hash_equals($c, $code)) {
-                    $codes = array_flatten(array_diff($codes, [$code]));
-                    $user->{'2fa_backup_codes'} = json_encode($codes);
-                    $user->save();
-                    $request->session()->push('2fa.session.active', true);
-
-                    return true;
-                }
-            }
-
-            return false;
-        } else {
-            return false;
         }
     }
 

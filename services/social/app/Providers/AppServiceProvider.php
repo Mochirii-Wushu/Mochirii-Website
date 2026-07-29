@@ -112,6 +112,40 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perDay(50)->by($request->ip());
         });
 
+        RateLimiter::for('private-media', function (Request $request) {
+            [$identity, $ip] = $this->privateMediaRateLimitKeys($request);
+            $response = $this->privateMediaRateLimitResponse();
+
+            return [
+                Limit::perMinute(max(1, (int) config('mochirii-private-media.rate_limits.requests_per_minute_per_identity', 240)))
+                    ->by('private-media:identity:'.$identity)
+                    ->response($response),
+                Limit::perMinute(max(1, (int) config('mochirii-private-media.rate_limits.requests_per_minute_per_ip', 360)))
+                    ->by('private-media:ip:'.$ip)
+                    ->response($response),
+            ];
+        });
+
+        RateLimiter::for('private-media-checkpoint', function (Request $request) {
+            [$identity, $ip] = $this->privateMediaRateLimitKeys($request);
+            $response = $this->privateMediaRateLimitResponse();
+
+            return [
+                Limit::perMinute(max(1, (int) config('mochirii-private-media.rate_limits.checkpoints_per_minute_per_identity', 5)))
+                    ->by('private-media-checkpoint:identity:minute:'.$identity)
+                    ->response($response),
+                Limit::perHour(max(1, (int) config('mochirii-private-media.rate_limits.checkpoints_per_hour_per_identity', 15)))
+                    ->by('private-media-checkpoint:identity:hour:'.$identity)
+                    ->response($response),
+                Limit::perMinute(max(1, (int) config('mochirii-private-media.rate_limits.checkpoints_per_minute_per_ip', 10)))
+                    ->by('private-media-checkpoint:ip:minute:'.$ip)
+                    ->response($response),
+                Limit::perHour(max(1, (int) config('mochirii-private-media.rate_limits.checkpoints_per_hour_per_ip', 30)))
+                    ->by('private-media-checkpoint:ip:hour:'.$ip)
+                    ->response($response),
+            ];
+        });
+
         RateLimiter::for('oauth-token-revoke', function (Request $request) {
             $user = $request->user('api');
             $actor = $user
@@ -186,5 +220,39 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(UserOidcService::class, function () {
             return UserOidcService::build();
         });
+    }
+
+    private function privateMediaRateLimitKeys(Request $request): array
+    {
+        $user = $request->bearerToken()
+            ? $request->user('api')
+            : $request->user('web');
+        $identity = $user
+            ? (string) $user->getAuthIdentifier()
+            : 'anonymous';
+        $ip = (string) ($request->ip() ?: 'unknown');
+        $key = (string) config('app.key');
+
+        $opaqueKey = static fn (string $context, string $value) => $key !== ''
+            ? hash_hmac('sha256', $context.'|'.$value, $key)
+            : hash('sha256', $context.'|'.$value);
+
+        return [
+            $opaqueKey('identity', $identity),
+            $opaqueKey('ip', $ip),
+        ];
+    }
+
+    private function privateMediaRateLimitResponse(): \Closure
+    {
+        return static function (Request $request, array $headers) {
+            return response('', 429, array_merge($headers, [
+                'Cache-Control' => 'private, no-store, max-age=0',
+                'Pragma' => 'no-cache',
+                'Referrer-Policy' => 'no-referrer',
+                'X-Content-Type-Options' => 'nosniff',
+                'Vary' => 'Authorization, Cookie',
+            ]));
+        };
     }
 }

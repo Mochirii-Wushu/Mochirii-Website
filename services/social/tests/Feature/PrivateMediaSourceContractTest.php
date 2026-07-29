@@ -109,12 +109,36 @@ class PrivateMediaSourceContractTest extends TestCase
         $this->assertStringContainsString("Route::get('media/private/{kind}/{id}/{variant?}'", $routes);
         $this->assertStringContainsString("'kind' => 'media|avatar|story|group|group-media'", $routes);
         $this->assertStringNotContainsString('story-item', $routes);
-        $this->assertStringContainsString("->middleware(['private-media', 'mochirii.private:private-media', 'validemail'])", $routes);
+        foreach ([
+            "'private-media'",
+            "'mochirii.private:private-media'",
+            "'mochirii.private-media-2fa'",
+            "'throttle:private-media'",
+            "'validemail'",
+        ] as $middleware) {
+            $this->assertStringContainsString($middleware, $routes);
+        }
+        $this->assertLessThan(
+            strpos($routes, "'mochirii.private-media-2fa'"),
+            strpos($routes, "'throttle:private-media'")
+        );
+        $this->assertStringContainsString("Route::post('security/private-media-assurance'", $routes);
+        $this->assertStringContainsString("'throttle:private-media-checkpoint'", $routes);
 
         $kernel = file_get_contents(base_path('app/Http/Kernel.php'));
         $this->assertStringContainsString("'private-media' => [", $kernel);
         $this->assertStringContainsString('EncryptCookies::class', $kernel);
         $this->assertStringContainsString('StartSession::class', $kernel);
+        $this->assertStringContainsString("'mochirii.private-media-2fa' => MochiriiPrivateMediaTwoFactor::class", $kernel);
+
+        $provider = file_get_contents(base_path('app/Providers/AppServiceProvider.php'));
+        $this->assertStringContainsString("RateLimiter::for('private-media'", $provider);
+        $this->assertStringContainsString("RateLimiter::for('private-media-checkpoint'", $provider);
+        $this->assertStringContainsString('requests_per_minute_per_identity', $provider);
+        $this->assertStringContainsString('requests_per_minute_per_ip', $provider);
+
+        $handler = file_get_contents(base_path('app/Exceptions/Handler.php'));
+        $this->assertMatchesRegularExpression('/protected \$dontFlash = \[[^]]*\'code\'/s', $handler);
     }
 
     #[Test]
