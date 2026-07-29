@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import type { NextRequest } from "next/server.js";
 import { NextResponse } from "next/server.js";
+import { protectedPageContentSecurityPolicy } from "./lib/security/protected-csp.ts";
 import { isSupabaseConfigured, SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "./lib/supabase/config.ts";
 import {
   SPINNER_PRIVATE_RESPONSE_HEADERS,
@@ -13,9 +14,23 @@ const SPINNER_PAGE_PATH = "/spinner";
 const SUPABASE_SESSION_PATHS = new Set(["/leader-dashboard", "/oauth/consent"]);
 
 async function refreshSupabaseSession(request: NextRequest) {
-  if (!isSupabaseConfigured()) return NextResponse.next({ request });
+  const nonce = crypto.randomUUID().replaceAll("-", "");
+  const contentSecurityPolicy = protectedPageContentSecurityPolicy(nonce);
 
-  let response = NextResponse.next({ request });
+  function protectedResponse() {
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set("Content-Security-Policy", contentSecurityPolicy);
+    requestHeaders.set("x-nonce", nonce);
+    const nextResponse = NextResponse.next({ request: { headers: requestHeaders } });
+    nextResponse.headers.set("Content-Security-Policy", contentSecurityPolicy);
+    nextResponse.headers.set("Cache-Control", "private, no-store, max-age=0");
+    nextResponse.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive, nosnippet, noimageindex");
+    return nextResponse;
+  }
+
+  if (!isSupabaseConfigured()) return protectedResponse();
+
+  let response = protectedResponse();
   const client = createServerClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     auth: {
       flowType: "pkce",
@@ -26,7 +41,7 @@ async function refreshSupabaseSession(request: NextRequest) {
       },
       setAll(cookiesToSet) {
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-        response = NextResponse.next({ request });
+        response = protectedResponse();
         cookiesToSet.forEach(({ name, value, options }) => {
           response.cookies.set(name, value, options);
         });
