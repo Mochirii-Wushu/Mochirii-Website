@@ -238,7 +238,6 @@ export type GalleryReviewSubmission = {
   sourceWidth?: number | null;
   sourceHeight?: number | null;
   sourceValidatedAt?: string | null;
-  signedPreviewUrl?: string | null;
   previewError?: string | null;
   instagramOptIn?: boolean | null;
   instagramOptInAt?: string | null;
@@ -252,7 +251,6 @@ export type GalleryReviewQueue = {
   count?: number;
   status?: string;
   thumbnailState?: string;
-  signedUrlSeconds?: number;
   summary?: Record<string, number | string | undefined>;
   pagination?: {
     page?: number;

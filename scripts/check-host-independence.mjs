@@ -100,6 +100,48 @@ const runtimeTextExtensions = new Set([
 ]);
 const reviewedLoopbacks = new Map([
   [
+    "apps/web/lib/gallery/moderation-preview-server-core.ts",
+    [
+      { value: '"localhost"', count: 1 },
+      { value: '"127.0.0.1"', count: 1 },
+    ],
+  ],
+  [
+    "apps/web/lib/gallery/moderation-preview-server_test.ts",
+    [
+      { value: "localhost", count: 2 },
+      { value: "127.0.0.1", count: 2 },
+    ],
+  ],
+  [
+    "apps/web/lib/gallery/moderation-preview-route.ts",
+    [
+      { value: '"localhost"', count: 1 },
+      { value: '"127.0.0.1"', count: 1 },
+    ],
+  ],
+  [
+    "apps/web/lib/gallery/moderation-preview-route_test.ts",
+    [
+      { value: "localhost", count: 4 },
+      { value: "127.0.0.1", count: 2 },
+    ],
+  ],
+  [
+    "supabase/functions/_shared/gallery-preview-attestation.ts",
+    [
+      { value: '"localhost"', count: 1 },
+      { value: '"127.0.0.1"', count: 1 },
+    ],
+  ],
+  [
+    "supabase/functions/_shared/gallery-preview-attestation_test.ts",
+    [
+      { value: "localhost", count: 1 },
+      { value: "127.0.0.1", count: 5 },
+    ],
+  ],
+  [
     "apps/web/lib/member-social-links/profile-links-core.ts",
     [{ value: "localhost", count: 2 }],
   ],

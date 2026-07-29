@@ -1,6 +1,8 @@
 import { invokeEdgeFunction } from "./client";
+import { getCurrentSession } from "./auth";
 import {
   failedResult,
+  okResult,
   type GalleryReviewQueue,
   type InstagramApiStatus,
   type InstagramPublishQueue,
@@ -10,6 +12,7 @@ import {
   type RejectedGalleryCleanupResponse,
 } from "./types";
 import type { GalleryModerationMedia } from "@/lib/gallery-thumbnail";
+import { fetchGalleryModerationPreview } from "@/lib/gallery/moderation-preview-client";
 
 export async function checkLeaderGalleryModerationAccess() {
   return invokeEdgeFunction<{ hasAccess?: boolean; moderatorId?: string }>("list-gallery-review-queue", {
@@ -42,17 +45,20 @@ export async function prepareGalleryReviewPreview(
     return failedResult("Refresh the moderation queue before preparing this preview.");
   }
 
-  return invokeEdgeFunction<{
-    submissionId?: string;
-    signedPreviewUrl?: string;
-    sourceWidth?: number;
-    sourceHeight?: number;
-    sourceValidatedAt?: string;
-  }>("list-gallery-review-queue", {
-    action: "prepare_preview",
-    submission_id: cleanSubmissionId,
-    expected_updated_at: cleanExpectedUpdatedAt,
+  const sessionResult = await getCurrentSession();
+  const accessToken = sessionResult.data?.session?.access_token || "";
+  if (!sessionResult.ok || !accessToken) {
+    return failedResult("Sign in again before preparing this private preview.");
+  }
+
+  const preview = await fetchGalleryModerationPreview({
+    accessToken,
+    expectedUpdatedAt: cleanExpectedUpdatedAt,
+    submissionId: cleanSubmissionId,
   });
+  return preview
+    ? okResult(preview, "Prepared private Gallery preview.")
+    : failedResult("The private Gallery preview could not be prepared.");
 }
 
 export async function moderateGallerySubmission(

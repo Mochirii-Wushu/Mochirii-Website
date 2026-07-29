@@ -50,12 +50,6 @@ export type ApprovedGalleryPage = {
   cacheSeconds: number;
 };
 
-export type ApprovedGalleryAsset = {
-  schemaVersion: typeof APPROVED_GALLERY_SCHEMA_VERSION;
-  id: string;
-  mediaUrl: string;
-};
-
 export type ApprovedGalleryPageRequest = {
   cursor?: string | null;
   sort?: ApprovedGallerySort;
@@ -111,12 +105,6 @@ const itemKeys = new Set([
   "thumbnail_size_bytes",
   "thumbnail_width",
   "thumbnail_height",
-]);
-const assetDataKeys = new Set([
-  "schemaVersion",
-  "id",
-  "full_url",
-  "thumbnail_url",
 ]);
 
 function record(value: unknown): JsonRecord | null {
@@ -297,29 +285,23 @@ export function parseApprovedGalleryPage(value: unknown): ApprovedGalleryPage | 
   };
 }
 
-export function parseApprovedGalleryAsset(
-  value: unknown,
-  expectedId: string,
-  urlKey: "full_url" | "thumbnail_url",
-): ApprovedGalleryAsset | null {
-  const data = record(value);
-  if (!data || !hasOnlyKeys(data, assetDataKeys) || data.schemaVersion !== APPROVED_GALLERY_SCHEMA_VERSION) return null;
-  const id = nonemptyString(data.id, 80);
-  const mediaUrl = id
-    ? validGalleryMediaUrl(
-      data[urlKey],
-      urlKey === "full_url" ? "display" : "thumbnail",
-      id,
-    )
-    : null;
-  if (!id || id !== expectedId || !uuidPattern.test(id) || !mediaUrl) return null;
-  if (urlKey === "full_url" && "thumbnail_url" in data) return null;
-  if (urlKey === "thumbnail_url" && "full_url" in data) return null;
-  return { schemaVersion: APPROVED_GALLERY_SCHEMA_VERSION, id, mediaUrl };
-}
-
 function approvedGalleryFeedUrl() {
   return `${configuredSupabaseUrl().origin}/functions/v1/list-approved-gallery-submissions`;
+}
+
+function approvedGalleryMediaUrl(
+  kind: "full" | "thumbnail",
+  id: string,
+): string | null {
+  if (!uuidPattern.test(id)) return null;
+  const url = new URL(approvedGalleryFeedUrl());
+  url.searchParams.set("asset", kind);
+  url.searchParams.set("id", id);
+  return validGalleryMediaUrl(
+    url.toString(),
+    kind === "full" ? "display" : "thumbnail",
+    id,
+  );
 }
 
 class GalleryRequestTimeoutError extends Error {
@@ -557,15 +539,12 @@ async function resolveApprovedGalleryAsset(
   signal?: AbortSignal,
 ) {
   if (!uuidPattern.test(id)) throw new Error(action === "full" ? fullImageUnavailableMessage : thumbnailUnavailableMessage);
-  const result = await requestApprovedGallery({
-    body: { action, id },
-    cacheCompleted: false,
-    signal,
-    parse: (value) => parseApprovedGalleryAsset(value, id, action === "full" ? "full_url" : "thumbnail_url"),
-    unavailable: action === "full" ? fullImageUnavailableMessage : thumbnailUnavailableMessage,
-  });
-  if (!result.ok || !result.data) throw new Error(result.message || unavailableMessage);
-  return result.data.mediaUrl;
+  if (signal?.aborted) throw abortError();
+  const mediaUrl = approvedGalleryMediaUrl(action, id);
+  if (!mediaUrl) {
+    throw new Error(action === "full" ? fullImageUnavailableMessage : thumbnailUnavailableMessage);
+  }
+  return mediaUrl;
 }
 
 export function resolveApprovedGalleryOriginal(id: string, signal?: AbortSignal) {

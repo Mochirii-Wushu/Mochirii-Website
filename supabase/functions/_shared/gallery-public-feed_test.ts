@@ -6,10 +6,13 @@ import {
   GalleryIsolateEvidenceCache,
   galleryPublicListCacheKey,
   type GalleryPublicRequest,
+  isLegacyGalleryListRequest,
   isUnsignedGalleryPageEvidence,
   parseGalleryDatabasePage,
   parseGalleryDeliveryReservation,
+  parseGalleryMediaReservation,
   parseGalleryPublicRequest,
+  toLegacyGalleryItem,
   toPublicGalleryItem,
 } from "./gallery-public-feed.ts";
 
@@ -85,6 +88,19 @@ Deno.test("normalizes and bounds a Gallery list request", () => {
   );
 });
 
+Deno.test("recognizes only the exact legacy empty-object request shape", () => {
+  assert(
+    isLegacyGalleryListRequest({}),
+    "legacy empty-object request was rejected",
+  );
+  for (const value of [null, [], "{}", { action: "list" }, { pageSize: 24 }]) {
+    assert(
+      !isLegacyGalleryListRequest(value),
+      `nonlegacy request was accepted: ${JSON.stringify(value)}`,
+    );
+  }
+});
+
 Deno.test("rejects malformed cursors, categories, searches, and opaque ids", () => {
   for (
     const payload of [
@@ -156,7 +172,8 @@ function databasePage(): Record<string, unknown> {
   return {
     schemaVersion: 2,
     snapshotAt: cursorValue.snapshotAt,
-    snapshotExpiresAt: new Date(cursorSnapshot.getTime() + 10 * 60 * 1000).toISOString(),
+    snapshotExpiresAt: new Date(cursorSnapshot.getTime() + 10 * 60 * 1000)
+      .toISOString(),
     items: [{
       id: cursorValue.id,
       title: "Guild view",
@@ -192,7 +209,10 @@ function databasePage(): Record<string, unknown> {
 }
 
 Deno.test("strict database page evidence rejects malformed empty and aggregate envelopes", () => {
-  assert(parseGalleryDatabasePage(databasePage()), "valid database page was rejected");
+  assert(
+    parseGalleryDatabasePage(databasePage()),
+    "valid database page was rejected",
+  );
   assert(
     parseGalleryDatabasePage({ schemaVersion: 2, items: [] }) === null,
     "malformed database evidence masqueraded as an empty Gallery",
@@ -202,8 +222,12 @@ Deno.test("strict database page evidence rejects malformed empty and aggregate e
     "missing Gallery aggregates were accepted",
   );
   assert(
-    parseGalleryDatabasePage({ ...databasePage(), unknownCategoryCount: null }) === null &&
-      parseGalleryDatabasePage({ ...databasePage(), totalEligible: "2" }) === null,
+    parseGalleryDatabasePage({
+          ...databasePage(),
+          unknownCategoryCount: null,
+        }) === null &&
+      parseGalleryDatabasePage({ ...databasePage(), totalEligible: "2" }) ===
+        null,
     "coerced Gallery aggregate values were accepted",
   );
   assert(
@@ -213,27 +237,95 @@ Deno.test("strict database page evidence rejects malformed empty and aggregate e
 });
 
 Deno.test("delivery reservations distinguish allowed, denied, and malformed evidence", () => {
-  assert(parseGalleryDeliveryReservation({
-    allowed: true,
-    retryAfterSeconds: 0,
-    dailyReservedBytes: 1024,
-    dailyLimitBytes: 4096,
-  })?.allowed === true, "valid delivery reservation was rejected");
-  assert(parseGalleryDeliveryReservation({
-    allowed: false,
-    retryAfterSeconds: 60,
-    dailyReservedBytes: 4096,
-    dailyLimitBytes: 4096,
-  })?.allowed === false, "valid quota denial was rejected");
+  assert(
+    parseGalleryDeliveryReservation({
+      allowed: true,
+      retryAfterSeconds: 0,
+      dailyReservedBytes: 1024,
+      dailyLimitBytes: 4096,
+    })?.allowed === true,
+    "valid delivery reservation was rejected",
+  );
+  assert(
+    parseGalleryDeliveryReservation({
+      allowed: false,
+      retryAfterSeconds: 60,
+      dailyReservedBytes: 4096,
+      dailyLimitBytes: 4096,
+    })?.allowed === false,
+    "valid quota denial was rejected",
+  );
   assert(
     parseGalleryDeliveryReservation({}) === null &&
       parseGalleryDeliveryReservation({
-        allowed: false,
-        retryAfterSeconds: "60",
-        dailyReservedBytes: null,
-        dailyLimitBytes: 4096,
-      }) === null,
+          allowed: false,
+          retryAfterSeconds: "60",
+          dailyReservedBytes: null,
+          dailyLimitBytes: 4096,
+        }) === null,
     "malformed reservation evidence was treated as a quota denial",
+  );
+});
+
+Deno.test("atomic media reservations require exact bounded media evidence", () => {
+  const allowed = parseGalleryMediaReservation(
+    {
+      allowed: true,
+      retryAfterSeconds: 0,
+      dailyReservedBytes: 1024,
+      dailyLimitBytes: 4096,
+      id: cursorValue.id,
+      storageBucket: "member-gallery",
+      storagePath: `_approved/publications/${cursorValue.id}/display.webp`,
+      mimeType: "image/webp",
+      sizeBytes: 1024,
+      width: 1280,
+      height: 720,
+      sha256: "a".repeat(64),
+    },
+    cursorValue.id,
+    "full",
+  );
+  assert(
+    allowed?.allowed === true && "storagePath" in allowed,
+    "valid atomic media evidence was rejected",
+  );
+
+  const denied = parseGalleryMediaReservation(
+    {
+      allowed: false,
+      retryAfterSeconds: 60,
+      dailyReservedBytes: 4096,
+      dailyLimitBytes: 4096,
+    },
+    cursorValue.id,
+    "full",
+  );
+  assert(
+    denied?.allowed === false && !("storagePath" in denied),
+    "quota denial did not remain path-free",
+  );
+
+  assert(
+    parseGalleryMediaReservation(
+      {
+        allowed: true,
+        retryAfterSeconds: 0,
+        dailyReservedBytes: 1024,
+        dailyLimitBytes: 4096,
+        id: cursorValue.id,
+        storageBucket: "member-gallery",
+        storagePath: "private/source.webp",
+        mimeType: "image/webp",
+        sizeBytes: 81 * 1024,
+        width: 720,
+        height: 450,
+        sha256: "a".repeat(64),
+      },
+      cursorValue.id,
+      "thumbnail",
+    ) === null,
+    "oversized thumbnail evidence was accepted",
   );
 });
 
@@ -271,6 +363,51 @@ Deno.test("public Gallery items omit service-only references and originals", () 
   assert(
     !serialized.includes("Mōchī Member") && !("uploader_display_name" in item),
     "member identity leaked into the anonymous Gallery item",
+  );
+});
+
+Deno.test("legacy Gallery items use metered Edge URLs without identity or paths", () => {
+  const thumbnailUrl =
+    `https://media.example.test/functions/v1/list-approved-gallery-submissions?asset=thumbnail&id=${cursorValue.id}`;
+  const fullUrl =
+    `https://media.example.test/functions/v1/list-approved-gallery-submissions?asset=full&id=${cursorValue.id}`;
+  const publicItem = toPublicGalleryItem({
+    id: cursorValue.id,
+    title: "Guild view",
+    caption: "A shared horizon",
+    category: "scenery",
+    categories: ["member-submissions", "scenery"],
+    mimeType: "image/webp",
+    sizeBytes: 1000,
+    createdAt: cursorValue.createdAt,
+    reviewedAt: cursorValue.reviewedAt,
+    thumbnailSizeBytes: 100,
+    thumbnailWidth: 640,
+    thumbnailHeight: 400,
+  }, thumbnailUrl);
+  assert(publicItem, "expected a valid public item");
+  const legacyItem = toLegacyGalleryItem(publicItem, fullUrl);
+  assert(legacyItem, "expected a valid legacy item");
+  assert(
+    legacyItem.full_signed_url === fullUrl &&
+      legacyItem.thumbnail_signed_url === thumbnailUrl,
+    "legacy media fields did not retain the metered Edge URLs",
+  );
+  assert(
+    legacyItem.uploader_display_name === null &&
+      legacyItem.uploader_discord_name === null,
+    "legacy compatibility exposed member identity",
+  );
+  const serialized = JSON.stringify(legacyItem);
+  assert(
+    !serialized.includes("storage_path") &&
+      !serialized.includes("storage_bucket") &&
+      !serialized.includes("private/original"),
+    "legacy compatibility exposed a private Storage reference",
+  );
+  assert(
+    toLegacyGalleryItem(publicItem, thumbnailUrl) === null,
+    "legacy compatibility accepted identical thumbnail and full URLs",
   );
 });
 

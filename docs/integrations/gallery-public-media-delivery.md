@@ -6,11 +6,11 @@ The Gallery publishes reviewed, immutable, service-owned WebP derivatives from
 the private `member-gallery` bucket. The current schema-v2 application gives
 visitors stable, credential-free Edge media URLs keyed only by an opaque
 publication UUID. Member upload paths, member identity, raw originals,
-provider credentials, and bearer-capability URLs never cross that current
-public DTO boundary. A tightly bounded legacy response remains available only
-so a reviewed application rollback does not fail during the release window;
-it can expose signed URLs for the same bounded service-owned derivatives, but
-never for member-owned originals.
+provider credentials, and bearer-capability URLs never cross the public DTO
+boundary. The current Edge Function also recognizes the prior browser's exact
+empty-object list request and maps the same public evidence into its legacy DTO
+field names. Those historical URL fields contain metered Edge URLs, never
+Storage paths or signed Storage capabilities.
 
 This document describes source behavior only. Migration application, function
 deployment, historical publication work, and Website release remain separately
@@ -37,6 +37,31 @@ larger than 8 MiB, 4096 pixels per edge, or 12.6 megapixels. Its evidence is
 bound to the submission revision and exact Storage object ID, version,
 timestamp, MIME type, size, decoded dimensions, SHA-256, and validator version.
 Stale or mismatched evidence fails closed.
+
+For moderator review, `prepare_preview` reserves the exact source bytes before
+the private object is downloaded, performs the structural validation and a
+real runtime decode, and returns the bytes only to the same-origin server
+route. That Node route independently decodes and re-renders a fresh WebP,
+strips metadata chunks, and enforces a 2560-pixel/2-MiB ceiling. The browser
+receives only that no-store same-origin derivative and exact durable validation
+timestamp; it never receives a raw-source URL or signed Storage capability.
+
+The raw-byte response requires two independent credentials: the moderator's
+verified user JWT and Vercel's signed, short-lived workload OIDC token injected
+into the same-origin Function request. The Edge Function verifies the token's
+RS256 signature against Vercel's fixed JWKS endpoint and binds the issuer,
+audience, owner, project, environment, and lifetime before reading Storage.
+The user JWT alone cannot request source bytes. The workload token is never
+returned to the browser or logged, and its forwarding header is intentionally
+absent from the Edge CORS allowlist. Local development has only an exact
+HTTP-loopback marker whose request and configured Supabase ports must match;
+it cannot authorize a hosted request.
+
+References:
+
+- <https://vercel.com/docs/oidc/reference>
+- <https://vercel.com/docs/environment-variables/system-environment-variables>
+- <https://supabase.com/docs/guides/functions/auth-headers>
 
 The first approval assigns one stable publication UUID and one revision UUID.
 A later thumbnail refresh retains the publication UUID and display derivative,
@@ -85,20 +110,25 @@ failures never advance traversal. Facet evidence must contain all six facets:
 
 ### Media URL resolution and delivery
 
-`POST` actions `thumbnail` and `full` return only the matching stable Edge URL.
-The URL has the exact shape:
+The browser derives the matching stable Edge URL from the opaque publication
+ID already present in the list DTO. It makes no preliminary resolver request or
+database lookup. The URL has the exact shape:
 
 ```text
 /functions/v1/list-approved-gallery-submissions?asset={thumbnail|full}&id={publication-id}
 ```
 
-The browser then uses credential-free `GET`. Before returning bytes, the Edge
-Function:
+The browser uses credential-free `GET`; media `POST` requests fail closed.
+Before returning bytes, the Edge Function:
 
-1. resolves the current or snapshot-retained immutable publication;
-2. reserves the request and expected bytes in the global database budget;
-3. downloads the private service-owned object;
-4. verifies exact MIME type, size, and SHA-256 against the ledger; and
+1. selects only the indexed current or snapshot-retained revision identity and
+   its immutable byte count;
+2. reserves that exact byte count and returns a path-free denial immediately
+   when capacity is exhausted;
+3. only after allowance, reconciles the full Storage evidence and obtains the
+   private service-owned object path;
+4. downloads the object, verifies exact MIME type, size, and SHA-256 against
+   the ledger; and
 5. returns WebP with `X-Content-Type-Options: nosniff`.
 
 Successful media uses `Cache-Control: private, max-age=300,
@@ -127,17 +157,26 @@ in-progress snapshot can finish; archiving the source prevents new resolution.
 
 Every request first passes a per-isolate token bucket: burst 48, refill two per
 second, and at most 12 concurrent non-preflight requests. This is not a global rate limit;
-a database advisory
-lock serializes the authoritative cross-isolate budget:
+a database advisory lock serializes each authoritative cross-isolate budget:
 
-| Delivery | Requests/minute | Requests/UTC day |
-| --- | ---: | ---: |
-| List | 120 | 10,000 |
-| Thumbnail | 240 | 10,000 |
-| Full display | 30 | 500 |
+| Capacity pool | Delivery | Requests/minute | Requests/UTC day | Reserved bytes/UTC day |
+| --- | --- | ---: | ---: | ---: |
+| Public | List | 120 | 10,000 | Shared 64 MiB public ceiling |
+| Public | Thumbnail | 240 | 10,000 | Shared 64 MiB public ceiling |
+| Public | Full display | 30 | 500 | Shared 64 MiB public ceiling |
+| Moderator | Private preview | 12 | 100 | Separate 64 MiB moderator ceiling |
 
-All delivery kinds share a conservative 64 MiB reserved-byte ceiling per UTC
-day. A list reserves 64 KiB; media reserves its immutable recorded size.
+Public list, thumbnail, and display delivery share one conservative 64 MiB
+reserved-byte ceiling per UTC day. Every metadata list, including the exact
+legacy empty-object request, reserves 64 KiB. Every thumbnail or display
+request reserves its immutable recorded size in the same transaction that
+reveals the private object path to the Edge Function. A moderator preview uses
+a different table, advisory lock, request limits, and 64 MiB daily byte pool,
+so anonymous traffic cannot consume moderation capacity. It reserves its exact
+private-source size before the Storage read and is bounded to 8 MiB; public
+media remains bounded to 2 MiB. Because legacy DTO URL fields resolve back
+through the same Edge media boundary, retries and replay are metered as new
+media requests rather than bypassing the daily budget.
 Denied reservations do not increment counters. Minute saturation returns the
 next-minute retry; daily saturation returns the next UTC-day retry. Invalid or
 unreadable reservation evidence fails closed with no media download.
@@ -184,23 +223,31 @@ parity. That count is evidence for this source head, not permission to deploy a
 later head. No provider write, preview, migration application, function deploy,
 or Website publication follows from this document alone.
 
-Application rollback may restore the prior Vercel deployment and reviewed
-function source. During the bounded rollback window, the service-role-only
-`gallery_publishable_submissions(integer, integer)` compatibility RPC keeps
-that prior Edge source functional. It caps the former 80-row request at 24,
-charges the shared list-delivery budget, requires current approval plus exact
-immutable Storage-object evidence, and synthesizes the legacy response from
-the active publication revision. Its legacy `storage_path` is the metadata-
-stripped display derivative (at most 2 MiB), never the member-owned source;
-member, filename, moderator, and rejection identity fields are blanked. The
-thumbnail remains the matching metadata-stripped derivative (at most 80 KiB).
+Use this release-order and rollback matrix:
 
-Do not remove this compatibility RPC until the rollback window has formally
-closed and no retained deployment or reviewed rollback source depends on it.
-Removal requires a separate reviewed retirement migration. A rollback must not
-delete publication objects, immutable revisions, moderation evidence, or
-additive schema. Data cleanup requires a separately reviewed destructive-action
-packet.
+| Website browser | Gallery Edge | Publication migration | Result |
+| --- | --- | --- | --- |
+| Current v2 | Current | Applied | Full schema-v2 feed and per-request metered media. |
+| Prior v1 | Current | Applied | Exact `{}` request receives legacy DTO field names containing current metered Edge thumbnail and display URLs. |
+| Current v2 | Prior | Applied | Runtime feed fails closed; the static Gallery remains available. |
+| Prior v1 | Prior | Applied | Runtime feed is empty; the static Gallery remains available and no media capability is minted. |
+
+The safe rollout order is migration first, current Edge second, then the
+Website. The migration retains the service-role-only
+`gallery_publishable_submissions(integer, integer)` signature solely as a
+list-budgeted empty-set guard. This makes a separately restored prior Edge
+Function unable to mint replayable Storage URLs. Deploying the current Edge
+before the migration also fails closed because its v2 database contract is not
+present. A prior Website deployment may be restored while the current Edge and
+migration remain in place; that is the only rollback combination that retains
+the runtime member feed.
+
+Do not remove the compatibility signature until the rollback window has
+formally closed and no retained deployment or reviewed rollback source depends
+on it. Removal requires a separate reviewed retirement migration. A rollback
+must not delete publication objects, immutable revisions, moderation evidence,
+or additive schema. Data cleanup requires a separately reviewed
+destructive-action packet.
 
 ## Primary references
 

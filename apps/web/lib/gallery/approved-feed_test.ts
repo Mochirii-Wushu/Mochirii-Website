@@ -3,7 +3,6 @@ import test from "node:test";
 import {
   fetchWithGalleryTimeout,
   listApprovedGallerySubmissions,
-  parseApprovedGalleryAsset,
   parseApprovedGalleryPage,
   refreshApprovedGalleryThumbnail,
   resolveApprovedGalleryOriginal,
@@ -109,59 +108,23 @@ test("cursor, totals, and partial delivery invariants fail closed", () => {
   assert.equal(parseApprovedGalleryPage(finalPage), null);
 });
 
-test("asset parsing accepts only the requested id and requested URL field", () => {
-  assert.deepEqual(
-    parseApprovedGalleryAsset({
-      schemaVersion: 2,
-      id: submissionId,
-      full_url: mediaUrl("full"),
-    }, submissionId, "full_url"),
-    {
-      schemaVersion: 2,
-      id: submissionId,
-      mediaUrl: mediaUrl("full"),
-    },
+test("asset resolvers derive only the exact credential-free media URL", async () => {
+  assert.equal(await resolveApprovedGalleryOriginal(submissionId), mediaUrl("full"));
+  assert.equal(await refreshApprovedGalleryThumbnail(submissionId), mediaUrl("thumbnail"));
+  await assert.rejects(
+    resolveApprovedGalleryOriginal("not-a-publication-id"),
+    /full image is unavailable/i,
   );
-  assert.equal(parseApprovedGalleryAsset({
-    schemaVersion: 2,
-    id: submissionId,
-    full_url: mediaUrl("full"),
-    thumbnail_url: mediaUrl("thumbnail"),
-  }, submissionId, "full_url"), null);
 
-  assert.equal(parseApprovedGalleryAsset({
-    schemaVersion: 2,
-    id: submissionId,
-    full_url: `https://media.example.test/functions/v1/list-approved-gallery-submissions?asset=full&id=${submissionId}`,
-  }, submissionId, "full_url"), null);
-  assert.equal(parseApprovedGalleryAsset({
-    schemaVersion: 2,
-    id: submissionId,
-    full_url: `${mediaOrigin}/functions/v1/another-function?asset=full&id=${submissionId}`,
-  }, submissionId, "full_url"), null);
-  assert.equal(parseApprovedGalleryAsset({
-    schemaVersion: 2,
-    id: submissionId,
-    full_url: `${mediaOrigin}/functions/v1/list-approved-gallery-submissions?id=${submissionId}`,
-  }, submissionId, "full_url"), null);
-  assert.equal(parseApprovedGalleryAsset({
-    schemaVersion: 2,
-    id: submissionId,
-    full_url: `${mediaOrigin}/functions/v1/list-approved-gallery-submissions?asset=thumbnail&id=${submissionId}`,
-  }, submissionId, "full_url"), null);
-  assert.equal(parseApprovedGalleryAsset({
-    schemaVersion: 2,
-    id: submissionId,
-    full_url: `${mediaUrl("full")}&extra=unexpected`,
-  }, submissionId, "full_url"), null);
-  assert.equal(parseApprovedGalleryAsset({
-    schemaVersion: 2,
-    id: submissionId,
-    full_url: mediaUrl("full", "10000000-0000-4000-8000-000000000002"),
-  }, submissionId, "full_url"), null);
+  const caller = new AbortController();
+  caller.abort();
+  await assert.rejects(
+    refreshApprovedGalleryThumbnail(submissionId, caller.signal),
+    { name: "AbortError" },
+  );
 });
 
-test("list, full-image, and thumbnail requests use the credential-free versioned envelope", async () => {
+test("only list requests use POST while media uses deterministic GET URLs", async () => {
   const originalFetch = globalThis.fetch;
   const requests: Array<{
     url: string;
@@ -181,19 +144,7 @@ test("list, full-image, and thumbnail requests use the credential-free versioned
       credentials: init?.credentials,
       body,
     });
-    const data = body.action === "full"
-      ? {
-        schemaVersion: 2,
-        id: submissionId,
-        full_url: mediaUrl("full"),
-      }
-      : body.action === "thumbnail"
-        ? {
-          schemaVersion: 2,
-          id: submissionId,
-          thumbnail_url: mediaUrl("thumbnail"),
-        }
-      : validPage();
+    const data = validPage();
     return new Response(JSON.stringify({ ok: true, data }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
@@ -211,19 +162,14 @@ test("list, full-image, and thumbnail requests use the credential-free versioned
     assert.equal(await resolveApprovedGalleryOriginal(submissionId), mediaUrl("full"));
     assert.equal(await resolveApprovedGalleryOriginal(submissionId), mediaUrl("full"));
     assert.equal(await refreshApprovedGalleryThumbnail(submissionId), mediaUrl("thumbnail"));
-    assert.deepEqual(requests.map((request) => request.body), [
-      {
-        action: "list",
-        pageSize: 24,
-        cursor: "ZXhhbXBsZV9jdXJzb3I",
-        sort: "oldest",
-        category: "gatherings",
-        query: "Cloud",
-      },
-      { action: "full", id: submissionId },
-      { action: "full", id: submissionId },
-      { action: "thumbnail", id: submissionId },
-    ]);
+    assert.deepEqual(requests.map((request) => request.body), [{
+      action: "list",
+      pageSize: 24,
+      cursor: "ZXhhbXBsZV9jdXJzb3I",
+      sort: "oldest",
+      category: "gatherings",
+      query: "Cloud",
+    }]);
     for (const request of requests) {
       assert.equal(request.url, `${mediaOrigin}/functions/v1/list-approved-gallery-submissions`);
       assert.equal(request.method, "POST");

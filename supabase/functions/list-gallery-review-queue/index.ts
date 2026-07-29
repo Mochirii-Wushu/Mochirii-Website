@@ -8,9 +8,13 @@ import {
   requireModeratorAccess,
   safeString,
 } from "../_shared/gallery-moderation.ts";
+import {
+  decodeGallerySourceImage,
+  gallerySourcePreviewResponse,
+} from "../_shared/gallery-source-decode.ts";
 import { validateGallerySourceBytes } from "../_shared/gallery-source-image.ts";
+import { galleryPreviewSanitizerIsAttested } from "../_shared/gallery-preview-attestation.ts";
 
-const SIGNED_URL_SECONDS = 10 * 60;
 const DEFAULT_PAGE_SIZE = 25;
 const MAX_PAGE_SIZE = 50;
 const EVENT_LIMIT = 250;
@@ -111,6 +115,23 @@ async function handleRequest(req: Request): Promise<Response> {
   }
 
   if (bodyResult.body.action === "prepare_preview") {
+    if (
+      !(await galleryPreviewSanitizerIsAttested(req, {
+        supabaseUrl: Deno.env.get("SUPABASE_URL") || "",
+      }))
+    ) {
+      return new Response(null, {
+        status: 404,
+        headers: {
+          "Cache-Control": "private, no-store, max-age=0",
+          "Pragma": "no-cache",
+          "X-Content-Type-Options": "nosniff",
+          "X-Robots-Tag":
+            "noindex, nofollow, noarchive, nosnippet, noimageindex",
+          "Referrer-Policy": "no-referrer",
+        },
+      });
+    }
     const submissionId = safeString(bodyResult.body.submission_id, 80);
     const expectedUpdatedAt = safeString(
       bodyResult.body.expected_updated_at,
@@ -176,6 +197,39 @@ async function handleRequest(req: Request): Promise<Response> {
       );
     }
 
+    const { data: reservationData, error: reservationError } = await access
+      .adminClient.rpc(
+        "gallery_reserve_moderation_preview",
+        {
+          p_reserved_bytes: sourceSizeBytes,
+        },
+      );
+    const reservation = asRecord(reservationData);
+    if (reservationError) {
+      console.error("list-gallery-review-queue source preview budget failed", {
+        submissionId,
+        reason: "reservation_unavailable",
+      });
+      return jsonResponse(
+        {
+          ok: false,
+          error: "source_preview_budget_unavailable",
+          message: "The private Gallery preview is temporarily unavailable.",
+        },
+        503,
+      );
+    }
+    if (reservation.allowed !== true) {
+      return jsonResponse(
+        {
+          ok: false,
+          error: "source_preview_budget_exhausted",
+          message: "The private Gallery preview is temporarily unavailable.",
+        },
+        429,
+      );
+    }
+
     const { data: sourceBlob, error: sourceDownloadError } = await access
       .adminClient.storage
       .from(MEMBER_GALLERY_BUCKET)
@@ -193,8 +247,9 @@ async function handleRequest(req: Request): Promise<Response> {
       );
     }
 
+    const sourceBytes = new Uint8Array(await sourceBlob.arrayBuffer());
     const validation = await validateGallerySourceBytes(
-      new Uint8Array(await sourceBlob.arrayBuffer()),
+      sourceBytes,
       sourceMimeType,
     );
     if (!validation.ok) {
@@ -206,6 +261,28 @@ async function handleRequest(req: Request): Promise<Response> {
         {
           ok: false,
           error: "source_validation_failed",
+          message:
+            "This image cannot be opened safely for moderation. Ask the member to upload a smaller static image.",
+        },
+        422,
+      );
+    }
+
+    const decode = await decodeGallerySourceImage(
+      sourceBytes,
+      validation.source.mimeType,
+      validation.source.width,
+      validation.source.height,
+    );
+    if (!decode.ok) {
+      console.warn("list-gallery-review-queue source decode rejected", {
+        submissionId,
+        reason: decode.error,
+      });
+      return jsonResponse(
+        {
+          ok: false,
+          error: "source_decode_failed",
           message:
             "This image cannot be opened safely for moderation. Ask the member to upload a smaller static image.",
         },
@@ -243,33 +320,24 @@ async function handleRequest(req: Request): Promise<Response> {
         commitError ? 500 : 409,
       );
     }
-
-    const { data: signedPreview, error: signedPreviewError } = await access
-      .adminClient.storage
-      .from(MEMBER_GALLERY_BUCKET)
-      .createSignedUrl(storagePath, SIGNED_URL_SECONDS);
-    const signedPreviewUrl = safeString(signedPreview?.signedUrl, 4000);
-    if (signedPreviewError || !signedPreviewUrl) {
+    const sourceValidatedAt = safeString(commit.validated_at, 80);
+    if (!sourceValidatedAt || !Number.isFinite(Date.parse(sourceValidatedAt))) {
       return jsonResponse(
         {
           ok: false,
-          error: "preview_signing_failed",
-          message: "The validated Gallery preview is temporarily unavailable.",
+          error: "source_validation_timestamp_invalid",
+          message: "The private Gallery preview could not be verified.",
         },
-        503,
+        500,
       );
     }
 
-    return jsonResponse({
-      ok: true,
-      data: {
-        submissionId,
-        signedPreviewUrl,
-        sourceWidth: validation.source.width,
-        sourceHeight: validation.source.height,
-        sourceValidatedAt: new Date().toISOString(),
-      },
-      message: "Safe Gallery preview prepared.",
+    return gallerySourcePreviewResponse(sourceBytes, {
+      submissionId,
+      mimeType: validation.source.mimeType,
+      width: validation.source.width,
+      height: validation.source.height,
+      validatedAt: sourceValidatedAt,
     });
   }
 
@@ -431,38 +499,6 @@ async function handleRequest(req: Request): Promise<Response> {
       }
     }
   }
-  const previewPaths = submissions
-    .filter((submission) => {
-      const submissionId = safeString(submission.id, 80);
-      return Boolean(
-        submissionId && sourceValidationsBySubmissionId.has(submissionId),
-      );
-    })
-    .filter((submission) =>
-      safeString(submission.storage_bucket, 80) === MEMBER_GALLERY_BUCKET
-    )
-    .map((submission) => safeString(submission.storage_path, 1000))
-    .filter((value): value is string => Boolean(value));
-  const signedPreviewsByPath = new Map<string, string>();
-
-  if (previewPaths.length > 0) {
-    const { data: signedPreviewData, error: signedPreviewError } = await access
-      .adminClient.storage
-      .from(MEMBER_GALLERY_BUCKET)
-      .createSignedUrls(previewPaths, SIGNED_URL_SECONDS);
-
-    if (signedPreviewError) {
-      console.warn("list-gallery-review-queue preview signing batch failed", {
-        message: signedPreviewError.message,
-      });
-    } else {
-      for (const signed of signedPreviewData || []) {
-        const path = safeString(signed.path, 1000);
-        const signedUrl = safeString(signed.signedUrl, 4000);
-        if (path && signedUrl) signedPreviewsByPath.set(path, signedUrl);
-      }
-    }
-  }
   const eventsBySubmissionId = new Map<string, JsonRecord[]>();
   const moderationEvents: JsonRecord[] = [];
 
@@ -558,7 +594,6 @@ async function handleRequest(req: Request): Promise<Response> {
     const sourceValidation = submissionId
       ? sourceValidationsBySubmissionId.get(submissionId) || null
       : null;
-    let signedPreviewUrl: string | null = null;
     let previewError: string | null = null;
 
     if (bucket !== MEMBER_GALLERY_BUCKET || !storagePath) {
@@ -573,9 +608,6 @@ async function handleRequest(req: Request): Promise<Response> {
       previewError = "invalid_storage_reference";
     } else if (!sourceValidation) {
       previewError = "source_validation_required";
-    } else {
-      signedPreviewUrl = signedPreviewsByPath.get(storagePath) || null;
-      if (!signedPreviewUrl) previewError = "preview_unavailable";
     }
 
     const userId = safeString(submission.user_id, 80) || "";
@@ -640,7 +672,6 @@ async function handleRequest(req: Request): Promise<Response> {
       sourceWidth: Number(sourceValidation?.width || 0) || null,
       sourceHeight: Number(sourceValidation?.height || 0) || null,
       sourceValidatedAt: safeString(sourceValidation?.validated_at, 80),
-      signedPreviewUrl,
       previewError,
       instagramOptIn: submission.instagram_opt_in === true,
       instagramOptInAt: safeString(submission.instagram_opt_in_at, 80),
@@ -671,7 +702,6 @@ async function handleRequest(req: Request): Promise<Response> {
         hasPrevious: requestedPage > 1,
         hasNext: pageOffset + queue.length < Number(filteredCount || 0),
       },
-      signedUrlSeconds: SIGNED_URL_SECONDS,
     },
     message: queue.length
       ? `${requestedStatus} gallery submissions loaded.`

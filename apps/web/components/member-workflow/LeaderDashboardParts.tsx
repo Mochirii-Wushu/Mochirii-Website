@@ -2,11 +2,6 @@
 
 import { useEffect, useState } from "react";
 import {
-  fetchBoundedGallerySource,
-  gallerySourceMaximumEdge,
-  gallerySourceMaximumPixels,
-} from "@/lib/gallery-thumbnail";
-import {
   startGalleryPreviewRequest,
   type GalleryPreviewLease,
 } from "@/lib/gallery/safe-preview";
@@ -123,23 +118,21 @@ type ValidatedGalleryPreviewState =
 function ValidatedGalleryPreview({
   submissionId,
   title,
-  sourceUrl,
-  sourceWidth,
-  sourceHeight,
-  sourceMimeType,
-  sourceSizeBytes,
+  previewKey,
+  previewBlob,
+  previewWidth,
+  previewHeight,
   onBlobChange,
   onError,
 }: {
   submissionId: string;
   title: string;
-  sourceUrl: string;
-  sourceWidth: number;
-  sourceHeight: number;
-  sourceMimeType: string;
-  sourceSizeBytes: number;
-  onBlobChange: (submissionId: string, sourceUrl: string, blob: Blob | null) => void;
-  onError: (submissionId: string, sourceUrl: string) => void;
+  previewKey: string;
+  previewBlob: Blob;
+  previewWidth: number;
+  previewHeight: number;
+  onBlobChange: (submissionId: string, previewKey: string, blob: Blob | null) => void;
+  onError: (submissionId: string, previewKey: string) => void;
 }) {
   const [preview, setPreview] = useState<ValidatedGalleryPreviewState>({
     status: "loading",
@@ -149,35 +142,28 @@ function ValidatedGalleryPreview({
 
   useEffect(() => {
     let mounted = true;
-    onBlobChange(submissionId, sourceUrl, null);
+    onBlobChange(submissionId, previewKey, null);
 
-    const request = startGalleryPreviewRequest((signal) =>
-      fetchBoundedGallerySource(
-        sourceUrl,
-        { mimeType: sourceMimeType, sizeBytes: sourceSizeBytes },
-        signal,
-      )
-    );
+    const request = startGalleryPreviewRequest(async () => previewBlob);
     void request.ready.then((lease) => {
       if (!mounted || !lease) return;
       setPreview({ status: "decoding", ...lease });
     }).catch((error) => {
       if (!mounted || error instanceof DOMException && error.name === "AbortError") return;
       setPreview({ status: "error", objectUrl: "", blob: null });
-      onError(submissionId, sourceUrl);
+      onError(submissionId, previewKey);
     });
 
     return () => {
       mounted = false;
       request.dispose();
-      onBlobChange(submissionId, sourceUrl, null);
+      onBlobChange(submissionId, previewKey, null);
     };
   }, [
     onBlobChange,
     onError,
-    sourceMimeType,
-    sourceSizeBytes,
-    sourceUrl,
+    previewBlob,
+    previewKey,
     submissionId,
   ]);
 
@@ -185,24 +171,15 @@ function ValidatedGalleryPreview({
     if (preview.status !== "decoding") return;
     const naturalWidth = image.naturalWidth;
     const naturalHeight = image.naturalHeight;
-    const dimensionsMatch =
-      naturalWidth === sourceWidth && naturalHeight === sourceHeight ||
-      naturalWidth === sourceHeight && naturalHeight === sourceWidth;
-    const dimensionsAreBounded =
-      naturalWidth > 0 &&
-      naturalHeight > 0 &&
-      naturalWidth <= gallerySourceMaximumEdge &&
-      naturalHeight <= gallerySourceMaximumEdge &&
-      naturalWidth * naturalHeight <= gallerySourceMaximumPixels;
-    if (!dimensionsMatch || !dimensionsAreBounded) {
+    if (naturalWidth !== previewWidth || naturalHeight !== previewHeight) {
       preview.release();
       setPreview({ status: "error", objectUrl: "", blob: null });
-      onBlobChange(submissionId, sourceUrl, null);
-      onError(submissionId, sourceUrl);
+      onBlobChange(submissionId, previewKey, null);
+      onError(submissionId, previewKey);
       return;
     }
     setPreview({ ...preview, status: "ready" });
-    onBlobChange(submissionId, sourceUrl, preview.blob);
+    onBlobChange(submissionId, previewKey, preview.blob);
   }
 
   function rejectDecodedImage() {
@@ -210,8 +187,8 @@ function ValidatedGalleryPreview({
       preview.release();
     }
     setPreview({ status: "error", objectUrl: "", blob: null });
-    onBlobChange(submissionId, sourceUrl, null);
-    onError(submissionId, sourceUrl);
+    onBlobChange(submissionId, previewKey, null);
+    onError(submissionId, previewKey);
   }
 
   return (
@@ -221,15 +198,15 @@ function ValidatedGalleryPreview({
     >
       {preview.status === "loading" ? (
         <div className="review-preview__empty" role="status">
-          <span>Loading safe preview</span>
+          <span>Loading prepared preview</span>
         </div>
       ) : null}
       {preview.status === "decoding" || preview.status === "ready" ? (
         <img
           src={preview.objectUrl}
           alt={`${title} preview`}
-          width={sourceWidth}
-          height={sourceHeight}
+          width={previewWidth}
+          height={previewHeight}
           decoding="async"
           onLoad={(event) => confirmDecodedImage(event.currentTarget)}
           onError={rejectDecodedImage}
@@ -237,7 +214,7 @@ function ValidatedGalleryPreview({
       ) : null}
       {preview.status === "error" ? (
         <div className="review-preview__empty" role="alert">
-          <span>Safe preview unavailable</span>
+          <span>Prepared preview unavailable</span>
         </div>
       ) : null}
     </div>
@@ -250,9 +227,12 @@ export function SubmissionCard({
   busy,
   reason,
   cleanupArmed,
-  previewSourceUrl,
+  previewKey,
+  previewBlob,
   previewSourceWidth,
   previewSourceHeight,
+  previewWidth,
+  previewHeight,
   previewReady,
   onReasonChange,
   onModerate,
@@ -268,15 +248,18 @@ export function SubmissionCard({
   busy: boolean;
   reason: string;
   cleanupArmed: boolean;
-  previewSourceUrl: string;
+  previewKey: string;
+  previewBlob: Blob | null;
   previewSourceWidth: number;
   previewSourceHeight: number;
+  previewWidth: number;
+  previewHeight: number;
   previewReady: boolean;
   onReasonChange: (value: string) => void;
   onModerate: (item: GalleryReviewSubmission, action: "approved" | "rejected" | "thumbnail") => void;
   onPreparePreview: (item: GalleryReviewSubmission) => void;
-  onPreviewBlobChange: (submissionId: string, sourceUrl: string, blob: Blob | null) => void;
-  onPreviewError: (submissionId: string, sourceUrl: string) => void;
+  onPreviewBlobChange: (submissionId: string, previewKey: string, blob: Blob | null) => void;
+  onPreviewError: (submissionId: string, previewKey: string) => void;
   onArmCleanup: (item: GalleryReviewSubmission) => void;
   onCancelCleanup: (item: GalleryReviewSubmission) => void;
   onDeleteRejected: (item: GalleryReviewSubmission) => void;
@@ -285,21 +268,20 @@ export function SubmissionCard({
   const title = text(item.title || item.originalFilename, "Untitled image");
   const events = Array.isArray(item.moderationEvents) ? item.moderationEvents : [];
   const sourceLabel = text(item.source, "website").toLowerCase() === "discord" ? "Discord" : "Website";
-  const sourceValidated = item.sourceValidationState === "validated" || Boolean(previewSourceUrl);
+  const sourceValidated = item.sourceValidationState === "validated" || Boolean(previewKey);
 
   return (
     <article className={`review-item review-item--${status}`} data-submission-id={item.id || ""}>
       <div className="review-preview">
-        {previewSourceUrl ? (
+        {previewKey && previewBlob ? (
           <ValidatedGalleryPreview
-            key={`${text(item.id)}:${previewSourceUrl}`}
+            key={previewKey}
             submissionId={text(item.id)}
             title={title}
-            sourceUrl={previewSourceUrl}
-            sourceWidth={previewSourceWidth}
-            sourceHeight={previewSourceHeight}
-            sourceMimeType={text(item.mimeType)}
-            sourceSizeBytes={Number(item.sizeBytes || 0)}
+            previewKey={previewKey}
+            previewBlob={previewBlob}
+            previewWidth={previewWidth}
+            previewHeight={previewHeight}
             onBlobChange={onPreviewBlobChange}
             onError={onPreviewError}
           />
@@ -326,9 +308,12 @@ export function SubmissionCard({
             ["Category", item.category || "Uncategorized"],
             ["Type", item.mimeType || "Unknown"],
             ["Size", formatBytes(item.sizeBytes)],
-            ["Safe preview", sourceValidated && (previewSourceWidth || item.sourceWidth) && (previewSourceHeight || item.sourceHeight)
+            ["Source validation", sourceValidated && (previewSourceWidth || item.sourceWidth) && (previewSourceHeight || item.sourceHeight)
               ? `${previewSourceWidth || item.sourceWidth} × ${previewSourceHeight || item.sourceHeight}`
               : "Review required"],
+            ["Prepared preview", previewKey && previewWidth && previewHeight
+              ? `${previewWidth} × ${previewHeight}`
+              : "Not prepared"],
             ["Gallery thumbnail", item.thumbnailSizeBytes ? formatBytes(item.thumbnailSizeBytes) : "Not prepared"],
             ["Submitted", formatDate(item.createdAt, "Not set")],
             ["Reviewed", item.reviewedAt ? formatDate(item.reviewedAt, "Not reviewed") : "Not reviewed"],
@@ -363,15 +348,15 @@ export function SubmissionCard({
             <p className="muted">No moderation history recorded yet.</p>
           )}
         </section>
-        {(status === "pending" || status === "approved") && !previewSourceUrl ? (
-          <section className="review-history" aria-label="Safe source preview preparation">
-            <h4>Safe Preview</h4>
+        {(status === "pending" || status === "approved") && !previewKey ? (
+          <section className="review-history" aria-label="Private source preview preparation">
+            <h4>Private Preview</h4>
             <p className="review-action-note">
               Validate this one private image before it is loaded in the moderation browser.
             </p>
             <div className="auth-actions">
               <button className="hero-cta" type="button" onClick={() => onPreparePreview(item)} disabled={busy}>
-                Prepare safe preview
+                Prepare private preview
               </button>
             </div>
           </section>

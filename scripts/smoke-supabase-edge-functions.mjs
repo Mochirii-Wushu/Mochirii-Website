@@ -437,20 +437,8 @@ async function checkApprovedFeed(config) {
 
   const firstItem = listResult.json?.data?.items?.[0];
   if (firstItem?.id) {
-    const thumbnailResult = await fetchContract(functionUrl(config, name), {
-      method: "POST",
-      headers: headers(config),
-      body: JSON.stringify({ action: "thumbnail", id: firstItem.id }),
-    });
-    assert(
-      thumbnailResult.status === 200,
-      `${name} thumbnail refresh expected 200, got ${thumbnailResult.status}: ${summarizeBody(thumbnailResult.json || thumbnailResult.text)}`,
-    );
-    assert(thumbnailResult.json?.ok === true, `${name} thumbnail refresh did not return ok=true.`);
-    assert(Number(thumbnailResult.json?.data?.schemaVersion) === 2, `${name} thumbnail refresh schemaVersion must be 2.`);
-    assert(thumbnailResult.json?.data?.id === firstItem.id, `${name} thumbnail refresh returned a different opaque id.`);
-    const thumbnailUrl = thumbnailResult.json?.data?.thumbnail_url || "";
-    assertApprovedMediaUrl(thumbnailUrl, config, "thumbnail", firstItem.id, `${name} thumbnail refresh URL`);
+    const thumbnailUrl = firstItem.thumbnail_url || "";
+    assertApprovedMediaUrl(thumbnailUrl, config, "thumbnail", firstItem.id, `${name} thumbnail URL`);
 
     const thumbnailMedia = await fetchContract(thumbnailUrl, {
       method: "GET",
@@ -465,19 +453,24 @@ async function checkApprovedFeed(config) {
     assert(thumbnailMedia.contentTypeOptions.toLowerCase() === "nosniff", `${name} thumbnail media must set nosniff.`);
     assert(Number(thumbnailMedia.contentLength) >= 1 && Number(thumbnailMedia.contentLength) <= 80 * 1024, `${name} thumbnail media length was outside the bounded contract.`);
 
-    const fullResult = await fetchContract(functionUrl(config, name), {
+    const fullUrl = new URL(functionUrl(config, name));
+    fullUrl.searchParams.set("asset", "full");
+    fullUrl.searchParams.set("id", firstItem.id);
+    assertApprovedMediaUrl(fullUrl.toString(), config, "full", firstItem.id, `${name} on-demand display URL`);
+    const fullMedia = await fetchContract(fullUrl.toString(), {
+      method: "GET",
+      headers: headers(config, { Accept: "image/webp" }),
+    });
+    assert(fullMedia.status === 200, `${name} display media expected 200, got ${fullMedia.status}.`);
+    assert(fullMedia.contentType.toLowerCase().startsWith("image/webp"), `${name} display media type drifted.`);
+    assert(Number(fullMedia.contentLength) >= 1 && Number(fullMedia.contentLength) <= 2 * 1024 * 1024, `${name} display media length was outside the bounded contract.`);
+
+    const forbiddenResolver = await fetchContract(functionUrl(config, name), {
       method: "POST",
       headers: headers(config),
       body: JSON.stringify({ action: "full", id: firstItem.id }),
     });
-    assert(
-      fullResult.status === 200,
-      `${name} on-demand display expected 200, got ${fullResult.status}: ${summarizeBody(fullResult.json || fullResult.text)}`,
-    );
-    assert(fullResult.json?.ok === true, `${name} on-demand display did not return ok=true.`);
-    assert(Number(fullResult.json?.data?.schemaVersion) === 2, `${name} on-demand display schemaVersion must be 2.`);
-    assert(fullResult.json?.data?.id === firstItem.id, `${name} on-demand display returned a different opaque id.`);
-    assertApprovedMediaUrl(fullResult.json?.data?.full_url || "", config, "full", firstItem.id, `${name} on-demand display URL`);
+    assert(forbiddenResolver.status === 400, `${name} POST media resolver expected 400, got ${forbiddenResolver.status}.`);
   }
 
   const invalidFullResult = await fetchContract(functionUrl(config, name), {

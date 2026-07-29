@@ -221,6 +221,7 @@ async function stubApprovedGalleryFeedSuccess(context, requests) {
           && (asset === "full" || asset === "thumbnail"),
         "Schema-v2 Gallery media request drifted from the exact bounded Edge URL.",
       );
+      requests.push({ action: asset, id: approvedGalleryFixtureId, method: "GET" });
       await route.fulfill({
         status: 200,
         contentType: "image/webp",
@@ -242,29 +243,6 @@ async function stubApprovedGalleryFeedSuccess(context, requests) {
     }
     assert(body && typeof body === "object" && !Array.isArray(body), "Schema-v2 Gallery request body was not an object.");
     requests.push(body);
-
-    if (body.action === "full") {
-      assert(
-        JSON.stringify(Object.keys(body).sort()) === JSON.stringify(["action", "id"])
-          && body.id === approvedGalleryFixtureId,
-        "Schema-v2 Gallery full request did not use only its opaque submission ID.",
-      );
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        headers: approvedGalleryFixtureHeaders,
-        body: JSON.stringify({
-          ok: true,
-          data: {
-            schemaVersion: 2,
-            id: approvedGalleryFixtureId,
-            full_url: approvedGalleryFullUrl,
-          },
-          message: "Full image ready.",
-        }),
-      });
-      return;
-    }
 
     assert(
       JSON.stringify(Object.keys(body).sort())

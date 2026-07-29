@@ -56,7 +56,7 @@ The queue entry is a reviewed snapshot. A referenced source object cannot be rep
 
 Each submission may show:
 
-- a `Prepare safe preview` action until that one source is structurally validated
+- a `Prepare private preview` action until that one source is structurally and fully decoded
 - a preview image only after current validation evidence exists
 - title
 - caption
@@ -73,13 +73,13 @@ Each submission may show:
 - Storage reference
 - moderation history
 
-Treat Storage references and signed preview URLs as operational details. Do not paste them into public Discord channels, public docs, issue comments, or screenshots.
+Treat Storage references and private preview evidence as operational details. Do not paste them into public Discord channels, public docs, issue comments, or screenshots.
 
 ## 4. Pending Review Checklist
 
 Before approving a submission, check:
 
-- `Prepare safe preview` completes for the selected item before any private image is loaded
+- `Prepare private preview` completes for the selected item before any prepared image is loaded
 - the preview loads and matches the submitted title/caption
 - the image is appropriate for the guild website
 - the title is clear enough for public display
@@ -89,7 +89,15 @@ Before approving a submission, check:
 - the image does not reveal sensitive account, server, or personal information
 - any Instagram opt-in is intentional and shown on the submission
 
-Preparing a preview validates the exact current Storage object, MIME type, encoded byte size, dimensions, and SHA-256 against the submission revision. Accepted sources are static JPEG, PNG, or WebP no larger than 8 MiB, 4096 pixels on either edge, or 12.6 megapixels. Validation evidence is service-only and becomes stale if the object identity or row revision changes. The ordinary queue does not bulk-download or bulk-validate private originals.
+Preparing a preview reserves the exact source bytes, validates and fully decodes the exact current Storage object, and binds its MIME type, encoded byte size, dimensions, SHA-256, object identity, and durable validation timestamp to the submission revision. Accepted sources are static JPEG, PNG, or WebP no larger than 8 MiB, 4096 pixels on either edge, or 12.6 megapixels. The same-origin website route independently decodes and re-renders a metadata-free WebP no larger than 2560 pixels per edge or 2 MiB. Only that derivative reaches the browser; no source URL or signed Storage capability does. Validation evidence is service-only and becomes stale if the object identity or row revision changes. The ordinary queue does not bulk-download or bulk-validate private originals.
+
+The private source-byte step also requires a verified, short-lived Website
+workload identity in addition to the moderator session. A moderator bearer sent
+directly to the Edge endpoint receives no bytes. If the workload identity is
+missing, expired, has the wrong project/environment claims, or cannot be
+verified, the preview stays unavailable and the response remains opaque. Do
+not bypass that gate or copy identity headers into a browser, log, ticket, or
+manual request.
 
 If validation fails or the preview is unavailable, do not approve by title alone. Refresh the queue once. If it remains unavailable, leave it pending and escalate. Never bypass validation by opening a raw Storage path.
 
@@ -112,7 +120,7 @@ After approval:
 - no static Gallery JSON is edited
 - no automatic Instagram publishing happens
 
-If an older approved item says `Not prepared`, use the Approved queue's `Needs thumbnail` filter and paginated controls. Treat that label as an explicit publication-media review, not a mechanical thumbnail backfill. Republish only after confirming the signed preview still matches the reviewed unit and selecting one canonical category. The workflow creates both bounded assets and an immutable publication revision. The legacy row remains private until that transaction succeeds and records its moderation audit event; approval status or old thumbnail fields alone are never publication evidence.
+If an older approved item says `Not prepared`, use the Approved queue's `Needs thumbnail` filter and paginated controls. Treat that label as an explicit publication-media review, not a mechanical thumbnail backfill. Republish only after confirming the prepared private preview still matches the reviewed unit and selecting one canonical category. The workflow creates both bounded assets and an immutable publication revision. The legacy row remains private until that transaction succeeds and records its moderation audit event; approval status or old thumbnail fields alone are never publication evidence.
 
 Historical approved rows with a null or noncanonical visual category require a separate human review. Do not infer a category from the upload source, filename, caption, or old provider metadata. They remain private until explicit republication with a canonical category. Category review and publication-media preparation may be coordinated for the same unit, but neither is a bulk backfill; each remains a separate authorized operation with its own exact provider-data approval.
 
@@ -202,9 +210,9 @@ The audit trail is for operational accountability. Do not manually edit audit ro
 | Signed out | Browser has no active website session. | Choose a sign-in method again. |
 | Access denied | The signed-in account does not pass moderator verification. | Confirm Discord Moderator role and server-side config. |
 | No pending submissions | The pending queue is empty. | No action needed. |
-| Safe preview required | This exact source has no current trusted validation evidence. | Choose `Prepare safe preview` for that one item before reviewing it. |
+| Private preview required | This exact source has no current trusted validation evidence. | Choose `Prepare private preview` for that one item before reviewing it. |
 | Source validation failed | The file is malformed, animated, mismatched, or outside the reviewed limits. | Leave it pending and ask the member for a static JPEG, PNG, or WebP within the stated limits. |
-| Preview unavailable | Signed preview URL could not be created or object is missing. | Refresh once; if still missing, leave pending and escalate. |
+| Preview unavailable | The metered validation or prepared same-origin preview failed. | Refresh once; if still missing, leave pending and escalate. |
 | Decline reason required | Decline was clicked without enough reason text. | Add a short reason and try again. |
 | Function request failed | Edge Function returned an error or network failed. | Refresh once, avoid repeated clicking, then escalate with time and visible message. |
 | Counts look stale | Another moderator may have acted or the queue changed. | Refresh Queue. |

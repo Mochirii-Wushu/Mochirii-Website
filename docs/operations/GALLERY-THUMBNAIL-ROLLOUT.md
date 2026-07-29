@@ -41,13 +41,20 @@ asset.
 - Referenced source objects are member-immutable, and the moderation commit
   compares the reviewed source-row timestamp. A stale queue item fails closed
   and must be reviewed again before publication.
+- One moderator-selected source is metered before download, structurally
+  validated, fully decoded in the Edge runtime, and bound to an exact durable
+  validation timestamp. The same-origin Node route independently decodes and
+  re-renders a metadata-free WebP; the browser never receives the raw source
+  URL or a signed Storage capability.
 - `list-approved-gallery-submissions` returns schema-v2 pages with at most 24
   stable, credential-free thumbnail Edge URLs. It delivers one bounded display
   derivative only after the viewer requests the stable opaque publication ID.
-- The service-role-only v1 compatibility RPC remains available for the bounded
-  application rollback window. It caps the old request at 24 rows and maps the
-  old response shape to the same immutable display and thumbnail derivatives,
-  with source paths and member/moderator identity removed.
+- The current Edge Function recognizes only the prior browser's exact `{}` list
+  request and maps current public evidence into the old DTO field names. Its
+  historical URL fields contain metered Edge URLs, not signed Storage URLs.
+- The service-role-only v1 compatibility RPC retains its historical signature
+  only as a list-budgeted empty-set guard, preventing a separately restored old
+  Edge Function from minting replayable media capabilities.
 
 The list contract is all-or-nothing. If any publication selected for a page is
 missing, mismatched, malformed, or outside the delivery budget, the function returns a redacted
@@ -97,12 +104,20 @@ function inventory, `verify_jwt` parity, and provider backups. Recalculate
 those values at the exact reviewed head instead of copying an older release
 count.
 
+Read-only project state confirms Secure Backend Access/OIDC Federation is
+enabled in team-issuer mode. The exact-head Vercel Preview must still prove that
+Vercel injects a valid `x-vercel-oidc-token` into the same-origin
+moderation-preview Function request. This branch changes no provider setting
+and contains no fallback shared secret. If the token is absent or its exact
+team/project/environment claims fail verification, raw-source preview delivery
+fails closed and the release stops rather than weakening the boundary.
+
 ## Explicit historical republication
 
 After an approved deployment, a moderator may work through historical approved
 rows that are intentionally selected for public Gallery publication. Each unit
 requires a fresh visual review, one canonical category, and confirmation that
-the signed private preview matches the reviewed source. The same moderation
+the prepared private preview matches the reviewed source. The same moderation
 action prepares both bounded assets and writes one immutable publication
 revision.
 
@@ -144,17 +159,26 @@ constraints or data.
 
 ## Rollback
 
-Application rollback may restore the prior Vercel deployment and prior Edge
-Function source. The temporary
-`gallery_publishable_submissions(integer, integer)` RPC is retained so that
-combination remains functional: it is service-role-only, charges the list
-budget, caps results at 24, requires exact active revision/object evidence, and
-returns only the bounded service-owned display and thumbnail derivatives in
-the legacy shape. It never returns the member-owned source original or member,
-filename, moderator, or rejection identity fields.
+Use this compatibility matrix during rollout and rollback:
+
+| Website browser | Gallery Edge | New database | Runtime behavior |
+| --- | --- | --- | --- |
+| Current v2 | Current | Yes | Full v2 feed. |
+| Prior v1 | Current | Yes | Legacy DTO backed only by quota-enforced Edge media URLs. |
+| Current v2 | Prior | Yes | Fails closed to the static Gallery. |
+| Prior v1 | Prior | Yes | Empty runtime feed; no signed media is created. |
+
+Apply the migration before the current Edge source, then publish the Website.
+The temporary `gallery_publishable_submissions(integer, integer)` signature is
+service-role-only, charges one 64 KiB list reservation, and always returns an
+empty set. This intentionally prevents a restored prior Edge Function from
+returning Storage paths or creating replayable signed URLs. A prior Website
+deployment remains a functional rollback only when paired with the current
+Edge Function and the new database; its exact empty-object request receives
+legacy field names mapped to the same per-request metered media boundary.
 
 Additive columns, the immutable publication ledger, and its evidence remain in
-place. Do not remove the compatibility RPC until the rollback window has
+place. Do not remove the compatibility signature until the rollback window has
 closed and retained rollback source is no longer usable; retire it only in a
 separate reviewed migration. Do not drop columns, delete revision rows, delete
 publication objects, or rewrite moderation evidence during an incident; those

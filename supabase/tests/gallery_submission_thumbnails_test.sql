@@ -1,5 +1,5 @@
 begin;
-select plan(60);
+select plan(61);
 
 select has_column('public', 'gallery_submissions', 'thumbnail_width', 'thumbnail width exists');
 select has_column('public', 'gallery_submissions', 'thumbnail_height', 'thumbnail height exists');
@@ -179,6 +179,23 @@ select is(
   ) ->> 'committed')::boolean,
   true,
   'trusted source dimensions and object identity commit once'
+);
+select is(
+  (public.gallery_commit_source_validation(
+    '22222222-2222-4222-8222-222222222221',
+    (select updated_at from public.gallery_submissions where id = '22222222-2222-4222-8222-222222222221'),
+    '10000000-0000-4000-8000-000000000001',
+    (select version from storage.objects where id = '10000000-0000-4000-8000-000000000001'),
+    (select updated_at from storage.objects where id = '10000000-0000-4000-8000-000000000001'),
+    'image/webp', 1000, 1920, 1080,
+    repeat('a', 64)
+  ) ->> 'validated_at')::timestamptz,
+  (
+    select validated_at
+    from private.gallery_source_validations
+    where submission_id = '22222222-2222-4222-8222-222222222221'
+  ),
+  'repeat validation returns the exact durable evidence timestamp'
 );
 select is(
   (public.gallery_commit_source_validation(
@@ -406,9 +423,12 @@ select ok(
   'archiving immediately retires the active publication'
 );
 select is(
-  public.gallery_public_original_v2('30000000-0000-4000-8000-000000000001'),
+  public.gallery_reserve_public_media_v2(
+    '30000000-0000-4000-8000-000000000001',
+    'full'
+  ),
   null::jsonb,
-  'archiving immediately blocks display resolution'
+  'archiving immediately blocks display reservation and resolution'
 );
 
 insert into storage.objects (id, bucket_id, name, owner, metadata) values
