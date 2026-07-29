@@ -60,6 +60,7 @@ checkFunctionInventory();
 checkFunctionSourcesAndLocks();
 checkBoundedRequestBodies();
 checkClosedOperationalGates();
+checkRaffleHardening();
 checkDisabledRelay();
 checkOptionalPrivateSsrBoundary();
 checkCommandWiring();
@@ -210,6 +211,93 @@ function checkClosedOperationalGates() {
   assertIncludes("provider configuration default", migration, "orders_enabled boolean not null default false");
   assertIncludes("provider configuration seed", migration, "('sandbox', 'disabled', false)");
   assertIncludes("provider configuration seed", migration, "('production', 'disabled', false)");
+}
+
+function checkRaffleHardening() {
+  const migration = readRequired(
+    "supabase/migrations/20260729183000_harden_disabled_monthly_raffle_foundation.sql",
+  );
+  for (const snippet of [
+    "create table public.raffle_rule_snapshots",
+    "canonical_rules jsonb not null",
+    "source_commit_sha text not null",
+    "raffle_rule_snapshot_is_immutable",
+    "foreign key (rules_version, rules_version_url, rules_content_hash)",
+    "create or replace function public.archive_raffle_rules_snapshot(",
+    "create or replace function public.record_raffle_private_notice(",
+    "create or replace function public.advance_raffle_claim_schedule(",
+    "security definer\nset search_path = ''",
+    "for update",
+    "on conflict (dedupe_key) do nothing",
+    "grant select on table public.raffle_rule_snapshots to service_role",
+  ]) assertIncludes("raffle SQL hardening", migration, snippet);
+
+  const noticeStart = migration.indexOf(
+    "create or replace function public.record_raffle_private_notice(",
+  );
+  const noticeEnd = migration.indexOf("\n$$;", noticeStart);
+  const noticeBlock = noticeStart >= 0 && noticeEnd > noticeStart
+    ? migration.slice(noticeStart, noticeEnd)
+    : "";
+  const noticeResultLock = noticeBlock.indexOf("select * into result_row");
+  const noticeCycleLock = noticeBlock.indexOf("select * into cycle_row");
+  assert(
+    noticeResultLock >= 0 && noticeCycleLock > noticeResultLock,
+    "private notice must lock the result before its cycle",
+  );
+
+  const scheduleStart = migration.indexOf(
+    "create or replace function public.advance_raffle_claim_schedule(",
+  );
+  const scheduleEnd = migration.indexOf("\n$$;", scheduleStart);
+  const scheduleBlock = scheduleStart >= 0 && scheduleEnd > scheduleStart
+    ? migration.slice(scheduleStart, scheduleEnd)
+    : "";
+  const scheduleResultLock = scheduleBlock.indexOf("perform result.id");
+  const scheduleCycleLock = scheduleBlock.indexOf(
+    "where id = p_cycle_id\n  for update;",
+  );
+  assert(
+    scheduleResultLock >= 0 && scheduleCycleLock > scheduleResultLock,
+    "scheduler must lock mutable results before its cycle",
+  );
+  assertIncludes(
+    "inclusive claim deadline",
+    scheduleBlock,
+    "result.claim_deadline < p_now",
+  );
+  assert(
+    !scheduleBlock.includes("result.claim_deadline <= p_now"),
+    "scheduler must not expire a claim at its inclusive deadline",
+  );
+  assertIncludes(
+    "inclusive cycle expiry",
+    scheduleBlock,
+    "if p_now > cycle_row.expires_at then",
+  );
+  assert(
+    !scheduleBlock.includes("p_now >= cycle_row.expires_at"),
+    "scheduler must not complete a cycle at its inclusive expiry",
+  );
+
+  const draw = readRequired("supabase/functions/_shared/raffle-draw.ts");
+  assertIncludes("one-plus-nine draw contract", draw, "entry.entryCount < 1");
+  assertIncludes("bytewise draw contract", draw, "left.pseudonymousMemberId < right.pseudonymousMemberId");
+  assert(!draw.includes("localeCompare"), "raffle draw ordering must not depend on localeCompare");
+
+  const schedule = readRequired("supabase/functions/run-raffle-schedule/index.ts");
+  assertIncludes("atomic schedule boundary", schedule, '"advance_raffle_claim_schedule"');
+  assert(!schedule.includes('.update({ status: "expired"'), "scheduler must not update immutable results directly");
+  assert(!schedule.includes("claim_opened_at: openedAt"), "scheduler must not promote alternates outside the atomic RPC");
+
+  const moderator = readRequired("supabase/functions/moderate-raffle/index.ts");
+  const bindingStart = moderator.indexOf("const claimControlActions = new Set([");
+  const bindingEnd = moderator.indexOf("]);", bindingStart);
+  const bindingBlock = bindingStart >= 0 && bindingEnd > bindingStart
+    ? moderator.slice(bindingStart, bindingEnd)
+    : "";
+  assertIncludes("cycle-bound reward-link unlock", bindingBlock, '"unlock_reward_link"');
+  assertIncludes("cycle-bound reward-link lookup", moderator, '.eq("cycle_id", cycleId)');
 }
 
 function checkDisabledRelay() {

@@ -200,7 +200,7 @@ export function alternateTransition(
     !Number.isInteger(claimWindowDays) || claimWindowDays < 1 ||
     claimWindowDays > 30
   ) return "complete";
-  if (now.getTime() >= awardExpiresAt.getTime()) return "complete";
+  if (now.getTime() > awardExpiresAt.getTime()) return "complete";
   if (hasActiveRecipient) return "wait";
   if (
     hasUnusedAlternate &&

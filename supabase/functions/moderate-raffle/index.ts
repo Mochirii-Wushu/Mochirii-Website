@@ -221,6 +221,7 @@ export async function handleModerateRaffleRequest(
       "record_private_notice",
       "release_digital_fulfillment",
       "complete_in_game_fulfillment",
+      "unlock_reward_link",
     ]);
     let targetDrawResultId = "";
     if (claimControlActions.has(action)) {

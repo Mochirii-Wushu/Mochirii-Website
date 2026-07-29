@@ -3,13 +3,13 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions, pg_catalog;
 
-select plan(72);
+select plan(96);
 
 -- Every prize-draw relation is service-owned. Browser and authenticated JWT
 -- roles must use the narrow Edge Function contracts instead of direct SQL.
 select ok(
   (
-    select count(*) = 9 and bool_and(classes.relrowsecurity)
+    select count(*) = 10 and bool_and(classes.relrowsecurity)
     from unnest(array[
       'raffle_cycles',
       'raffle_entries',
@@ -19,7 +19,8 @@ select ok(
       'raffle_audit_events',
       'raffle_provider_configs',
       'raffle_fulfillment_jobs',
-      'raffle_provider_events'
+      'raffle_provider_events',
+      'raffle_rule_snapshots'
     ]) as expected(name)
     join pg_class classes on classes.oid = to_regclass('public.' || expected.name)
   ),
@@ -39,7 +40,8 @@ select ok(
       'raffle_audit_events',
       'raffle_provider_configs',
       'raffle_fulfillment_jobs',
-      'raffle_provider_events'
+      'raffle_provider_events',
+      'raffle_rule_snapshots'
     ]) as relations(name)
     cross join unnest(array['SELECT', 'INSERT', 'UPDATE', 'DELETE']) as privileges(name)
     where has_table_privilege(
@@ -103,11 +105,13 @@ select ok(
       'public.complete_raffle_provider_event(uuid,text,text,text,timestamptz)',
       'public.apply_raffle_provider_reward_state(uuid,text,text,text,text)',
       'public.consume_raffle_leaderboard_nonce(uuid,text,timestamptz)',
-      'public.get_current_raffle_leaderboard(uuid)'
+      'public.get_current_raffle_leaderboard(uuid)',
+      'public.archive_raffle_rules_snapshot(text,jsonb,text,uuid,timestamptz)',
+      'public.advance_raffle_claim_schedule(uuid,timestamptz)'
     ]) as routines(signature)
     where has_function_privilege(roles.name, routines.signature, 'EXECUTE')
   ),
-  'anon and authenticated cannot execute any of the 24 service RPCs'
+  'anon and authenticated cannot execute any of the 26 service RPCs'
 );
 
 select ok(
@@ -143,13 +147,15 @@ select ok(
         'public.complete_raffle_provider_event(uuid,text,text,text,timestamptz)',
         'public.apply_raffle_provider_reward_state(uuid,text,text,text,text)',
         'public.consume_raffle_leaderboard_nonce(uuid,text,timestamptz)',
-        'public.get_current_raffle_leaderboard(uuid)'
+        'public.get_current_raffle_leaderboard(uuid)',
+        'public.archive_raffle_rules_snapshot(text,jsonb,text,uuid,timestamptz)',
+        'public.advance_raffle_claim_schedule(uuid,timestamptz)'
       ]) routines(signature)
     )
       and privilege.grantee = 0
       and privilege.privilege_type = 'EXECUTE'
   ),
-  'PUBLIC has no execute ACL on any of the 24 service RPC overloads'
+  'PUBLIC has no execute ACL on any of the 26 service RPC overloads'
 );
 
 select ok(
@@ -179,7 +185,9 @@ select ok(
       'public.complete_raffle_provider_event(uuid,text,text,text,timestamptz)',
       'public.apply_raffle_provider_reward_state(uuid,text,text,text,text)',
       'public.consume_raffle_leaderboard_nonce(uuid,text,timestamptz)',
-      'public.get_current_raffle_leaderboard(uuid)'
+      'public.get_current_raffle_leaderboard(uuid)',
+      'public.archive_raffle_rules_snapshot(text,jsonb,text,uuid,timestamptz)',
+      'public.advance_raffle_claim_schedule(uuid,timestamptz)'
     ]) as routines(signature)
     where not has_function_privilege(
       'service_role',
@@ -187,7 +195,7 @@ select ok(
       'EXECUTE'
     )
   ),
-  'service_role can execute all 24 raffle service RPCs'
+  'service_role can execute all 26 raffle service RPCs'
 );
 
 select ok(
@@ -197,6 +205,14 @@ select ok(
     'SELECT'
   ),
   'the service role cannot read the private replay ledger directly'
+);
+
+select ok(
+  has_table_privilege('service_role', 'public.raffle_rule_snapshots', 'SELECT')
+    and not has_table_privilege('service_role', 'public.raffle_rule_snapshots', 'INSERT')
+    and not has_table_privilege('service_role', 'public.raffle_rule_snapshots', 'UPDATE')
+    and not has_table_privilege('service_role', 'public.raffle_rule_snapshots', 'DELETE'),
+  'service_role can read archived rules but can write them only through the reviewed RPC'
 );
 
 select ok(
@@ -427,6 +443,86 @@ set member_status = 'active',
     discord_verified_at = '2026-07-18 00:00:00+00'
 where id = '20000000-0000-4000-8000-000000000001';
 
+select lives_ok(
+  $$select public.archive_raffle_rules_snapshot(
+      'test-v1',
+      '{"title":"Reviewed test rules","sections":[{"heading":"Eligibility","body":"Verified test members only."}]}'::jsonb,
+      repeat('a', 40),
+      '20000000-0000-4000-8000-000000000001',
+      '2026-07-18 00:00:00+00'
+    )$$,
+  'reviewed official rules are archived through the service boundary'
+);
+
+select is(
+  (
+    public.archive_raffle_rules_snapshot(
+      'test-v1',
+      '{"title":"Reviewed test rules","sections":[{"heading":"Eligibility","body":"Verified test members only."}]}'::jsonb,
+      repeat('a', 40),
+      '20000000-0000-4000-8000-000000000001',
+      '2026-07-18 00:01:00+00'
+    )->>'duplicate'
+  )::boolean,
+  true,
+  'an identical rules archive retry is idempotent'
+);
+
+select throws_like(
+  $$select public.archive_raffle_rules_snapshot(
+      'test-v1',
+      '{"title":"Conflicting rules"}'::jsonb,
+      repeat('a', 40),
+      '20000000-0000-4000-8000-000000000001',
+      '2026-07-18 00:02:00+00'
+    )$$,
+  '%raffle_rules_snapshot_conflict%',
+  'an existing rules version cannot be replaced with different content'
+);
+
+select throws_like(
+  $$update public.raffle_rule_snapshots
+    set canonical_rules = '{"title":"Changed"}'::jsonb
+    where rules_version = 'test-v1'$$,
+  '%raffle_rule_snapshot_is_immutable%',
+  'an archived rules snapshot cannot be updated'
+);
+
+select throws_like(
+  $$delete from public.raffle_rule_snapshots
+    where rules_version = 'test-v1'$$,
+  '%raffle_rule_snapshot_is_immutable%',
+  'an archived rules snapshot cannot be deleted'
+);
+
+select throws_like(
+  $$insert into public.raffle_cycles (
+      public_cycle_id, opens_at, closes_at, draw_at, expires_at,
+      rules_version, rules_version_url, rules_content_hash
+    ) values (
+      'test-unarchived-rules',
+      '2026-06-01 00:00:00+00', '2026-07-18 23:45:00+00',
+      '2026-07-19 00:00:00+00', '2026-08-18 00:00:00+00',
+      'test-v1', '/raffle#drawing-rules-test-v1', repeat('f', 64)
+    )$$,
+  '%raffle_cycles_rules_snapshot_fk%',
+  'a cycle cannot bind an unarchived rules digest'
+);
+
+set local role service_role;
+select throws_like(
+  $$insert into public.raffle_rule_snapshots (
+      rules_version, canonical_rules, rules_content_hash, source_commit_sha,
+      reviewed_by, reviewed_at
+    ) values (
+      'bypass-v1', '{"title":"Bypass"}'::jsonb, repeat('d', 64),
+      repeat('b', 40), '20000000-0000-4000-8000-000000000001', now()
+    )$$,
+  '%permission denied for table raffle_rule_snapshots%',
+  'service-role table access cannot bypass the rules archive RPC'
+);
+reset role;
+
 insert into public.raffle_draws (
   id, cycle_id, ledger_salt, entrant_count, total_entry_count
 ) values
@@ -605,7 +701,8 @@ insert into public.raffle_cycles (
   '10000000-0000-4000-8000-000000000125', 'test-manual-25', 'drawn',
   '2026-06-14 00:00:00+00', '2026-07-18 23:45:00+00',
   '2026-07-19 00:00:00+00', '2026-08-18 00:00:00+00',
-  'test-v1', '/raffle#drawing-rules-test-v1', repeat('a', 64),
+  'test-v1', '/raffle#drawing-rules-test-v1',
+  (select rules_content_hash from public.raffle_rule_snapshots where rules_version = 'test-v1'),
   'test-v1', repeat('b', 64), 'test-v1', repeat('c', 64), array['US'],
   2500, 5000,
   'One $25 digital gift card or eligible in-game gift, plus two Mochirii community honors.',
@@ -718,20 +815,23 @@ select throws_like(
   'a recorded manual all-in cost is immutable'
 );
 
--- Three real members and a fully reviewed open cycle exercise frozen-ledger
+-- Four real members and a fully reviewed open cycle exercise all supported
+-- 1/2/4/10 entry counts, frozen-ledger
 -- identity, database-controlled seed commitment, and deterministic completion.
 insert into auth.users (
   id, email, raw_app_meta_data, raw_user_meta_data, created_at, updated_at
 ) values
   ('20000000-0000-4000-8000-000000000002', 'raffle-backend-test-2@example.invalid', '{}'::jsonb, '{}'::jsonb, '2026-07-18 00:00:00+00', '2026-07-18 00:00:00+00'),
-  ('20000000-0000-4000-8000-000000000003', 'raffle-backend-test-3@example.invalid', '{}'::jsonb, '{}'::jsonb, '2026-07-18 00:00:00+00', '2026-07-18 00:00:00+00');
+  ('20000000-0000-4000-8000-000000000003', 'raffle-backend-test-3@example.invalid', '{}'::jsonb, '{}'::jsonb, '2026-07-18 00:00:00+00', '2026-07-18 00:00:00+00'),
+  ('20000000-0000-4000-8000-000000000004', 'raffle-backend-test-4@example.invalid', '{}'::jsonb, '{}'::jsonb, '2026-07-18 00:00:00+00', '2026-07-18 00:00:00+00');
 
 update public.member_profiles
 set member_status = 'active', has_required_discord_roles = true,
     discord_verified_at = '2026-07-18 00:00:00+00'
 where id in (
   '20000000-0000-4000-8000-000000000002',
-  '20000000-0000-4000-8000-000000000003'
+  '20000000-0000-4000-8000-000000000003',
+  '20000000-0000-4000-8000-000000000004'
 );
 
 insert into public.raffle_cycles (
@@ -747,7 +847,8 @@ insert into public.raffle_cycles (
   '10000000-0000-4000-8000-000000000900', 'test-deterministic-draw', 'open',
   '2026-07-01 00:00:00+00', '2026-07-19 23:45:00+00',
   '2026-07-20 00:00:00+00', '2026-08-19 00:00:00+00',
-  'test-v1', '/raffle#drawing-rules-test-v1', repeat('1', 64),
+  'test-v1', '/raffle#drawing-rules-test-v1',
+  (select rules_content_hash from public.raffle_rule_snapshots where rules_version = 'test-v1'),
   'test-v1', repeat('2', 64), 'test-v1', repeat('3', 64), array['US'],
   2500, 5000, 'One reviewed test reward.', 'Reviewed test sponsor',
   true, true, true, true, true, true, true, '2026-07-01 00:00:00+00'
@@ -763,19 +864,26 @@ insert into public.raffle_entries (
 ) values
   ('60000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000900', '20000000-0000-4000-8000-000000000001', 'eligible', 'eligible', 'US', true, '2026-07-02 00:00:00+00', 1, 'test-v1', 'test-v1', 'active', true, 'cleared', '2026-07-02 00:00:00+00', '20000000-0000-4000-8000-000000000001', 'administrator_household_cleared'),
   ('60000000-0000-4000-8000-000000000002', '10000000-0000-4000-8000-000000000900', '20000000-0000-4000-8000-000000000002', 'eligible', 'eligible', 'US', true, '2026-07-02 00:00:00+00', 1, 'test-v1', 'test-v1', 'active', true, 'cleared', '2026-07-02 00:00:00+00', '20000000-0000-4000-8000-000000000001', 'administrator_household_cleared'),
-  ('60000000-0000-4000-8000-000000000003', '10000000-0000-4000-8000-000000000900', '20000000-0000-4000-8000-000000000003', 'eligible', 'eligible', 'US', true, '2026-07-02 00:00:00+00', 1, 'test-v1', 'test-v1', 'active', true, 'cleared', '2026-07-02 00:00:00+00', '20000000-0000-4000-8000-000000000001', 'administrator_household_cleared');
+  ('60000000-0000-4000-8000-000000000003', '10000000-0000-4000-8000-000000000900', '20000000-0000-4000-8000-000000000003', 'eligible', 'eligible', 'US', true, '2026-07-02 00:00:00+00', 1, 'test-v1', 'test-v1', 'active', true, 'cleared', '2026-07-02 00:00:00+00', '20000000-0000-4000-8000-000000000001', 'administrator_household_cleared'),
+  ('60000000-0000-4000-8000-000000000004', '10000000-0000-4000-8000-000000000900', '20000000-0000-4000-8000-000000000004', 'eligible', 'eligible', 'US', true, '2026-07-02 00:00:00+00', 1, 'test-v1', 'test-v1', 'active', true, 'cleared', '2026-07-02 00:00:00+00', '20000000-0000-4000-8000-000000000001', 'administrator_household_cleared');
 
 insert into public.raffle_bonus_awards (
   id, cycle_id, entry_id, member_id, bonus_key, completion_method,
   source_reference_hash, awarded_by
-) values (
-  '61000000-0000-4000-8000-000000000001',
-  '10000000-0000-4000-8000-000000000900',
-  '60000000-0000-4000-8000-000000000001',
-  '20000000-0000-4000-8000-000000000001',
-  'scheduled_activity', 'alternative', repeat('4', 64),
-  '20000000-0000-4000-8000-000000000001'
-);
+) values
+  ('61000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000900', '60000000-0000-4000-8000-000000000002', '20000000-0000-4000-8000-000000000002', 'scheduled_activity', 'alternative', repeat('4', 64), '20000000-0000-4000-8000-000000000001'),
+  ('61000000-0000-4000-8000-000000000002', '10000000-0000-4000-8000-000000000900', '60000000-0000-4000-8000-000000000003', '20000000-0000-4000-8000-000000000003', 'scheduled_activity', 'primary', repeat('4', 64), '20000000-0000-4000-8000-000000000001'),
+  ('61000000-0000-4000-8000-000000000003', '10000000-0000-4000-8000-000000000900', '60000000-0000-4000-8000-000000000003', '20000000-0000-4000-8000-000000000003', 'monthly_gathering', 'primary', repeat('4', 64), '20000000-0000-4000-8000-000000000001'),
+  ('61000000-0000-4000-8000-000000000004', '10000000-0000-4000-8000-000000000900', '60000000-0000-4000-8000-000000000003', '20000000-0000-4000-8000-000000000003', 'help_session', 'primary', repeat('4', 64), '20000000-0000-4000-8000-000000000001'),
+  ('61000000-0000-4000-8000-000000000005', '10000000-0000-4000-8000-000000000900', '60000000-0000-4000-8000-000000000004', '20000000-0000-4000-8000-000000000004', 'scheduled_activity', 'primary', repeat('4', 64), '20000000-0000-4000-8000-000000000001'),
+  ('61000000-0000-4000-8000-000000000006', '10000000-0000-4000-8000-000000000900', '60000000-0000-4000-8000-000000000004', '20000000-0000-4000-8000-000000000004', 'monthly_gathering', 'primary', repeat('4', 64), '20000000-0000-4000-8000-000000000001'),
+  ('61000000-0000-4000-8000-000000000007', '10000000-0000-4000-8000-000000000900', '60000000-0000-4000-8000-000000000004', '20000000-0000-4000-8000-000000000004', 'help_session', 'primary', repeat('4', 64), '20000000-0000-4000-8000-000000000001'),
+  ('61000000-0000-4000-8000-000000000008', '10000000-0000-4000-8000-000000000900', '60000000-0000-4000-8000-000000000004', '20000000-0000-4000-8000-000000000004', 'social_media_share', 'primary', repeat('4', 64), '20000000-0000-4000-8000-000000000001'),
+  ('61000000-0000-4000-8000-000000000009', '10000000-0000-4000-8000-000000000900', '60000000-0000-4000-8000-000000000004', '20000000-0000-4000-8000-000000000004', 'guild_feedback', 'primary', repeat('4', 64), '20000000-0000-4000-8000-000000000001'),
+  ('61000000-0000-4000-8000-000000000010', '10000000-0000-4000-8000-000000000900', '60000000-0000-4000-8000-000000000004', '20000000-0000-4000-8000-000000000004', 'member_welcome', 'primary', repeat('4', 64), '20000000-0000-4000-8000-000000000001'),
+  ('61000000-0000-4000-8000-000000000011', '10000000-0000-4000-8000-000000000900', '60000000-0000-4000-8000-000000000004', '20000000-0000-4000-8000-000000000004', 'member_recruitment', 'primary', repeat('4', 64), '20000000-0000-4000-8000-000000000001'),
+  ('61000000-0000-4000-8000-000000000012', '10000000-0000-4000-8000-000000000900', '60000000-0000-4000-8000-000000000004', '20000000-0000-4000-8000-000000000004', 'creative_hobby_share', 'primary', repeat('4', 64), '20000000-0000-4000-8000-000000000001'),
+  ('61000000-0000-4000-8000-000000000013', '10000000-0000-4000-8000-000000000900', '60000000-0000-4000-8000-000000000004', '20000000-0000-4000-8000-000000000004', 'member_spotlight_nomination', 'primary', repeat('4', 64), '20000000-0000-4000-8000-000000000001');
 
 select lives_ok(
   $$select public.freeze_raffle_ledger(
@@ -783,7 +891,18 @@ select lives_ok(
       '20000000-0000-4000-8000-000000000001', repeat('5', 32),
       '2026-07-20 00:00:00+00'
     )$$,
-  'the reviewed three-member ledger freezes once'
+  'the reviewed four-member one-plus-nine ledger freezes once'
+);
+
+select is(
+  (
+    select array_agg(frozen_entry_count order by member_id)
+    from public.raffle_entries
+    where cycle_id = '10000000-0000-4000-8000-000000000900'
+      and eligibility_status = 'frozen'
+  ),
+  array[1, 2, 4, 10]::smallint[],
+  'the database freezes the exact one-standard plus nine-bonus entry range'
 );
 
 insert into public.raffle_cycles (
@@ -862,6 +981,54 @@ with draw as (
 insert into raffle_test_draw_evidence (draw_id, ledger_hash)
 select draw.id, encode(extensions.digest(canonical_text.value, 'sha256'), 'hex')
 from draw cross join canonical_text;
+
+select is(
+  (select ledger_hash from raffle_test_draw_evidence),
+  '59d35f30f662fbafc8dd1ad30fb23834002ba31de3e51a74f4aa8ecda1982b1a',
+  'the database ledger digest matches the shared JavaScript vector'
+);
+
+select is(
+  (
+    select private.canonical_raffle_draw_results(draw_id, repeat('6', 64))
+    from raffle_test_draw_evidence
+  ),
+  '[
+    {
+      "memberId":"20000000-0000-4000-8000-000000000003",
+      "pseudonymousMemberId":"58f585c7bd041dba45605d4a29bf6ecc1daf9a21377dd6237442ba1eb154f17c",
+      "entryOrdinal":11,
+      "selectionOrder":1,
+      "kind":"paid_winner",
+      "alternateRank":null
+    },
+    {
+      "memberId":"20000000-0000-4000-8000-000000000004",
+      "pseudonymousMemberId":"4642d2941ef6adacf9ce914c0b6d77f0a2d82604fa690ec1c20645491949f4fd",
+      "entryOrdinal":6,
+      "selectionOrder":2,
+      "kind":"honor",
+      "alternateRank":null
+    },
+    {
+      "memberId":"20000000-0000-4000-8000-000000000002",
+      "pseudonymousMemberId":"9ef80648f10316335e97608b27b46d395c87cb5a92c2bee888710e72a2203e29",
+      "entryOrdinal":16,
+      "selectionOrder":3,
+      "kind":"honor",
+      "alternateRank":null
+    },
+    {
+      "memberId":"20000000-0000-4000-8000-000000000001",
+      "pseudonymousMemberId":"a2f9b4b93835c09bba6d906a802b4c5aa46c2b2d656e63888880580ec712320a",
+      "entryOrdinal":17,
+      "selectionOrder":4,
+      "kind":"alternate",
+      "alternateRank":1
+    }
+  ]'::jsonb,
+  'the database weighted draw matches the shared JavaScript seed vector'
+);
 
 select throws_like(
   $$select public.complete_raffle_draw(
@@ -957,6 +1124,37 @@ select is(
   'a ledger commitment retry returns the same seed and cannot reroll'
 );
 
+select lives_ok(
+  $$select public.record_raffle_private_notice(
+      '10000000-0000-4000-8000-000000000900',
+      (
+        select id from public.raffle_draw_results
+        where cycle_id = '10000000-0000-4000-8000-000000000900'
+          and result_kind = 'paid_winner'
+      ),
+      '20000000-0000-4000-8000-000000000001',
+      '2026-07-20 00:03:00+00'
+    )$$,
+  'the result-first private-notice boundary records the selected winner once'
+);
+
+select is(
+  (
+    public.record_raffle_private_notice(
+      '10000000-0000-4000-8000-000000000900',
+      (
+        select id from public.raffle_draw_results
+        where cycle_id = '10000000-0000-4000-8000-000000000900'
+          and result_kind = 'paid_winner'
+      ),
+      '20000000-0000-4000-8000-000000000001',
+      '2026-07-20 00:04:00+00'
+    )->>'duplicate'
+  )::boolean,
+  true,
+  'an identical private-notice retry remains idempotent after lock-order hardening'
+);
+
 set local role service_role;
 select throws_like(
   $$update public.raffle_draws
@@ -971,6 +1169,261 @@ select throws_like(
     where cycle_id = '10000000-0000-4000-8000-000000000900'$$,
   '%raffle_result_service_boundary_required%',
   'service-role table access cannot bypass canonical result RPCs'
+);
+reset role;
+
+-- The scheduler crosses one reviewed database boundary. Expiry, alternate
+-- promotion, completion, and their redacted audit evidence commit atomically;
+-- exact retries are no-ops and cannot promote the same alternate twice.
+insert into public.raffle_cycles (
+  id, public_cycle_id, status, opens_at, closes_at, draw_at, expires_at,
+  rules_version, rules_version_url, rules_content_hash,
+  privacy_version, privacy_content_hash,
+  country_matrix_version, country_matrix_hash, approved_country_codes,
+  reward_value_cents, cycle_cost_ceiling_cents, public_reward_label,
+  sponsor_display_name, sponsor_approved, rules_approved,
+  country_matrix_approved, reward_approved, privacy_approved,
+  tax_approved, operations_approved, opened_at, frozen_at,
+  entrant_count, total_entry_count
+) values (
+  '10000000-0000-4000-8000-000000000950',
+  'test-atomic-claim-schedule',
+  'drawn',
+  '2026-07-01 00:00:00+00',
+  '2026-07-19 23:45:00+00',
+  '2026-07-20 00:00:00+00',
+  '2026-08-19 00:00:00+00',
+  'test-v1',
+  '/raffle#drawing-rules-test-v1',
+  (select rules_content_hash from public.raffle_rule_snapshots where rules_version = 'test-v1'),
+  'test-v1',
+  repeat('2', 64),
+  'test-v1',
+  repeat('3', 64),
+  array['US'],
+  2500,
+  5000,
+  'One reviewed test reward.',
+  'Reviewed test sponsor',
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  '2026-07-01 00:00:00+00',
+  '2026-07-19 23:45:00+00',
+  4,
+  4
+);
+
+insert into public.raffle_draws (
+  id, cycle_id, status, ledger_salt, ledger_hash, seed_hex, seed_hash,
+  entrant_count, total_entry_count, frozen_at, drawn_at,
+  initiated_by, completed_by
+) values (
+  '30000000-0000-4000-8000-000000000950',
+  '10000000-0000-4000-8000-000000000950',
+  'drawn',
+  repeat('4', 32),
+  repeat('5', 64),
+  repeat('6', 64),
+  repeat('7', 64),
+  4,
+  4,
+  '2026-07-19 23:45:00+00',
+  '2026-07-20 00:00:00+00',
+  '20000000-0000-4000-8000-000000000001',
+  '20000000-0000-4000-8000-000000000001'
+);
+
+insert into public.raffle_draw_results (
+  id, draw_id, cycle_id, member_id, result_kind, selection_order,
+  entry_ordinal, pseudonymous_member_id, alternate_rank, status,
+  claim_opened_at, claim_deadline, claim_window_days
+) values
+  (
+    '40000000-0000-4000-8000-000000000951',
+    '30000000-0000-4000-8000-000000000950',
+    '10000000-0000-4000-8000-000000000950',
+    '20000000-0000-4000-8000-000000000001',
+    'paid_winner', 1, 1, repeat('8', 64), null, 'selected',
+    '2026-07-20 00:00:00+00', '2026-07-27 00:00:00+00', 7
+  ),
+  (
+    '40000000-0000-4000-8000-000000000952',
+    '30000000-0000-4000-8000-000000000950',
+    '10000000-0000-4000-8000-000000000950',
+    '20000000-0000-4000-8000-000000000004',
+    'alternate', 4, 4, repeat('9', 64), 1, 'selected',
+    null, null, 7
+  ),
+  (
+    '40000000-0000-4000-8000-000000000953',
+    '30000000-0000-4000-8000-000000000950',
+    '10000000-0000-4000-8000-000000000950',
+    '20000000-0000-4000-8000-000000000002',
+    'honor', 2, 2, repeat('a', 64), null, 'selected',
+    null, null, 7
+  ),
+  (
+    '40000000-0000-4000-8000-000000000954',
+    '30000000-0000-4000-8000-000000000950',
+    '10000000-0000-4000-8000-000000000950',
+    '20000000-0000-4000-8000-000000000003',
+    'honor', 3, 3, repeat('b', 64), null, 'selected',
+    null, null, 7
+  );
+
+set local role service_role;
+select is(
+  (
+    public.advance_raffle_claim_schedule(
+      '10000000-0000-4000-8000-000000000950',
+      '2026-07-27 00:00:00+00'
+    )->>'changedCount'
+  )::integer,
+  0,
+  'the paid-winner claim remains eligible at its exact inclusive deadline'
+);
+reset role;
+
+select ok(
+  (
+    select winner.status = 'selected'
+      and alternate.claim_opened_at is null
+      and (
+        select count(*)
+        from public.raffle_audit_events audit
+        where audit.cycle_id = winner.cycle_id
+      ) = 0
+    from public.raffle_draw_results winner
+    join public.raffle_draw_results alternate
+      on alternate.id = '40000000-0000-4000-8000-000000000952'
+    where winner.id = '40000000-0000-4000-8000-000000000951'
+  ),
+  'the inclusive deadline does not expire, promote, or write audit evidence'
+);
+
+set local role service_role;
+select is(
+  (
+    public.advance_raffle_claim_schedule(
+      '10000000-0000-4000-8000-000000000950',
+      '2026-07-27 00:00:01+00'
+    )->>'changedCount'
+  )::integer,
+  2,
+  'the first instant after the deadline expires the winner and promotes one alternate'
+);
+reset role;
+
+select is(
+  (
+    select status
+    from public.raffle_draw_results
+    where id = '40000000-0000-4000-8000-000000000951'
+  ),
+  'expired',
+  'the expired paid-winner claim is persisted'
+);
+
+select ok(
+  (
+    select status = 'selected'
+      and claim_opened_at = '2026-07-27 00:00:01+00'::timestamptz
+      and claim_deadline = '2026-08-03 00:00:01+00'::timestamptz
+    from public.raffle_draw_results
+    where id = '40000000-0000-4000-8000-000000000952'
+  ),
+  'the promoted alternate receives the exact reviewed claim window'
+);
+
+select is(
+  (
+    select count(*)::integer
+    from public.raffle_audit_events
+    where cycle_id = '10000000-0000-4000-8000-000000000950'
+      and event_type in ('claim_expired', 'alternate_promoted')
+  ),
+  2,
+  'expiry and promotion each commit one deduplicated audit event'
+);
+
+set local role service_role;
+select ok(
+  (
+    select (retry.value->>'changedCount')::integer = 0
+      and (retry.value->>'duplicate')::boolean
+    from (
+      select public.advance_raffle_claim_schedule(
+        '10000000-0000-4000-8000-000000000950',
+        '2026-07-27 00:00:01+00'
+      ) as value
+    ) retry
+  ),
+  'an exact scheduler retry is an idempotent no-op'
+);
+reset role;
+
+select is(
+  (
+    select count(*)::integer
+    from public.raffle_audit_events
+    where cycle_id = '10000000-0000-4000-8000-000000000950'
+  ),
+  2,
+  'an exact scheduler retry does not duplicate audit evidence'
+);
+
+set local role service_role;
+select is(
+  (
+    public.advance_raffle_claim_schedule(
+      '10000000-0000-4000-8000-000000000950',
+      '2026-08-03 00:00:02+00'
+    )->>'changedCount'
+  )::integer,
+  2,
+  'the next due pass expires the alternate and completes the exhausted cycle'
+);
+reset role;
+
+select ok(
+  (
+    select cycle.status = 'complete'
+      and cycle.completed_at = '2026-08-03 00:00:02+00'::timestamptz
+      and alternate.status = 'expired'
+      and (
+        select count(*)
+        from public.raffle_audit_events audit
+        where audit.cycle_id = cycle.id
+          and audit.event_type in (
+            'claim_expired', 'alternate_promoted', 'cycle_completed'
+          )
+      ) = 4
+    from public.raffle_cycles cycle
+    join public.raffle_draw_results alternate
+      on alternate.id = '40000000-0000-4000-8000-000000000952'
+    where cycle.id = '10000000-0000-4000-8000-000000000950'
+  ),
+  'completion and its fourth audit record commit with the final expiry'
+);
+
+set local role service_role;
+select ok(
+  (
+    select (retry.value->>'changedCount')::integer = 0
+      and (retry.value->>'duplicate')::boolean
+    from (
+      select public.advance_raffle_claim_schedule(
+        '10000000-0000-4000-8000-000000000950',
+        '2026-08-03 00:00:02+00'
+      ) as value
+    ) retry
+  ),
+  'a completed cycle remains unchanged on later scheduler retries'
 );
 reset role;
 
@@ -989,7 +1442,8 @@ insert into public.raffle_cycles (
   '10000000-0000-4000-8000-000000000902', 'test-future-verification', 'open',
   '2026-07-01 00:00:00+00', '2026-07-30 23:45:00+00',
   '2026-07-31 00:00:00+00', '2026-08-30 00:00:00+00',
-  'test-v1', '/raffle#drawing-rules-test-v1', repeat('6', 64),
+  'test-v1', '/raffle#drawing-rules-test-v1',
+  (select rules_content_hash from public.raffle_rule_snapshots where rules_version = 'test-v1'),
   'test-v1', repeat('7', 64), 'test-v1', repeat('8', 64), array['US'],
   2500, 5000, 'One reviewed test reward.', 'Reviewed test sponsor',
   true, true, true, true, true, true, true, '2026-07-01 00:00:00+00'
@@ -1142,7 +1596,7 @@ insert into public.raffle_cycles (
   now() + interval '31 days 15 minutes',
   'test-v1',
   '/raffle#drawing-rules-test-v1',
-  repeat('a', 64),
+  (select rules_content_hash from public.raffle_rule_snapshots where rules_version = 'test-v1'),
   'test-v1',
   repeat('b', 64),
   'test-v1',
