@@ -154,6 +154,10 @@ const reachableRaffleComponents = collectReachableRaffleComponents([
 const reachableRaffleComponentSource = reachableRaffleComponents
   .map((file) => `/* ${file} */\n${read(file)}`)
   .join("\n");
+const reachableRenderedRaffleSource = reachableRaffleComponents
+  .filter((file) => /\.[jt]sx$/i.test(file))
+  .map((file) => `/* ${file} */\n${read(file)}`)
+  .join("\n");
 assert(publicSource.includes('drawing: "No raffle is active"'), "public raffle source: inactive drawing label must be explicit");
 assert(publicSource.includes('submissions: "No submissions are being accepted."'), "public raffle source: inactive submission status must be explicit");
 
@@ -177,16 +181,23 @@ for (const [label, pattern] of [
 }
 
 for (const [label, pattern] of [
-  ["form or dead control", /<(?:form|button|input|select|textarea)\b/i],
   ["private claim route", /["'`]\/raffle\/claim(?:[/?#"'`]|$)/i],
   ["private leader route", /["'`]\/leader-dashboard\/raffle(?:[/?#"'`]|$)/i],
   ["private raffle API", /["'`]\/api\/raffle\/(?:claim|admin|moderate|schedule|fulfillment)(?:[/?#"'`]|$)/i],
   ["private raffle function", /\b(?:manage-raffle-entry|manage-raffle-claim|moderate-raffle|run-raffle-schedule|run-raffle-fulfillment|reward-provider-webhook)\b/i],
+]) {
+  if (pattern.test(reachableRaffleComponentSource)) {
+    failures.push(`reachable public raffle dependency graph: ${label} is forbidden (${reachableRaffleComponents.join(", ")})`);
+  }
+}
+
+for (const [label, pattern] of [
+  ["form or dead control", /<(?:form|button|input|select|textarea)\b/i],
   ["provider branding", /\b(?:Tremendous|Pixelfed|Supabase|Vercel|Discord|DigitalOcean|Fly\.io|Shopify|Stripe)\b/i],
   ["implementation status language", /\b(?:backend|integration|provider|migration|webhook|relay|database|JWT|service role|Edge Function|coming soon|TBD|work in progress|not implemented|blocked|prelaunch)\b/i],
 ]) {
-  if (pattern.test(reachableRaffleComponentSource)) {
-    failures.push(`reachable public raffle component graph: ${label} is forbidden (${reachableRaffleComponents.join(", ")})`);
+  if (pattern.test(reachableRenderedRaffleSource)) {
+    failures.push(`reachable rendered raffle component graph: ${label} is forbidden (${reachableRaffleComponents.filter((file) => /\.[jt]sx$/i.test(file)).join(", ")})`);
   }
 }
 
@@ -356,12 +367,17 @@ function resolveComponentImport(importer, specifier) {
   else if (specifier.startsWith(".")) base = resolve(root, dirname(importer), specifier);
   else return null;
 
+  const moduleExtensions = [".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"];
   const candidates = extname(base)
     ? [base]
-    : [base, `${base}.tsx`, `${base}.jsx`, resolve(base, "index.tsx"), resolve(base, "index.jsx")];
+    : [
+      base,
+      ...moduleExtensions.map((extension) => `${base}${extension}`),
+      ...moduleExtensions.map((extension) => resolve(base, `index${extension}`)),
+    ];
   const webRoot = resolve(root, "apps/web");
   for (const candidate of candidates) {
-    if (!candidate.startsWith(`${webRoot}\\`) || !/\.[jt]sx$/i.test(candidate) || !existsSync(candidate)) continue;
+    if (!candidate.startsWith(`${webRoot}\\`) || !/\.(?:[cm]?[jt]s|[jt]sx)$/i.test(candidate) || !existsSync(candidate)) continue;
     return candidate.slice(root.length + 1).replaceAll("\\", "/");
   }
   return null;
