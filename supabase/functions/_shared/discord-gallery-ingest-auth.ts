@@ -17,8 +17,8 @@ export const DISCORD_GALLERY_INGEST_HEADERS = {
 const AUTH_VERSION = "v1";
 const MAX_KEY_COUNT = 3;
 const MAX_KEY_SET_BYTES = 4 * 1024;
-const MIN_SECRET_BYTES = 32;
-const MAX_SECRET_BYTES = 128;
+const MIN_HMAC_KEY_BYTES = 32;
+const MAX_HMAC_KEY_BYTES = 128;
 const KEY_ID_RE = /^[a-z0-9][a-z0-9_-]{0,31}$/;
 const TIMESTAMP_RE = /^[1-9][0-9]{9,12}$/;
 const NONCE_RE = /^[0-9a-f]{32}$/;
@@ -65,7 +65,7 @@ function bytesToHex(bytes: Uint8Array): string {
 
 function secretIsValid(secret: string): boolean {
   const length = encoder.encode(secret).byteLength;
-  return length >= MIN_SECRET_BYTES && length <= MAX_SECRET_BYTES;
+  return length >= MIN_HMAC_KEY_BYTES && length <= MAX_HMAC_KEY_BYTES;
 }
 
 export async function readDiscordGalleryIngestBody(

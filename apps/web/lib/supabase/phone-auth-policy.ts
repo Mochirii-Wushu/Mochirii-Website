@@ -1,6 +1,6 @@
 export const PHONE_OTP_RESEND_COOLDOWN_MS = 60_000;
 export const PHONE_OTP_RESEND_STORAGE_KEY = "mochirii:phone-otp:resend-after";
-export const PHONE_CAPTCHA_TOKEN_MAX_CHARS = 4_096;
+export const PHONE_CAPTCHA_RESPONSE_MAX_CHARS = 4_096;
 
 export type PhoneCaptchaProvider = "turnstile";
 
@@ -26,7 +26,7 @@ export function phoneAuthConfigurationReady(readiness: PhoneAuthReadiness) {
 
 export function requirePhoneCaptchaToken(value: unknown) {
   const token = typeof value === "string" ? value.trim() : "";
-  if (!token || token.length > PHONE_CAPTCHA_TOKEN_MAX_CHARS) {
+  if (!token || token.length > PHONE_CAPTCHA_RESPONSE_MAX_CHARS) {
     throw new Error("Complete the verification challenge before requesting a code.");
   }
   return token;
