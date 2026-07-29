@@ -14,12 +14,19 @@ function walk(directory) {
   });
 }
 
+function isNonUrlAppSegment(segment) {
+  // Mirrors the stable path semantics of the pinned Next App Router without
+  // importing its private runtime modules: route groups and parallel slots do
+  // not contribute URL segments.
+  return /^\([^/]+\)$/.test(segment) || segment.startsWith("@");
+}
+
 export function discoverPrivateRaffleOperations(appRoot) {
   const appDirectory = path.join(appRoot, "app");
   return walk(appDirectory).filter((absolute) => {
     const relativeSegments = path.relative(appDirectory, absolute).split(path.sep);
     relativeSegments.pop();
-    const routeSegments = relativeSegments.filter((segment) => !/^\([^/]+\)$/.test(segment));
+    const routeSegments = relativeSegments.filter((segment) => !isNonUrlAppSegment(segment));
     const isPrivateRaffleRoute = (
       (routeSegments[0] === "raffle" && routeSegments[1] === "claim")
       || (routeSegments[0] === "leader-dashboard" && routeSegments[1] === "raffle")
