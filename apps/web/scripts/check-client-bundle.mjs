@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { brotliCompressSync, constants as zlibConstants } from "node:zlib";
 
@@ -6,10 +6,16 @@ const buildRoot = path.resolve(".next");
 const manifestPath = path.join(buildRoot, "server", "app", "page_client-reference-manifest.js");
 const spinnerManifestPath = path.join(buildRoot, "server", "app", "spinner", "page_client-reference-manifest.js");
 const layoutLimit = 63 * 1024;
-const homeIncrementalLimit = 5 * 1024;
+// The isolated private-route shell intentionally removes ordinary header and
+// observability dependencies from the shared layout. That shifts a small
+// React lightbox dependency from the layout into Home's own entry.
+const homeIncrementalLimit = 10 * 1024;
 const publicRouteLimit = 225 * 1024;
 const forbiddenRuntimeMarkers = ["GoTrueClient", "PostgrestError", "RealtimeClient"];
-const galleryMarker = "Approved gallery feed could not be loaded.";
+const galleryMarker = "Member-submitted images are temporarily unavailable.";
+const ordinaryShellMarker = "/assets/bg/wuxia-bg.webp";
+const ordinaryHeaderMarker = "Profile & Settings";
+const authCutoverMarker = "cookie-v1";
 const publicRoutes = [
   "/",
   "/announcements",
@@ -33,6 +39,8 @@ const nonPublicRoutes = [
   "/gallery-submit",
   "/leader-dashboard",
   "/oauth/consent",
+  "/leader-dashboard/raffle",
+  "/raffle/claim",
   "/raffle-render-fixtures-internal/[scenario]",
   "/social",
   "/spinner",
@@ -89,7 +97,7 @@ function routeEntrySuffix(route) {
   return route === "/" ? "/app/page" : `/app${route}/page`;
 }
 
-function publicRouteBundle(route) {
+function routeBundle(route) {
   const routeManifest = parseManifest(routeManifestPath(route), routeManifestKey(route));
   const routeEntries = routeManifest.entryJSFiles || {};
   const files = [...new Set([
@@ -178,7 +186,7 @@ for (const marker of forbiddenRuntimeMarkers) {
 const routeBundles = new Map();
 for (const route of publicRoutes) {
   try {
-    const bundle = publicRouteBundle(route);
+    const bundle = routeBundle(route);
     routeBundles.set(route, bundle);
     if (bundle.brotliBytes > publicRouteLimit) {
       failures.push(`${route} entry JavaScript is ${formatKiB(bundle.brotliBytes)}; limit is ${formatKiB(publicRouteLimit)}`);
@@ -212,6 +220,53 @@ for (const route of publicRoutes) {
   }
 }
 
+const ordinaryShellChunks = chunksContaining(ordinaryShellMarker);
+if (ordinaryShellChunks.length !== 1) {
+  failures.push(`expected one lazy ordinary-shell chunk, found ${ordinaryShellChunks.length}`);
+}
+
+for (const route of ["/raffle/claim", "/leader-dashboard/raffle"]) {
+  try {
+    const bundle = routeBundle(route);
+    const ordinaryEntryChunks = bundle.files.filter((file) => ordinaryShellChunks.includes(file));
+    const ordinaryClientModules = bundle.clientModules.filter((modulePath) => (
+      /[\\/]components[\\/]OrdinarySiteShell\.tsx/.test(modulePath)
+      || /[\\/]components[\\/]AuthCutoverGuard\.tsx/.test(modulePath)
+    ));
+    const ordinaryMarkers = bundle.chunks.filter((chunk) => (
+      chunk.buffer.includes(Buffer.from(ordinaryShellMarker))
+      || chunk.buffer.includes(Buffer.from(ordinaryHeaderMarker))
+      || chunk.buffer.includes(Buffer.from(authCutoverMarker))
+    )).map((chunk) => chunk.file);
+    if (ordinaryEntryChunks.length) {
+      failures.push(`${route} eagerly loads the ordinary shell: ${ordinaryEntryChunks.join(", ")}`);
+    }
+    if (ordinaryClientModules.length) {
+      failures.push(`${route} client manifest includes ordinary auth/shell modules: ${ordinaryClientModules.join(", ")}`);
+    }
+    if (ordinaryMarkers.length) {
+      failures.push(`${route} entry contains ordinary auth/shell markers: ${ordinaryMarkers.join(", ")}`);
+    }
+  } catch (error) {
+    failures.push(`${route} isolated bundle could not be inspected: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+const publicRaffleHtmlPath = path.join(buildRoot, "server", "app", "raffle.html");
+if (!existsSync(publicRaffleHtmlPath)) {
+  failures.push("public /raffle prerendered HTML was not produced");
+} else {
+  const publicRaffleHtml = readFileSync(publicRaffleHtmlPath, "utf8");
+  for (const [label, marker] of [
+    ["header", 'id="site-header"'],
+    ["skip link", 'class="skip-link"'],
+    ["main landmark", 'id="main"'],
+    ["footer", 'role="contentinfo"'],
+  ]) {
+    if (!publicRaffleHtml.includes(marker)) failures.push(`public /raffle prerendered HTML is missing its ${label}`);
+  }
+}
+
 if (layoutBrotli > layoutLimit) {
   failures.push(`initial layout JavaScript is ${formatKiB(layoutBrotli)}; limit is ${formatKiB(layoutLimit)}`);
 }
@@ -237,3 +292,5 @@ console.log(`- Every public route entry stays within ${formatKiB(publicRouteLimi
 console.log(`- Route inventory classifies ${publicRoutes.length} public and ${nonPublicRoutes.length} non-public app pages.`);
 console.log("- Gallery-only code is absent from unrelated public entries, and Supabase SDK modules and markers are absent from all public entries.");
 console.log("- Private spinner controller and viewer code remain distinct, lazy chunks.");
+console.log("- Private raffle entries exclude the ordinary shell, auth cutover, and observability chunks.");
+console.log("- Public /raffle keeps its server-rendered header, skip link, main landmark, and footer.");

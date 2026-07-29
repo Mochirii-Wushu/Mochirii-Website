@@ -54,7 +54,7 @@ export default async function RaffleClaimPage() {
               <p>No raffle reward is available to claim for this account.</p>
             </div>
             <div className="auth-actions u-mt-18">
-              <Link className="hero-cta" href="/raffle">Return to Monthly Raffle</Link>
+              <Link className="hero-cta" href="/raffle" prefetch={false}>Return to Monthly Raffle</Link>
             </div>
           </section>
         </div>

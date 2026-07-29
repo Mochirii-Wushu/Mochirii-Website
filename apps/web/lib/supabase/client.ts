@@ -3,12 +3,55 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   isSupabaseConfigured,
   SUPABASE_AUTH_COOKIE_OPTIONS,
+  SUPABASE_AUTH_STORAGE_KEY,
   SUPABASE_PUBLISHABLE_KEY,
   SUPABASE_URL,
 } from "./config";
+import {
+  clearLegacyAuthStorage,
+  runLegacyAuthCutover,
+  safeLegacyAuthStorage,
+  shouldRetireLegacyAuthForEvent,
+  type LegacyAuthCutoverResult,
+} from "./legacy-auth-cutover";
 import { createError, createResult, failedResult, okResult, type SupabaseResult } from "./types";
 
 let browserClient: SupabaseClient | null = null;
+let authCutoverPromise: Promise<LegacyAuthCutoverResult> | null = null;
+
+function browserStorage() {
+  return typeof window === "undefined" ? null : safeLegacyAuthStorage(() => window.localStorage);
+}
+
+function retireLegacyBrowserAuth() {
+  const storage = browserStorage();
+  if (storage) clearLegacyAuthStorage(storage, SUPABASE_AUTH_STORAGE_KEY);
+}
+
+function startAuthCutover(client: SupabaseClient) {
+  if (authCutoverPromise) return authCutoverPromise;
+  const storage = browserStorage();
+  if (!storage) {
+    authCutoverPromise = Promise.resolve({ status: "none" });
+    return authCutoverPromise;
+  }
+
+  authCutoverPromise = runLegacyAuthCutover({
+    auth: client.auth,
+    storage,
+    storageKey: SUPABASE_AUTH_STORAGE_KEY,
+    href: window.location.href,
+    replaceUrl(cleanPath) {
+      window.history.replaceState(window.history.state, "", cleanPath);
+    },
+  });
+  void authCutoverPromise.then(() => {
+    client.auth.onAuthStateChange((event) => {
+      if (shouldRetireLegacyAuthForEvent(event)) retireLegacyBrowserAuth();
+    });
+  });
+  return authCutoverPromise;
+}
 
 export function getBrowserSupabaseClient() {
   if (!isSupabaseConfigured()) return null;
@@ -21,6 +64,7 @@ export function getBrowserSupabaseClient() {
       detectSessionInUrl: false,
     },
   });
+  startAuthCutover(browserClient);
 
   return browserClient;
 }
@@ -29,6 +73,21 @@ export function requireBrowserSupabaseClient() {
   const client = getBrowserSupabaseClient();
   if (!client) throw new Error("Supabase public environment variables are not configured.");
   return client;
+}
+
+export async function requireReadyBrowserSupabaseClient() {
+  const client = requireBrowserSupabaseClient();
+  await startAuthCutover(client);
+  return client;
+}
+
+export async function getBrowserAuthCutoverResult() {
+  const client = requireBrowserSupabaseClient();
+  return await startAuthCutover(client);
+}
+
+export function clearLegacyBrowserAuthStorage() {
+  retireLegacyBrowserAuth();
 }
 
 async function parseFunctionError(error: unknown) {
@@ -44,7 +103,7 @@ async function parseFunctionError(error: unknown) {
 
 export async function invokeEdgeFunction<T>(functionName: string, body: Record<string, unknown> = {}): Promise<SupabaseResult<T>> {
   try {
-    const client = requireBrowserSupabaseClient();
+    const client = await requireReadyBrowserSupabaseClient();
     const { data, error } = await client.functions.invoke(functionName, { body });
 
     if (error) {

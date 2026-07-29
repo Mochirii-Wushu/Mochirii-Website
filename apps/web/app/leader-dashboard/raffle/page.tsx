@@ -56,7 +56,7 @@ export default async function RaffleLeaderPage() {
               <p>No raffle administration is available right now.</p>
             </div>
             <div className="auth-actions">
-              <Link className="hero-cta" href="/leader-dashboard">Return to Leader Dashboard</Link>
+              <Link className="hero-cta" href="/leader-dashboard" prefetch={false}>Return to Leader Dashboard</Link>
             </div>
           </section>
         </div>

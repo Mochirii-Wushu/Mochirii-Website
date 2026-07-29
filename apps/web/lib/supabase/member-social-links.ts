@@ -4,7 +4,7 @@ import {
   type MemberSocialLinkProvider,
 } from "@/lib/member-social-links/profile-links-core";
 import { getCurrentUser } from "./auth";
-import { requireBrowserSupabaseClient } from "./client";
+import { requireReadyBrowserSupabaseClient } from "./client";
 import {
   createError,
   createResult,
@@ -29,7 +29,7 @@ async function requireCurrentUserId() {
 
 export async function listMyMemberSocialLinks() {
   try {
-    const client = requireBrowserSupabaseClient();
+    const client = await requireReadyBrowserSupabaseClient();
     const userId = await requireCurrentUserId();
     const { data, error, status, statusText } = await client
       .from("member_social_links")
@@ -56,7 +56,7 @@ export async function listMyMemberSocialLinks() {
 
 export async function listVisibleMemberSocialLinks(userId: string) {
   try {
-    const client = requireBrowserSupabaseClient();
+    const client = await requireReadyBrowserSupabaseClient();
     await requireCurrentUserId();
     const cleanUserId = String(userId || "").trim();
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(cleanUserId)) {
@@ -89,7 +89,7 @@ export async function listVisibleMemberSocialLinks(userId: string) {
 
 export async function createMemberSocialLink(payload: CreateMemberSocialLinkPayload) {
   try {
-    const client = requireBrowserSupabaseClient();
+    const client = await requireReadyBrowserSupabaseClient();
     await requireCurrentUserId();
     const current = await listMyMemberSocialLinks();
     if (!current.ok) return current;
@@ -124,7 +124,7 @@ export async function createMemberSocialLink(payload: CreateMemberSocialLinkPayl
 
 export async function updateMemberSocialLinkVisibility(id: string, isVisible: boolean) {
   try {
-    const client = requireBrowserSupabaseClient();
+    const client = await requireReadyBrowserSupabaseClient();
     const userId = await requireCurrentUserId();
     const { data, error, status, statusText } = await client
       .from("member_social_links")
@@ -152,7 +152,7 @@ export async function updateMemberSocialLinkVisibility(id: string, isVisible: bo
 
 export async function reorderMemberSocialLinks(orderedIds: string[]) {
   try {
-    const client = requireBrowserSupabaseClient();
+    const client = await requireReadyBrowserSupabaseClient();
     await requireCurrentUserId();
     const ids = [...new Set(orderedIds.map((id) => String(id || "").trim()).filter(Boolean))];
     if (
@@ -173,7 +173,7 @@ export async function reorderMemberSocialLinks(orderedIds: string[]) {
 
 export async function deleteMemberSocialLink(id: string) {
   try {
-    const client = requireBrowserSupabaseClient();
+    const client = await requireReadyBrowserSupabaseClient();
     const userId = await requireCurrentUserId();
     const { error, status, statusText, count } = await client
       .from("member_social_links")

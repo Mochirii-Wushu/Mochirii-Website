@@ -48,13 +48,17 @@ function oauthConsentReturnPath(url: URL) {
   return `/oauth/consent?authorization_id=${encodeURIComponent(authorizationId)}`;
 }
 
-export function resolveAuthReturnPath(value: unknown) {
+export function reviewedAuthReturnPath(value: unknown) {
   const url = safeLocalUrl(value);
-  if (!url) return DEFAULT_AUTH_RETURN_PATH;
+  if (!url) return null;
   if (SIMPLE_AUTH_RETURN_PATHS.has(url.pathname) && !url.search && !url.hash) {
     return url.pathname;
   }
-  return oauthConsentReturnPath(url) || DEFAULT_AUTH_RETURN_PATH;
+  return oauthConsentReturnPath(url);
+}
+
+export function resolveAuthReturnPath(value: unknown) {
+  return reviewedAuthReturnPath(value) || DEFAULT_AUTH_RETURN_PATH;
 }
 
 export function authCallbackPath(value: unknown) {
@@ -63,4 +67,22 @@ export function authCallbackPath(value: unknown) {
 
 export function authLoginPath(value: unknown) {
   return `/auth?redirect=${encodeURIComponent(resolveAuthReturnPath(value))}`;
+}
+
+export function freshAuthLoginPath(value: unknown) {
+  return `${authLoginPath(value)}&reauth=1`;
+}
+
+export function reauthLoginPathForLocation(value: unknown) {
+  let url: URL;
+  try {
+    url = new URL(String(value || ""), "https://auth.mochirii.invalid");
+  } catch {
+    return freshAuthLoginPath(DEFAULT_AUTH_RETURN_PATH);
+  }
+  if (url.pathname === "/auth") {
+    const redirects = url.searchParams.getAll("redirect");
+    return freshAuthLoginPath(redirects.length === 1 ? redirects[0] : DEFAULT_AUTH_RETURN_PATH);
+  }
+  return freshAuthLoginPath(reviewedAuthReturnPath(`${url.pathname}${url.search}`) || DEFAULT_AUTH_RETURN_PATH);
 }

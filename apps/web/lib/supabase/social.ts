@@ -1,4 +1,4 @@
-import { requireBrowserSupabaseClient } from "./client";
+import { requireReadyBrowserSupabaseClient } from "./client";
 import { createError, createResult, failedResult, okResult, type SocialAccount } from "./types";
 
 const socialAccountFields =
@@ -6,7 +6,7 @@ const socialAccountFields =
 
 export async function listMySocialAccounts() {
   try {
-    const client = requireBrowserSupabaseClient();
+    const client = await requireReadyBrowserSupabaseClient();
     const { data, error, status, statusText } = await client
       .from("social_accounts")
       .select(socialAccountFields)

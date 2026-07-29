@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveAuthReturnPath } from "@/lib/supabase/auth-redirect";
+import { exchangeAuthCodeForCookieSession } from "@/lib/supabase/auth-callback-exchange";
 import { PRIVATE_RAFFLE_HEADERS } from "@/lib/supabase/raffle-response-policy";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createRouteHandlerSupabaseClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -31,10 +32,10 @@ export async function GET(request: NextRequest) {
     code.length > 4_096
   ) return redirectResponse(failedSignInUrl(request, nextPath));
 
-  const supabase = await createServerSupabaseClient();
+  const supabase = await createRouteHandlerSupabaseClient();
   if (!supabase) return redirectResponse(failedSignInUrl(request, nextPath));
 
-  const { error } = await supabase.auth.exchangeCodeForSession(code);
-  if (error) return redirectResponse(failedSignInUrl(request, nextPath));
+  const exchanged = await exchangeAuthCodeForCookieSession(supabase.auth, code);
+  if (!exchanged) return redirectResponse(failedSignInUrl(request, nextPath));
   return redirectResponse(new URL(nextPath, request.url));
 }
