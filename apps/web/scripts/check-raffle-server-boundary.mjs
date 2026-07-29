@@ -94,7 +94,9 @@ const operationPolicy = validatePrivateRaffleOperationAllowlist(appRoot);
 operationPolicy.failures.forEach((failure) => failures.push(`Private raffle operation policy: ${failure}`));
 const previewSmoke = read("scripts/smoke-raffle-auth-preview.mjs");
 requireText(previewSmoke, /MOCHIRII_RAFFLE_PREVIEW_AUTH_FIXTURE/, "Preview auth evidence must come from the ignored one-use fixture.");
-requireText(previewSmoke, /responseCookiePairs/, "Preview auth must verify callback Set-Cookie behavior.");
+requireText(previewSmoke, /responseCookieChanges/, "Preview auth must verify callback Set-Cookie behavior.");
+requireText(previewSmoke, /applySetCookieChanges\(incomingCookies, sessionCookieChanges\)/, "Preview auth must apply callback cookie deletions to its request jar.");
+requireText(previewSmoke, /hasNonemptyAuthTokenCookie\(incomingCookies\)/, "Preview auth must require a usable nonempty session cookie.");
 requireText(previewSmoke, /destination\.pathname !== "\/raffle\/claim"/, "Preview auth must follow the exact protected claim destination.");
 rejectText(previewSmoke, /console\.(?:log|error)\([^\n]*(?:callbackUrl|cookieHeader|codes\[|fixture\.)/, "Preview auth must never print callback or cookie material.");
 

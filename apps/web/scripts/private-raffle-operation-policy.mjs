@@ -15,11 +15,17 @@ function walk(directory) {
 }
 
 export function discoverPrivateRaffleOperations(appRoot) {
-  const roots = [
-    path.join(appRoot, "app", "raffle", "claim"),
-    path.join(appRoot, "app", "leader-dashboard", "raffle"),
-  ];
-  return roots.flatMap(walk).filter((absolute) => {
+  const appDirectory = path.join(appRoot, "app");
+  return walk(appDirectory).filter((absolute) => {
+    const relativeSegments = path.relative(appDirectory, absolute).split(path.sep);
+    relativeSegments.pop();
+    const routeSegments = relativeSegments.filter((segment) => !/^\([^/]+\)$/.test(segment));
+    const isPrivateRaffleRoute = (
+      (routeSegments[0] === "raffle" && routeSegments[1] === "claim")
+      || (routeSegments[0] === "leader-dashboard" && routeSegments[1] === "raffle")
+    );
+    if (!isPrivateRaffleRoute) return false;
+
     const name = path.basename(absolute);
     if (/\.test\.[cm]?[jt]sx?$/.test(name)) return false;
     if (/^route\.[cm]?[jt]sx?$/.test(name)) return true;
