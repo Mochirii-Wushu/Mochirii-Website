@@ -58,6 +58,16 @@
       "productionSmoke": true
     },
     {
+      "path": "/auth/callback",
+      "kind": "handler",
+      "source": "app/auth/callback/route.ts",
+      "surface": "public",
+      "productionSmoke": false,
+      "methods": [
+        "GET"
+      ]
+    },
+    {
       "path": "/events",
       "kind": "page",
       "source": "app/events/page.tsx",
