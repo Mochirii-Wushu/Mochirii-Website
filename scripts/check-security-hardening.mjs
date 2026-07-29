@@ -34,7 +34,12 @@ const files = {
   spotlightPollSender: "supabase/functions/send-member-spotlight-poll/index.ts",
   spotlightPollPublisher: "supabase/functions/publish-member-spotlight-winner/index.ts",
   spotlightPollPublicWinner: "supabase/functions/get-current-spotlight-winner/index.ts",
+  raffleFlags: "supabase/functions/_shared/raffle-flags.ts",
   currentRaffle: "supabase/functions/get-current-raffle/index.ts",
+  raffleSchedule: "supabase/functions/run-raffle-schedule/index.ts",
+  raffleFulfillment: "supabase/functions/run-raffle-fulfillment/index.ts",
+  rewardProviderWebhook: "supabase/functions/reward-provider-webhook/index.ts",
+  rewardCrypto: "supabase/functions/_shared/reward-crypto.ts",
   pixelfedSocialSync: "supabase/functions/sync-pixelfed-social-account/index.ts",
   report: "reports/free-security-hardening-2026-06-08.md",
   cspReport: "reports/csp-enforcement-verification-2026-06-08.md",
@@ -113,7 +118,12 @@ const spotlightPollShared = read(files.spotlightPollShared);
 const spotlightPollSender = read(files.spotlightPollSender);
 const spotlightPollPublisher = read(files.spotlightPollPublisher);
 const spotlightPollPublicWinner = read(files.spotlightPollPublicWinner);
+const raffleFlags = read(files.raffleFlags);
 const currentRaffle = read(files.currentRaffle);
+const raffleSchedule = read(files.raffleSchedule);
+const raffleFulfillment = read(files.raffleFulfillment);
+const rewardProviderWebhook = read(files.rewardProviderWebhook);
+const rewardCrypto = read(files.rewardCrypto);
 const pixelfedSocialSync = read(files.pixelfedSocialSync);
 const report = read(files.report);
 const cspReport = read(files.cspReport);
@@ -219,12 +229,12 @@ if (nextConfig.includes("'unsafe-eval'")) {
 
 const verifyJwtFalseFunctions = extractVerifyJwtFalseFunctions(supabaseConfig);
 const configuredFunctions = extractConfiguredFunctions(supabaseConfig);
-if (configuredFunctions.length !== 34) {
-  failures.push(`supabase/config.toml: expected 34 configured functions, found ${configuredFunctions.length}.`);
+if (configuredFunctions.length !== 40) {
+  failures.push(`supabase/config.toml: expected 40 configured functions, found ${configuredFunctions.length}.`);
 }
-if (configuredFunctions.length - verifyJwtFalseFunctions.length !== 20) {
+if (configuredFunctions.length - verifyJwtFalseFunctions.length !== 23) {
   failures.push(
-    `supabase/config.toml: expected 20 verify_jwt=true functions, found ${configuredFunctions.length - verifyJwtFalseFunctions.length}.`,
+    `supabase/config.toml: expected 23 verify_jwt=true functions, found ${configuredFunctions.length - verifyJwtFalseFunctions.length}.`,
   );
 }
 const expectedUnauthenticatedFunctions = [
@@ -239,6 +249,9 @@ const expectedUnauthenticatedFunctions = [
   "publish-member-spotlight-winner",
   "get-current-spotlight-winner",
   "get-current-raffle",
+  "run-raffle-schedule",
+  "run-raffle-fulfillment",
+  "reward-provider-webhook",
   "mochi-pets-alpha-action",
   "mochi-pets-alpha-progress",
   "sync-pixelfed-social-account",
@@ -386,6 +399,37 @@ const unauthenticatedFunctionGuardSpecs = {
       "LEADERBOARD_SECURITY_HEADERS",
       'Vary: "Authorization"',
       "handlePublicGet(dependencies)",
+    ],
+  },
+  "run-raffle-schedule": {
+    source: `${raffleSchedule}\n${raffleFlags}`,
+    kind: "closed-by-default shared-secret raffle scheduler",
+    snippets: [
+      "raffleOperationalGates().scheduling",
+      "RAFFLE_SCHEDULE_CRON_SECRET",
+      "x-raffle-cron-secret",
+      "constantTimeSecretMatches",
+    ],
+  },
+  "run-raffle-fulfillment": {
+    source: `${raffleFulfillment}\n${raffleFlags}`,
+    kind: "closed-by-default shared-secret reward worker",
+    snippets: [
+      "!gates.rewardOrders || !gates.relay",
+      "RAFFLE_FULFILLMENT_CRON_SECRET",
+      "x-raffle-fulfillment-secret",
+      "constantTimeTextEquals",
+    ],
+  },
+  "reward-provider-webhook": {
+    source: `${rewardProviderWebhook}\n${rewardCrypto}\n${raffleFlags}`,
+    kind: "closed-by-default signed reward webhook",
+    snippets: [
+      "!gates.rewardOrders || !gates.relay",
+      "TREMENDOUS_WEBHOOK_SIGNING_SECRET",
+      "PROVIDER_WEBHOOK_SIGNATURE_HEADER",
+      "verifyProviderWebhookSignature",
+      "maximumWebhookBytes",
     ],
   },
   "mochi-pets-alpha-action": {

@@ -87,6 +87,18 @@ const protectedFunctions = [
     name: "moderate-member-profile-media",
     body: {},
   },
+  {
+    name: "manage-raffle-entry",
+    body: { action: "status" },
+  },
+  {
+    name: "moderate-raffle",
+    body: { action: "readiness" },
+  },
+  {
+    name: "manage-raffle-claim",
+    body: { action: "status" },
+  },
 ];
 
 const secretProtectedFunctions = [
@@ -159,6 +171,26 @@ const secretProtectedFunctions = [
 const publicReadOnlyFunctions = [
   "list-visible-profile-cards",
   "get-current-spotlight-winner",
+  "get-current-raffle",
+];
+
+const disabledOperationalFunctions = [
+  {
+    name: "run-raffle-schedule",
+    invalidHeaders: { "x-raffle-cron-secret": "invalid-smoke-secret" },
+  },
+  {
+    name: "run-raffle-fulfillment",
+    invalidHeaders: {
+      "x-raffle-fulfillment-secret": "invalid-smoke-secret",
+    },
+  },
+  {
+    name: "reward-provider-webhook",
+    invalidHeaders: {
+      "Tremendous-Webhook-Signature": "invalid-smoke-signature",
+    },
+  },
 ];
 
 function readSupabasePublicConfig() {
@@ -286,6 +318,24 @@ async function checkMethodNotAllowed(config, name) {
   });
 
   assert(result.status === 405, `${name} DELETE expected 405 Method not allowed, got ${result.status}.`);
+}
+
+async function checkDisabledOperationalFunction(config, target) {
+  for (const [label, method, extraHeaders] of [
+    ["without authentication", "POST", {}],
+    ["with invalid authentication", "POST", target.invalidHeaders],
+    ["with unsupported method", "GET", {}],
+  ]) {
+    const result = await fetchContract(functionUrl(config, target.name), {
+      method,
+      headers: headers(config, extraHeaders),
+      ...(method === "POST" ? { body: JSON.stringify({}) } : {}),
+    });
+    assert(
+      result.status === 404 && result.ok === false,
+      `${target.name} ${label} must remain closed as an opaque 404, got ${result.status}: ${summarizeBody(result.json || result.text)}`,
+    );
+  }
 }
 
 function assertApprovedMediaUrl(value, config, asset, id, label) {
@@ -618,8 +668,13 @@ async function checkCurrentRaffle(config) {
 }
 
 assert(
-  publicReadOnlyFunctions.length === 2,
+  publicReadOnlyFunctions.length === 3,
   "Public read-only Supabase smoke inventory changed without a reviewed contract update.",
+);
+
+assert(
+  disabledOperationalFunctions.length === 3,
+  "Disabled operational Supabase smoke inventory changed without a reviewed contract update.",
 );
 
 try {
@@ -645,6 +700,10 @@ try {
       "with invalid authentication headers",
       target.invalidHeaders || { [target.secretHeader]: "invalid-smoke-secret" },
     );
+  }
+
+  for (const target of disabledOperationalFunctions) {
+    await checkDisabledOperationalFunction(config, target);
   }
 
   await checkApprovedFeed(config);

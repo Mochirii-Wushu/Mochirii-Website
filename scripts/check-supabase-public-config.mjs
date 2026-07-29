@@ -53,8 +53,39 @@ const strongSecretPatterns = [
   },
 ];
 
-const secretAssignmentPattern =
-  /\b([A-Z0-9_]*(?:SECRET|TOKEN|PASSWORD|SERVICE_ROLE_KEY|DATABASE_URL|CLIENT_SECRET|WEBHOOK)[A-Z0-9_]*)\s*=\s*([^`'"\s)]*)/g;
+const secretEnvironmentName =
+  "[A-Z0-9_]*(?:SECRET|TOKEN|PASSWORD|SERVICE_ROLE_KEY|DATABASE_URL|CLIENT_SECRET|WEBHOOK)[A-Z0-9_]*";
+const shellAssignmentValue = String.raw`(?:"[^"\r\n]*"|'[^'\r\n]*'|\`[^\`\r\n]*\`|[^\s#;&|)]+)`;
+const secretAssignmentPatterns = [
+  // Dotenv and POSIX-shell assignments. Anchoring to a command boundary keeps
+  // TypeScript declarations and assertion/regex strings out of this detector.
+  new RegExp(
+    String.raw`(?:^|[;&|]\s*)\s*(?:(?:export|env)\s+)?(?<key>${secretEnvironmentName})\s*=\s*(?<value>${shellAssignmentValue})`,
+    "g",
+  ),
+  // PowerShell environment assignment.
+  new RegExp(
+    String.raw`(?:^|[;|]\s*)\s*\$env:(?<key>${secretEnvironmentName})\s*=\s*(?<value>${shellAssignmentValue})`,
+    "gi",
+  ),
+  // cmd.exe supports both `set KEY=value` and `set "KEY=value"`.
+  new RegExp(
+    String.raw`(?:^|[&|]\s*)\s*set\s+"?(?<key>${secretEnvironmentName})\s*=\s*(?<value>[^"\r\n&|]*)"?`,
+    "gi",
+  ),
+  // `setx KEY value` persists a Windows environment value.
+  new RegExp(
+    String.raw`(?:^|[&|]\s*)\s*setx\s+(?<key>${secretEnvironmentName})\s+(?<value>${shellAssignmentValue})`,
+    "gi",
+  ),
+];
+const reviewedPlaceholderAssignments = new Set([
+  "services/social/.env.example\0DB_PASSWORD\0pixelfed",
+  "services/social/.env.docker.example\0DB_PASSWORD\0change_this_secure_password",
+  "services/social/.env.docker.example\0DB_ROOT_PASSWORD\0change_this_root_password",
+  "services/social/scripts/check-clean-database-migrations.sh\0DB_PASSWORD\0ci-database-password",
+  "services/social/scripts/check-clean-database-migrations.sh\0DB_ROOT_PASSWORD\0ci-root-password",
+]);
 
 const failures = [];
 const warnings = [];
@@ -79,7 +110,7 @@ function readText(file) {
 }
 
 function isTextFile(file) {
-  return /\.(?:css|html|js|json|md|mjs|npmrc|sql|toml|ts|txt|yml|yaml)$/i.test(file) || file === ".gitignore" || file.endsWith(".example");
+  return /\.(?:bash|bat|cmd|css|html|js|json|md|mjs|npmrc|ps1|sh|sql|toml|ts|txt|yml|yaml|zsh)$/i.test(file) || file === ".gitignore" || file.endsWith(".example");
 }
 
 function isBrowserFile(file) {
@@ -96,11 +127,31 @@ function isPlaceholderValue(rawValue) {
   if (/^(?:true|false|null|undefined)$/i.test(value)) return true;
   if (/^(?:example|placeholder|redacted)$/i.test(value)) return true;
   if (/^%[a-z](?:\\n)?$/i.test(value)) return true;
+  if (/^(?:\$[A-Z_][A-Z0-9_]*|\$\{[A-Z_][A-Z0-9_]*\}|\$env:[A-Z_][A-Z0-9_]*|%[A-Z_][A-Z0-9_]*%|![A-Z_][A-Z0-9_]*!)$/i.test(value)) return true;
   if (/^[<[{]/.test(value)) return true;
   if (/^(?:<.*>|\[.*\])$/.test(value)) return true;
   if (/PASTE|REPLACE|SET_MANUALLY|set manually|never commit|\.\.\./i.test(value)) return true;
   if (/[|*]/.test(value)) return true;
   return false;
+}
+
+function normalizedAssignmentValue(rawValue) {
+  const value = String(rawValue || "").trim();
+  if (value.length >= 2) {
+    const quote = value[0];
+    if ((quote === '"' || quote === "'" || quote === "`") && value.at(-1) === quote) {
+      return value.slice(1, -1).trim();
+    }
+  }
+  return value;
+}
+
+function isCredentialAssignmentKey(key) {
+  return !/(?:^|_)AUTH_METHOD$/i.test(key);
+}
+
+function isReviewedPlaceholderAssignment(file, key, value) {
+  return reviewedPlaceholderAssignments.has(`${file}\0${key}\0${value}`);
 }
 
 function maskValue(value) {
@@ -168,12 +219,15 @@ function checkTextFile(file, text) {
       });
     });
 
-    secretAssignmentPattern.lastIndex = 0;
-    for (const match of line.matchAll(secretAssignmentPattern)) {
-      const key = match[1];
-      const value = match[2];
-      if (!isPlaceholderValue(value)) {
-        addFailure(file, lineNumber, `${key} has a non-placeholder value (${maskValue(value)}).`);
+    for (const pattern of secretAssignmentPatterns) {
+      pattern.lastIndex = 0;
+      for (const match of line.matchAll(pattern)) {
+        const key = match.groups?.key || "secret environment variable";
+        const value = normalizedAssignmentValue(match.groups?.value);
+        if (!isCredentialAssignmentKey(key)) continue;
+        if (!isPlaceholderValue(value) && !isReviewedPlaceholderAssignment(file, key, value)) {
+          addFailure(file, lineNumber, `${key} has a non-placeholder value (${maskValue(value)}).`);
+        }
       }
     }
 

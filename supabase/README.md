@@ -882,7 +882,7 @@ If an older approved `gallery_submissions` row has blank `title` and `caption` v
 
 Public Gallery ordering uses one normalized timestamp model. Static curated images use `galleryAddedAt` in `data/gallery.json`; published member items use their frozen reviewed and created timestamps with the stable publication ID as the final key. The default Gallery order is computed before first paint and runtime cards append without moving rendered static cards. Visitors may choose `Newest first` or `Oldest first`; cross-source results are exposed only through the proven keyset boundary. Runtime thumbnails and display derivatives use stable credential-free Edge URLs backed by private, immutable media evidence; source originals and unpublished submissions remain private.
 
-The Gallery delivery contract itself introduces no Edge Function. With the separately disabled monthly-raffle foundation included, the reviewed source inventory is exactly 34 configured Edge Functions with 20 `verify_jwt=true` and 14 false. Recalculate that parity at the final exact release head before provider approval.
+The Gallery delivery contract itself introduces no Edge Function. With the separately disabled monthly-raffle foundation included, the reviewed source inventory is exactly 40 configured Edge Functions with 23 `verify_jwt=true` and 17 false. Recalculate that parity at the final exact release head before provider approval.
 
 Before release, run `operations/reconcile_gallery_public_feed_v2.sql` from a
 trusted read-only session. It reports only public-safe counts and verifies that
