@@ -28,6 +28,18 @@ Web or iOS artifact is connected.
 - `integration-operations-runbook.md`: provider-adjacent operating rules.
 - `ORGANIZATION-RECONCILIATION-2026-07-27.md`: public-safe repository,
   branch, issue, worktree, provider-effect, and cleanup disposition ledger.
+- `REPOSITORY-REORGANIZATION-DISCOVERY-2026-07-29.md`: dated public-safe
+  repository and source-ownership baseline.
+- `REPOSITORY-SEPARATION-ADR-2026-07-29.md`: proposed Social, Reaper, and
+  Forums migration decisions, contracts, sequencing, and rollback.
+- `REPOSITORY-REORGANIZATION-THREAT-MODEL-2026-07-29.md`: source-migration,
+  IAM, supply-chain, privacy, and cutover threats and controls.
+- `REPOSITORY-SOURCE-OWNERSHIP-MATRIX-2026-07-29.md`: path and capability
+  mapping from current owners to the target canonical repositories.
+- `CROSS-REPOSITORY-CONTRACT-MAP-2026-07-29.md`: producer, consumer,
+  compatibility, security, and rollback requirements.
+- `REPOSITORY-MIGRATION-APPROVAL-PACKETS-2026-07-29.md`: exact boundaries
+  between source preparation, provider effects, and destructive cleanup.
 - `private-spinner.md`: role-separated live-spinner operation, privacy,
   delivery, release, and recovery boundaries.
 - `repository-ownership.md`: source and hosted ownership matrix.
