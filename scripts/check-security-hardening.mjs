@@ -456,7 +456,7 @@ assertMatches(
   "DISCORD_GALLERY_INGEST_HMAC_KEYS_ENV",
   "verifyDiscordGalleryIngestRequest",
   '"consume_discord_gallery_ingest_nonce"',
-  "rawBody = await req.text()",
+  "readDiscordGalleryIngestBody(req)",
   "parseJsonBody(rawBody)",
 ].forEach((snippet) => assertIncludes("submit-discord-gallery-image", discordIngest, snippet));
 
