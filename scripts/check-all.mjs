@@ -69,6 +69,7 @@ const checks = [
   ["test:gallery-source-decode", ["deno", "test", "--lock=deno.lock", "--frozen=true", "supabase/functions/_shared/gallery-source-decode_test.ts"]],
   ["test:gallery-preview-attestation", ["deno", "test", "--lock=deno.lock", "--frozen=true", "supabase/functions/_shared/gallery-preview-attestation_test.ts"]],
   ["test:gallery-moderation-preview", ["node", "--experimental-default-type=module", "--experimental-strip-types", "--test", "apps/web/lib/gallery/moderation-preview-server_test.ts", "apps/web/lib/gallery/moderation-preview-route_test.ts", "apps/web/lib/gallery/moderation-preview-client_test.ts"]],
+  ["test:gallery-moderation-boundaries", ["deno", "test", "--node-modules-dir=auto", "--import-map=supabase/functions/list-gallery-review-queue/deno.json", "--lock=deno.lock", "--frozen=true", "supabase/functions/_shared/gallery-moderation_test.ts"]],
   ["test:gallery-discord-ingest", ["deno", "test", "--lock=deno.lock", "--frozen=true", "supabase/functions/_shared/gallery-discord-ingest_test.ts"]],
   ["test:gallery-public-feed", ["deno", "test", "--lock=deno.lock", "--frozen=true", "supabase/functions/_shared/gallery-public-feed_test.ts"]],
   ["check:gallery-timestamps", ["node", "scripts/check-gallery-timestamps.mjs"]],

@@ -29,6 +29,7 @@ export const CORS_HEADERS = {
 const DISCORD_API_BASE = "https://discord.com/api/v10";
 const EXPECTED_DISCORD_GUILD_ID = "1078630751077142608";
 const EXPECTED_MODERATOR_ROLE_IDS = ["1078630751165222984"];
+const OPTIONAL_JSON_MAXIMUM_BYTES = 16 * 1024;
 
 export function jsonResponse(body: JsonRecord, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -61,15 +62,62 @@ export function parseCsv(value: string | null | undefined): string[] {
     .filter(Boolean);
 }
 
-export async function readOptionalJsonBody(req: Request): Promise<{ ok: true; body: JsonRecord } | ModeratorAccessFailure> {
-  const contentType = req.headers.get("content-type") || "";
-  if (!contentType.toLowerCase().includes("application/json")) {
-    return { ok: true, body: {} };
+async function readBoundedJsonBody(
+  req: Request,
+  maximumBytes: number,
+): Promise<JsonRecord | null> {
+  if (!Number.isSafeInteger(maximumBytes) || maximumBytes < 1 || !req.body) {
+    return null;
   }
 
+  const contentLength = Number(req.headers.get("content-length") || 0);
+  if (Number.isFinite(contentLength) && contentLength > maximumBytes) return null;
+
+  const reader = req.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
   try {
-    return { ok: true, body: asRecord(await req.json()) };
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      totalBytes += value.byteLength;
+      if (totalBytes > maximumBytes) {
+        await reader.cancel("request_too_large");
+        return null;
+      }
+      chunks.push(value);
+    }
   } catch {
+    return null;
+  } finally {
+    reader.releaseLock();
+  }
+
+  if (totalBytes < 1) return null;
+  try {
+    const bytes = new Uint8Array(totalBytes);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    const raw = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    return asRecord(JSON.parse(raw));
+  } catch {
+    return null;
+  }
+}
+
+export async function readOptionalJsonBody(
+  req: Request,
+  maximumBytes = OPTIONAL_JSON_MAXIMUM_BYTES,
+): Promise<{ ok: true; body: JsonRecord } | ModeratorAccessFailure> {
+  const contentType = req.headers.get("content-type")?.split(";", 1)[0]
+    .trim().toLowerCase();
+  if (contentType !== "application/json") return { ok: true, body: {} };
+
+  const body = await readBoundedJsonBody(req, maximumBytes);
+  if (!body) {
     return {
       ok: false,
       response: jsonResponse(
@@ -82,6 +130,7 @@ export async function readOptionalJsonBody(req: Request): Promise<{ ok: true; bo
       ),
     };
   }
+  return { ok: true, body };
 }
 
 export async function readRequiredJsonBody(
@@ -90,11 +139,7 @@ export async function readRequiredJsonBody(
 ): Promise<{ ok: true; body: JsonRecord } | ModeratorAccessFailure> {
   const contentType = req.headers.get("content-type")?.split(";", 1)[0]
     .trim().toLowerCase();
-  const contentLength = Number(req.headers.get("content-length") || 0);
-  if (
-    contentType !== "application/json" ||
-    (Number.isFinite(contentLength) && contentLength > maximumBytes)
-  ) {
+  if (contentType !== "application/json") {
     return {
       ok: false,
       response: jsonResponse(
@@ -108,30 +153,8 @@ export async function readRequiredJsonBody(
     };
   }
 
-  try {
-    if (!req.body) throw new Error("missing_body");
-    const reader = req.body.getReader();
-    const chunks: Uint8Array[] = [];
-    let totalBytes = 0;
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      totalBytes += value.byteLength;
-      if (totalBytes > maximumBytes) {
-        await reader.cancel("request_too_large");
-        throw new Error("request_too_large");
-      }
-      chunks.push(value);
-    }
-    const bytes = new Uint8Array(totalBytes);
-    let offset = 0;
-    for (const chunk of chunks) {
-      bytes.set(chunk, offset);
-      offset += chunk.byteLength;
-    }
-    const raw = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
-    return { ok: true, body: asRecord(JSON.parse(raw)) };
-  } catch {
+  const body = await readBoundedJsonBody(req, maximumBytes);
+  if (!body) {
     return {
       ok: false,
       response: jsonResponse(
@@ -144,6 +167,7 @@ export async function readRequiredJsonBody(
       ),
     };
   }
+  return { ok: true, body };
 }
 
 function moderatorConfigMatches(configuredRoleIds: string[]): boolean {
