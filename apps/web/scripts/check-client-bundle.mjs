@@ -9,7 +9,7 @@ const layoutLimit = 63 * 1024;
 const homeIncrementalLimit = 5 * 1024;
 const publicRouteLimit = 225 * 1024;
 const forbiddenRuntimeMarkers = ["GoTrueClient", "PostgrestError", "RealtimeClient"];
-const galleryMarker = "Approved gallery feed could not be loaded.";
+const galleryMarker = "galleryMemberFeedStatus";
 const publicRoutes = [
   "/",
   "/announcements",
@@ -199,10 +199,10 @@ for (const route of publicRoutes) {
 
     const galleryOffenders = bundle.chunks.filter((chunk) => chunk.buffer.includes(Buffer.from(galleryMarker))).map((chunk) => chunk.file);
     const galleryClientModules = bundle.clientModules.filter((modulePath) => /[\\/]components[\\/]public-pages[\\/]GalleryBrowser\.tsx/.test(modulePath));
-    if (route === "/gallery" && galleryOffenders.length === 0) failures.push("Gallery entry is missing its approved-feed marker");
+    if (route === "/gallery" && galleryOffenders.length === 0) failures.push("Gallery entry is missing its Gallery UI marker");
     if (route === "/gallery" && galleryClientModules.length === 0) failures.push("Gallery entry is missing its GalleryBrowser client module");
     if (route !== "/gallery" && galleryOffenders.length) {
-      failures.push(`${route} entry contains Gallery-only code: ${galleryOffenders.join(", ")}`);
+      failures.push(`${route} entry contains Gallery-only UI code: ${galleryOffenders.join(", ")}`);
     }
     if (route !== "/gallery" && galleryClientModules.length) {
       failures.push(`${route} entry references GalleryBrowser: ${galleryClientModules.join(", ")}`);
