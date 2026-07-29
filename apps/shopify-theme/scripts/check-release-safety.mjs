@@ -1,7 +1,7 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { lstatSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { checkoutPrimitiveCategories } from "./lib/checkout-cta-safety.mjs";
+import { checkoutPrimitiveCategories, checkoutSafetyFileKind } from "./lib/checkout-cta-safety.mjs";
 
 const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const failures = [];
@@ -17,7 +17,15 @@ function readThemeJson(relativePath) {
 function walk(directory) {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const absolute = path.join(directory, entry.name);
-    return entry.isDirectory() ? walk(absolute) : [absolute];
+    const stats = lstatSync(absolute);
+    if (stats.isSymbolicLink()) {
+      failures.push(`${path.relative(appRoot, absolute).split(path.sep).join("/")}: symbolic links are forbidden in release-safety inventory`);
+      return [];
+    }
+    if (stats.isDirectory()) return walk(absolute);
+    if (stats.isFile()) return [absolute];
+    failures.push(`${path.relative(appRoot, absolute).split(path.sep).join("/")}: non-regular runtime entry is forbidden`);
+    return [];
   });
 }
 
@@ -69,9 +77,13 @@ const liquidFiles = walk(appRoot)
   }));
 
 const runtimeRoots = ["assets", "blocks", "config", "layout", "locales", "sections", "snippets", "templates"];
-const checkoutRuntimeFiles = runtimeRoots
-  .flatMap((root) => walk(path.join(appRoot, root)))
-  .filter((file) => [".js", ".json", ".liquid"].includes(path.extname(file)))
+const runtimeFiles = runtimeRoots.flatMap((root) => walk(path.join(appRoot, root)));
+const unclassifiedRuntimeFiles = runtimeFiles.filter((file) => checkoutSafetyFileKind(file) === null);
+for (const file of unclassifiedRuntimeFiles) {
+  failures.push(`${path.relative(appRoot, file).split(path.sep).join("/")}: runtime file type is not classified for checkout safety`);
+}
+const checkoutRuntimeFiles = runtimeFiles
+  .filter((file) => checkoutSafetyFileKind(file) === "text")
   .map((file) => ({
     relativePath: path.relative(appRoot, file).split(path.sep).join("/"),
     source: readFileSync(file, "utf8"),

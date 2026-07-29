@@ -1,6 +1,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { checkoutPrimitiveCategories } from "./lib/checkout-cta-safety.mjs";
+import { checkoutPrimitiveCategories, checkoutSafetyFileKind } from "./lib/checkout-cta-safety.mjs";
+
+test("runtime inventory classifies executable text and known binary assets", () => {
+  for (const filename of ["theme.js", "module.mjs", "template.liquid", "settings.json", "icon.svg", "style.css"]) {
+    assert.equal(checkoutSafetyFileKind(filename), "text");
+  }
+  for (const filename of ["photo.webp", "font.woff2", "video.mp4"]) {
+    assert.equal(checkoutSafetyFileKind(filename), "binary");
+  }
+  assert.equal(checkoutSafetyFileKind("future.runtime"), null);
+});
 
 test("safe cart and product controls do not claim to disable Shopify checkout", () => {
   const safeSource = `
