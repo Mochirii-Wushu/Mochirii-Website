@@ -24,6 +24,8 @@ Web or iOS artifact is connected.
 ## Directory Contract
 
 - `CURRENT-STATE.md`: current hosted state and exact resume point.
+- `full-stack-completion-plan.md`: reconstructed organization-wide completion
+  sequence, release gates, stop conditions, and definition of done.
 - `deployment.md`: release, verification, and rollback boundaries.
 - `integration-operations-runbook.md`: provider-adjacent operating rules.
 - `ORGANIZATION-RECONCILIATION-2026-07-27.md`: public-safe repository,
