@@ -142,6 +142,80 @@ class PrivateMediaSourceContractTest extends TestCase
     }
 
     #[Test]
+    public function current_member_refreshes_are_bounded_before_remote_sync(): void
+    {
+        $sync = file_get_contents(base_path('app/Services/MochiriiSocialSyncService.php'));
+        $limiter = file_get_contents(base_path('app/Services/MochiriiPrivateSocialRateLimiter.php'));
+
+        $this->assertStringContainsString("Cache::lock(\$cacheKey.':refresh'", $sync);
+        $this->assertStringContainsString('->block($timeout + 1', $sync);
+        $this->assertGreaterThanOrEqual(2, substr_count($sync, 'Cache::get($cacheKey) === true'));
+        $this->assertStringContainsString('Cache::get($failureCacheKey) === true', $sync);
+        $this->assertStringContainsString('$this->rateLimiter->ensureMemberSyncAllowed(request(), $user)', $sync);
+        $this->assertLessThan(
+            strpos($sync, '$this->performSync($user, $oidcId, \'access_check\')'),
+            strpos($sync, '$this->rateLimiter->ensureMemberSyncAllowed(request(), $user)'),
+        );
+        $publicSync = substr($sync, strpos($sync, 'public function sync('));
+        $this->assertLessThan(
+            strpos($publicSync, 'return $this->performSync($user, $oidcId, $event)'),
+            strpos($publicSync, '$this->rateLimiter->ensureMemberSyncAllowed(request(), $user)'),
+        );
+        $this->assertStringContainsString('catch (LockTimeoutException)', $sync);
+        $this->assertStringContainsString('catch (HttpResponseException $error)', $sync);
+
+        $this->assertStringContainsString('RateLimiter::hit($identityKey, 60)', $limiter);
+        $this->assertStringContainsString('RateLimiter::hit($ipKey, 60)', $limiter);
+        $this->assertStringContainsString('member_syncs_per_minute_per_identity', $limiter);
+        $this->assertStringContainsString('member_syncs_per_minute_per_ip', $limiter);
+        $this->assertStringNotContainsString("'u:'", $limiter);
+        $this->assertStringNotContainsString("'ip:'", $limiter);
+    }
+
+    #[Test]
+    public function the_edge_and_application_share_one_sanitized_client_address_contract(): void
+    {
+        $caddy = file_get_contents(base_path('caddy/Caddyfile'));
+        $runtime = file_get_contents(base_path('scripts/production-runtime-lib.sh'));
+
+        foreach ([
+            'trusted_proxies static 103.21.244.0/22',
+            '198.41.128.0/17',
+            '2c0f:f248::/32',
+            'client_ip_headers CF-Connecting-IP X-Forwarded-For',
+            'trusted_proxies_strict',
+            'header_up X-Forwarded-For {client_ip}',
+        ] as $contract) {
+            $this->assertStringContainsString($contract, $caddy);
+        }
+        $this->assertLessThan(
+            strpos($caddy, 'reverse_proxy 127.0.0.1:8080'),
+            strpos($caddy, 'respond @retiredCreationAndTokenManagement 404'),
+        );
+
+        foreach ([
+            'verify_private_media_proxy_runtime_contract',
+            'caddy validate --config "$caddy_config" --adapter caddyfile',
+            'caddy adapt --config "$caddy_config" --adapter caddyfile',
+            'http://127.0.0.1:2019/config/',
+            'if active != expected:',
+            '"127.0.0.1:8080"',
+            '$defaultCache !== "redis" || $limiterCache !== "redis"',
+            'config("trustedproxy.proxies") !== "*"',
+            '$firstIp !== "198.51.100.10"',
+            '$secondIp !== "203.0.113.20"',
+            'hash_equals($firstIp, $secondIp)',
+        ] as $contract) {
+            $this->assertStringContainsString($contract, $runtime);
+        }
+        $permanent = substr($runtime, strpos($runtime, 'verify_permanent_private_media_runtime_local()'));
+        $this->assertLessThan(
+            strpos($permanent, 'docker exec pixelfed-app php artisan tinker'),
+            strpos($permanent, 'verify_private_media_proxy_runtime_contract || return 1'),
+        );
+    }
+
+    #[Test]
     public function cloud_member_storage_defaults_to_private_visibility(): void
     {
         $source = file_get_contents(base_path('config/filesystems.php'));

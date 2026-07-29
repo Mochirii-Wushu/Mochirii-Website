@@ -1556,6 +1556,90 @@ verify_closed_private_media_runtime_local() {
   " >/dev/null || return 1
 }
 
+verify_private_media_proxy_runtime_contract() {
+  local caddy_config=/etc/caddy/Caddyfile
+  local adapted_config
+  local app_binding
+
+  [[ -f "$caddy_config" && ! -L "$caddy_config" ]] || {
+    echo "The active Caddy configuration is missing or unsafe." >&2
+    return 1
+  }
+  [[ "$(stat -c '%U:%G' "$caddy_config")" == "root:root" ]] || {
+    echo "The active Caddy configuration is not root-owned." >&2
+    return 1
+  }
+  if find "$caddy_config" -maxdepth 0 -perm /022 -print -quit | grep -q .; then
+    echo "The active Caddy configuration is group- or world-writable." >&2
+    return 1
+  fi
+  caddy validate --config "$caddy_config" --adapter caddyfile >/dev/null || return 1
+
+  adapted_config="$(mktemp)" || return 1
+  if ! caddy adapt --config "$caddy_config" --adapter caddyfile >"$adapted_config"; then
+    rm -f -- "$adapted_config"
+    return 1
+  fi
+  if ! python3 - "$adapted_config" <<'PY'
+import json
+import sys
+import urllib.request
+
+with open(sys.argv[1], encoding="utf-8") as expected_file:
+    expected = json.load(expected_file)
+
+request = urllib.request.Request(
+    "http://127.0.0.1:2019/config/",
+    headers={"Accept": "application/json"},
+)
+with urllib.request.urlopen(request, timeout=3) as response:
+    if response.status != 200:
+        raise SystemExit("The running Caddy configuration is unavailable.")
+    active = json.load(response)
+
+if active != expected:
+    raise SystemExit("The running Caddy configuration does not match the reviewed Caddyfile.")
+PY
+  then
+    rm -f -- "$adapted_config"
+    return 1
+  fi
+  rm -f -- "$adapted_config"
+
+  python3 - "$caddy_config" <<'PY'
+import pathlib
+import sys
+
+text = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
+ranges = (
+    "103.21.244.0/22 103.22.200.0/22 103.31.4.0/22 104.16.0.0/13 "
+    "104.24.0.0/14 108.162.192.0/18 131.0.72.0/22 141.101.64.0/18 "
+    "162.158.0.0/15 172.64.0.0/13 173.245.48.0/20 188.114.96.0/20 "
+    "190.93.240.0/20 197.234.240.0/22 198.41.128.0/17 2400:cb00::/32 "
+    "2606:4700::/32 2803:f800::/32 2405:b500::/32 2405:8100::/32 "
+    "2a06:98c0::/29 2c0f:f248::/32"
+)
+required = (
+    f"trusted_proxies static {ranges}",
+    "client_ip_headers CF-Connecting-IP X-Forwarded-For",
+    "trusted_proxies_strict",
+    "header_up X-Forwarded-For {client_ip}",
+    "@retiredCreationAndTokenManagement path /installer /installer/*",
+    "respond @retiredCreationAndTokenManagement 404",
+)
+if any(text.count(token) != 1 for token in required):
+    raise SystemExit("The active Caddy client-address contract is not exact.")
+if text.index("respond @retiredCreationAndTokenManagement 404") > text.index("reverse_proxy 127.0.0.1:8080"):
+    raise SystemExit("The retired-surface boundary no longer precedes the proxy.")
+PY
+
+  app_binding="$(docker inspect --format '{{range $port, $bindings := .NetworkSettings.Ports}}{{if eq $port "8080/tcp"}}{{range $bindings}}{{.HostIp}}:{{.HostPort}}{{end}}{{end}}{{end}}' pixelfed-app)" || return 1
+  [[ "$app_binding" == "127.0.0.1:8080" ]] || {
+    echo "The application is not bound only to the reviewed loopback port." >&2
+    return 1
+  }
+}
+
 verify_permanent_private_media_runtime_local() {
   local expected_digest="$1"
   local maintenance_state
@@ -1566,18 +1650,53 @@ verify_permanent_private_media_runtime_local() {
     echo "The permanent private-media runtime is unexpectedly in maintenance mode." >&2
     return 1
   }
-  docker exec pixelfed-app php artisan tinker --execute="
+  verify_private_media_proxy_runtime_contract || return 1
+  docker exec pixelfed-app php artisan tinker --execute='
+    $defaultCache = (string) config("cache.default");
+    $limiterCache = (string) config("cache.limiter");
+    if ($defaultCache !== "redis" || $limiterCache !== "redis") {
+      throw new RuntimeException("Private-media cache stores are not Redis-backed.");
+    }
+    Illuminate\Support\Facades\Cache::store($defaultCache)
+      ->get("mochirii:runtime:private-media:cache-readback");
+    Illuminate\Support\Facades\Cache::store($limiterCache)
+      ->get("mochirii:runtime:private-media:limiter-readback");
+
+    $middleware = app(App\Http\Middleware\TrustProxies::class);
+    $clientIp = static function (string $forwarded) use ($middleware): string {
+      $request = Illuminate\Http\Request::create(
+        "https://social.mochirii.com/media/private/media/1/original",
+        "GET",
+        [],
+        [],
+        [],
+        [
+          "REMOTE_ADDR" => "192.0.2.254",
+          "HTTP_X_FORWARDED_FOR" => $forwarded,
+          "HTTP_X_FORWARDED_PROTO" => "https",
+        ],
+      );
+
+      return $middleware->handle($request, static fn ($trustedRequest) => $trustedRequest->ip());
+    };
+    $firstIp = $clientIp("198.51.100.10");
+    $secondIp = $clientIp("203.0.113.20");
+
     if (
       app()->isDownForMaintenance() ||
-      !Illuminate\\Support\\Facades\\Route::has('mochirii.private-media.show') ||
-      !config('mochirii-private-media.enabled') ||
-      !config('pixelfed.cloud_storage') ||
-      config('filesystems.cloud') !== 's3' ||
-      config('filesystems.disks.'.config('filesystems.cloud').'.visibility') !== 'private'
+      !Illuminate\Support\Facades\Route::has("mochirii.private-media.show") ||
+      !config("mochirii-private-media.enabled") ||
+      !config("pixelfed.cloud_storage") ||
+      config("filesystems.cloud") !== "s3" ||
+      config("filesystems.disks.".config("filesystems.cloud").".visibility") !== "private" ||
+      config("trustedproxy.proxies") !== "*" ||
+      $firstIp !== "198.51.100.10" ||
+      $secondIp !== "203.0.113.20" ||
+      hash_equals($firstIp, $secondIp)
     ) {
-      throw new RuntimeException('Permanent private-media runtime gate failed.');
+      throw new RuntimeException("Permanent private-media runtime gate failed.");
     }
-  " >/dev/null || return 1
+  ' >/dev/null || return 1
 }
 
 verify_public_private_media_denial_boundary() {

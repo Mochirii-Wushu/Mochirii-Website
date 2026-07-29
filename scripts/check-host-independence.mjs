@@ -137,6 +137,9 @@ const reviewedLoopbacks = new Map([
     [
       { value: "http://127.0.0.1:8080/", count: 2 },
       { value: "http://127.0.0.1:8080/api/service/readiness-check", count: 1 },
+      { value: "http://127.0.0.1:2019/config/", count: 1 },
+      { value: "reverse_proxy 127.0.0.1:8080", count: 1 },
+      { value: '"127.0.0.1:8080"', count: 1 },
     ],
   ],
   [

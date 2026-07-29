@@ -322,6 +322,12 @@ requireIncludes(caddyPath, caddy, [
   'header @dependencyReadiness Cache-Control "private, no-store"',
   "respond @dependencyReadiness 404",
   "reverse_proxy 127.0.0.1:8080",
+  "trusted_proxies static 103.21.244.0/22",
+  "198.41.128.0/17",
+  "2c0f:f248::/32",
+  "client_ip_headers CF-Connecting-IP X-Forwarded-For",
+  "trusted_proxies_strict",
+  "header_up X-Forwarded-For {client_ip}",
   "header_up X-Request-ID {http.request.uuid}",
   "header_down X-Request-ID {http.request.uuid}",
 ]);

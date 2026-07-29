@@ -191,6 +191,16 @@ requireIncludes(libraryPath, library, [
   `canonical_repository = "${canonicalRepository}"`,
   "len(metadata_lines) == 5 and metadata_repository == canonical_repository",
   'len(metadata_lines) == 3 and metadata_repository == legacy_repository',
+  "verify_private_media_proxy_runtime_contract",
+  'caddy validate --config "$caddy_config" --adapter caddyfile',
+  'caddy adapt --config "$caddy_config" --adapter caddyfile',
+  'http://127.0.0.1:2019/config/',
+  "if active != expected:",
+  '"127.0.0.1:8080"',
+  '$defaultCache !== "redis" || $limiterCache !== "redis"',
+  '$firstIp !== "198.51.100.10"',
+  '$secondIp !== "203.0.113.20"',
+  "hash_equals($firstIp, $secondIp)",
 ]);
 rejectIncludes(libraryPath, library, ["gateway-stage.pending", "cutover.completed"]);
 requireOrder(libraryPath, library, [
@@ -374,6 +384,12 @@ requireIncludes(caddyPath, caddy, [
   'Cache-Control "private, no-store"',
   'X-Content-Type-Options "nosniff"',
   'Referrer-Policy "no-referrer"',
+  "trusted_proxies static 103.21.244.0/22",
+  "198.41.128.0/17",
+  "2c0f:f248::/32",
+  "client_ip_headers CF-Connecting-IP X-Forwarded-For",
+  "trusted_proxies_strict",
+  "header_up X-Forwarded-For {client_ip}",
 ]);
 
 const harnessPath = "scripts/test-private-media-bootstrap-runtime.sh";

@@ -50,8 +50,8 @@ return [
              *   the standard Mochirii Social login.
              */
             'enabled' => env('PF_LOGIN_WITH_MASTODON_ENFORCE_MAX_USES', true),
-            'limit' => env('PF_LOGIN_WITH_MASTODON_MAX_USES_LIMIT', 3)
-        ]
+            'limit' => env('PF_LOGIN_WITH_MASTODON_MAX_USES_LIMIT', 3),
+        ],
     ],
 
     'oidc' => [
@@ -82,7 +82,7 @@ return [
          *   The scopes to request from the OIDC provider, typically including
          *   'openid' (required), 'profile', and 'email' for basic user information
          */
-        'scopes' =>  env('PF_OIDC_SCOPES', 'openid profile email'),
+        'scopes' => env('PF_OIDC_SCOPES', 'openid profile email'),
 
         /*
          *   Authorization URL
@@ -124,7 +124,7 @@ return [
          *   The field from the OIDC profile response to use as the username
          *   Default is 'preferred_username' but can be changed based on your provider
          */
-        'field_username' => env('PF_OIDC_USERNAME_FIELD', "preferred_username"),
+        'field_username' => env('PF_OIDC_USERNAME_FIELD', 'preferred_username'),
 
         /*
          *   ID Field
@@ -147,5 +147,11 @@ return [
         'endpoint' => env('MOCHIRII_SOCIAL_SYNC_URL', ''),
         'secret' => env('MOCHIRII_SOCIAL_SYNC_SECRET', ''),
         'timeout' => max(1, min(10, (int) env('MOCHIRII_SOCIAL_SYNC_TIMEOUT', 5))),
+        /* Briefly retain a failed current-member check so concurrent waiters
+           fail closed without serially repeating the same remote request. */
+        'failure_cache_seconds' => max(
+            1,
+            min(30, (int) env('MOCHIRII_SOCIAL_SYNC_FAILURE_CACHE_SECONDS', 5))
+        ),
     ],
 ];

@@ -22,6 +22,7 @@ use App\Observers\UserFilterObserver;
 use App\Observers\UserObserver;
 use App\Profile;
 use App\Services\AccountService;
+use App\Services\MochiriiPrivateSocialRateLimiter;
 use App\Services\UserOidcService;
 use App\Status;
 use App\StatusHashtag;
@@ -49,7 +50,7 @@ class AppServiceProvider extends ServiceProvider
      *
      * @return void
      */
-    public function boot()
+    public function boot(MochiriiPrivateSocialRateLimiter $privateSocialRateLimiter)
     {
         if (config('instance.force_https_urls', true)) {
             URL::forceScheme('https');
@@ -112,9 +113,9 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perDay(50)->by($request->ip());
         });
 
-        RateLimiter::for('private-media', function (Request $request) {
-            [$identity, $ip] = $this->privateMediaRateLimitKeys($request);
-            $response = $this->privateMediaRateLimitResponse();
+        RateLimiter::for('private-media', function (Request $request) use ($privateSocialRateLimiter) {
+            [$identity, $ip] = $privateSocialRateLimiter->keys($request);
+            $response = $privateSocialRateLimiter->response();
 
             return [
                 Limit::perMinute(max(1, (int) config('mochirii-private-media.rate_limits.requests_per_minute_per_identity', 240)))
@@ -126,9 +127,9 @@ class AppServiceProvider extends ServiceProvider
             ];
         });
 
-        RateLimiter::for('private-media-checkpoint', function (Request $request) {
-            [$identity, $ip] = $this->privateMediaRateLimitKeys($request);
-            $response = $this->privateMediaRateLimitResponse();
+        RateLimiter::for('private-media-checkpoint', function (Request $request) use ($privateSocialRateLimiter) {
+            [$identity, $ip] = $privateSocialRateLimiter->keys($request);
+            $response = $privateSocialRateLimiter->response();
 
             return [
                 Limit::perMinute(max(1, (int) config('mochirii-private-media.rate_limits.checkpoints_per_minute_per_identity', 5)))
@@ -220,39 +221,5 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(UserOidcService::class, function () {
             return UserOidcService::build();
         });
-    }
-
-    private function privateMediaRateLimitKeys(Request $request): array
-    {
-        $user = $request->bearerToken()
-            ? $request->user('api')
-            : $request->user('web');
-        $identity = $user
-            ? (string) $user->getAuthIdentifier()
-            : 'anonymous';
-        $ip = (string) ($request->ip() ?: 'unknown');
-        $key = (string) config('app.key');
-
-        $opaqueKey = static fn (string $context, string $value) => $key !== ''
-            ? hash_hmac('sha256', $context.'|'.$value, $key)
-            : hash('sha256', $context.'|'.$value);
-
-        return [
-            $opaqueKey('identity', $identity),
-            $opaqueKey('ip', $ip),
-        ];
-    }
-
-    private function privateMediaRateLimitResponse(): \Closure
-    {
-        return static function (Request $request, array $headers) {
-            return response('', 429, array_merge($headers, [
-                'Cache-Control' => 'private, no-store, max-age=0',
-                'Pragma' => 'no-cache',
-                'Referrer-Policy' => 'no-referrer',
-                'X-Content-Type-Options' => 'nosniff',
-                'Vary' => 'Authorization, Cookie',
-            ]));
-        };
     }
 }

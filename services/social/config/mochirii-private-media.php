@@ -29,6 +29,8 @@ return [
     | extraction without treating a shared NAT address as the only actor.
     */
     'rate_limits' => [
+        'member_syncs_per_minute_per_identity' => 6,
+        'member_syncs_per_minute_per_ip' => 30,
         'requests_per_minute_per_identity' => 240,
         'requests_per_minute_per_ip' => 360,
         'checkpoints_per_minute_per_identity' => 5,
