@@ -69,15 +69,15 @@ for (const immutableWordmarkSetting of ["brand_display_name", "corporate_display
   }
 }
 
-const liquidFiles = walk(appRoot)
+const runtimeRoots = ["assets", "blocks", "config", "layout", "locales", "sections", "snippets", "templates"];
+const runtimeFiles = runtimeRoots.flatMap((root) => walk(path.join(appRoot, root)));
+const liquidFiles = runtimeFiles
   .filter((file) => path.extname(file) === ".liquid")
   .map((file) => ({
     relativePath: path.relative(appRoot, file).split(path.sep).join("/"),
     source: readFileSync(file, "utf8"),
   }));
 
-const runtimeRoots = ["assets", "blocks", "config", "layout", "locales", "sections", "snippets", "templates"];
-const runtimeFiles = runtimeRoots.flatMap((root) => walk(path.join(appRoot, root)));
 const unclassifiedRuntimeFiles = runtimeFiles.filter((file) => checkoutSafetyFileKind(file) === null);
 for (const file of unclassifiedRuntimeFiles) {
   failures.push(`${path.relative(appRoot, file).split(path.sep).join("/")}: runtime file type is not classified for checkout safety`);
