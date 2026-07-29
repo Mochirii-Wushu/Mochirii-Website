@@ -1083,7 +1083,16 @@ for line in metadata_lines:
     metadata[key] = value
 if metadata.get("commit") != values["release_commit"] or metadata.get("digest") != values["release_digest"]:
     raise SystemExit("Archived release metadata does not match the recovery manifest.")
-if metadata.get("repository") != "Mochirii-Wushu/Mochirii":
+canonical_repository = "Mochirii-Wushu/Mochirii-Website"
+legacy_repository = "Mochirii-Wushu/Mochirii"
+metadata_repository = metadata.get("repository")
+current_repository_valid = (
+    len(metadata_lines) == 5 and metadata_repository == canonical_repository
+)
+legacy_repository_compatible = (
+    len(metadata_lines) == 3 and metadata_repository == legacy_repository
+)
+if not (current_repository_valid or legacy_repository_compatible):
     raise SystemExit("Archived release metadata repository is invalid.")
 if len(metadata_lines) == 5 and (
     not sha_pattern.fullmatch(metadata["migration_tree_sha256"])

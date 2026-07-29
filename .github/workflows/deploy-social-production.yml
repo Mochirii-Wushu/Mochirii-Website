@@ -138,11 +138,11 @@ jobs:
           set -Eeuo pipefail
           image="oci://$REGISTRY_IMAGE@$RELEASE_DIGEST"
           common=(
-            --repo Mochirii-Wushu/Mochirii
+            --repo Mochirii-Wushu/Mochirii-Website
             --bundle-from-oci
             --source-digest "$RELEASE_COMMIT"
             --source-ref refs/heads/main
-            --signer-workflow Mochirii-Wushu/Mochirii/.github/workflows/validate-social.yml
+            --signer-workflow Mochirii-Wushu/Mochirii-Website/.github/workflows/validate-social.yml
             --signer-digest "$RELEASE_COMMIT"
             --deny-self-hosted-runners
           )
@@ -233,7 +233,7 @@ jobs:
           set -Eeuo pipefail
           [[ -n "$DEPLOY_HOST" && -n "$DEPLOY_USER" ]]
           [[ "$(git rev-parse HEAD)" == "$RELEASE_COMMIT" ]]
-          remote_main="$(gh api repos/Mochirii-Wushu/Mochirii/commits/main --jq .sha)"
+          remote_main="$(gh api repos/Mochirii-Wushu/Mochirii-Website/commits/main --jq .sha)"
           if [[ "$DEPLOYMENT_MODE_TOKEN" == "FINALIZE_PRIVATE_MEDIA_GATEWAY_AFTER_VERIFIED_CUTOVER" ]]; then
             ssh \
               -i ~/.ssh/social_deploy_key \
@@ -245,14 +245,14 @@ jobs:
               "verify-finalization $OPERATION_ID $RELEASE_COMMIT $RELEASE_DIGEST VERIFY_PRIVATE_MEDIA_FINALIZATION"
             comparison_status="$(
               gh api \
-                "repos/Mochirii-Wushu/Mochirii/compare/$RELEASE_COMMIT...$remote_main" \
+                "repos/Mochirii-Wushu/Mochirii-Website/compare/$RELEASE_COMMIT...$remote_main" \
                 --jq .status
             )"
             [[ "$comparison_status" == "ahead" || "$comparison_status" == "identical" ]]
           else
             [[ "$remote_main" == "$RELEASE_COMMIT" ]]
           fi
-          [[ "$(gh api repos/Mochirii-Wushu/Mochirii/commits/main --jq .sha)" == "$remote_main" ]]
+          [[ "$(gh api repos/Mochirii-Wushu/Mochirii-Website/commits/main --jq .sha)" == "$remote_main" ]]
           ssh \
             -i ~/.ssh/social_deploy_key \
             -o BatchMode=yes \

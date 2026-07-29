@@ -5,6 +5,8 @@ import process from "node:process";
 const root = process.cwd();
 const repositoryRoot = path.resolve(root, "../..");
 const failures = [];
+const canonicalRepository = "Mochirii-Wushu/Mochirii-Website";
+const retiredRepository = ["Mochirii-Wushu", "Mochirii"].join("/");
 
 function read(relativePath) {
   const fullPath = path.join(root, relativePath);
@@ -89,7 +91,7 @@ requireIncludes(deployWorkflowPath, deployWorkflow, [
   "gh attestation verify",
   "--source-digest",
   "--source-ref refs/heads/main",
-  "--signer-workflow Mochirii-Wushu/Mochirii/.github/workflows/validate-social.yml",
+  `--signer-workflow ${canonicalRepository}/.github/workflows/validate-social.yml`,
   '--signer-digest "$RELEASE_COMMIT"',
   "--predicate-type https://spdx.dev/Document/v2.3",
   "--deny-self-hosted-runners",
@@ -105,6 +107,9 @@ rejectIncludes(deployWorkflowPath, deployWorkflow, [
   "StrictHostKeyChecking=no",
   "ssh-keyscan",
   "pull_request_target",
+  `--repo ${retiredRepository}\n`,
+  `${retiredRepository}/.github/workflows/validate-social.yml`,
+  `repos/${retiredRepository}/commits/main`,
 ]);
 
 const onlineVerificationWorkflowPath = ".github/workflows/verify-social-online-hosting.yml";

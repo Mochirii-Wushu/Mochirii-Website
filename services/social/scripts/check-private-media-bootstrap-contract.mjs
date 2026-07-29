@@ -5,6 +5,12 @@ import process from "node:process";
 const root = process.cwd();
 const repositoryRoot = path.resolve(root, "../..");
 const failures = [];
+const canonicalRepository = "Mochirii-Wushu/Mochirii-Website";
+const retiredRepository = ["Mochirii-Wushu", "Mochirii"].join("/");
+const retiredRepositoryPattern = new RegExp(
+  `${retiredRepository.replaceAll("/", "\\/")}(?![-A-Za-z0-9_])`,
+  "u",
+);
 
 function read(base, relativePath) {
   const fullPath = path.join(base, relativePath);
@@ -61,7 +67,9 @@ requireIncludes(workflowPath, workflow, [
   "--deny-self-hosted-runners",
   "migration_tree_sha256=",
   "runtime_contract_sha256=",
-  "gh api repos/Mochirii-Wushu/Mochirii/commits/main",
+  `--repo ${canonicalRepository}`,
+  `--signer-workflow ${canonicalRepository}/.github/workflows/validate-social.yml`,
+  `gh api repos/${canonicalRepository}/commits/main`,
   "$DEPLOYMENT_MODE_TOKEN $OPERATION_ID",
   "verify-finalization $OPERATION_ID $RELEASE_COMMIT $RELEASE_DIGEST VERIFY_PRIVATE_MEDIA_FINALIZATION",
   "compare/$RELEASE_COMMIT...$remote_main",
@@ -69,6 +77,9 @@ requireIncludes(workflowPath, workflow, [
   '[[ "$response_size" =~ ^[0-9]+$ && "$response_size" -le 65536 ]]',
 ]);
 rejectIncludes(workflowPath, workflow, ["http.extraheader", "runs-on: self-hosted"]);
+if (retiredRepositoryPattern.test(workflow)) {
+  failures.push(`${workflowPath} must not use the retired repository identity`);
+}
 requireOrder(workflowPath, workflow, [
   "Verify published commit digest",
   "Verify image provenance and SBOM attestations",
@@ -177,6 +188,9 @@ requireIncludes(libraryPath, library, [
   "verify_secure_backup_recipient_file",
   "verify_secure_backup_environment_file",
   "Recovery payload contains an unsafe archive entry.",
+  `canonical_repository = "${canonicalRepository}"`,
+  "len(metadata_lines) == 5 and metadata_repository == canonical_repository",
+  'len(metadata_lines) == 3 and metadata_repository == legacy_repository',
 ]);
 rejectIncludes(libraryPath, library, ["gateway-stage.pending", "cutover.completed"]);
 requireOrder(libraryPath, library, [
@@ -380,6 +394,9 @@ requireIncludes(harnessPath, harness, [
   "An oversized encrypted recovery payload was accepted.",
   "A symlinked encrypted recovery payload was accepted.",
   "Configuration archive accepted invalid input:",
+  "Current release metadata accepted the legacy repository slug.",
+  "Legacy-shaped metadata accepted the canonical repository slug.",
+  "Legacy release metadata accepted an unknown repository slug.",
   "Maintenance failure did not invoke the direct container hard stop.",
   "A Docker query failure was accepted as a proven hard stop.",
   "An absent candidate app made best-effort prior-runtime rollback cleanup fail.",

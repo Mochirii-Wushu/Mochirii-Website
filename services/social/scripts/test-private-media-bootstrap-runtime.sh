@@ -610,7 +610,7 @@ release = {
     f"{runtime_prefix}/releases/{commit}/release.meta": (
         f"commit={commit}\n"
         f"digest={digest}\n"
-        "repository=Mochirii-Wushu/Mochirii\n"
+        "repository=Mochirii-Wushu/Mochirii-Website\n"
         f"migration_tree_sha256={'4' * 64}\n"
         f"runtime_contract_sha256={'5' * 64}\n"
     ).encode(),
@@ -701,7 +701,7 @@ for semantic_tamper in release-meta contract runtime; do
     printf '%s\n' \
       commit=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
       digest=sha256:9999999999999999999999999999999999999999999999999999999999999999 \
-      repository=Mochirii-Wushu/Mochirii \
+      repository=Mochirii-Wushu/Mochirii-Website \
       migration_tree_sha256=4444444444444444444444444444444444444444444444444444444444444444 \
       runtime_contract_sha256=5555555555555555555555555555555555555555555555555555555555555555 \
       >"$semantic_bad_root/${semantic_tamper_targets[$semantic_tamper]}"
@@ -716,6 +716,42 @@ for semantic_tamper in release-meta contract runtime; do
     exit 1
   fi
 done
+current_legacy_repository_root="$test_root/semantic-bad-current-legacy-repository"
+cp -a "$test_root/semantic-valid-v2" "$current_legacy_repository_root"
+sed -i \
+  's#repository=Mochirii-Wushu/Mochirii-Website#repository=Mochirii-Wushu/Mochirii#' \
+  "$current_legacy_repository_root/$configuration_runtime_prefix/releases/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/release.meta"
+if validate_recovery_configuration_bindings \
+    "$current_legacy_repository_root" \
+    "$test_root/semantic-valid-v2.manifest" \
+    "$configuration_runtime_prefix" 2>/dev/null; then
+  echo "Current release metadata accepted the legacy repository slug." >&2
+  exit 1
+fi
+legacy_canonical_repository_root="$test_root/semantic-bad-legacy-canonical-repository"
+cp -a "$test_root/semantic-valid-v1" "$legacy_canonical_repository_root"
+sed -i \
+  's#repository=Mochirii-Wushu/Mochirii#repository=Mochirii-Wushu/Mochirii-Website#' \
+  "$legacy_canonical_repository_root/$configuration_runtime_prefix/releases/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/release.meta"
+if validate_recovery_configuration_bindings \
+    "$legacy_canonical_repository_root" \
+    "$test_root/semantic-valid-v1.manifest" \
+    "$configuration_runtime_prefix" 2>/dev/null; then
+  echo "Legacy-shaped metadata accepted the canonical repository slug." >&2
+  exit 1
+fi
+legacy_unknown_repository_root="$test_root/semantic-bad-legacy-unknown-repository"
+cp -a "$test_root/semantic-valid-v1" "$legacy_unknown_repository_root"
+sed -i \
+  's#repository=Mochirii-Wushu/Mochirii#repository=Mochirii-Wushu/Unknown#' \
+  "$legacy_unknown_repository_root/$configuration_runtime_prefix/releases/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/release.meta"
+if validate_recovery_configuration_bindings \
+    "$legacy_unknown_repository_root" \
+    "$test_root/semantic-valid-v1.manifest" \
+    "$configuration_runtime_prefix" 2>/dev/null; then
+  echo "Legacy release metadata accepted an unknown repository slug." >&2
+  exit 1
+fi
 for semantic_tamper in cutover-state cutover-proof; do
   semantic_bad_root="$test_root/semantic-bad-$semantic_tamper"
   cp -a "$test_root/semantic-valid-cutover" "$semantic_bad_root"
