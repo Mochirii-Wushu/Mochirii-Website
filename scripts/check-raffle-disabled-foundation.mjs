@@ -80,11 +80,12 @@ if (!privateSsrBoundaryPresent()) {
 function checkFunctionInventory() {
   const source = readRequired("supabase/config.toml");
   const sections = parseFunctionSections(source);
-  const actual = sections.map(({ name, body }) => [name, value(body, "verify_jwt") === "true"]);
-  assertDeepEqual(actual, reviewedFunctions, "Supabase function names, order, and JWT policy must match the reviewed 40-function inventory");
+  const actual = sections.map(({ name, body }) => [name, value(body, "verify_jwt")]);
+  const expected = reviewedFunctions.map(([name, jwt]) => [name, String(jwt)]);
+  assertDeepEqual(actual, expected, "Supabase function names, order, and raw JWT literals must match the reviewed 40-function inventory");
   assert(sections.length === 40, `Supabase function inventory must contain 40 functions; found ${sections.length}`);
-  assert(actual.filter(([, jwt]) => jwt).length === 23, "Supabase function inventory must contain 23 verify_jwt=true functions");
-  assert(actual.filter(([, jwt]) => !jwt).length === 17, "Supabase function inventory must contain 17 verify_jwt=false functions");
+  assert(actual.filter(([, jwt]) => jwt === "true").length === 23, "Supabase function inventory must contain 23 verify_jwt=true functions");
+  assert(actual.filter(([, jwt]) => jwt === "false").length === 17, "Supabase function inventory must contain 17 verify_jwt=false functions");
 
   for (const { name, body } of sections) {
     assert(value(body, "enabled") === "true", `${name}: enabled must remain true`);
@@ -102,9 +103,9 @@ function checkFunctionSourcesAndLocks() {
       continue;
     }
     assertDeepEqual(
-      readdirSync(directory, { withFileTypes: true }).filter((entry) => entry.isFile()).map((entry) => entry.name).sort(),
+      listFiles(directory),
       [...exactDirectoryFiles].sort(),
-      `${name}: source directory must contain exactly index.ts, deno.json, and deno.lock`,
+      `${name}: source directory must recursively contain exactly index.ts, deno.json, and deno.lock`,
     );
 
     const manifest = parseJson(`supabase/functions/${name}/deno.json`);
@@ -186,6 +187,7 @@ function checkDisabledRelay() {
     "src/service.mjs",
     "src/state.mjs",
     "src/tremendous.mjs",
+    "test/protocol-vector.test.mjs",
     "test/relay.test.mjs",
     "test/reward-chain.test.mjs",
   ];
@@ -214,10 +216,11 @@ function checkDisabledRelay() {
 }
 
 function checkOptionalPrivateSsrBoundary() {
+  const claimPages = appPageFilesForRoute("/raffle/claim");
+  const leaderPages = appPageFilesForRoute("/leader-dashboard/raffle");
   const routeBoundaryFiles = [
-    "apps/web/app/raffle/claim/page.tsx",
-    "apps/web/app/leader-dashboard/raffle/page.tsx",
     "apps/web/scripts/check-raffle-server-boundary.mjs",
+    "apps/web/scripts/test-raffle-server-boundary.mjs",
   ];
   const requiredWhenPresent = [
     ...routeBoundaryFiles,
@@ -225,13 +228,17 @@ function checkOptionalPrivateSsrBoundary() {
     "apps/web/lib/supabase/raffle-response-policy.ts",
     "apps/web/proxy.ts",
   ];
-  if (!routeBoundaryFiles.some((file) => existsSync(resolve(root, file)))) return;
+  const boundaryPresent = claimPages.length > 0 || leaderPages.length > 0 ||
+    routeBoundaryFiles.some((file) => existsSync(resolve(root, file)));
+  if (!boundaryPresent) return;
+  assert(claimPages.length === 1, `private raffle SSR boundary must contain exactly one route-group-normalized /raffle/claim page; found ${claimPages.length}`);
+  assert(leaderPages.length === 1, `private raffle SSR boundary must contain exactly one route-group-normalized /leader-dashboard/raffle page; found ${leaderPages.length}`);
   requiredWhenPresent.forEach((file) => assert(existsSync(resolve(root, file)), `private raffle SSR boundary is partial; missing ${file}`));
-  if (requiredWhenPresent.some((file) => !existsSync(resolve(root, file)))) return;
+  if (claimPages.length !== 1 || leaderPages.length !== 1 || requiredWhenPresent.some((file) => !existsSync(resolve(root, file)))) return;
 
   for (const [file, decision, destination] of [
-    ["apps/web/app/raffle/claim/page.tsx", "getRaffleClaimPageDecision", "/raffle/claim"],
-    ["apps/web/app/leader-dashboard/raffle/page.tsx", "getRaffleModeratorPageDecision", "/leader-dashboard/raffle"],
+    [claimPages[0], "getRaffleClaimPageDecision", "/raffle/claim"],
+    [leaderPages[0], "getRaffleModeratorPageDecision", "/leader-dashboard/raffle"],
   ]) {
     const source = readRequired(file);
     for (const snippet of ['export const dynamic = "force-dynamic"', "export const revalidate = 0", `${decision}()`, 'decision === "redirect-auth"', 'decision === "not-found"', "notFound()", destination]) {
@@ -266,11 +273,46 @@ function checkCommandWiring() {
     assert(count(checkAll, `\"${label}\"`) === 1, `scripts/check-all.mjs must wire ${label} exactly once`);
     assert(count(checkAll, command) === 1, `scripts/check-all.mjs must reference ${command} exactly once`);
   }
+
+  if (privateSsrBoundaryPresent()) {
+    const webPackageJson = parseJson("apps/web/package.json");
+    const webScripts = webPackageJson.scripts || {};
+    const expectedSsrCommands = {
+      "check:raffle-server-boundary": "node scripts/check-raffle-server-boundary.mjs",
+      "test:raffle-server-boundary": "node scripts/test-raffle-server-boundary.mjs",
+    };
+    for (const [label, webCommand] of Object.entries(expectedSsrCommands)) {
+      assert(webScripts[label] === webCommand, `apps/web ${label} command must be exact`);
+      assert(scripts[label] === `npm --prefix apps/web run ${label}`, `root ${label} command must be an exact apps/web proxy`);
+      assert(count(checkAll, `\"${label}\"`) === 1, `scripts/check-all.mjs must execute ${label} exactly once`);
+      assert(
+        count(checkAll, `\"--prefix\", \"apps/web\", \"run\", \"${label}\"`) === 1,
+        `scripts/check-all.mjs must execute the apps/web ${label} command exactly once`,
+      );
+    }
+  }
 }
 
 function privateSsrBoundaryPresent() {
-  return existsSync(resolve(root, "apps/web/app/raffle/claim/page.tsx")) ||
-    existsSync(resolve(root, "apps/web/app/leader-dashboard/raffle/page.tsx"));
+  return appPageFilesForRoute("/raffle/claim").length > 0 ||
+    appPageFilesForRoute("/leader-dashboard/raffle").length > 0 ||
+    existsSync(resolve(root, "apps/web/scripts/check-raffle-server-boundary.mjs")) ||
+    existsSync(resolve(root, "apps/web/scripts/test-raffle-server-boundary.mjs"));
+}
+
+function appPageFilesForRoute(route) {
+  const appRoot = resolve(root, "apps/web/app");
+  return listFiles(appRoot)
+    .filter((file) => /(?:^|\/)page\.(?:[cm]?[jt]sx?)$/i.test(file))
+    .filter((file) => appRouteForPage(file) === route)
+    .map((file) => `apps/web/app/${file}`);
+}
+
+function appRouteForPage(file) {
+  const segments = file.split("/").slice(0, -1)
+    .filter((segment) => !(segment.startsWith("(") && segment.endsWith(")")))
+    .filter((segment) => !segment.startsWith("@"));
+  return `/${segments.join("/")}`.replace(/\/$/, "") || "/";
 }
 
 function parseFunctionSections(source) {

@@ -1,5 +1,5 @@
-import { existsSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { dirname, extname, resolve } from "node:path";
 import { SITE_ORIGIN } from "./lib/public-urls.mjs";
 
 const root = process.cwd();
@@ -52,6 +52,11 @@ for (const [label, file] of Object.entries(files)) {
 
 for (const file of forbiddenLegacySurfaces) {
   if (existsSync(resolve(root, file))) failures.push(`${file}: retired or duplicate raffle surface must remain absent`);
+}
+for (const { file, route } of appPageRoutes()) {
+  if (route === "/raffles" || route === "/raffle/rules" || route.startsWith("/raffle/rules/")) {
+    failures.push(`${file}: retired or duplicate route-group-normalized raffle route ${route} must remain absent`);
+  }
 }
 
 const rewardRelaySourceExists = existsSync(resolve(root, "services/reward-relay"));
@@ -142,6 +147,13 @@ const publicSource = [
   read(files.data),
   raffleMetadataSource,
 ].join("\n");
+const reachableRaffleComponents = collectReachableRaffleComponents([
+  files.page,
+  files.component,
+]);
+const reachableRaffleComponentSource = reachableRaffleComponents
+  .map((file) => `/* ${file} */\n${read(file)}`)
+  .join("\n");
 assert(publicSource.includes('drawing: "No raffle is active"'), "public raffle source: inactive drawing label must be explicit");
 assert(publicSource.includes('submissions: "No submissions are being accepted."'), "public raffle source: inactive submission status must be explicit");
 
@@ -162,6 +174,20 @@ for (const [label, pattern] of [
   ["private raffle function", /\b(?:manage-raffle-entry|manage-raffle-claim|moderate-raffle|run-raffle-schedule|run-raffle-fulfillment|reward-provider-webhook)\b/i],
 ]) {
   if (pattern.test(publicSource)) failures.push(`public raffle source: ${label} is forbidden`);
+}
+
+for (const [label, pattern] of [
+  ["form or dead control", /<(?:form|button|input|select|textarea)\b/i],
+  ["private claim route", /["'`]\/raffle\/claim(?:[/?#"'`]|$)/i],
+  ["private leader route", /["'`]\/leader-dashboard\/raffle(?:[/?#"'`]|$)/i],
+  ["private raffle API", /["'`]\/api\/raffle\/(?:claim|admin|moderate|schedule|fulfillment)(?:[/?#"'`]|$)/i],
+  ["private raffle function", /\b(?:manage-raffle-entry|manage-raffle-claim|moderate-raffle|run-raffle-schedule|run-raffle-fulfillment|reward-provider-webhook)\b/i],
+  ["provider branding", /\b(?:Tremendous|Pixelfed|Supabase|Vercel|Discord|DigitalOcean|Fly\.io|Shopify|Stripe)\b/i],
+  ["implementation status language", /\b(?:backend|integration|provider|migration|webhook|relay|database|JWT|service role|Edge Function|coming soon|TBD|work in progress|not implemented|blocked|prelaunch)\b/i],
+]) {
+  if (pattern.test(reachableRaffleComponentSource)) {
+    failures.push(`reachable public raffle component graph: ${label} is forbidden (${reachableRaffleComponents.join(", ")})`);
+  }
 }
 
 for (const phrase of [
@@ -294,4 +320,74 @@ function walkKeys(value, path, visit) {
     visit(key, nextPath);
     walkKeys(item, nextPath, visit);
   }
+}
+
+function collectReachableRaffleComponents(entryFiles) {
+  const queue = [...entryFiles];
+  const visited = new Set();
+  while (queue.length) {
+    const file = queue.shift();
+    if (!file || visited.has(file)) continue;
+    visited.add(file);
+    const source = read(file);
+    for (const specifier of importedSpecifiers(source)) {
+      const resolved = resolveComponentImport(file, specifier);
+      if (resolved && !visited.has(resolved)) queue.push(resolved);
+    }
+  }
+  return [...visited].sort();
+}
+
+function importedSpecifiers(source) {
+  const specifiers = new Set();
+  for (const pattern of [
+    /\bfrom\s+["']([^"']+)["']/g,
+    /\bimport\s+["']([^"']+)["']/g,
+    /\bimport\s*\(\s*["']([^"']+)["']\s*\)/g,
+  ]) {
+    for (const match of source.matchAll(pattern)) specifiers.add(match[1]);
+  }
+  return specifiers;
+}
+
+function resolveComponentImport(importer, specifier) {
+  let base;
+  if (specifier.startsWith("@/")) base = resolve(root, "apps/web", specifier.slice(2));
+  else if (specifier.startsWith(".")) base = resolve(root, dirname(importer), specifier);
+  else return null;
+
+  const candidates = extname(base)
+    ? [base]
+    : [base, `${base}.tsx`, `${base}.jsx`, resolve(base, "index.tsx"), resolve(base, "index.jsx")];
+  const webRoot = resolve(root, "apps/web");
+  for (const candidate of candidates) {
+    if (!candidate.startsWith(`${webRoot}\\`) || !/\.[jt]sx$/i.test(candidate) || !existsSync(candidate)) continue;
+    return candidate.slice(root.length + 1).replaceAll("\\", "/");
+  }
+  return null;
+}
+
+function appPageRoutes() {
+  const appRoot = resolve(root, "apps/web/app");
+  return listFiles(appRoot)
+    .filter((file) => /(?:^|\/)page\.(?:[cm]?[jt]sx?)$/i.test(file))
+    .map((file) => ({ file: `apps/web/app/${file}`, route: appRouteForPage(file) }));
+}
+
+function appRouteForPage(file) {
+  const segments = file.split("/").slice(0, -1)
+    .filter((segment) => !(segment.startsWith("(") && segment.endsWith(")")))
+    .filter((segment) => !segment.startsWith("@"));
+  return `/${segments.join("/")}`.replace(/\/$/, "") || "/";
+}
+
+function listFiles(directory, prefix = "") {
+  if (!existsSync(directory)) return [];
+  const files = [];
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
+    if (entry.isDirectory()) files.push(...listFiles(resolve(directory, entry.name), relative));
+    else if (entry.isFile()) files.push(relative);
+  }
+  return files.sort();
 }
