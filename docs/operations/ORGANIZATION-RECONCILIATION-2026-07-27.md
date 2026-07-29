@@ -65,7 +65,7 @@ their unique patches and ownership are proved:
 | `Website` | `2eec9e467b4679fd77648ef61e77cf246ec9589b` | Canonical clean `main`. |
 | `Website-repository-name-reconciliation-20260728` | This branch's exact final head is the commit that contains this mutable ledger; re-read it with `git rev-parse HEAD` at the release gate. | Active canonical-name reconciliation. |
 | `Website-gallery-data-v2-20260728` | `24b8bc8bbddbd6382663e2ad6180cb5e8f1c11b1` | Active Gallery data/media release source. |
-| `Website-gallery-raffle-integration-20260728` | `468cc046e72c2e3679463d6c1916fdada2798eed` | Ordered Gallery/raffle verification composition; not a production branch. |
+| `Website-gallery-raffle-integration-20260728` | Mutable verification composition; re-read its exact head with `git rev-parse HEAD` before using its evidence. | Ordered Gallery/raffle verification composition; not a production branch. |
 | `Website-raffle-integrated-20260728` | `4d91a4846043abc737dc69ccd2f0f13d1fb7bd42` | Active disabled raffle-foundation source. |
 | `Website-social-private-media-bootstrap-20260728` | `7f19b9cbf51a4cc2ec3a3d680cc99e02a2bb704a` | Active PR #536 replacement/hardening lane. |
 | `Website-gallery-full-stack-p0-20260728` | `9d0303250fdbc99d99b87af8ff2ddf8ccbf127ad` | Superseded candidate; retain until Gallery replacement parity is proved. |
