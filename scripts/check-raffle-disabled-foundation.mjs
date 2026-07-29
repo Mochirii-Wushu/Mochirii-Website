@@ -58,6 +58,7 @@ const reviewedRaffleFunctions = [
 
 checkFunctionInventory();
 checkFunctionSourcesAndLocks();
+checkBoundedRequestBodies();
 checkClosedOperationalGates();
 checkDisabledRelay();
 checkOptionalPrivateSsrBoundary();
@@ -67,6 +68,22 @@ if (failures.length) {
   console.error(`Disabled raffle foundation contract failed (${failures.length} issue${failures.length === 1 ? "" : "s"}).`);
   failures.forEach((failure) => console.error(`- ${failure}`));
   process.exit(1);
+}
+
+function checkBoundedRequestBodies() {
+  const source = readRequired("supabase/functions/_shared/raffle-edge.ts");
+  assertIncludes("raffle bounded JSON reader", source, "req.body.getReader()");
+  assertIncludes("raffle bounded JSON reader", source, 'reader.cancel("request_too_large")');
+  assertIncludes("raffle bounded JSON reader", source, "bytes = new Uint8Array(maxBytes)");
+  assertIncludes("raffle bounded JSON reader", source, "readOperations >= maxReadOperations");
+  assertIncludes("raffle bounded JSON reader", source, 'new TextDecoder("utf-8", { fatal: true })');
+  assert(
+    source.indexOf('const declaredLength = req.headers.get("content-length")') <
+      source.indexOf("req.body.getReader()"),
+    "raffle JSON reader must reject invalid declared lengths before opening the body stream",
+  );
+  assert(!source.includes("const chunks: Uint8Array[]"), "raffle JSON reader must not retain a chunk array");
+  assert(!source.includes("await req.text()"), "raffle JSON reader must not buffer an unbounded request with req.text()");
 }
 
 console.log("Disabled raffle foundation contract OK.");

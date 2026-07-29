@@ -69,16 +69,89 @@ export async function readJson(
   req: Request,
   maxBytes = 16_384,
 ): Promise<JsonRecord> {
-  const contentLength = Number(req.headers.get("content-length") || "0");
-  if (Number.isFinite(contentLength) && contentLength > maxBytes) {
-    throw new Error("request_too_large");
+  if (!Number.isSafeInteger(maxBytes) || maxBytes < 1) {
+    throw new Error("invalid_json");
   }
-  const text = await req.text();
-  if (new TextEncoder().encode(text).length > maxBytes) {
-    throw new Error("request_too_large");
+
+  const declaredLength = req.headers.get("content-length");
+  if (declaredLength !== null) {
+    const normalizedLength = declaredLength.trim();
+    if (!/^\d+$/.test(normalizedLength)) {
+      throw new Error("invalid_json");
+    }
+    const declaredBytes = Number(normalizedLength);
+    if (!Number.isSafeInteger(declaredBytes)) {
+      throw new Error("invalid_json");
+    }
+    if (declaredBytes > maxBytes) throw new Error("request_too_large");
   }
-  if (!text.trim()) return {};
-  return asRecord(JSON.parse(text));
+
+  if (!req.body) return {};
+  let bytes: Uint8Array;
+  try {
+    bytes = new Uint8Array(maxBytes);
+  } catch {
+    throw new Error("invalid_json");
+  }
+
+  let reader: ReadableStreamDefaultReader<Uint8Array>;
+  try {
+    reader = req.body.getReader();
+  } catch {
+    throw new Error("invalid_json");
+  }
+
+  const maxReadOperations = maxBytes + 1;
+  let readOperations = 0;
+  let totalBytes = 0;
+  try {
+    for (;;) {
+      if (readOperations >= maxReadOperations) {
+        try {
+          await reader.cancel("request_too_large");
+        } catch {
+          // The size decision is authoritative even if the source cannot cancel.
+        }
+        throw new Error("request_too_large");
+      }
+      readOperations += 1;
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value.byteLength > maxBytes - totalBytes) {
+        try {
+          await reader.cancel("request_too_large");
+        } catch {
+          // The size decision is authoritative even if the source cannot cancel.
+        }
+        throw new Error("request_too_large");
+      }
+      bytes.set(value, totalBytes);
+      totalBytes += value.byteLength;
+    }
+  } catch (error) {
+    if (error instanceof Error && error.message === "request_too_large") {
+      throw error;
+    }
+    throw new Error("invalid_json");
+  } finally {
+    try {
+      reader.releaseLock();
+    } catch {
+      // The request result remains normalized if the runtime already released it.
+    }
+  }
+
+  if (totalBytes === 0) return {};
+
+  try {
+    const text = new TextDecoder("utf-8", { fatal: true }).decode(
+      bytes.subarray(0, totalBytes),
+    );
+    if (!text.trim()) return {};
+    return asRecord(JSON.parse(text));
+  } catch {
+    throw new Error("invalid_json");
+  }
 }
 
 export function createRaffleAdminClient(): SupabaseClient | null {

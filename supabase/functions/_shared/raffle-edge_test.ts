@@ -5,6 +5,7 @@ import {
   privacySafePublicDrawEvidence,
   publicCycleDto,
   raffleMemberProfileIsVerified,
+  readJson,
   requireRaffleMember,
   requireRaffleModerator,
 } from "./raffle-edge.ts";
@@ -14,6 +15,179 @@ import { verifyAuthenticatedUser } from "./verified-auth.ts";
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
 }
+
+async function rejectionMessage(promise: Promise<unknown>): Promise<string> {
+  try {
+    await promise;
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+  throw new Error("expected promise to reject");
+}
+
+Deno.test("raffle JSON reader rejects oversized streams before reading the remainder", async () => {
+  let pullCount = 0;
+  let cancelled = false;
+  const body = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      pullCount += 1;
+      if (pullCount === 1) {
+        controller.enqueue(new TextEncoder().encode('{"a":'));
+      } else if (pullCount === 2) {
+        controller.enqueue(new TextEncoder().encode('"12345"}'));
+      } else {
+        controller.enqueue(new Uint8Array(1_024));
+      }
+    },
+    cancel() {
+      cancelled = true;
+    },
+  });
+  const request = new Request("https://example.invalid/raffle", {
+    method: "POST",
+    body,
+  });
+
+  assert(
+    await rejectionMessage(readJson(request, 8)) === "request_too_large",
+    "oversized streamed body did not receive request_too_large",
+  );
+  assert(cancelled, "oversized streamed body was not cancelled");
+  assert(pullCount === 2, "reader consumed data after crossing the byte cap");
+});
+
+Deno.test("raffle JSON reader cancels streams that exceed its finite read-operation cap", async () => {
+  let pullCount = 0;
+  let cancelled = false;
+  const body = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      pullCount += 1;
+      controller.enqueue(new Uint8Array());
+    },
+    cancel() {
+      cancelled = true;
+    },
+  });
+
+  assert(
+    await rejectionMessage(readJson(
+      new Request("https://example.invalid/raffle", {
+        method: "POST",
+        body,
+      }),
+      8,
+    )) === "request_too_large",
+    "zero-length stream did not receive request_too_large",
+  );
+  assert(cancelled, "zero-length stream was not cancelled");
+  assert(pullCount <= 9, "zero-length stream exceeded its finite read cap");
+});
+
+Deno.test("raffle JSON reader accepts exact JSON fragmented into one-byte chunks", async () => {
+  const encoded = new TextEncoder().encode('{"action":"status"}');
+  let offset = 0;
+  const body = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      if (offset >= encoded.byteLength) {
+        controller.close();
+        return;
+      }
+      controller.enqueue(encoded.subarray(offset, offset + 1));
+      offset += 1;
+    },
+  });
+
+  const value = await readJson(
+    new Request("https://example.invalid/raffle", {
+      method: "POST",
+      body,
+    }),
+    encoded.byteLength,
+  );
+  assert(value.action === "status", "one-byte JSON fragments were rejected");
+});
+
+Deno.test("raffle JSON reader rejects invalid or oversized declared lengths before body reads", async () => {
+  for (
+    const [declaredLength, expected] of [
+      ["not-a-number", "invalid_json"],
+      ["9007199254740992", "invalid_json"],
+      ["17", "request_too_large"],
+    ] as const
+  ) {
+    const request = new Request("https://example.invalid/raffle", {
+      method: "POST",
+      headers: { "content-length": declaredLength },
+      body: "{}",
+    });
+    assert(
+      await rejectionMessage(readJson(request, 16)) === expected,
+      `declared length ${declaredLength} did not fail closed`,
+    );
+  }
+});
+
+Deno.test("raffle JSON reader normalizes locked-body and allocation failures", async () => {
+  const lockedRequest = new Request("https://example.invalid/raffle", {
+    method: "POST",
+    body: "{}",
+  });
+  const lock = lockedRequest.body!.getReader();
+  try {
+    assert(
+      await rejectionMessage(readJson(lockedRequest, 2)) === "invalid_json",
+      "locked request body leaked an unnormalized stream error",
+    );
+  } finally {
+    await lock.cancel();
+    lock.releaseLock();
+  }
+
+  assert(
+    await rejectionMessage(readJson(
+      new Request("https://example.invalid/raffle", {
+        method: "POST",
+        body: "{}",
+      }),
+      Number.MAX_SAFE_INTEGER,
+    )) === "invalid_json",
+    "bounded-buffer allocation failure was not normalized",
+  );
+});
+
+Deno.test("raffle JSON reader accepts exact bounded objects and rejects malformed UTF-8", async () => {
+  const encoded = new TextEncoder().encode('{"action":"status"}');
+  const value = await readJson(
+    new Request("https://example.invalid/raffle", {
+      method: "POST",
+      headers: { "content-length": String(encoded.byteLength) },
+      body: encoded,
+    }),
+    encoded.byteLength,
+  );
+  assert(value.action === "status", "exact bounded JSON object was rejected");
+
+  const malformed = new Uint8Array([
+    0x7b,
+    0x22,
+    0x61,
+    0x22,
+    0x3a,
+    0xc3,
+    0x28,
+    0x7d,
+  ]);
+  assert(
+    await rejectionMessage(readJson(
+      new Request("https://example.invalid/raffle", {
+        method: "POST",
+        body: malformed,
+      }),
+      malformed.byteLength,
+    )) === "invalid_json",
+    "malformed UTF-8 was accepted as JSON",
+  );
+});
 
 Deno.test("public draw evidence exposes commitments without reversible identity material", async () => {
   const evidence = await privacySafePublicDrawEvidence(
