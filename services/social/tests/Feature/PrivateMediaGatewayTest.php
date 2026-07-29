@@ -9,6 +9,7 @@ use App\Services\MochiriiSocialSyncService;
 use App\Transformer\Api\MediaTransformer;
 use App\User;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
@@ -16,6 +17,7 @@ use Laravel\Passport\Passport;
 use League\OAuth2\Server\ResourceServer;
 use Mockery\MockInterface;
 use PHPUnit\Framework\Attributes\Test;
+use PragmaRX\Google2FA\Google2FA;
 use Tests\TestCase;
 
 class PrivateMediaGatewayTest extends TestCase
@@ -28,6 +30,8 @@ class PrivateMediaGatewayTest extends TestCase
             'database.default' => 'sqlite',
             'database.connections.sqlite.database' => ':memory:',
             'filesystems.default' => 'local',
+            'cache.default' => 'array',
+            'cache.limiter' => 'array',
             'mochirii-private-media.enabled' => true,
         ]);
         DB::purge('sqlite');
@@ -43,6 +47,10 @@ class PrivateMediaGatewayTest extends TestCase
             $table->string('status')->nullable();
             $table->string('register_source')->nullable();
             $table->timestamp('email_verified_at')->nullable();
+            $table->boolean('2fa_enabled')->default(false);
+            $table->string('2fa_secret')->nullable();
+            $table->json('2fa_backup_codes')->nullable();
+            $table->timestamp('2fa_setup_at')->nullable();
             $table->rememberToken();
             $table->timestamps();
             $table->softDeletes();
@@ -216,6 +224,217 @@ class PrivateMediaGatewayTest extends TestCase
         $this->assertStringContainsString('no-store', (string) $response->headers->get('Cache-Control'));
         $response->assertHeader('X-Content-Type-Options', 'nosniff');
         $this->assertSame('private', $response->streamedContent());
+    }
+
+    #[Test]
+    public function enabled_two_factor_browser_media_requires_a_fresh_bound_checkpoint(): void
+    {
+        [$user, $profile] = $this->activeMember(68, 168);
+        $secret = $this->enableTwoFactor($user);
+        $this->allowCurrentAccess($user, 'member-68', 5);
+        $this->actingAs($user->fresh(), 'web');
+        config(['mochirii-private-media.two_factor_assurance_seconds' => 300]);
+
+        Storage::disk('local')->put('public/m/_v2/member/2fa-browser.jpg', 'browser-media', ['visibility' => 'private']);
+        Media::create([
+            'id' => 2001,
+            'profile_id' => $profile->id,
+            'user_id' => $user->id,
+            'status_id' => null,
+            'media_path' => 'public/m/_v2/member/2fa-browser.jpg',
+            'mime' => 'image/jpeg',
+            'remote_media' => false,
+        ]);
+
+        $this->get('/media/private/media/2001/original')->assertNotFound();
+
+        $this->post('/i/auth/checkpoint', [
+            'code' => (new Google2FA)->getCurrentOtp($secret),
+        ])->assertRedirect('/');
+
+        $this->get('/media/private/media/2001/original')
+            ->assertOk()
+            ->assertHeader('X-Content-Type-Options', 'nosniff');
+
+        $this->travel(301)->seconds();
+        $this->get('/media/private/media/2001/original')->assertNotFound();
+        $this->travelBack();
+
+        DB::table('users')->where('id', $user->id)->update([
+            '2fa_secret' => (new Google2FA)->generateSecretKey(32),
+        ]);
+        $this->actingAs($user->fresh(), 'web');
+        $this->get('/media/private/media/2001/original')->assertNotFound();
+    }
+
+    #[Test]
+    public function enabled_two_factor_native_media_requires_an_assertion_bound_to_the_exact_bearer(): void
+    {
+        [$user, $profile] = $this->activeMember(69, 169);
+        $secret = $this->enableTwoFactor($user);
+        $this->allowCurrentAccess($user, 'member-69', 7);
+        $this->actingAsNative($user->fresh());
+        config(['mochirii-private-media.two_factor_assurance_seconds' => 300]);
+
+        Storage::disk('local')->put('public/m/_v2/member/2fa-native.jpg', 'native-media', ['visibility' => 'private']);
+        Media::create([
+            'id' => 2002,
+            'profile_id' => $profile->id,
+            'user_id' => $user->id,
+            'status_id' => null,
+            'media_path' => 'public/m/_v2/member/2fa-native.jpg',
+            'mime' => 'image/jpeg',
+            'remote_media' => false,
+        ]);
+
+        $bearer = 'native-token-0000000000000001';
+        $this->withHeader('Authorization', 'Bearer '.$bearer)
+            ->get('/media/private/media/2002/original')
+            ->assertNotFound();
+
+        $checkpoint = $this->withHeader('Authorization', 'Bearer '.$bearer)
+            ->postJson('/api/v1.1/security/private-media-assurance', [
+                'code' => (new Google2FA)->getCurrentOtp($secret),
+            ]);
+
+        $checkpoint->assertOk()
+            ->assertHeader('Cache-Control', 'max-age=0, no-store, private')
+            ->assertJsonStructure(['assurance', 'expires_in', 'header']);
+        $assertion = $checkpoint->json('assurance');
+        $this->assertIsString($assertion);
+
+        $this->withHeader('Authorization', 'Bearer '.$bearer)
+            ->postJson('/api/v1.1/security/private-media-assurance', [
+                'code' => (new Google2FA)->getCurrentOtp($secret),
+            ])->assertStatus(422);
+
+        $this->withHeaders([
+            'Authorization' => 'Bearer '.$bearer,
+            'X-Mochirii-Media-Assurance' => $assertion,
+        ])->get('/media/private/media/2002/original')->assertOk();
+
+        $this->withHeaders([
+            'Authorization' => 'Bearer native-token-0000000000000002',
+            'X-Mochirii-Media-Assurance' => $assertion,
+        ])->get('/media/private/media/2002/original')->assertNotFound();
+
+        $this->withHeaders([
+            'Authorization' => 'Bearer '.$bearer,
+            'X-Mochirii-Media-Assurance' => $assertion.'tampered',
+        ])->get('/media/private/media/2002/original')->assertNotFound();
+
+        $this->travel(301)->seconds();
+        $this->withHeaders([
+            'Authorization' => 'Bearer '.$bearer,
+            'X-Mochirii-Media-Assurance' => $assertion,
+        ])->get('/media/private/media/2002/original')->assertNotFound();
+        $this->travelBack();
+    }
+
+    #[Test]
+    public function private_media_has_independent_identity_and_ip_request_ceilings(): void
+    {
+        [$user, $profile] = $this->activeMember(70, 170);
+        $this->allowCurrentAccess($user, 'member-70', 6);
+        $this->actingAs($user, 'web');
+
+        Storage::disk('local')->put('public/m/_v2/member/throttled.jpg', 'bounded-media', ['visibility' => 'private']);
+        Media::create([
+            'id' => 2003,
+            'profile_id' => $profile->id,
+            'user_id' => $user->id,
+            'status_id' => null,
+            'media_path' => 'public/m/_v2/member/throttled.jpg',
+            'mime' => 'image/jpeg',
+            'remote_media' => false,
+        ]);
+
+        config([
+            'mochirii-private-media.rate_limits.requests_per_minute_per_identity' => 2,
+            'mochirii-private-media.rate_limits.requests_per_minute_per_ip' => 100,
+        ]);
+        $this->get('/media/private/media/2003/original')->assertOk();
+        $this->get('/media/private/media/2003/original')->assertOk();
+        $identityLimited = $this->get('/media/private/media/2003/original');
+        $identityLimited->assertStatus(429);
+        $this->assertStringContainsString('no-store', (string) $identityLimited->headers->get('Cache-Control'));
+
+        Cache::flush();
+        config([
+            'mochirii-private-media.rate_limits.requests_per_minute_per_identity' => 100,
+            'mochirii-private-media.rate_limits.requests_per_minute_per_ip' => 2,
+        ]);
+        $this->get('/media/private/media/2003/original')->assertOk();
+        $this->get('/media/private/media/2003/original')->assertOk();
+        $ipLimited = $this->get('/media/private/media/2003/original');
+        $ipLimited->assertStatus(429);
+        $this->assertStringContainsString('no-store', (string) $ipLimited->headers->get('Cache-Control'));
+    }
+
+    #[Test]
+    public function private_media_throttles_invalid_native_assurance_before_decryption(): void
+    {
+        [$user] = $this->activeMember(73, 173);
+        $this->enableTwoFactor($user);
+        $this->allowCurrentAccess($user, 'member-73', 3);
+        $this->actingAsNative($user->fresh());
+        config([
+            'mochirii-private-media.rate_limits.requests_per_minute_per_identity' => 2,
+            'mochirii-private-media.rate_limits.requests_per_minute_per_ip' => 100,
+        ]);
+
+        $headers = [
+            'Authorization' => 'Bearer native-token-0000000000000005',
+            'X-Mochirii-Media-Assurance' => str_repeat('invalid', 32),
+        ];
+
+        $this->withHeaders($headers)->get('/media/private/media/999999/original')->assertNotFound();
+        $this->withHeaders($headers)->get('/media/private/media/999999/original')->assertNotFound();
+        $limited = $this->withHeaders($headers)->get('/media/private/media/999999/original');
+        $limited->assertStatus(429);
+        $this->assertStringContainsString('no-store', (string) $limited->headers->get('Cache-Control'));
+    }
+
+    #[Test]
+    public function native_two_factor_checkpoint_attempts_are_identity_limited(): void
+    {
+        [$user] = $this->activeMember(71, 171);
+        $this->enableTwoFactor($user);
+        $this->allowCurrentAccess($user, 'member-71', 3);
+        $this->actingAsNative($user->fresh());
+        config([
+            'mochirii-private-media.rate_limits.checkpoints_per_minute_per_identity' => 2,
+            'mochirii-private-media.rate_limits.checkpoints_per_hour_per_identity' => 100,
+            'mochirii-private-media.rate_limits.checkpoints_per_minute_per_ip' => 100,
+            'mochirii-private-media.rate_limits.checkpoints_per_hour_per_ip' => 100,
+        ]);
+
+        $headers = ['Authorization' => 'Bearer native-token-0000000000000003'];
+        $this->withHeaders($headers)->postJson('/api/v1.1/security/private-media-assurance', ['code' => 'wrong'])->assertStatus(422);
+        $this->withHeaders($headers)->postJson('/api/v1.1/security/private-media-assurance', ['code' => 'wrong'])->assertStatus(422);
+        $limited = $this->withHeaders($headers)->postJson('/api/v1.1/security/private-media-assurance', ['code' => 'wrong']);
+        $limited->assertStatus(429);
+        $this->assertStringContainsString('no-store', (string) $limited->headers->get('Cache-Control'));
+    }
+
+    #[Test]
+    public function native_recovery_code_is_consumed_once(): void
+    {
+        [$user] = $this->activeMember(72, 172);
+        $this->enableTwoFactor($user);
+        $this->allowCurrentAccess($user, 'member-72', 2);
+        $this->actingAsNative($user->fresh());
+        $headers = ['Authorization' => 'Bearer native-token-0000000000000004'];
+        $recovery = 'recovery-code-'.str_pad((string) $user->id, 12, '0');
+
+        $this->withHeaders($headers)
+            ->postJson('/api/v1.1/security/private-media-assurance', ['code' => $recovery])
+            ->assertOk();
+        $this->withHeaders($headers)
+            ->postJson('/api/v1.1/security/private-media-assurance', ['code' => $recovery])
+            ->assertStatus(422);
+
+        $this->assertSame([], json_decode((string) DB::table('users')->where('id', $user->id)->value('2fa_backup_codes'), true));
     }
 
     #[Test]
@@ -749,6 +968,19 @@ class PrivateMediaGatewayTest extends TestCase
                 $mock->shouldNotReceive('hasCurrentAccess');
             }
         });
+    }
+
+    private function enableTwoFactor(User $user): string
+    {
+        $secret = (new Google2FA)->generateSecretKey(32);
+        DB::table('users')->where('id', $user->id)->update([
+            '2fa_enabled' => true,
+            '2fa_secret' => $secret,
+            '2fa_backup_codes' => json_encode(['recovery-code-'.str_pad((string) $user->id, 12, '0')], JSON_THROW_ON_ERROR),
+            '2fa_setup_at' => now(),
+        ]);
+
+        return $secret;
     }
 
     private function actingAsNative(User $user): void

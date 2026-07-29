@@ -57,6 +57,7 @@ policy, sync documentation, media readiness notes, and federation gate docs.
 - [`docs/mochirii-social-sync.md`](docs/mochirii-social-sync.md)
 - [`docs/upstream-sync-policy.md`](docs/upstream-sync-policy.md)
 - [`docs/media-spaces-readiness.md`](docs/media-spaces-readiness.md)
+- [`docs/private-media-authentication.md`](docs/private-media-authentication.md)
 - [`docs/fediverse-activation-runbook.md`](docs/fediverse-activation-runbook.md)
 
 ## First-Admin Login Gate
