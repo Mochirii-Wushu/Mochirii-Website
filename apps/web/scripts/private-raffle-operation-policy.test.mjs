@@ -30,6 +30,29 @@ test("recursive private operation discovery catches nested handlers and Server A
   }
 });
 
+test("route groups above or between private segments cannot bypass operation discovery", () => {
+  const root = fixture();
+  try {
+    const groupedClaim = path.join(root, "app", "(member)", "raffle", "claim");
+    const groupedBetweenSegments = path.join(root, "app", "leader-dashboard", "(private)", "raffle", "nested");
+    const groupedInsideClaim = path.join(root, "app", "raffle", "(member)", "claim");
+    fs.mkdirSync(groupedClaim, { recursive: true });
+    fs.mkdirSync(groupedBetweenSegments, { recursive: true });
+    fs.mkdirSync(groupedInsideClaim, { recursive: true });
+    fs.writeFileSync(path.join(groupedClaim, "actions.ts"), '"use server";\nexport async function claim() {}\n');
+    fs.writeFileSync(path.join(groupedBetweenSegments, "route.ts"), "export async function POST() {}\n");
+    fs.writeFileSync(path.join(groupedInsideClaim, "inline.ts"), 'export async function claimInline() {\n  "use server";\n}\n');
+
+    assert.deepEqual(discoverPrivateRaffleOperations(root), [
+      "app/(member)/raffle/claim/actions.ts",
+      "app/leader-dashboard/(private)/raffle/nested/route.ts",
+      "app/raffle/(member)/claim/inline.ts",
+    ]);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("test files and ordinary Server Components never become operation evidence", () => {
   const root = fixture();
   try {

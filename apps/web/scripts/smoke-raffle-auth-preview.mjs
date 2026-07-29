@@ -1,5 +1,10 @@
 import { existsSync, lstatSync, readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
+import {
+  applySetCookieChanges,
+  hasNonemptyAuthTokenCookie,
+  parseSetCookieChange,
+} from "./raffle-auth-preview-cookies.mjs";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../../..");
 const privateEvidenceRoot = path.join(repositoryRoot, ".artifacts", "operations");
@@ -35,18 +40,17 @@ function cookiePairs(header) {
   return pairs;
 }
 
-function responseCookiePairs(response) {
+function responseCookieChanges(response) {
   const headers = typeof response.headers.getSetCookie === "function"
     ? response.headers.getSetCookie()
     : [response.headers.get("set-cookie")].filter(Boolean);
-  const pairs = new Map();
+  const changes = [];
   for (const header of headers) {
-    const first = String(header).split(";", 1)[0];
-    const parsed = cookiePairs(first);
-    if (!parsed || parsed.size !== 1) fail("the callback returned a malformed session cookie");
-    for (const [name, value] of parsed) pairs.set(name, value);
+    const parsed = parseSetCookieChange(String(header));
+    if (!parsed) fail("the callback returned a malformed session cookie");
+    changes.push(parsed);
   }
-  return pairs;
+  return changes;
 }
 
 const previewOrigin = reviewedOrigin(previewOriginValue);
@@ -133,11 +137,16 @@ if (destination.origin !== previewOrigin || destination.pathname !== "/raffle/cl
   fail("the callback did not return the reviewed claim destination");
 }
 
-const sessionCookies = responseCookiePairs(callbackResponse);
-if (![...sessionCookies.keys()].some((name) => /auth-token(?:\.|$)/.test(name))) {
+const sessionCookieChanges = responseCookieChanges(callbackResponse);
+if (!sessionCookieChanges.some(({ name, value, deletion }) => (
+  /auth-token(?:\.|$)/.test(name) && Boolean(value) && !deletion
+))) {
   fail("the callback did not set a cookie-backed auth session");
 }
-for (const [name, value] of sessionCookies) incomingCookies.set(name, value);
+applySetCookieChanges(incomingCookies, sessionCookieChanges);
+if (!hasNonemptyAuthTokenCookie(incomingCookies)) {
+  fail("the callback did not leave a usable cookie-backed auth session");
+}
 
 let protectedResponse;
 try {

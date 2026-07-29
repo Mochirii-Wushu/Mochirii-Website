@@ -10,6 +10,7 @@ const tests = [
   "lib/supabase/raffle-access-policy-core.test.mts",
   "lib/supabase/server-cookie-adapters-core.test.mts",
   "scripts/private-raffle-operation-policy.test.mjs",
+  "scripts/raffle-auth-preview-cookies.test.mjs",
   ...PRIVATE_RAFFLE_OPERATION_ALLOWLIST.map(({ behaviorTest }) => behaviorTest),
 ];
 const result = spawnSync(process.execPath, [
