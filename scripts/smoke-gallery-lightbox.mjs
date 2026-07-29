@@ -17,6 +17,7 @@ const viewportMatrix = [
   { label: "modern iPhone portrait", width: 390, height: 844 },
   { label: "modern iPhone alternate", width: 393, height: 852 },
   { label: "large Android portrait", width: 412, height: 915 },
+  { label: "large phone portrait", width: 430, height: 932 },
   { label: "200-percent reflow", width: 640, height: 360 },
   { label: "phone landscape", width: 844, height: 390 },
   { label: "tablet portrait", width: 768, height: 1024 },
