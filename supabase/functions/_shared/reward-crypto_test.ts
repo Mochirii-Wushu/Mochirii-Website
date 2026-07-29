@@ -59,6 +59,53 @@ Deno.test("relay HMAC covers method, path, timestamp, nonce, and exact body", as
   assertEquals(replay, { ok: false, reason: "replayed_nonce" });
 });
 
+Deno.test("future-dated relay nonce remains consumed through its absolute signature-validity horizon", async () => {
+  const body = JSON.stringify({ operation: "readiness" });
+  const timestampSeconds = Math.floor(nowMs / 1_000) + 60;
+  const headers = new Headers(
+    await buildRelaySignatureHeaders({
+      secret,
+      method: "POST",
+      path: "/v1/readiness",
+      body,
+      timestampSeconds,
+      nonce: "future_timestamp_replay_nonce_1234",
+    }),
+  );
+  let currentNowMs = nowMs;
+  const consumed = new Map<string, number>();
+  const replayStore: ReplayStore = {
+    consume(nonce, expiresAtMs) {
+      for (const [key, expiry] of consumed) {
+        if (expiry <= currentNowMs) consumed.delete(key);
+      }
+      if (consumed.has(nonce)) return false;
+      consumed.set(nonce, expiresAtMs);
+      return true;
+    },
+  };
+  const request = {
+    secret,
+    method: "POST",
+    path: "/v1/readiness",
+    headers,
+    body: encoder.encode(body),
+    replayStore,
+  };
+  const first = await verifyRelayRequest({ ...request, nowMs: currentNowMs });
+  assert(first.ok, "expected the future-dated signed request to be valid");
+  assertEquals(
+    consumed.get("future_timestamp_replay_nonce_1234"),
+    (timestampSeconds + 60 + 1) * 1_000,
+  );
+
+  currentNowMs = nowMs + 61_000;
+  assertEquals(
+    await verifyRelayRequest({ ...request, nowMs: currentNowMs }),
+    { ok: false, reason: "replayed_nonce" },
+  );
+});
+
 Deno.test("relay verifier rejects body tampering, stale timestamps, and oversized bodies", async () => {
   const body = "{}";
   const headers = new Headers(

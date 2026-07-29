@@ -164,6 +164,36 @@ test("HTTP boundary returns generic 404 and emits metadata-only logs", async (t)
   }
 });
 
+test("HTTP boundary rejects literal and percent-encoded dot-segment route aliases before authentication", async (t) => {
+  const { config } = activeConfig({ ordersEnabled: false });
+  const state = stateFor(t);
+  const provider = mockProvider(config);
+  const server = createRelayServer({ config, state, provider, logger: () => {} });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  t.after(async () => {
+    server.close();
+    await once(server, "close");
+  });
+
+  const body = Buffer.from(JSON.stringify(readinessRequest(config)));
+  const { port } = server.address();
+  for (const [index, path] of [
+    "/ignored/../v1/readiness",
+    "/ignored/%2e%2e/v1/readiness",
+  ].entries()) {
+    const headers = buildSignatureHeaders({
+      secret: config.hmacSecret,
+      path: RELAY_PATHS.readiness,
+      body,
+      nonce: `raw_route_alias_nonce_${index}_1234`,
+    });
+    const status = await rawHttpStatus({ port, path, headers, body });
+    assert.equal(status, 404);
+  }
+  assert.equal(provider.count("listOrganizations"), 0);
+});
+
 test("HTTP server applies reviewed inbound deadlines and terminates a stalled request body", async (t) => {
   const defaults = loadConfig({ REWARD_RELAY_HMAC_SECRET: HMAC_SECRET });
   assert.equal(defaults.inboundRequestTimeoutMs, 10_000);
@@ -577,6 +607,62 @@ test("uncertain transport result is reconciled by immutable external ID before i
   assert.equal(reconciled.body.outcome, "existing");
   assert.equal(provider.count("createOrder"), 1);
   assert.equal(provider.count("getOrder"), 1);
+});
+
+test("non-executed create and reconciliation responses are integrity stops", async (t) => {
+  for (const orderStatus of ["PENDING", "CANCELED", "UNKNOWN"]) {
+    await t.test(`create ${orderStatus}`, async (t) => {
+      const { config } = activeConfig();
+      const state = stateFor(t);
+      const request = createOrderRequest(config);
+      const provider = mockProvider(config, {
+        createOrder: () => okOrder(request, { orderStatus }),
+      });
+      const result = await signedRequest(
+        new RelayService({ config, state, provider }),
+        RELAY_PATHS.createOrder,
+        request,
+        {
+          secret: config.hmacSecret,
+          nonce: `non_executed_${orderStatus.toLowerCase()}_nonce_1234`,
+        },
+      );
+      assert.equal(result.status, 409);
+      assert.equal(result.body.error, "integrity_stop");
+      assert.equal(state.getControl().ordersSuspended, true);
+      assert.equal(state.getOrderByExternalId(request.externalId).state, "uncertain");
+    });
+  }
+
+  await t.test("reconciliation PENDING", async (t) => {
+    const { config } = activeConfig();
+    const state = stateFor(t);
+    const request = createOrderRequest(config);
+    let first = true;
+    const provider = mockProvider(config, {
+      createOrder() {
+        if (first) {
+          first = false;
+          throw new ProviderTransportError("timeout");
+        }
+        assert.fail("retry must reconcile before another create call");
+      },
+      getOrder: () => okOrder(request, { orderStatus: "PENDING" }),
+    });
+    const service = new RelayService({ config, state, provider });
+    assert.equal((await signedRequest(service, RELAY_PATHS.createOrder, request, {
+      secret: config.hmacSecret,
+      nonce: "pending_reconciliation_first_nonce_1234",
+    })).status, 503);
+    const reconciled = await signedRequest(service, RELAY_PATHS.createOrder, request, {
+      secret: config.hmacSecret,
+      nonce: "pending_reconciliation_retry_nonce_1234",
+    });
+    assert.equal(reconciled.status, 409);
+    assert.equal(reconciled.body.error, "integrity_stop");
+    assert.equal(state.getControl().ordersSuspended, true);
+    assert.equal(state.getOrderByExternalId(request.externalId).state, "uncertain");
+  });
 });
 
 test("create-order provider status contract preserves retry and stop semantics", async (t) => {
@@ -1138,6 +1224,7 @@ function okOrder(request, {
   subtotal = request.denomination,
   total = request.denomination,
   rewardDenomination = request.denomination,
+  orderStatus = "EXECUTED",
   link,
 } = {}) {
   return {
@@ -1146,7 +1233,7 @@ function okOrder(request, {
       order: {
         id: "ORDER1",
         external_id: request.externalId,
-        status: "EXECUTED",
+        status: orderStatus,
         payment: { subtotal, total, fees, currency_code: "USD" },
         rewards: [{
           id: "REWARD1",
@@ -1158,6 +1245,31 @@ function okOrder(request, {
       },
     },
   };
+}
+
+async function rawHttpStatus({ port, path, headers, body }) {
+  const socket = createConnection({ host: "127.0.0.1", port });
+  const chunks = [];
+  socket.on("data", (chunk) => chunks.push(chunk));
+  socket.on("error", () => {});
+  await once(socket, "connect");
+  const closed = once(socket, "close");
+  const headerLines = Object.entries(headers).map(([name, value]) => `${name}: ${value}`);
+  socket.end([
+    `POST ${path} HTTP/1.1`,
+    "Host: 127.0.0.1",
+    "Content-Type: application/json",
+    `Content-Length: ${body.byteLength}`,
+    "Connection: close",
+    ...headerLines,
+    "",
+    body.toString("utf8"),
+  ].join("\r\n"));
+  await closed;
+  const response = Buffer.concat(chunks).toString("utf8");
+  const match = /^HTTP\/1\.1 (\d{3})/.exec(response);
+  assert.ok(match, "raw HTTP response must contain a status line");
+  return Number(match[1]);
 }
 
 function activeReward() {

@@ -4,10 +4,12 @@ import {
   verifyProviderWebhookSignature,
 } from "../_shared/reward-crypto.ts";
 import { createRewardAdminClient, rewardJson } from "../_shared/reward-edge.ts";
-import { normalizeProviderEvent } from "../_shared/reward-webhook.ts";
+import {
+  normalizeProviderEvent,
+  PROVIDER_WEBHOOK_BODY_LIMITS,
+  readProviderWebhookBody,
+} from "../_shared/reward-webhook.ts";
 import { raffleOperationalGates } from "../_shared/raffle-flags.ts";
-
-const maximumWebhookBytes = 65_536;
 
 Deno.serve(handleRequest);
 
@@ -20,19 +22,28 @@ async function handleRequest(req: Request): Promise<Response> {
     return rewardJson({ ok: false, error: "not_found" }, 404);
   }
   const contentLength = Number(req.headers.get("content-length") || "0");
-  if (Number.isFinite(contentLength) && contentLength > maximumWebhookBytes) {
+  if (
+    Number.isFinite(contentLength) &&
+    contentLength > PROVIDER_WEBHOOK_BODY_LIMITS.maximumBytes
+  ) {
     return rewardJson({ ok: false, error: "request_too_large" }, 413);
   }
-  const rawBody = await readBoundedBody(req, maximumWebhookBytes);
-  if (!rawBody) {
-    return rewardJson({ ok: false, error: "request_too_large" }, 413);
+  const bodyRead = await readProviderWebhookBody(req.body);
+  if (!bodyRead.ok) {
+    const status = bodyRead.reason === "request_too_large"
+      ? 413
+      : bodyRead.reason === "read_timeout"
+      ? 408
+      : 400;
+    return rewardJson({ ok: false, error: "invalid_request" }, status);
   }
+  const rawBody = bodyRead.body;
   const secret = Deno.env.get("TREMENDOUS_WEBHOOK_SIGNING_SECRET") || "";
   const verification = await verifyProviderWebhookSignature({
     secret,
     rawBody,
     signature: req.headers.get(PROVIDER_WEBHOOK_SIGNATURE_HEADER),
-    maxBodyBytes: maximumWebhookBytes,
+    maxBodyBytes: PROVIDER_WEBHOOK_BODY_LIMITS.maximumBytes,
   });
   if (!verification.ok) {
     const status = verification.reason === "missing_secret"
@@ -106,36 +117,4 @@ async function handleRequest(req: Request): Promise<Response> {
     ok: true,
     status: event.processingStatus === "ignored" ? "ignored" : "accepted",
   });
-}
-
-async function readBoundedBody(
-  req: Request,
-  maximumBytes: number,
-): Promise<Uint8Array | null> {
-  if (!req.body) return new Uint8Array();
-  const reader = req.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  try {
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      if (!value) continue;
-      total += value.byteLength;
-      if (total > maximumBytes) {
-        await reader.cancel();
-        return null;
-      }
-      chunks.push(value);
-    }
-  } finally {
-    reader.releaseLock();
-  }
-  const body = new Uint8Array(total);
-  let offset = 0;
-  for (const chunk of chunks) {
-    body.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return body;
 }

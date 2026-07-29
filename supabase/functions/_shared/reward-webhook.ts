@@ -25,6 +25,87 @@ const UUID_RE =
 const EVENT_TYPE_RE = /^[A-Za-z][A-Za-z0-9_.:-]{0,99}$/;
 const REFERENCE_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 
+export const PROVIDER_WEBHOOK_BODY_LIMITS = Object.freeze({
+  maximumBytes: 65_536,
+  maximumChunks: 256,
+  timeoutMs: 5_000,
+});
+
+export type ProviderWebhookBodyReadResult =
+  | { ok: true; body: Uint8Array }
+  | {
+    ok: false;
+    reason: "read_timeout" | "read_error" | "request_too_large";
+  };
+
+export async function readProviderWebhookBody(
+  stream: ReadableStream<Uint8Array> | null,
+  limits: Readonly<{
+    maximumBytes: number;
+    maximumChunks: number;
+    timeoutMs: number;
+  }> = PROVIDER_WEBHOOK_BODY_LIMITS,
+): Promise<ProviderWebhookBodyReadResult> {
+  if (
+    !Number.isSafeInteger(limits.maximumBytes) || limits.maximumBytes < 1 ||
+    !Number.isSafeInteger(limits.maximumChunks) || limits.maximumChunks < 1 ||
+    !Number.isSafeInteger(limits.timeoutMs) || limits.timeoutMs < 1
+  ) {
+    throw new Error("Webhook body limits are invalid.");
+  }
+  if (!stream) return { ok: true, body: new Uint8Array() };
+
+  const reader = stream.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  let chunkCount = 0;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<{ kind: "timeout" }>((resolve) => {
+    timer = setTimeout(() => resolve({ kind: "timeout" }), limits.timeoutMs);
+  });
+  try {
+    while (true) {
+      const read = reader.read().then(
+        (result) => ({ kind: "read" as const, result }),
+        () => ({ kind: "error" as const }),
+      );
+      const next = await Promise.race([read, deadline]);
+      if (next.kind === "timeout") {
+        cancelReader(reader);
+        return { ok: false, reason: "read_timeout" };
+      }
+      if (next.kind === "error") {
+        cancelReader(reader);
+        return { ok: false, reason: "read_error" };
+      }
+      if (next.result.done) break;
+      const value = next.result.value;
+      chunkCount += 1;
+      total += value.byteLength;
+      if (chunkCount > limits.maximumChunks || total > limits.maximumBytes) {
+        cancelReader(reader);
+        return { ok: false, reason: "request_too_large" };
+      }
+      chunks.push(value);
+    }
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+    try {
+      reader.releaseLock();
+    } catch {
+      // A rejected stream must not turn cleanup into an unbounded/error response.
+    }
+  }
+
+  const body = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return { ok: true, body };
+}
+
 export function normalizeProviderEvent(input: {
   rawBody: Uint8Array;
   environment: ActiveProviderMode;
@@ -149,4 +230,14 @@ function isoTimestamp(value: unknown): string {
     throw new Error("Webhook timestamp is invalid.");
   }
   return new Date(timestamp).toISOString();
+}
+
+function cancelReader(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+): void {
+  try {
+    void reader.cancel().catch(() => {});
+  } catch {
+    // The rejection remains authoritative even if stream cancellation fails.
+  }
 }

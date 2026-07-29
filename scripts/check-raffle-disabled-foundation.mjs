@@ -176,6 +176,34 @@ function checkClosedOperationalGates() {
     const source = readRequired(`supabase/functions/${name}/index.ts`);
     snippets.forEach((snippet) => assertIncludes(`${name} fail-closed gate`, source, snippet));
   }
+  const webhookSource = readRequired(
+    "supabase/functions/reward-provider-webhook/index.ts",
+  );
+  for (const snippet of [
+    "PROVIDER_WEBHOOK_BODY_LIMITS.maximumBytes",
+    "readProviderWebhookBody(req.body)",
+    'bodyRead.reason === "read_timeout"',
+  ]) {
+    assertIncludes("reward-provider-webhook bounded body", webhookSource, snippet);
+  }
+  const webhookBoundary = readRequired(
+    "supabase/functions/_shared/reward-webhook.ts",
+  );
+  for (const snippet of [
+    "maximumChunks: 256",
+    "timeoutMs: 5_000",
+    "cancelReader(reader)",
+  ]) {
+    assertIncludes("reward-provider-webhook stream limits", webhookBoundary, snippet);
+  }
+  const rewardCrypto = readRequired(
+    "supabase/functions/_shared/reward-crypto.ts",
+  );
+  assertIncludes(
+    "reward relay absolute nonce horizon",
+    rewardCrypto,
+    "timestampSeconds + skewSeconds + 1",
+  );
 
   const migration = readRequired("supabase/migrations/20260728140000_add_disabled_monthly_raffle_foundation.sql");
   assertIncludes("provider configuration default", migration, "status text not null default 'disabled'");

@@ -40,6 +40,7 @@ const files = {
   raffleFulfillment: "supabase/functions/run-raffle-fulfillment/index.ts",
   rewardProviderWebhook: "supabase/functions/reward-provider-webhook/index.ts",
   rewardCrypto: "supabase/functions/_shared/reward-crypto.ts",
+  rewardWebhook: "supabase/functions/_shared/reward-webhook.ts",
   pixelfedSocialSync: "supabase/functions/sync-pixelfed-social-account/index.ts",
   report: "reports/free-security-hardening-2026-06-08.md",
   cspReport: "reports/csp-enforcement-verification-2026-06-08.md",
@@ -124,6 +125,7 @@ const raffleSchedule = read(files.raffleSchedule);
 const raffleFulfillment = read(files.raffleFulfillment);
 const rewardProviderWebhook = read(files.rewardProviderWebhook);
 const rewardCrypto = read(files.rewardCrypto);
+const rewardWebhook = read(files.rewardWebhook);
 const pixelfedSocialSync = read(files.pixelfedSocialSync);
 const report = read(files.report);
 const cspReport = read(files.cspReport);
@@ -422,14 +424,18 @@ const unauthenticatedFunctionGuardSpecs = {
     ],
   },
   "reward-provider-webhook": {
-    source: `${rewardProviderWebhook}\n${rewardCrypto}\n${raffleFlags}`,
+    source: `${rewardProviderWebhook}\n${rewardCrypto}\n${rewardWebhook}\n${raffleFlags}`,
     kind: "closed-by-default signed reward webhook",
     snippets: [
       "!gates.rewardOrders || !gates.relay",
       "TREMENDOUS_WEBHOOK_SIGNING_SECRET",
       "PROVIDER_WEBHOOK_SIGNATURE_HEADER",
       "verifyProviderWebhookSignature",
-      "maximumWebhookBytes",
+      "PROVIDER_WEBHOOK_BODY_LIMITS.maximumBytes",
+      "readProviderWebhookBody(req.body)",
+      "maximumChunks: 256",
+      "timeoutMs: 5_000",
+      "cancelReader(reader)",
     ],
   },
   "mochi-pets-alpha-action": {

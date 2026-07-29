@@ -146,6 +146,7 @@ if (!failures.length) {
     "withAbortDeadline",
     "reader.cancel()",
     'delivery: { method: "LINK" }',
+    'orderStatus !== "EXECUTED"',
     "url.origin !== this.baseUrl.origin",
     "allowedBaseUrls.has(candidateBaseUrl.href)",
   ], "bounded fixed-origin provider client and recipient-less LINK delivery");
@@ -229,6 +230,7 @@ if (!failures.length) {
     "server.headersTimeout = config.headersTimeoutMs",
     "server.keepAliveTimeout = config.keepAliveTimeoutMs",
     "request_body_timeout",
+    "rawTarget !== url.pathname",
   ], "metadata-only logging and bounded inbound HTTP handling");
   requireNone(serverSource.slice(serverSource.indexOf("function defaultLogger")), ["request", "rawBody", "response", "headers", "body"], "sensitive request or response logging");
 
@@ -251,6 +253,8 @@ if (!failures.length) {
 
   requireAll(read("test/relay.test.mjs"), [
     "future-dated nonce remains consumed through its absolute signature-validity horizon",
+    "HTTP boundary rejects literal and percent-encoded dot-segment route aliases before authentication",
+    "non-executed create and reconciliation responses are integrity stops",
     "cycle reservation atomically enforces its budget and exactly one primary electronic order",
     "concurrent provider identifier drift preserves one exact pair and suspends orders",
     "provider deadline remains active through a stalled response body and cancels its reader",

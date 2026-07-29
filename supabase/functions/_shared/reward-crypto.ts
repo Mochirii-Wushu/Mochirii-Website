@@ -310,7 +310,7 @@ export async function verifyRelayRequest(input: {
 
   const consumed = await input.replayStore.consume(
     nonce,
-    nowMs + skewSeconds * 1_000,
+    (timestampSeconds + skewSeconds + 1) * 1_000,
   );
   if (!consumed) return { ok: false, reason: "replayed_nonce" };
   return { ok: true, bodyHash, timestampSeconds, nonce };

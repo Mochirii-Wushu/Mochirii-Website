@@ -202,6 +202,8 @@ export function parseAndValidateOrder(body, expected) {
   const rewardValue = record(reward.value);
   const delivery = record(reward.delivery);
   const externalId = String(value.external_id || "").toLowerCase();
+  const orderStatus = String(value.status || "").trim().toUpperCase();
+  if (orderStatus !== "EXECUTED") throw new Error("order_status_mismatch");
   if (externalId !== expected.externalId) throw new Error("order_external_mismatch");
   if (String(reward.campaign_id || "") !== expected.campaignId) throw new Error("order_campaign_mismatch");
   if (!sameStrings(identifierArray(reward.products, 1, 50).sort(), [...expected.productIds].sort())) throw new Error("order_products_mismatch");
@@ -225,7 +227,7 @@ export function parseAndValidateOrder(body, expected) {
   return {
     orderReference: identifier(value.id),
     rewardReference: identifier(reward.id),
-    sanitizedStatus: sanitizeStatus(value.status),
+    sanitizedStatus: sanitizeStatus(orderStatus),
   };
 }
 

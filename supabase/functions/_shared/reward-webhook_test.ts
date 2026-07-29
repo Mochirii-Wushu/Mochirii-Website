@@ -1,7 +1,9 @@
 import {
   categorizeProviderEvent,
   normalizeProviderEvent,
+  PROVIDER_WEBHOOK_BODY_LIMITS,
   providerEventProcessingClass,
+  readProviderWebhookBody,
 } from "./reward-webhook.ts";
 
 const encoder = new TextEncoder();
@@ -165,6 +167,70 @@ Deno.test("invalid JSON, UUID, event type, timestamp, and resource reference fai
       })
     );
   }
+});
+
+Deno.test("webhook body reader enforces one absolute deadline and cancels a stalled stream", async () => {
+  let cancelled = false;
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(encoder.encode('{"partial":'));
+    },
+    cancel() {
+      cancelled = true;
+      return new Promise<void>(() => {});
+    },
+  });
+  const startedAt = Date.now();
+  const result = await readProviderWebhookBody(stream, {
+    ...PROVIDER_WEBHOOK_BODY_LIMITS,
+    timeoutMs: 25,
+  });
+  assertEquals(result, { ok: false, reason: "read_timeout" });
+  assert(cancelled, "stalled webhook stream must be cancelled");
+  assert(
+    Date.now() - startedAt < 500,
+    "stalled webhook stream exceeded the bounded test deadline",
+  );
+});
+
+Deno.test("webhook body reader rejects excessive chunk fragmentation", async () => {
+  let emitted = 0;
+  let cancelled = false;
+  const stream = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      emitted += 1;
+      controller.enqueue(new Uint8Array([emitted]));
+    },
+    cancel() {
+      cancelled = true;
+    },
+  });
+  const result = await readProviderWebhookBody(stream, {
+    maximumBytes: 65_536,
+    maximumChunks: 2,
+    timeoutMs: 500,
+  });
+  assertEquals(result, { ok: false, reason: "request_too_large" });
+  assert(cancelled, "over-fragmented webhook stream must be cancelled");
+});
+
+Deno.test("webhook body reader rejects an undeclared oversized stream", async () => {
+  let cancelled = false;
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(new Uint8Array(4));
+    },
+    cancel() {
+      cancelled = true;
+    },
+  });
+  const result = await readProviderWebhookBody(stream, {
+    maximumBytes: 3,
+    maximumChunks: 256,
+    timeoutMs: 500,
+  });
+  assertEquals(result, { ok: false, reason: "request_too_large" });
+  assert(cancelled, "oversized webhook stream must be cancelled");
 });
 
 function assert(condition: unknown, message: string): asserts condition {

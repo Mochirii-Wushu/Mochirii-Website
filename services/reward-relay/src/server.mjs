@@ -15,15 +15,18 @@ export function createRelayServer({ config, state, provider, logger = defaultLog
     let statusCode = 500;
     let path = "unknown";
     try {
+      const rawTarget = request.url || "/";
       let url;
       try {
-        url = new URL(request.url || "/", "http://relay.invalid");
+        url = new URL(rawTarget, "http://relay.invalid");
       } catch {
         writeResponse(response, 404, {});
         statusCode = 404;
         return;
       }
-      path = url.search || url.hash || url.pathname.includes("//") ? "unknown" : url.pathname;
+      path = rawTarget !== url.pathname || url.search || url.hash || url.pathname.includes("//")
+        ? "unknown"
+        : url.pathname;
       if (path === "unknown" || request.method !== "POST" || !isJsonContentType(request.headers["content-type"])) {
         writeResponse(response, 404, {});
         statusCode = 404;
