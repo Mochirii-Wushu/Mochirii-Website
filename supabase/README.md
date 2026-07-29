@@ -173,7 +173,20 @@ NEXT_PUBLIC_AUTH_PROVIDER_IDS=discord,google,twitch,apple
 NEXT_PUBLIC_AUTH_PROVIDER_PLACEHOLDER_IDS=
 NEXT_PUBLIC_PHONE_AUTH_READY=false
 NEXT_PUBLIC_AUTH_CAPTCHA_ENABLED=false
+NEXT_PUBLIC_AUTH_CAPTCHA_PROVIDER=
+NEXT_PUBLIC_AUTH_CAPTCHA_SITE_KEY=
 ```
+
+Phone is additionally fail-closed in source. A phone code can be requested
+only when every public readiness field is complete, the CAPTCHA provider is
+`turnstile`, Supabase browser configuration exists, and the caller supplies a
+fresh bounded CAPTCHA token. Sends always set `shouldCreateUser` to false and
+the browser applies a 60-second session-scoped resend cooldown without storing
+the phone number. Supabase Auth CAPTCHA verification and Auth rate limits are
+the authoritative abuse controls. The Turnstile secret belongs only in
+Supabase Auth; the browser/Vercel surface receives the public site key only.
+Keep Phone disabled until an exact provider packet also verifies SMS sender,
+supported countries, costs, rate limits, monitoring, and rollback.
 
 Apple activation uses the Supabase Auth callback only:
 
