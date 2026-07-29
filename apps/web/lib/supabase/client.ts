@@ -14,6 +14,7 @@ import {
   shouldRetireLegacyAuthForEvent,
   type LegacyAuthCutoverResult,
 } from "./legacy-auth-cutover";
+import { PRIVATE_RAFFLE_AUTH_RETURN_PATHS } from "./raffle-auth-paths";
 import { createError, createResult, failedResult, okResult, type SupabaseResult } from "./types";
 
 let browserClient: SupabaseClient | null = null;
@@ -31,11 +32,6 @@ function retireLegacyBrowserAuth() {
 function startAuthCutover(client: SupabaseClient) {
   if (authCutoverPromise) return authCutoverPromise;
   const storage = browserStorage();
-  if (!storage) {
-    authCutoverPromise = Promise.resolve({ status: "none" });
-    return authCutoverPromise;
-  }
-
   authCutoverPromise = runLegacyAuthCutover({
     auth: client.auth,
     storage,
@@ -44,6 +40,7 @@ function startAuthCutover(client: SupabaseClient) {
     replaceUrl(cleanPath) {
       window.history.replaceState(window.history.state, "", cleanPath);
     },
+    additionalSimplePaths: PRIVATE_RAFFLE_AUTH_RETURN_PATHS,
   });
   void authCutoverPromise.then(() => {
     client.auth.onAuthStateChange((event) => {

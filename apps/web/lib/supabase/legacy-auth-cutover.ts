@@ -97,7 +97,30 @@ function hasVerifiedSubject(claims: unknown) {
   );
 }
 
-export function legacyOAuthCutoverForUrl(href: string): LegacyOAuthCutover | null {
+const LEGACY_OAUTH_QUERY_KEYS = [
+  "access_token",
+  "code",
+  "error",
+  "error_description",
+  "refresh_token",
+] as const;
+
+function hasLegacyOAuthResult(url: URL) {
+  const fragment = new URLSearchParams(url.hash.startsWith("#") ? url.hash.slice(1) : url.hash);
+  return LEGACY_OAUTH_QUERY_KEYS.some((key) => url.searchParams.has(key) || fragment.has(key));
+}
+
+function reviewedAuthPageDestination(url: URL, additionalSimplePaths?: ReadonlySet<string>) {
+  const redirects = url.searchParams.getAll("redirect");
+  const keys = [...url.searchParams.keys()];
+  if (redirects.length !== 1 || keys.some((key) => key !== "redirect")) return null;
+  return reviewedAuthReturnPath(redirects[0], additionalSimplePaths);
+}
+
+export function legacyOAuthCutoverForUrl(
+  href: string,
+  additionalSimplePaths?: ReadonlySet<string>,
+): LegacyOAuthCutover | null {
   let url: URL;
   try {
     url = new URL(href);
@@ -106,20 +129,23 @@ export function legacyOAuthCutoverForUrl(href: string): LegacyOAuthCutover | nul
   }
   if (url.pathname === "/auth/callback") return null;
 
-  const fragment = new URLSearchParams(url.hash.startsWith("#") ? url.hash.slice(1) : url.hash);
-  const hasLegacyResult = url.searchParams.has("code") || [
-    "access_token",
-    "refresh_token",
-    "error",
-    "error_description",
-  ].some((key) => fragment.has(key));
-  if (!hasLegacyResult) return null;
+  if (!hasLegacyOAuthResult(url)) return null;
 
-  url.searchParams.delete("code");
+  LEGACY_OAUTH_QUERY_KEYS.forEach((key) => url.searchParams.delete(key));
   url.hash = "";
+  if (url.pathname === "/auth") {
+    const returnPath = reviewedAuthPageDestination(url, additionalSimplePaths);
+    return {
+      cleanPath: returnPath ? `/auth?redirect=${encodeURIComponent(returnPath)}` : "/auth",
+      reauthPath: freshAuthLoginPath(returnPath || "/account", additionalSimplePaths),
+    };
+  }
+
   const cleanPath = `${url.pathname}${url.search}`;
-  const returnPath = reviewedAuthReturnPath(cleanPath);
-  return returnPath ? { cleanPath, reauthPath: freshAuthLoginPath(returnPath) } : null;
+  const returnPath = reviewedAuthReturnPath(cleanPath, additionalSimplePaths);
+  return returnPath
+    ? { cleanPath, reauthPath: freshAuthLoginPath(returnPath, additionalSimplePaths) }
+    : null;
 }
 
 export function shouldRetireLegacyAuthForEvent(event: AuthChangeEvent) {
@@ -132,21 +158,27 @@ export async function runLegacyAuthCutover({
   storageKey,
   href,
   replaceUrl,
+  additionalSimplePaths,
 }: {
   auth: CutoverAuth;
-  storage: StorageLike;
+  storage: StorageLike | null;
   storageKey: string;
   href?: string;
   replaceUrl?: (cleanPath: string) => void;
+  additionalSimplePaths?: ReadonlySet<string>;
 }): Promise<LegacyAuthCutoverResult> {
-  const oldOAuth = href ? legacyOAuthCutoverForUrl(href) : null;
+  const oldOAuth = href ? legacyOAuthCutoverForUrl(href, additionalSimplePaths) : null;
   if (oldOAuth) {
     replaceUrl?.(oldOAuth.cleanPath);
-    clearLegacyAuthStorage(storage, storageKey);
-    markOutcome(storage, storageKey, "legacy-oauth");
+    if (storage) {
+      clearLegacyAuthStorage(storage, storageKey);
+      markOutcome(storage, storageKey, "legacy-oauth");
+    }
     await auth.signOut({ scope: "local" }).catch(() => undefined);
     return { status: "legacy-oauth", reauthPath: oldOAuth.reauthPath };
   }
+
+  if (!storage) return { status: "none" };
 
   const raw = safeStorageValue(storage, storageKey);
   if (!raw) {

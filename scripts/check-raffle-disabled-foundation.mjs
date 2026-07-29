@@ -331,6 +331,7 @@ function listFiles(directory, prefix = "") {
   if (!existsSync(directory)) return [];
   const files = [];
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    if (entry.isDirectory() && entry.name === "node_modules") continue;
     const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
     if (entry.isDirectory()) files.push(...listFiles(resolve(directory, entry.name), relative));
     else if (entry.isFile()) files.push(relative);

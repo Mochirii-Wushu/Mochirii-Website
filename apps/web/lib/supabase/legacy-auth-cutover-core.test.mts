@@ -9,6 +9,7 @@ import {
   safeLegacyAuthStorage,
   shouldRetireLegacyAuthForEvent,
 } from "./legacy-auth-cutover.ts";
+import { PRIVATE_RAFFLE_AUTH_RETURN_PATHS } from "./raffle-auth-paths.ts";
 
 const key = "sb-reviewed-auth-token";
 const accessToken = `a.${"b".repeat(60)}.c`;
@@ -25,6 +26,25 @@ test("a blocked browser storage accessor fails closed instead of crashing auth",
   assert.equal(safeLegacyAuthStorage(() => {
     throw new DOMException("blocked", "SecurityError");
   }), null);
+});
+
+test("OAuth bearer material is scrubbed even when browser storage is blocked", async () => {
+  const client = fakeAuth();
+  const cleanPaths: string[] = [];
+  const result = await runLegacyAuthCutover({
+    auth: client.auth,
+    storage: null,
+    storageKey: key,
+    href: `https://mochirii.com/auth?redirect=%2Fraffle%2Fclaim#access_token=${accessToken}&refresh_token=${refreshToken}`,
+    replaceUrl: (value) => cleanPaths.push(value),
+    additionalSimplePaths: PRIVATE_RAFFLE_AUTH_RETURN_PATHS,
+  });
+  assert.deepEqual(result, {
+    status: "legacy-oauth",
+    reauthPath: "/auth?redirect=%2Fraffle%2Fclaim&reauth=1",
+  });
+  assert.deepEqual(cleanPaths, ["/auth?redirect=%2Fraffle%2Fclaim"]);
+  assert.equal(client.calls.signOut, 1);
 });
 
 function fakeAuth(options: {
@@ -144,6 +164,43 @@ test("old in-flight OAuth codes and fragments are stripped before fresh sign-in"
     cleanPath: "/account",
     reauthPath: "/auth?redirect=%2Faccount&reauth=1",
   });
+
+  for (const destination of ["/raffle/claim", "/leader-dashboard/raffle"]) {
+    const encoded = encodeURIComponent(destination);
+    assert.deepEqual(
+      legacyOAuthCutoverForUrl(
+        `https://mochirii.com/auth?redirect=${encoded}#access_token=${accessToken}&refresh_token=${refreshToken}`,
+        PRIVATE_RAFFLE_AUTH_RETURN_PATHS,
+      ),
+      {
+        cleanPath: `/auth?redirect=${encoded}`,
+        reauthPath: `/auth?redirect=${encoded}&reauth=1`,
+      },
+    );
+  }
+
+  for (const malformed of [
+    `https://mochirii.com/auth?redirect=%2Fraffle%2Fclaim&redirect=%2Faccount#access_token=${accessToken}`,
+    `https://mochirii.com/auth?redirect=https%3A%2F%2Fexample.com#access_token=${accessToken}`,
+    `https://mochirii.com/auth?redirect=%2Fraffle%2Fclaim&extra=1#access_token=${accessToken}`,
+  ]) {
+    assert.deepEqual(
+      legacyOAuthCutoverForUrl(malformed, PRIVATE_RAFFLE_AUTH_RETURN_PATHS),
+      {
+        cleanPath: "/auth",
+        reauthPath: "/auth?redirect=%2Faccount&reauth=1",
+      },
+    );
+  }
+  assert.deepEqual(
+    legacyOAuthCutoverForUrl(
+      `https://mochirii.com/auth?redirect=%2Fraffle%2Fclaim#access_token=${accessToken}`,
+    ),
+    {
+      cleanPath: "/auth",
+      reauthPath: "/auth?redirect=%2Faccount&reauth=1",
+    },
+  );
   assert.equal(legacyOAuthCutoverForUrl("https://mochirii.com/events?code=ordinary-filter"), null);
 
   const storage = new MemoryStorage();

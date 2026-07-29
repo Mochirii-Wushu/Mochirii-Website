@@ -37,6 +37,7 @@ requireText(publicConfig, /secure:\s*process\.env\.NODE_ENV\s*===\s*"production"
 const callback = read("app/auth/callback/route.ts");
 requireText(callback, /exchangeAuthCodeForCookieSession\(supabase\.auth, code\)/, "The PKCE callback must exchange the server auth code through the fail-closed helper.");
 requireText(callback, /resolveAuthReturnPath/, "The PKCE callback must apply the return-path allowlist.");
+requireText(callback, /resolveAuthReturnPath\([\s\S]*?PRIVATE_RAFFLE_AUTH_RETURN_PATHS[\s\S]*?\)/, "The PKCE callback must apply the scoped private raffle return-path allowlist.");
 requireText(callback, /getAll\("code"\)/, "The PKCE callback must reject ambiguous duplicate codes.");
 requireText(callback, /PRIVATE_RAFFLE_HEADERS/, "The PKCE callback must be private and non-cacheable.");
 const nextConfig = read("next.config.ts");
@@ -73,8 +74,18 @@ for (const [relativePath, decisionFunction, loginPath] of [
   requireText(source, /decision === "redirect-auth"[^\n]+redirect\(/, `${relativePath} must redirect signed-out visitors before rendering.`);
   requireText(source, /decision === "not-found"[^\n]+notFound\(\)/, `${relativePath} must return an opaque not-found response when denied.`);
   requireText(source, new RegExp(loginPath.replaceAll("/", "\\/")), `${relativePath} must use its exact allowlisted login destination.`);
+  requireText(source, /authLoginPath\([^\n]+PRIVATE_RAFFLE_AUTH_RETURN_PATHS\)/, `${relativePath} must use the scoped private raffle return-path allowlist.`);
   rejectText(source, /["']use client["']|<form|<button/, `${relativePath} must not expose disabled client, form, or button controls.`);
 }
+
+const authPanel = read("components/member-workflow/AuthPanel.tsx");
+requireText(authPanel, /resolveAuthReturnPath\([^\n]+PRIVATE_RAFFLE_AUTH_RETURN_PATHS\)/, "The auth panel must preserve only scoped private raffle destinations.");
+const authCutoverGuard = read("components/AuthCutoverGuard.tsx");
+requireText(authCutoverGuard, /reauthLoginPathForLocation\([^\n]+PRIVATE_RAFFLE_AUTH_RETURN_PATHS\)/, "Legacy reauthentication must preserve only scoped private raffle destinations.");
+const browserAuth = read("lib/supabase/auth.ts");
+requireText(browserAuth, /authCallbackPath\([\s\S]*?PRIVATE_RAFFLE_AUTH_RETURN_PATHS[\s\S]*?\)/, "Browser sign-in must pass the scoped private raffle return-path allowlist.");
+const browserAuthClient = read("lib/supabase/client.ts");
+requireText(browserAuthClient, /additionalSimplePaths:\s*PRIVATE_RAFFLE_AUTH_RETURN_PATHS/, "Legacy URL cutover must use the scoped private raffle return-path allowlist.");
 
 const proxy = read("proxy.ts");
 requireText(proxy, /refreshSupabaseSession\(request\)/, "Protected raffle routes must receive the narrow session refresh.");

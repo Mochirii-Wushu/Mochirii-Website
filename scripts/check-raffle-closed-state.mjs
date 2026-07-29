@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
-import { dirname, extname, resolve } from "node:path";
+import { dirname, extname, isAbsolute, relative, resolve, sep } from "node:path";
 import { SITE_ORIGIN } from "./lib/public-urls.mjs";
 
 const root = process.cwd();
@@ -151,6 +151,15 @@ const reachableRaffleComponents = collectReachableRaffleComponents([
   files.page,
   files.component,
 ]);
+for (const requiredDependency of [
+  "apps/web/components/public-pages/raffle-winner-runtime.ts",
+  "apps/web/lib/raffle/public-view.ts",
+  "apps/web/lib/supabase/raffle-public-auth-session.ts",
+]) {
+  if (!reachableRaffleComponents.includes(requiredDependency)) {
+    failures.push(`reachable public raffle dependency graph: traversal missed ${requiredDependency}`);
+  }
+}
 const reachableRaffleComponentSource = reachableRaffleComponents
   .map((file) => `/* ${file} */\n${read(file)}`)
   .join("\n");
@@ -377,8 +386,10 @@ function resolveComponentImport(importer, specifier) {
     ];
   const webRoot = resolve(root, "apps/web");
   for (const candidate of candidates) {
-    if (!candidate.startsWith(`${webRoot}\\`) || !/\.(?:[cm]?[jt]s|[jt]sx)$/i.test(candidate) || !existsSync(candidate)) continue;
-    return candidate.slice(root.length + 1).replaceAll("\\", "/");
+    const webRelative = relative(webRoot, candidate);
+    const outsideWebRoot = !webRelative || webRelative === ".." || webRelative.startsWith(`..${sep}`) || isAbsolute(webRelative);
+    if (outsideWebRoot || !/\.(?:[cm]?[jt]s|[jt]sx)$/i.test(candidate) || !existsSync(candidate)) continue;
+    return relative(root, candidate).split(sep).join("/");
   }
   return null;
 }
