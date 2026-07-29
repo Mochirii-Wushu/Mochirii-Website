@@ -55,6 +55,14 @@ const strongSecretPatterns = [
 const secretAssignmentPattern =
   /\b([A-Z0-9_]*(?:SECRET|TOKEN|PASSWORD|SERVICE_ROLE_KEY|DATABASE_URL|CLIENT_SECRET|WEBHOOK)[A-Z0-9_]*)\s*=\s*([^`'"\s)]*)/g;
 
+// These names describe public, compile-time validation ceilings rather than
+// credentials. Keep this list exact so a broadly named TOKEN variable cannot
+// bypass the committed-secret scanner.
+const nonSecretAssignmentNames = new Set([
+  "MAX_TOKEN_BYTES",
+  "MAX_TOKEN_LIFETIME_SECONDS",
+]);
+
 const failures = [];
 const warnings = [];
 
@@ -171,6 +179,7 @@ function checkTextFile(file, text) {
     for (const match of line.matchAll(secretAssignmentPattern)) {
       const key = match[1];
       const value = match[2];
+      if (nonSecretAssignmentNames.has(key)) continue;
       if (!isPlaceholderValue(value)) {
         addFailure(file, lineNumber, `${key} has a non-placeholder value (${maskValue(value)}).`);
       }
