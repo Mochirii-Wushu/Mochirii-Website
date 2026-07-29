@@ -1,5 +1,5 @@
 begin;
-select plan(68);
+select plan(70);
 
 select has_table(
   'private',
@@ -753,6 +753,18 @@ select is(
   (select (payload ->> 'totalEligible')::integer from gallery_page_one),
   90,
   'only complete object-backed revisions are eligible'
+);
+
+select is(
+  (select (payload ->> 'sourceApprovedCount')::integer from gallery_page_one),
+  90,
+  'the independent reviewed-source count covers every approved submission'
+);
+
+select is(
+  (select (payload ->> 'publicationReadyCount')::integer from gallery_page_one),
+  (select (payload ->> 'sourceApprovedCount')::integer from gallery_page_one),
+  'the immutable publication ledger is complete for every approved source'
 );
 
 select is(

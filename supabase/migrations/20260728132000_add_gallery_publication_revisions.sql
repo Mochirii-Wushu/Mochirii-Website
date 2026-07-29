@@ -1429,6 +1429,12 @@ begin
       publication.thumbnail_width,
       publication.thumbnail_height
     from private.gallery_publication_revisions as publication
+    join public.gallery_submissions as submission
+      on submission.id = publication.submission_id
+      and submission.gallery_publication_id = publication.publication_id
+      and submission.status = 'approved'
+      and submission.reviewed_at is not null
+      and submission.reviewed_at <= requested_snapshot_at
     join storage.objects as original_object
       on original_object.id = publication.original_storage_object_id
       and original_object.bucket_id = publication.storage_bucket
@@ -1557,6 +1563,14 @@ begin
       else null
     end,
     'totalEligible', (select count(*) from filtered),
+    'sourceApprovedCount', (
+      select count(*)
+      from public.gallery_submissions as submission
+      where submission.status = 'approved'
+        and submission.reviewed_at is not null
+        and submission.reviewed_at <= requested_snapshot_at
+    ),
+    'publicationReadyCount', (select count(*) from eligible),
     'facets', (
       select jsonb_build_object(
         'member-submissions', count(*),

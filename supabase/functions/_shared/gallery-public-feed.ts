@@ -690,6 +690,8 @@ const databasePageKeys = new Set([
   "hasMore",
   "nextCursor",
   "totalEligible",
+  "sourceApprovedCount",
+  "publicationReadyCount",
   "facets",
   "unknownCategoryCount",
 ]);
@@ -737,11 +739,16 @@ export function parseGalleryDatabasePage(value: unknown): JsonRecord | null {
   if (!snapshotAt || !snapshotExpiresAt || expiryMs <= snapshotMs) return null;
 
   const totalEligible = safeIntegerForEvidence(page.totalEligible);
+  const sourceApprovedCount = safeIntegerForEvidence(page.sourceApprovedCount);
+  const publicationReadyCount = safeIntegerForEvidence(page.publicationReadyCount);
   const unknownCategoryCount = safeIntegerForEvidence(
     page.unknownCategoryCount,
   );
   if (
     totalEligible === null || totalEligible < page.items.length ||
+    sourceApprovedCount === null || publicationReadyCount === null ||
+    sourceApprovedCount !== publicationReadyCount ||
+    publicationReadyCount < totalEligible ||
     unknownCategoryCount !== 0
   ) return null;
 

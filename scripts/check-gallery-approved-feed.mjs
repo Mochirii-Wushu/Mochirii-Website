@@ -438,11 +438,14 @@ assert(finalListResponseStart >= 0, "Approved Gallery list response: final respo
   "createdAt",
   "thumbnailWidth",
   "thumbnailHeight",
+  "sourceApprovedCount",
+  "publicationReadyCount",
 ].forEach((snippet) => assertIncludes("Gallery public helper", publicFeedHelper, snippet));
 
 [
   "rejects malformed cursors, categories, searches, and opaque ids",
   "strict database page evidence rejects malformed empty and aggregate envelopes",
+  "an incomplete publication ledger was accepted as a complete public feed",
   "delivery reservations distinguish allowed, denied, and malformed evidence",
   "atomic media reservations require exact bounded media evidence",
   "recognizes only the exact legacy empty-object request shape",
@@ -756,6 +759,9 @@ if (/create policy "Members update own pending gallery originals"/.test(publicat
   "gallery_reserve_public_media_v2",
   "requested_limit integer := least(greatest(coalesce(p_limit, 24), 1), 24)",
   "from private.gallery_publication_revisions as publication",
+  "join public.gallery_submissions as submission",
+  "'sourceApprovedCount'",
+  "'publicationReadyCount'",
   "join storage.objects as original_object",
   "join storage.objects as thumbnail_object",
   "publication.visible_from <= requested_snapshot_at",
