@@ -165,8 +165,12 @@ assertIncludes("check-all", checkAll, "test:reaper-pending-verification");
   "INTERACTION_RESPONSE_DEFERRED_CHANNEL_MESSAGE",
   "EdgeRuntime.waitUntil",
   "submit-discord-gallery-image",
-  "x-mochirii-reaper-secret",
-  "DISCORD_GALLERY_INGEST_SECRET",
+  "createDiscordGalleryIngestHeaders",
+  "DISCORD_GALLERY_INGEST_HMAC_KEYS_ENV",
+  "DISCORD_GALLERY_INGEST_ACTIVE_KEY_ID_ENV",
+  "discordGalleryIngestActiveKey",
+  "const rawBody = JSON.stringify(payload);",
+  "...authHeaders",
   "DISCORD_APPLICATION_ID",
   "DISCORD_GUILD_ID",
   "DISCORD_GALLERY_CHANNEL_ID",
@@ -555,8 +559,8 @@ assertMatches(
 assertNotMatches(
   "reaper-discord-interactions",
   functionSource,
-  /console\.(log|error|warn)\([^)]*(DISCORD_BOT_TOKEN|DISCORD_GALLERY_INGEST_SECRET|DISCORD_PUBLIC_KEY|interactionToken|attachmentUrl)/,
-  "function logs must not expose Discord tokens, interaction tokens, ingest secret, public key, or attachment URLs.",
+  /console\.(log|error|warn)\([^)]*(DISCORD_BOT_TOKEN|DISCORD_GALLERY_INGEST_HMAC_KEYS_JSON|DISCORD_PUBLIC_KEY|interactionToken|attachmentUrl)/,
+  "function logs must not expose Discord tokens, interaction tokens, ingest HMAC keys, public key, or attachment URLs.",
 );
 
 [
@@ -564,7 +568,8 @@ assertNotMatches(
   "DISCORD_APPLICATION_ID=1156448856565887066",
   "DISCORD_BOT_TOKEN=",
   "DISCORD_GALLERY_CHANNEL_ID=1508077313965817856",
-  "DISCORD_GALLERY_INGEST_SECRET=",
+  "DISCORD_GALLERY_INGEST_HMAC_KEYS_JSON=",
+  "DISCORD_GALLERY_INGEST_HMAC_ACTIVE_KEY_ID=",
   "REAPER_PENDING_VERIFICATION_SYNC_SECRET=",
 ].forEach((snippet) => assertIncludes("supabase functions .env.example", envExample, snippet));
 

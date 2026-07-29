@@ -329,7 +329,8 @@ DISCORD_PUBLIC_KEY=<from Discord Developer Portal General Information, never com
 DISCORD_APPLICATION_ID=1156448856565887066
 DISCORD_BOT_TOKEN=<set manually, never commit>
 DISCORD_GALLERY_CHANNEL_ID=1508077313965817856
-DISCORD_GALLERY_INGEST_SECRET=<set manually, never commit>
+DISCORD_GALLERY_INGEST_HMAC_KEYS_JSON=<JSON object of key IDs to 32+ byte secrets, never commit>
+DISCORD_GALLERY_INGEST_HMAC_ACTIVE_KEY_ID=<one configured key ID>
 DISCORD_VOTE_CHANNEL_ID=1082802012095266866
 VOTE_REMINDER_TIME_ZONE=America/Los_Angeles
 VOTE_REMINDER_CRON_SECRET=<set manually, never commit>
@@ -377,7 +378,8 @@ supabase secrets set DISCORD_PUBLIC_KEY=<set manually, never commit>
 supabase secrets set DISCORD_APPLICATION_ID=1156448856565887066
 supabase secrets set DISCORD_BOT_TOKEN=<set manually, never commit>
 supabase secrets set DISCORD_GALLERY_CHANNEL_ID=1508077313965817856
-supabase secrets set DISCORD_GALLERY_INGEST_SECRET=<set manually, never commit>
+supabase secrets set DISCORD_GALLERY_INGEST_HMAC_KEYS_JSON=<set manually, never commit>
+supabase secrets set DISCORD_GALLERY_INGEST_HMAC_ACTIVE_KEY_ID=<one configured key ID>
 supabase secrets set DISCORD_VOTE_CHANNEL_ID=1082802012095266866
 supabase secrets set VOTE_REMINDER_TIME_ZONE=America/Los_Angeles
 supabase secrets set VOTE_REMINDER_CRON_SECRET=<set manually, never commit>
@@ -684,7 +686,9 @@ The private Gateway member-event endpoint for the second pending-verification re
 reaper-discord-member-sync
 ```
 
-That function has `verify_jwt = false` because Discord calls it directly. It validates `x-signature-ed25519` and `x-signature-timestamp` with `DISCORD_PUBLIC_KEY`, answers PING, enforces guild `1078630751077142608`, channel `1508077313965817856`, and required roles, then defers the interaction and calls `submit-discord-gallery-image` in a background task. The ingest function also has `verify_jwt = false` because it is called by the trusted Reaper bridge rather than by a signed-in browser session. It fails closed unless `DISCORD_GALLERY_INGEST_SECRET`, `DISCORD_GALLERY_CHANNEL_ID`, `DISCORD_GUILD_ID`, and `DISCORD_REQUIRED_ROLE_IDS` match the expected server configuration. The ingest function then requires an existing linked `member_profiles.discord_user_id`, active status, stored required roles, and recent website Discord verification before downloading the Discord attachment into the private `member-gallery` bucket and inserting a pending `gallery_submissions` row.
+That function has `verify_jwt = false` because Discord calls it directly. It validates `x-signature-ed25519` and `x-signature-timestamp` with `DISCORD_PUBLIC_KEY`, answers PING, enforces guild `1078630751077142608`, channel `1508077313965817856`, and required roles, then defers the interaction and calls `submit-discord-gallery-image` in a background task. The ingest function also has `verify_jwt = false` because it is called by the trusted Reaper bridge rather than by a signed-in browser session. The bridge signs the exact POST path and raw JSON body with HMAC-SHA256, a versioned key ID, a 60-second timestamp window, and a random one-use nonce. The receiver verifies the signature before JSON parsing and atomically consumes the nonce through a service-role-only RPC. Requests fail closed when the bounded key set, active key ID, nonce store, guild, channel, or required-role configuration is unavailable. The ingest function then requires an existing linked `member_profiles.discord_user_id`, active status, stored required roles, and recent website Discord verification before downloading the Discord attachment into the private `member-gallery` bucket and inserting a pending `gallery_submissions` row.
+
+The HMAC release is activation-gated. Before either function is deployed, provision one shared key set in `DISCORD_GALLERY_INGEST_HMAC_KEYS_JSON`, select one member of that set with `DISCORD_GALLERY_INGEST_HMAC_ACTIVE_KEY_ID`, apply the nonce migration, and prove one signed non-production submission plus a rejected replay. Key rotation adds the next key to the bounded receiver set first, switches the active key only after both function versions can read it, then retires the previous key after the maximum request window. Do not retain the former static-secret header as a fallback.
 
 The same Reaper Interactions endpoint also supports:
 
