@@ -10,6 +10,7 @@ const SCHEMA_PATH = "docs/integrations/cross-repository-contract-registry.v1.sch
 const WEBSITE_REPOSITORY = "Mochirii-Wushu/Mochirii-Website";
 const SOCIAL_REPOSITORY = "Mochirii-Wushu/Mochirii-Social";
 const REAPER_REPOSITORY = "Mochirii-Wushu/Reaper-Discord-Bot";
+const MOCHI_PETS_REPOSITORY = "Mochirii-Wushu/Mochirii-Pets";
 
 const REPOSITORIES = new Set([
   WEBSITE_REPOSITORY,
@@ -17,7 +18,7 @@ const REPOSITORIES = new Set([
   "Mochirii-Wushu/Mochirii-Social-Mobile",
   "Mochirii-Wushu/Mochirii-Forums",
   REAPER_REPOSITORY,
-  "Mochirii-Wushu/Mochirii-Pets",
+  MOCHI_PETS_REPOSITORY,
 ]);
 
 const CONTRACTS = new Map([
@@ -33,6 +34,21 @@ const CONTRACTS = new Map([
   ["mochi-pets-launch-ticket", "Mochi Pets launch ticket"],
   ["unity-artifact-manifest", "Unity artifact manifest"],
   ["forum-central-identity", "Forum central identity"],
+]);
+
+const CONTRACT_PRODUCERS = new Map([
+  ["website-session-guild-entitlement", WEBSITE_REPOSITORY],
+  ["social-oauth-handoff-account-mapping", WEBSITE_REPOSITORY],
+  ["social-api-media-behavior", WEBSITE_REPOSITORY],
+  ["gallery-ingest-moderation", WEBSITE_REPOSITORY],
+  ["discord-command-manifest", WEBSITE_REPOSITORY],
+  ["member-synchronization", WEBSITE_REPOSITORY],
+  ["guild-event-schedule", WEBSITE_REPOSITORY],
+  ["spinner-draw-publication", WEBSITE_REPOSITORY],
+  ["spotlight-vote-workflows", WEBSITE_REPOSITORY],
+  ["mochi-pets-launch-ticket", WEBSITE_REPOSITORY],
+  ["unity-artifact-manifest", MOCHI_PETS_REPOSITORY],
+  ["forum-central-identity", WEBSITE_REPOSITORY],
 ]);
 
 const REGISTRY_CONTRACT_STATUS = "unversioned";
@@ -52,10 +68,6 @@ const REAPER_CONSUMER_CONTRACTS = new Set([
   "guild-event-schedule",
   "spinner-draw-publication",
   "spotlight-vote-workflows",
-]);
-const CURRENT_WEBSITE_SOCIAL_CONTRACTS = new Set([
-  "social-oauth-handoff-account-mapping",
-  "social-api-media-behavior",
 ]);
 const ARTIFACT_KINDS = new Set(["documentation", "schema", "interface", "manifest", "fixture"]);
 const CONCRETE_ARTIFACT_KINDS = new Set(["schema", "interface", "manifest"]);
@@ -187,6 +199,12 @@ function rejectStaleGap(contract, gap, reason) {
 const registry = readJsonFile(REGISTRY_PATH);
 const schema = readJsonFile(SCHEMA_PATH);
 
+assertExactStringSet(
+  [...CONTRACT_PRODUCERS.keys()],
+  new Set(CONTRACTS.keys()),
+  "checker contract producer ownership map",
+);
+
 assertExactKeys(
   registry,
   ["$schema", "schemaVersion", "updatedDate", "registryStatus", "ownership", "repositories", "contracts"],
@@ -225,12 +243,7 @@ if (assertExactKeys(registry.ownership, OWNERSHIP_KEYS, "registry.ownership")) {
   }
 }
 
-assertUniqueStrings(registry.repositories, REPOSITORIES, "registry.repositories");
-if (registry.repositories.length === REPOSITORIES.size) {
-  for (const repository of REPOSITORIES) {
-    if (!registry.repositories.includes(repository)) fail(`registry.repositories is missing ${repository}.`);
-  }
-}
+assertExactStringSet(registry.repositories, REPOSITORIES, "registry.repositories");
 
 if (!Array.isArray(registry.contracts) || registry.contracts.length !== CONTRACTS.size) {
   fail(`registry.contracts must contain exactly ${CONTRACTS.size} entries.`);
@@ -280,22 +293,18 @@ for (const [index, contract] of (registry.contracts ?? []).entries()) {
   if (contract.producerRepositories.includes(REAPER_REPOSITORY)) {
     fail(`${contract.id} must not assign Reaper shared-contract producer ownership.`);
   }
-  if (REAPER_CONSUMER_CONTRACTS.has(contract.id)) {
+  const expectedProducer = CONTRACT_PRODUCERS.get(contract.id);
+  if (expectedProducer) {
     assertExactStringSet(
       contract.producerRepositories,
-      new Set([WEBSITE_REPOSITORY]),
+      new Set([expectedProducer]),
       `${contract.id}.producerRepositories`,
     );
+  }
+  if (REAPER_CONSUMER_CONTRACTS.has(contract.id)) {
     if (!contract.consumerRepositories.includes(REAPER_REPOSITORY)) {
       fail(`${contract.id} must record Reaper as a Website-contract consumer.`);
     }
-  }
-  if (CURRENT_WEBSITE_SOCIAL_CONTRACTS.has(contract.id)) {
-    assertExactStringSet(
-      contract.producerRepositories,
-      new Set([WEBSITE_REPOSITORY]),
-      `${contract.id}.producerRepositories`,
-    );
   }
 
   if (!Array.isArray(contract.artifacts)) {
