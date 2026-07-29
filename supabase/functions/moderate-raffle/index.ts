@@ -30,20 +30,37 @@ import {
   rafflePrizeCentsFromDollars,
   rafflePublicRewardLabel,
 } from "../_shared/raffle-prize.ts";
-import { raffleOperationalGates } from "../_shared/raffle-flags.ts";
+import {
+  raffleModeratorActionDecision,
+  type RaffleOperationalGates,
+  raffleOperationalGates,
+} from "../_shared/raffle-flags.ts";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-Deno.serve((req: Request) => withProtectedCors(req, handleRequest(req)));
+export type ModerateRaffleDependencies = {
+  requireModerator?: typeof requireRaffleModerator;
+  gates?: () => RaffleOperationalGates;
+};
 
-async function handleRequest(req: Request): Promise<Response> {
+if (import.meta.main) {
+  Deno.serve((req: Request) =>
+    withProtectedCors(req, handleModerateRaffleRequest(req))
+  );
+}
+
+export async function handleModerateRaffleRequest(
+  req: Request,
+  dependencies: ModerateRaffleDependencies = {},
+): Promise<Response> {
   if (req.method === "OPTIONS") return jsonResponse({ ok: true });
   if (req.method !== "POST") {
     return jsonResponse({ ok: false, message: "Method not allowed." }, 405);
   }
 
-  const access = await requireRaffleModerator(req);
+  const access = await (dependencies.requireModerator ||
+    requireRaffleModerator)(req);
   if (!access.ok) return access.response;
 
   let body;
@@ -57,6 +74,24 @@ async function handleRequest(req: Request): Promise<Response> {
     }, 400);
   }
   const action = safeString(body.action, 40) || "readiness";
+  const gateDecision = raffleModeratorActionDecision(
+    action,
+    (dependencies.gates || raffleOperationalGates)(),
+  );
+  if (!gateDecision.known) {
+    return jsonResponse({
+      ok: false,
+      error: "invalid_action",
+      message: "Raffle leader action is not supported.",
+    }, 400);
+  }
+  if (!gateDecision.allowed) {
+    return jsonResponse({
+      ok: false,
+      error: "operation_closed",
+      message: "This Raffle operation is closed.",
+    }, 409);
+  }
 
   try {
     if (action === "create_draft") {
@@ -217,13 +252,6 @@ async function handleRequest(req: Request): Promise<Response> {
     }
 
     if (action === "open_cycle") {
-      if (!raffleOperationalGates().submissions) {
-        return jsonResponse({
-          ok: false,
-          error: "entries_closed",
-          message: "Raffle entry is closed.",
-        }, 409);
-      }
       const now = new Date();
       const { data, error } = await access.adminClient.rpc(
         "open_raffle_cycle",
@@ -541,14 +569,6 @@ async function handleRequest(req: Request): Promise<Response> {
     }
 
     if (action === "release_digital_fulfillment") {
-      const gates = raffleOperationalGates();
-      if (!gates.rewardOrders || !gates.relay) {
-        return jsonResponse({
-          ok: false,
-          error: "reward_not_available",
-          message: "Digital reward fulfillment is not available.",
-        }, 409);
-      }
       const environment = safeString(
         body.environment || body.provider_environment,
         20,
