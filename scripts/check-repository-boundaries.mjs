@@ -57,6 +57,7 @@ const allowedEnvFiles = new Set([
   "services/social/.env.example",
   "services/social/.env.docker.example",
   "services/social/.env.testing",
+  "services/reward-relay/.env.example",
 ]);
 const textExtensions = new Set([
   ".css", ".html", ".js", ".json", ".jsx", ".liquid", ".md", ".mjs",
