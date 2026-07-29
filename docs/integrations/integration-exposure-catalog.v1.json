@@ -25,7 +25,7 @@
     "instagram_publish_job": { "classification": "confidential", "description": "Opt-in publishing jobs, captions, events, and provider identifiers." },
     "member_verification": { "classification": "confidential", "description": "Member eligibility, review decisions, and verification timestamps." },
     "moderation_record": { "classification": "confidential", "description": "Moderator decisions, notes, and audit events." },
-    "oauth_provider_configuration": { "classification": "internal", "description": "Provider identifiers and source-declared activation policy; never client secrets." },
+    "auth_provider_configuration": { "classification": "internal", "description": "Authentication provider identifiers and source-declared activation policy; never client secrets." },
     "playlist_embed_content": { "classification": "public", "description": "Reviewed public playlist and media embed references." },
     "private_gallery_submission": { "classification": "confidential", "description": "Unpublished submissions, source media, uploader identity, and moderation state." },
     "private_profile_media": { "classification": "confidential", "description": "Pending or rejected member profile media and review state." },
@@ -43,6 +43,7 @@
   },
   "destinations": [
     { "id": "cloudflare-edge", "kind": "managed_edge", "sourceRefs": ["docs/integrations/hosted-runtime.json"] },
+    { "id": "cloudflare-turnstile", "kind": "external_challenge", "sourceRefs": ["apps/web/components/member-workflow/AuthCaptcha.tsx"] },
     { "id": "digitalocean-host", "kind": "hosted_runtime", "sourceRefs": ["docs/integrations/mochirii-social-delivery.md"] },
     { "id": "digitalocean-spaces", "kind": "object_storage", "sourceRefs": ["docs/pixelfed-guild-social-adr.md"] },
     { "id": "discord-api", "kind": "external_api", "sourceRefs": ["supabase/functions/_shared/discord-api.ts"] },
@@ -160,7 +161,7 @@
       "id": "auth-providers",
       "declaredState": "source_declared_active",
       "destinations": ["supabase-auth"],
-      "dataClasses": ["authentication_identity", "oauth_provider_configuration"],
+      "dataClasses": ["authentication_identity", "auth_provider_configuration"],
       "auth": "Source declares Discord, Google, Twitch, and Apple as the approved active sign-in set; provider enablement and client configuration require dashboard readback.",
       "owner": "identity-operations",
       "disableControl": "auth-provider-disable",
@@ -168,6 +169,19 @@
       "verification": "identity",
       "sourceRefs": ["docs/multi-provider-login-and-verification.md", "apps/web/lib/supabase/auth-providers.ts"],
       "runtimeReadback": { "required": true, "status": "runtime_readback_required", "facts": ["enabled providers", "redirect allowlist", "manual linking", "provider client state"] }
+    },
+    {
+      "id": "phone-auth",
+      "declaredState": "source_declared_activation_gated",
+      "destinations": ["cloudflare-turnstile", "supabase-auth"],
+      "dataClasses": ["authentication_identity", "auth_provider_configuration"],
+      "auth": "Phone remains absent from the public provider allowlist until every reviewed readiness input is complete. The browser sends an ephemeral challenge token directly to Supabase Auth; no challenge or SMS secret belongs in Website source.",
+      "owner": "identity-operations",
+      "disableControl": "auth-provider-disable",
+      "runbook": "identity",
+      "verification": "identity",
+      "sourceRefs": ["docs/multi-provider-login-and-verification.md", "apps/web/lib/supabase/auth-providers.ts", "apps/web/components/member-workflow/AuthCaptcha.tsx"],
+      "runtimeReadback": { "required": true, "status": "runtime_readback_required", "facts": ["Phone provider and sender", "bot and abuse protection", "challenge configuration", "country and cost boundary", "rate limits"] }
     },
     {
       "id": "social",

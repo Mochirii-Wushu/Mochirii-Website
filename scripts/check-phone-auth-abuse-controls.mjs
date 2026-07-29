@@ -31,6 +31,7 @@ const panel = read("apps/web/components/member-workflow/AuthPanel.tsx");
 const captcha = read("apps/web/components/member-workflow/AuthCaptcha.tsx");
 const nextConfig = read("apps/web/next.config.ts");
 const docs = read("docs/multi-provider-login-and-verification.md");
+const exposureCatalog = read("docs/integrations/integration-exposure-catalog.v1.json");
 
 requireSnippets("root package", rootPackage, [
   '"check:phone-auth-abuse-controls": "node scripts/check-phone-auth-abuse-controls.mjs"',
@@ -162,6 +163,21 @@ requireSnippets("phone activation docs", docs, [
   "account-lookup results",
   "Supabase Auth remains the authoritative",
   "Phone remains absent from the public provider allowlist",
+]);
+
+requireSnippets("Phone integration exposure", exposureCatalog, [
+  '"id": "cloudflare-turnstile"',
+  '"id": "phone-auth"',
+  '"declaredState": "source_declared_activation_gated"',
+  '"destinations": ["cloudflare-turnstile", "supabase-auth"]',
+  '"dataClasses": ["authentication_identity", "auth_provider_configuration"]',
+  '"apps/web/components/member-workflow/AuthCaptcha.tsx"',
+  '"bot and abuse protection"',
+  '"country and cost boundary"',
+]);
+
+forbidSnippets("Phone integration exposure taxonomy", exposureCatalog, [
+  '"oauth_provider_configuration"',
 ]);
 
 const combinedBrowserSource = [config, registry, policy, auth, panel, captcha].join("\n");
