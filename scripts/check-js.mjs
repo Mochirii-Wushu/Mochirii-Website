@@ -3,7 +3,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 
 const root = process.cwd();
-const ignoreDirs = new Set([".git", ".next", ".vercel", "node_modules"]);
+const ignoreDirs = new Set([".artifacts", ".git", ".next", ".vercel", "node_modules"]);
 
 function walk(dir) {
   const out = [];
@@ -33,4 +33,3 @@ if (failed) {
 }
 
 console.log(`JavaScript syntax OK (${files.length} files).`);
-
