@@ -16,6 +16,7 @@ fi
 BACKUP_ROOT="$RUNTIME_ROOT/backups"
 BACKUP_ENV="${MOCHIRII_SOCIAL_BACKUP_ENV:-$RUNTIME_ROOT/shared/backup.env}"
 RECIPIENT_FILE="${MOCHIRII_SOCIAL_BACKUP_RECIPIENT:-$RUNTIME_ROOT/shared/backup-recipient.pub}"
+PRODUCER_SIGNING_KEY="${MOCHIRII_SOCIAL_BACKUP_PRODUCER_SIGNING_KEY:-$RUNTIME_ROOT/shared/backup-producer-signing-key}"
 BACKUP_LOCK_FILE="${MOCHIRII_SOCIAL_BACKUP_LOCK:-/run/lock/mochirii-social-backup.lock}"
 MARIADB_IMAGE="mariadb:11.4@sha256:a794d9eb009e20de605858a11f32f63b4075cbd197c650436f0e3b457e4caed7"
 AGE_VERSION="v1.3.1"
@@ -65,7 +66,7 @@ for command_name in docker flock gzip od tar; do
 done
 
 if [[ "$verify_only" == false ]]; then
-  for command_name in age rclone; do
+  for command_name in age rclone ssh-keygen; do
     command -v "$command_name" >/dev/null || {
       echo "Missing backup dependency: $command_name" >&2
       exit 1
@@ -83,6 +84,7 @@ if [[ "$verify_only" == false ]]; then
   }
   verify_secure_backup_environment_file "$BACKUP_ENV"
   verify_secure_backup_recipient_file "$RECIPIENT_FILE"
+  verify_secure_backup_producer_private_key_file "$PRODUCER_SIGNING_KEY"
 
   # The root-owned file is the sole authority for provider settings; ignore any
   # inherited process environment and give static analysis explicit defaults.
@@ -157,6 +159,9 @@ database_dump="$work_dir/database.sql.gz"
 config_archive="$work_dir/configuration.tar.gz"
 payload_archive="$work_dir/recovery.tar"
 encrypted_archive="$work_dir/recovery.tar.age"
+producer_manifest="$work_dir/recovery.tar.age.manifest"
+producer_signature="$producer_manifest.sig"
+producer_public_key_file="$work_dir/backup-producer.pub"
 
 docker exec pixelfed-db sh -ec '
   MYSQL_PWD="$MARIADB_ROOT_PASSWORD" exec mariadb-dump \
@@ -282,6 +287,8 @@ config_files=(
   "usr/local/sbin/mochirii-social-backup"
   "usr/local/sbin/mochirii-social-restore"
   "usr/local/sbin/mochirii-social-deploy-entry"
+  "etc/systemd/system/mochirii-social-cutover-boot-guard.service"
+  "etc/systemd/system/docker.service.d/10-mochirii-social-cutover-guard.conf"
 )
 if [[ -e "$PRIVATE_MEDIA_CUTOVER_STATE" || -L "$PRIVATE_MEDIA_CUTOVER_STATE" ]]; then
   require_root_owned_state_directory
@@ -389,31 +396,82 @@ age \
   --output "$encrypted_archive" \
   "$payload_archive"
 verify_bounded_encrypted_recovery_file "$encrypted_archive"
-rm -f "$database_dump" "$config_archive" "$payload_archive" "$work_dir/manifest"
+rm -f "$database_dump" "$config_archive" "$payload_archive"
+
+object_name="$timestamp-$label.tar.age"
+ssh-keygen -y -f "$PRODUCER_SIGNING_KEY" </dev/null >"$producer_public_key_file" 2>/dev/null
+chmod 0600 "$producer_public_key_file"
+producer_public_key="$(awk 'NR == 1 { print $1 " " $2 }' "$producer_public_key_file")"
+printf '%s\n' "$producer_public_key" >"$producer_public_key_file"
+ciphertext_sha256="$(sha256sum "$encrypted_archive" | awk '{ print $1 }')"
+ciphertext_bytes="$(stat -c '%s' "$encrypted_archive")"
+producer_public_key_sha256="$(printf '%s\n' "$producer_public_key" | sha256sum | awk '{ print $1 }')"
+cat >"$producer_manifest" <<EOF
+format=1
+created_utc=$timestamp
+archive_name=$object_name
+ciphertext_sha256=$ciphertext_sha256
+ciphertext_bytes=$ciphertext_bytes
+producer_public_key_sha256=$producer_public_key_sha256
+release_commit=$release_commit
+release_digest=$release_digest
+EOF
+[[ "$(stat -c '%s' "$producer_manifest")" -le "$BACKUP_PRODUCER_MANIFEST_MAX_BYTES" ]]
+if ! ssh-keygen -Y sign \
+    -f "$PRODUCER_SIGNING_KEY" \
+    -n "$BACKUP_PRODUCER_SIGNATURE_NAMESPACE" \
+    "$producer_manifest" >/dev/null 2>&1; then
+  echo "Backup-producer signing failed." >&2
+  exit 1
+fi
+verify_authenticated_backup_producer_bundle \
+  "$producer_manifest" \
+  "$producer_signature" \
+  "$producer_public_key_file" \
+  "$encrypted_archive" \
+  "manual/$object_name"
+verify_backup_producer_payload_binding \
+  "$producer_manifest" \
+  "$work_dir/manifest"
+rm -f "$work_dir/manifest"
 
 upload_object() {
   local retention_class="$1"
   local object_name="$2"
-  rclone \
-    --config /dev/null \
-    --quiet \
-    copyto \
-    --s3-acl private \
-    --s3-no-check-bucket \
-    "$encrypted_archive" \
-    "$remote_root/$retention_class/$object_name" || return 1
-  rclone \
+  local source_path
+  local remote_name
+  local uploaded_listing
+  for source_path in "$producer_manifest" "$producer_signature" "$encrypted_archive"; do
+    case "$source_path" in
+      "$producer_manifest") remote_name="$object_name.manifest" ;;
+      "$producer_signature") remote_name="$object_name.manifest.sig" ;;
+      "$encrypted_archive") remote_name="$object_name" ;;
+      *) return 1 ;;
+    esac
+    rclone \
+      --config /dev/null \
+      --quiet \
+      copyto \
+      --s3-acl private \
+      --s3-no-check-bucket \
+      "$source_path" \
+      "$remote_root/$retention_class/$remote_name" || return 1
+  done
+  uploaded_listing="$(rclone \
     --config /dev/null \
     --quiet \
     lsf \
     --files-only \
-    "$remote_root/$retention_class" \
-    | grep -Fxq "$object_name" || return 1
+    "$remote_root/$retention_class")" || return 1
+  grep -Fxq "$object_name" <<<"$uploaded_listing" || return 1
+  grep -Fxq "$object_name.manifest" <<<"$uploaded_listing" || return 1
+  grep -Fxq "$object_name.manifest.sig" <<<"$uploaded_listing" || return 1
 }
 
 prune_retention() {
   local retention_class="$1"
   local keep_count="$2"
+  local companion_name
   local object_name
   local index
   local object_listing
@@ -424,20 +482,35 @@ prune_retention() {
       "$remote_root/$retention_class" \
       | LC_ALL=C sort -r)" || return 1
   mapfile -t objects <<<"$object_listing" || return 1
-  for ((index = keep_count; index < ${#objects[@]}; index++)); do
-    object_name="${objects[$index]}"
-    [[ "$object_name" =~ ^[0-9]{8}T[0-9]{6}Z-[A-Za-z0-9._-]+\.tar\.age$ ]] || {
+  local -a archives=()
+  for object_name in "${objects[@]}"; do
+    [[ -z "$object_name" ]] && continue
+    if [[ "$object_name" =~ ^[0-9]{8}T[0-9]{6}Z-[A-Za-z0-9._-]+\.tar\.age$ ]]; then
+      archives+=("$object_name")
+    elif [[ "$object_name" =~ ^[0-9]{8}T[0-9]{6}Z-[A-Za-z0-9._-]+\.tar\.age\.manifest(\.sig)?$ ]]; then
+      continue
+    else
       echo "Refusing to prune an unexpected backup object name." >&2
       exit 1
-    }
+    fi
+  done
+  for ((index = keep_count; index < ${#archives[@]}; index++)); do
+    object_name="${archives[$index]}"
     rclone \
       --config /dev/null \
       --quiet \
       deletefile "$remote_root/$retention_class/$object_name" || return 1
+    for companion_name in "$object_name.manifest" "$object_name.manifest.sig"; do
+      if grep -Fxq "$companion_name" <<<"$object_listing"; then
+        rclone \
+          --config /dev/null \
+          --quiet \
+          deletefile "$remote_root/$retention_class/$companion_name" || return 1
+      fi
+    done
   done
 }
 
-object_name="$timestamp-$label.tar.age"
 if [[ "$label" == "nightly" ]]; then
   upload_object daily "$object_name"
   if [[ "$(date -u +%u)" == "7" ]]; then

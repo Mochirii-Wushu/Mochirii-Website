@@ -13,8 +13,12 @@ At 03:15 UTC, `/usr/local/sbin/mochirii-social-backup nightly`:
 3. restores the dump into an isolated, network-disabled MariaDB container and
    compares critical table counts;
 4. encrypts the validated recovery payload to the dedicated public recipient;
-5. uploads it privately to the regional backup Space with a dedicated key; and
-6. retains 14 daily, 8 weekly, and 6 monthly recovery points.
+5. signs a bounded producer manifest over the encrypted archive identity,
+   length, SHA-256, release commit, and immutable image digest with a dedicated
+   Ed25519 producer key;
+6. uploads the ciphertext, manifest, and detached OpenSSH signature privately
+   to the regional backup Space with a dedicated key; and
+7. retains 14 daily, 8 weekly, and 6 monthly recovery-point bundles.
 
 The encrypted object is capped at 513 MiB and the decrypted format-2 archive
 has one end-to-end 512 MiB transport ceiling. Recovery checks the exact remote
@@ -29,17 +33,18 @@ restore all use the same bounded regular-member extractor and exact manifest
 hash checks. Raw `tar` listing or extraction is not a validation path.
 
 All newly created backups use exact ten-line manifest format 2. During the
-runtime transition, historical format-1 backups that successfully decrypt from
-the protected private object boundary remain recoverable through an exact
-four-line legacy schema only. They use the same
+runtime transition, the parser retains exact format-1 compatibility for a
+historical recovery point that also has separately approved, valid producer
+authentication. Unsigned historical objects are not accepted by the automated
+workflow. Format 1 uses an exact four-line legacy schema and the same
 three-member archive parser and size limits; database and configuration hashes
 are computed locally into a private normalized companion manifest and bind
 durable restore replay state. Mixed, reordered, duplicate, or extra fields are
 rejected. Because format 1 predates archived deployment-runtime and cutover
-bindings, the currently installed verified five-file runtime remains
+bindings, the currently installed verified runtime contract remains
 authoritative; archived host configuration is still never installed silently.
 
-Manual pre-deploy and pre-restore points use a separate eight-object retention
+Manual pre-deploy and pre-restore points use a separate eight-bundle retention
 class. Pruning validates every exact object name before deleting it. The
 versioned bucket lifecycle remains the provider-side second boundary.
 
@@ -54,14 +59,17 @@ mode, or link drift so an untrusted local user cannot redirect future recovery
 encryption.
 
 `age` provides recipient confidentiality and authenticated-ciphertext integrity;
-it does not authenticate the producer. Anyone who knows the public recipient
-and can write to the recovery object boundary can create a different archive
-that decrypts successfully. Private Spaces IAM, an exact object key and byte
-count, strict archive schemas, and protected workflow evidence are therefore
-operational controls, not cryptographic proof of origin. A production recovery
-must not be called sender-authenticated until the manifest is signed or MACed
-by a separately protected producer identity, or its immutable digest is bound
-through an independently trusted approval record.
+producer authentication is separate. New source signs a strict eight-line
+manifest with OpenSSH `ssh-keygen -Y sign` in the
+`mochirii-social-backup` namespace. Recovery verifies that detached signature
+against one protected allowlisted Ed25519 public key before decryption, then
+checks the exact object basename, ciphertext size and SHA-256, public-key hash,
+release commit, and image digest. A modified archive, manifest, signature,
+object selection, or producer key fails closed. This source capability is not
+live evidence: production remains sender-unauthenticated until a separately
+approved host packet installs the root-owned private key, the protected GitHub
+environment receives the matching public key, and a real upload plus isolated
+validation readback succeeds.
 
 The current recovery archive contains the database and reviewed host/runtime
 configuration. It neither backs up nor independently reads back the primary
@@ -130,6 +138,13 @@ Never commit, print, copy into a release bundle, or place this file in a user
 home directory. Activate the timer only after a manual encrypted upload and
 isolated restore pass:
 
+`/opt/mochirii-social/shared/backup-producer-signing-key` is a separate
+root-owned mode-`0600` unencrypted Ed25519 private key used only by the
+non-interactive backup service. It is never included in the recovery archive.
+Generate and preserve it only through an approved credentials packet; install
+it and its matching protected-environment public key atomically with the signed
+backup release so the timer cannot create unsigned recovery points.
+
 ```bash
 sudo /usr/local/sbin/mochirii-social-backup-enable
 ```
@@ -145,8 +160,10 @@ readback. Repository-wide credentials are not the recovery boundary.
 The protected `Verify or restore Mochirii Social backup` workflow obtains the
 exact private object key only from the protected `social-recovery` environment
 secret `BACKUP_RECOVERY_OBJECT_KEY`; it is not retained in workflow-dispatch
-inputs. Configuring or changing that secret is a separate exact provider
-approval, and a missing or malformed value fails closed. `validate-only`
+inputs. The matching producer public key comes only from the same environment's
+`BACKUP_PRODUCER_PUBLIC_KEY` secret. Configuring or changing either value is a
+separate exact provider approval, and a missing or malformed value fails
+closed. `validate-only`
 decrypts and restores it into an isolated GitHub-hosted MariaDB container.
 `restore-production` additionally requires the typed confirmation
 `RESTORE social.mochirii.com` and streams only the validated, at-most-512-MiB
@@ -156,8 +173,8 @@ plaintext payload over strict-host-key SSH to the locked, forced-command
 `validate-only` may be used for source and recovery-point evidence. Do not
 dispatch `restore-production` or install its reviewed host runtime until the
 [production activation blocker](online-hosted-runtime.md#production-activation-blocker-uncatchable-process-or-host-loss)
-is cleared by a separately reviewed boot visibility guard or exact written risk
-acceptance. A successful validation does not clear that blocker.
+is cleared by installing and reading back the reviewed boot visibility guard.
+A successful backup validation does not prove that host prerequisite.
 
 The host creates a new verified encrypted pre-restore point before replacing the
 database. A failed production restore stays in maintenance mode for a forward

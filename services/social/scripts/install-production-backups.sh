@@ -10,6 +10,7 @@ fi
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 recipient_public_key="${1:-}"
 recovery_public_key="${2:-}"
+producer_signing_key="${3:-}"
 recovery_user="${MOCHIRII_SOCIAL_RECOVERY_USER:-github-recovery}"
 
 for public_key_file in "$recipient_public_key" "$recovery_public_key"; do
@@ -22,6 +23,26 @@ for public_key_file in "$recipient_public_key" "$recovery_public_key"; do
     exit 1
   }
 done
+[[ -f "$producer_signing_key" && ! -L "$producer_signing_key" ]] || {
+  echo "A regular backup-producer Ed25519 private-key file is required." >&2
+  exit 1
+}
+[[ "$(stat -c '%U:%G:%a' "$producer_signing_key")" == root:root:600 ]] || {
+  echo "The backup-producer signing key must be root:root mode 0600." >&2
+  exit 1
+}
+command -v ssh-keygen >/dev/null || {
+  echo "The backup-producer signing key requires ssh-keygen." >&2
+  exit 1
+}
+producer_public_key="$(ssh-keygen -y -f "$producer_signing_key" </dev/null 2>/dev/null)" || {
+  echo "The backup-producer signing key is invalid or not available non-interactively." >&2
+  exit 1
+}
+[[ "$producer_public_key" =~ ^ssh-ed25519\ [A-Za-z0-9+/=]+$ ]] || {
+  echo "The backup-producer signing key must be Ed25519." >&2
+  exit 1
+}
 
 bash "$repo_root/scripts/install-pinned-recovery-tools.sh" /usr/local/bin
 
@@ -29,6 +50,9 @@ install -d -m 0700 -o root -g root /opt/mochirii-social/backups
 install -m 0644 -o root -g root \
   "$recipient_public_key" \
   /opt/mochirii-social/shared/backup-recipient.pub
+install -m 0600 -o root -g root \
+  "$producer_signing_key" \
+  /opt/mochirii-social/shared/backup-producer-signing-key
 install -m 0755 -o root -g root \
   "$repo_root/scripts/backup-production-runtime.sh" \
   /usr/local/sbin/mochirii-social-backup

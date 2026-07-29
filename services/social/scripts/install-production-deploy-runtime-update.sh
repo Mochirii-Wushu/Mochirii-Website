@@ -81,6 +81,8 @@ updater_source_paths=(
   services/social/scripts/backup-production-runtime.sh
   services/social/scripts/restore-production-runtime.sh
   services/social/scripts/deploy-production-entrypoint.sh
+  services/social/systemd/mochirii-social-cutover-boot-guard.service
+  services/social/systemd/docker.service.d/10-mochirii-social-cutover-guard.conf
 )
 
 [[ "$expected_commit" =~ ^[0-9a-f]{40}$ ]] || {
@@ -93,7 +95,8 @@ updater_source_paths=(
 }
 
 for command_name in \
-  bash chmod chown cmp dirname flock git install mktemp mv python3 sha256sum stat; do
+  bash chmod chown cmp dirname flock git grep install mktemp mv python3 sha256sum \
+  stat systemctl systemd-analyze tr; do
   command -v "$command_name" >/dev/null || {
     echo "Missing required command: $command_name" >&2
     exit 1
@@ -199,6 +202,8 @@ sources=(
   "$social_root/scripts/backup-production-runtime.sh"
   "$social_root/scripts/restore-production-runtime.sh"
   "$social_root/scripts/deploy-production-entrypoint.sh"
+  "$social_root/systemd/mochirii-social-cutover-boot-guard.service"
+  "$social_root/systemd/docker.service.d/10-mochirii-social-cutover-guard.conf"
 )
 targets=(
   /usr/local/lib/mochirii-social/production-runtime-lib.sh
@@ -206,15 +211,22 @@ targets=(
   /usr/local/sbin/mochirii-social-backup
   /usr/local/sbin/mochirii-social-restore
   /usr/local/sbin/mochirii-social-deploy-entry
+  /etc/systemd/system/mochirii-social-cutover-boot-guard.service
+  /etc/systemd/system/docker.service.d/10-mochirii-social-cutover-guard.conf
 )
-modes=(0644 0755 0755 0755 0755)
+modes=(0644 0755 0755 0755 0755 0644 0644)
 
-for source_path in "${sources[@]}"; do
+for index in 0 1 2 3 4; do
+  source_path="${sources[$index]}"
   [[ -f "$source_path" && ! -L "$source_path" ]]
   bash -n "$source_path"
 done
+systemd-analyze verify "${sources[5]}" >/dev/null
 for index in "${!targets[@]}"; do
   target_path="${targets[$index]}"
+  if [[ "$index" -ge 5 && ! -e "$target_path" && ! -L "$target_path" ]]; then
+    continue
+  fi
   [[ -f "$target_path" && ! -L "$target_path" ]] || {
     echo "Expected installed deployment file is missing: $target_path" >&2
     exit 1
@@ -283,6 +295,31 @@ install_script_atomic() {
   fsync_path "$candidate" || return 1
   mv -T "$candidate" "$target_path" || return 1
   fsync_path "$(dirname "$target_path")" || return 1
+}
+
+install_file_atomic() {
+  local source_path="$1"
+  local target_path="$2"
+  local mode="$3"
+  local candidate
+  install -d -m 0755 -o root -g root "$(dirname "$target_path")" || return 1
+  candidate="$(mktemp "${target_path}.candidate.XXXXXX")" || return 1
+  install -m "$mode" -o root -g root "$source_path" "$candidate" || return 1
+  fsync_path "$candidate" || return 1
+  mv -T "$candidate" "$target_path" || return 1
+  fsync_path "$(dirname "$target_path")" || return 1
+}
+
+verify_installed_boot_guard_unit() {
+  systemd-analyze verify /etc/systemd/system/mochirii-social-cutover-boot-guard.service \
+    >/dev/null || return 1
+  systemctl daemon-reload || return 1
+  systemctl show docker.service --property=Requires --value \
+    | tr ' ' '\n' \
+    | grep -Fxq mochirii-social-cutover-boot-guard.service || return 1
+  systemctl show docker.service --property=After --value \
+    | tr ' ' '\n' \
+    | grep -Fxq mochirii-social-cutover-boot-guard.service || return 1
 }
 
 install_contract_atomic() {
@@ -391,19 +428,27 @@ validate_backup_snapshot() {
   [[ "$(stat -c '%U:%G:%a' "$before_manifest")" == root:root:600 ]] || return 1
   [[ "$(sha256sum "$before_manifest" | cut -d' ' -f1)" == "$expected_manifest_sha256" ]] || return 1
   mapfile -t manifest_lines <"$before_manifest" || return 1
-  [[ "${#manifest_lines[@]}" -eq 6 ]] || return 1
+  [[ "${#manifest_lines[@]}" -eq 8 ]] || return 1
 
   for index in "${!targets[@]}"; do
     expected_path="${targets[$index]}"
-    [[ "${manifest_lines[$index]}" =~ ^([0-9a-f]{64})\ \ (/.+)$ ]] || return 1
-    expected_hash="${BASH_REMATCH[1]}"
-    [[ "${BASH_REMATCH[2]}" == "$expected_path" ]] || return 1
-    [[ -f "$backup_root/$index" && ! -L "$backup_root/$index" ]] || return 1
-    [[ "$(stat -c '%U:%G:%a' "$backup_root/$index")" == "root:root:${modes[$index]#0}" ]] || return 1
-    [[ "$(sha256sum "$backup_root/$index" | cut -d' ' -f1)" == "$expected_hash" ]] || return 1
+    if [[ "${manifest_lines[$index]}" =~ ^([0-9a-f]{64})\ \ (/.+)$ ]]; then
+      expected_hash="${BASH_REMATCH[1]}"
+      [[ "${BASH_REMATCH[2]}" == "$expected_path" ]] || return 1
+      [[ -f "$backup_root/$index" && ! -L "$backup_root/$index" ]] || return 1
+      [[ "$(stat -c '%U:%G:%a' "$backup_root/$index")" == "root:root:${modes[$index]#0}" ]] || return 1
+      [[ "$(sha256sum "$backup_root/$index" | cut -d' ' -f1)" == "$expected_hash" ]] || return 1
+      [[ ! -e "$backup_root/$index.absent" && ! -L "$backup_root/$index.absent" ]] || return 1
+    else
+      [[ "${manifest_lines[$index]}" == "ABSENT  $expected_path" ]] || return 1
+      [[ -f "$backup_root/$index.absent" && ! -L "$backup_root/$index.absent" ]] || return 1
+      [[ "$(stat -c '%U:%G:%a' "$backup_root/$index.absent")" == root:root:600 ]] || return 1
+      [[ ! -s "$backup_root/$index.absent" ]] || return 1
+      [[ ! -e "$backup_root/$index" && ! -L "$backup_root/$index" ]] || return 1
+    fi
   done
 
-  if [[ "${manifest_lines[5]}" =~ ^([0-9a-f]{64})\ \ (/.+)$ ]]; then
+  if [[ "${manifest_lines[7]}" =~ ^([0-9a-f]{64})\ \ (/.+)$ ]]; then
     expected_hash="${BASH_REMATCH[1]}"
     [[ "${BASH_REMATCH[2]}" == "$contract_target" ]] || return 1
     [[ -f "$backup_root/contract" && ! -L "$backup_root/contract" ]] || return 1
@@ -411,7 +456,7 @@ validate_backup_snapshot() {
     [[ "$(sha256sum "$backup_root/contract" | cut -d' ' -f1)" == "$expected_hash" ]] || return 1
     [[ ! -e "$backup_root/contract.absent" && ! -L "$backup_root/contract.absent" ]] || return 1
   else
-    [[ "${manifest_lines[5]}" == "ABSENT  $contract_target" ]] || return 1
+    [[ "${manifest_lines[7]}" == "ABSENT  $contract_target" ]] || return 1
     [[ -f "$backup_root/contract.absent" && ! -L "$backup_root/contract.absent" ]] || return 1
     [[ "$(stat -c '%U:%G:%a' "$backup_root/contract.absent")" == root:root:600 ]] || return 1
     [[ ! -s "$backup_root/contract.absent" ]] || return 1
@@ -433,8 +478,19 @@ restore_from_backup() {
   # Restore supporting files first. Until the old forced entrypoint is restored
   # last, any mixed contract/runtime snapshot fails closed rather than invoking
   # an entrypoint against incompatible helpers.
-  for index in 0 1 2 3; do
-    install_script_atomic "$backup_root/$index" "${targets[$index]}" "${modes[$index]}" || restore_failed=true
+  for index in 0 1 2 3 5 6; do
+    if [[ -f "$backup_root/$index" && ! -L "$backup_root/$index" ]]; then
+      if [[ "$index" -le 4 ]]; then
+        install_script_atomic "$backup_root/$index" "${targets[$index]}" "${modes[$index]}" || restore_failed=true
+      else
+        install_file_atomic "$backup_root/$index" "${targets[$index]}" "${modes[$index]}" || restore_failed=true
+      fi
+    elif [[ -f "$backup_root/$index.absent" && ! -L "$backup_root/$index.absent" ]]; then
+      rm -f "${targets[$index]}" || restore_failed=true
+      fsync_path "$(dirname "${targets[$index]}")" || restore_failed=true
+    else
+      restore_failed=true
+    fi
   done
   if [[ -f "$backup_root/contract" ]]; then
     install_contract_atomic "$backup_root/contract" "$contract_target" || restore_failed=true
@@ -444,7 +500,15 @@ restore_from_backup() {
   else
     restore_failed=true
   fi
-  install_script_atomic "$backup_root/4" "${targets[4]}" "${modes[4]}" || restore_failed=true
+  if [[ -f "$backup_root/4" && ! -L "$backup_root/4" ]]; then
+    install_script_atomic "$backup_root/4" "${targets[4]}" "${modes[4]}" || restore_failed=true
+  elif [[ -f "$backup_root/4.absent" && ! -L "$backup_root/4.absent" ]]; then
+    rm -f "${targets[4]}" || restore_failed=true
+    fsync_path "$(dirname "${targets[4]}")" || restore_failed=true
+  else
+    restore_failed=true
+  fi
+  systemctl daemon-reload || restore_failed=true
   write_sha_manifest "$backup_root/rollback.sha256" "${targets[@]}" "$contract_target" || restore_failed=true
   cmp -s "$backup_root/before.sha256" "$backup_root/rollback.sha256" || restore_failed=true
   [[ "$restore_failed" == false ]]
@@ -529,8 +593,15 @@ if [[ ! -e "$backup_root" && ! -L "$backup_root" ]]; then
   chown root:root "$backup_candidate"
   write_sha_manifest "$backup_candidate/before.sha256" "${targets[@]}" "$contract_target"
   for index in "${!targets[@]}"; do
-    install -m "${modes[$index]}" -o root -g root "${targets[$index]}" "$backup_candidate/$index"
-    fsync_path "$backup_candidate/$index"
+    if [[ -f "${targets[$index]}" && ! -L "${targets[$index]}" ]]; then
+      install -m "${modes[$index]}" -o root -g root "${targets[$index]}" "$backup_candidate/$index"
+      fsync_path "$backup_candidate/$index"
+    else
+      : >"$backup_candidate/$index.absent"
+      chmod 0600 "$backup_candidate/$index.absent"
+      chown root:root "$backup_candidate/$index.absent"
+      fsync_path "$backup_candidate/$index.absent"
+    fi
   done
   if [[ -f "$contract_target" && ! -L "$contract_target" ]]; then
     install -m 0444 -o root -g root "$contract_target" "$backup_candidate/contract"
@@ -582,7 +653,9 @@ rollback() {
 }
 trap rollback EXIT
 
-# Install all non-entrypoint scripts first. The forced entrypoint is always last.
+# Install all non-entrypoint scripts first. The forced entrypoint is always last
+# among executable paths; systemd wiring becomes active only after the exact
+# contract and guard command are present.
 for index in 0 1 2 3; do
   install_script_atomic "${sources[$index]}" "${targets[$index]}" "${modes[$index]}"
 done
@@ -599,7 +672,7 @@ contract_sha256="$(sha256sum "$contract_manifest" | cut -d' ' -f1)"
 contract_candidate="$(mktemp "$backup_root/.contract.XXXXXX")"
 {
   printf '%s\n' \
-    version=2 \
+    version=3 \
     "installed_from_commit=$expected_commit" \
     "contract_sha256=$contract_sha256"
   cat "$contract_manifest"
@@ -612,12 +685,16 @@ install_contract_atomic "$contract_candidate" "$contract_target"
 rm -f "$contract_candidate"
 
 install_script_atomic "${sources[4]}" "${targets[4]}" "${modes[4]}"
+install_file_atomic "${sources[5]}" "${targets[5]}" "${modes[5]}"
+install_file_atomic "${sources[6]}" "${targets[6]}" "${modes[6]}"
+verify_installed_boot_guard_unit
 
-# Self-check all five installed files and their deterministic contract.
+# Self-check all seven installed files and their deterministic contract.
 # shellcheck source=/dev/null
 source /usr/local/lib/mochirii-social/production-runtime-lib.sh
 verify_installed_deploy_runtime_contract "$contract_sha256"
-for target_path in "${targets[@]}"; do
+for index in 0 1 2 3 4; do
+  target_path="${targets[$index]}"
   bash -n "$target_path"
 done
 write_sha_manifest "$backup_root/after.sha256" "${targets[@]}" "$contract_target"
@@ -627,4 +704,4 @@ write_update_state completed "$operation_id" "$expected_commit" "$backup_root" \
   "$before_sha256" "$after_sha256" "$retired_operation_ids"
 
 updated=false
-echo "Installed deployment runtime contract $contract_sha256 from $expected_commit; no service was restarted or reloaded."
+echo "Installed deployment runtime contract $contract_sha256 from $expected_commit; no workload or service was restarted."

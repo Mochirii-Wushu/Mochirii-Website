@@ -82,6 +82,13 @@ requireIncludes(backupPath, backup, [
   "verify_bounded_encrypted_recovery_file",
   "verify_secure_backup_recipient_file",
   "verify_secure_backup_environment_file",
+  "verify_secure_backup_producer_private_key_file",
+  "verify_authenticated_backup_producer_bundle",
+  "verify_backup_producer_payload_binding",
+  "ssh-keygen -Y sign",
+  "producer_public_key_sha256=",
+  '"$object_name.manifest"',
+  '"$object_name.manifest.sig"',
   'BACKUP_S3_ACCESS_KEY_ID=""',
   'BACKUP_S3_SECRET_ACCESS_KEY=""',
   'BACKUP_S3_BUCKET=""',
@@ -158,6 +165,12 @@ requireIncludes(workflowPath, workflow, [
   "bash services/social/scripts/install-pinned-recovery-tools.sh \"$recovery_tools\"",
   "source services/social/scripts/production-runtime-lib.sh",
   "RECOVERY_ENCRYPTED_MAX_BYTES",
+  "BACKUP_PRODUCER_PUBLIC_KEY",
+  "BACKUP_PRODUCER_MANIFEST_MAX_BYTES",
+  "BACKUP_PRODUCER_SIGNATURE_MAX_BYTES",
+  "verify_secure_backup_producer_public_key_file",
+  "verify_authenticated_backup_producer_bundle",
+  "verify_backup_producer_payload_binding",
   "rclone --config /dev/null --quiet size --json",
   "verify_bounded_encrypted_recovery_file",
   "RECOVERY_PAYLOAD_MAX_BYTES + 1",
@@ -220,6 +233,9 @@ const backupInstallerPath = "scripts/install-production-backups.sh";
 const backupInstaller = read(backupInstallerPath);
 requireIncludes(backupInstallerPath, backupInstaller, [
   'bash "$repo_root/scripts/install-pinned-recovery-tools.sh" /usr/local/bin',
+  'producer_signing_key="${3:-}"',
+  "/opt/mochirii-social/shared/backup-producer-signing-key",
+  "ssh-keygen -y",
 ]);
 rejectIncludes(backupInstallerPath, backupInstaller, ["apt-get", "releases/latest"]);
 

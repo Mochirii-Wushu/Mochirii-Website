@@ -15,6 +15,8 @@ runtime_targets=(
   /usr/local/sbin/mochirii-social-backup
   /usr/local/sbin/mochirii-social-restore
   /usr/local/sbin/mochirii-social-deploy-entry
+  /etc/systemd/system/mochirii-social-cutover-boot-guard.service
+  /etc/systemd/system/docker.service.d/10-mochirii-social-cutover-guard.conf
 )
 for runtime_target in "${runtime_targets[@]}"; do
   [[ ! -e "$runtime_target" && ! -L "$runtime_target" ]] || {
@@ -26,6 +28,7 @@ cleanup() {
   rm -rf "$test_root"
   rm -f -- "${runtime_targets[@]}"
   rmdir /usr/local/lib/mochirii-social 2>/dev/null || true
+  rmdir /etc/systemd/system/docker.service.d 2>/dev/null || true
 }
 trap cleanup EXIT
 
@@ -33,7 +36,10 @@ export MOCHIRII_SOCIAL_ROOT="$test_root/runtime"
 export MOCHIRII_SOCIAL_DEPLOY_RUNTIME_CONTRACT="$test_root/deploy-runtime.contract"
 export PATH="$test_root/bin:$PATH"
 install -d -m 0700 -o root -g root "$MOCHIRII_SOCIAL_ROOT/shared/private-media-cutover"
-install -d -m 0755 "$test_root/bin" /usr/local/lib/mochirii-social
+install -d -m 0755 \
+  "$test_root/bin" \
+  /usr/local/lib/mochirii-social \
+  /etc/systemd/system/docker.service.d
 
 cat >"$test_root/bin/curl" <<'MOCK_CURL'
 #!/usr/bin/env bash
@@ -134,9 +140,12 @@ for index in "${!runtime_targets[@]}"; do
   if [[ "$index" -eq 0 ]]; then
     install -m 0644 "$script_dir/production-runtime-lib.sh" "${runtime_targets[$index]}"
     chmod 0644 "${runtime_targets[$index]}"
-  else
+  elif [[ "$index" -le 4 ]]; then
     printf '#!/usr/bin/env bash\ntrue\n' >"${runtime_targets[$index]}"
     chmod 0755 "${runtime_targets[$index]}"
+  else
+    printf 'fixture=%s\n' "$index" >"${runtime_targets[$index]}"
+    chmod 0644 "${runtime_targets[$index]}"
   fi
   chown root:root "${runtime_targets[$index]}"
 done
@@ -147,7 +156,7 @@ done
 contract_sha256="$(sha256sum "$contract_manifest" | cut -d' ' -f1)"
 {
   printf '%s\n' \
-    'version=2' \
+    'version=3' \
     'installed_from_commit=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' \
     "contract_sha256=$contract_sha256"
   cat "$contract_manifest"
@@ -155,19 +164,20 @@ contract_sha256="$(sha256sum "$contract_manifest" | cut -d' ' -f1)"
 chown root:root "$DEPLOY_RUNTIME_CONTRACT"
 chmod 0444 "$DEPLOY_RUNTIME_CONTRACT"
 verify_installed_deploy_runtime_contract "$contract_sha256"
+verify_private_media_boot_safety >/dev/null
 cp "$DEPLOY_RUNTIME_CONTRACT" "$test_root/contract.original"
 
 tampered_manifest="$test_root/contract.tampered.manifest"
 {
   printf '%s  %s\n' "$(sha256sum "${runtime_targets[0]}" | cut -d' ' -f1)" /tmp/unexpected-runtime-library
-  for index in 1 2 3 4; do
+  for index in 1 2 3 4 5 6; do
     sha256sum "${runtime_targets[$index]}"
   done
 } >"$tampered_manifest"
 tampered_contract_sha256="$(sha256sum "$tampered_manifest" | cut -d' ' -f1)"
 {
   printf '%s\n' \
-    version=2 \
+    version=3 \
     installed_from_commit=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
     "contract_sha256=$tampered_contract_sha256"
   cat "$tampered_manifest"
@@ -257,6 +267,81 @@ ln -s "$encrypted_fixture" "$test_root/recovery-encrypted-link.tar.age"
 if verify_bounded_encrypted_recovery_file \
     "$test_root/recovery-encrypted-link.tar.age" 2>/dev/null; then
   echo "A symlinked encrypted recovery payload was accepted." >&2
+  exit 1
+fi
+
+producer_private_key="$test_root/backup-producer"
+producer_public_key_file="$test_root/backup-producer.pub"
+producer_manifest="$test_root/recovery-encrypted.tar.age.manifest"
+producer_signature="$producer_manifest.sig"
+producer_object_key=manual/20260728T000000Z-fixture.tar.age
+ssh-keygen -q -t ed25519 -N '' -C '' -f "$producer_private_key"
+chown root:root "$producer_private_key" "$producer_public_key_file"
+chmod 0600 "$producer_private_key" "$producer_public_key_file"
+verify_secure_backup_producer_private_key_file "$producer_private_key"
+verify_secure_backup_producer_public_key_file "$producer_public_key_file"
+producer_public_key="$(awk 'NR == 1 { print $1 " " $2 }' "$producer_public_key_file")"
+printf '%s\n' "$producer_public_key" >"$producer_public_key_file"
+producer_public_key_sha256="$(printf '%s\n' "$producer_public_key" | sha256sum | awk '{ print $1 }')"
+cat >"$producer_manifest" <<EOF
+format=1
+created_utc=20260728T000000Z
+archive_name=20260728T000000Z-fixture.tar.age
+ciphertext_sha256=$(sha256sum "$encrypted_fixture" | awk '{ print $1 }')
+ciphertext_bytes=$(stat -c '%s' "$encrypted_fixture")
+producer_public_key_sha256=$producer_public_key_sha256
+release_commit=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+release_digest=sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+EOF
+ssh-keygen -Y sign \
+  -f "$producer_private_key" \
+  -n "$BACKUP_PRODUCER_SIGNATURE_NAMESPACE" \
+  "$producer_manifest" >/dev/null 2>&1
+verify_authenticated_backup_producer_bundle \
+  "$producer_manifest" \
+  "$producer_signature" \
+  "$producer_public_key_file" \
+  "$encrypted_fixture" \
+  "$producer_object_key"
+producer_payload_manifest="$test_root/recovery-payload.manifest"
+cat >"$producer_payload_manifest" <<'EOF'
+format=2
+created_utc=20260728T000000Z
+release_commit=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+release_digest=sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+EOF
+verify_backup_producer_payload_binding "$producer_manifest" "$producer_payload_manifest"
+sed 's/^release_commit=.*/release_commit=cccccccccccccccccccccccccccccccccccccccc/' \
+  "$producer_payload_manifest" >"$test_root/recovery-payload-mismatch.manifest"
+if verify_backup_producer_payload_binding \
+    "$producer_manifest" "$test_root/recovery-payload-mismatch.manifest" 2>/dev/null; then
+  echo "Authenticated producer evidence accepted a different payload identity." >&2
+  exit 1
+fi
+cp "$encrypted_fixture" "$test_root/recovery-encrypted.original"
+printf 'tampered' >>"$encrypted_fixture"
+if verify_authenticated_backup_producer_bundle \
+    "$producer_manifest" "$producer_signature" "$producer_public_key_file" \
+    "$encrypted_fixture" "$producer_object_key" 2>/dev/null; then
+  echo "Authenticated backup-producer evidence accepted modified ciphertext." >&2
+  exit 1
+fi
+mv "$test_root/recovery-encrypted.original" "$encrypted_fixture"
+cp "$producer_manifest" "$test_root/producer-manifest.original"
+printf 'tampered=true\n' >>"$producer_manifest"
+if verify_authenticated_backup_producer_bundle \
+    "$producer_manifest" "$producer_signature" "$producer_public_key_file" \
+    "$encrypted_fixture" "$producer_object_key" 2>/dev/null; then
+  echo "Authenticated backup-producer evidence accepted a modified manifest." >&2
+  exit 1
+fi
+mv "$test_root/producer-manifest.original" "$producer_manifest"
+ssh-keygen -q -t ed25519 -N '' -C '' -f "$test_root/wrong-producer"
+chmod 0600 "$test_root/wrong-producer.pub"
+if verify_authenticated_backup_producer_bundle \
+    "$producer_manifest" "$producer_signature" "$test_root/wrong-producer.pub" \
+    "$encrypted_fixture" "$producer_object_key" 2>/dev/null; then
+  echo "Authenticated backup-producer evidence accepted an untrusted producer key." >&2
   exit 1
 fi
 
@@ -466,6 +551,10 @@ runtime = [
     "usr/local/sbin/mochirii-social-restore",
     "usr/local/sbin/mochirii-social-deploy-entry",
 ]
+boot_guard = [
+    "etc/systemd/system/mochirii-social-cutover-boot-guard.service",
+    "etc/systemd/system/docker.service.d/10-mochirii-social-cutover-guard.conf",
+]
 optional = [
     "etc/systemd/system/mochirii-social-backup.service",
     "etc/systemd/system/mochirii-social-backup.timer",
@@ -496,9 +585,12 @@ def files(names, payload=b"evidence\n"):
     return [(name, "file", payload) for name in names]
 
 legacy = files(common + release)
-current = files(common + release + runtime + optional)
+legacy_current = files(common + release + runtime + optional)
+current = files(common + release + runtime + boot_guard + optional)
 write("valid-v1", legacy)
+write("valid-v2-legacy", legacy_current)
 write("valid-v2", current)
+write("incomplete-boot-guard", files(common + release + runtime + boot_guard[:1]))
 write("hardlink", current[:-1] + [(current[-1][0], "hardlink", common[0].encode())])
 write("symlink", current[:-1] + [(current[-1][0], "symlink", common[0].encode())])
 write("traversal", current + [("../unexpected", "file", b"bad")])
@@ -513,11 +605,13 @@ expanded_names = common + release + runtime + optional
 write("expanded", files(expanded_names, b"x" * (3 * 1024 * 1024)))
 write("pax", current, pax=True)
 PY
-for config_format in 1 2; do
-  config_extract="$test_root/configuration-valid-v$config_format"
+for config_case in valid-v1 valid-v2-legacy valid-v2; do
+  config_format=2
+  [[ "$config_case" == valid-v1 ]] && config_format=1
+  config_extract="$test_root/configuration-$config_case"
   install -d -m 0700 "$config_extract"
   validate_recovery_configuration_archive \
-    "$test_root/configuration-valid-v$config_format.tar.gz" \
+    "$test_root/configuration-$config_case.tar.gz" \
     "$configuration_runtime_prefix" \
     aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
     "$config_format" \
@@ -525,7 +619,8 @@ for config_format in 1 2; do
   [[ -f "$config_extract/etc/caddy/Caddyfile" ]]
 done
 for invalid_configuration in \
-  hardlink symlink traversal duplicate missing wrong-release oversized-member expanded pax; do
+  hardlink symlink traversal duplicate missing wrong-release oversized-member expanded pax \
+  incomplete-boot-guard; do
   if validate_recovery_configuration_archive \
       "$test_root/configuration-$invalid_configuration.tar.gz" \
       "$configuration_runtime_prefix" \
@@ -547,12 +642,16 @@ root = pathlib.Path(sys.argv[1])
 runtime_prefix = sys.argv[2]
 commit = "a" * 40
 digest = "sha256:" + "b" * 64
-runtime_paths = [
+legacy_runtime_paths = [
     "/usr/local/lib/mochirii-social/production-runtime-lib.sh",
     "/usr/local/sbin/mochirii-social-deploy",
     "/usr/local/sbin/mochirii-social-backup",
     "/usr/local/sbin/mochirii-social-restore",
     "/usr/local/sbin/mochirii-social-deploy-entry",
+]
+runtime_paths = legacy_runtime_paths + [
+    "/etc/systemd/system/mochirii-social-cutover-boot-guard.service",
+    "/etc/systemd/system/docker.service.d/10-mochirii-social-cutover-guard.conf",
 ]
 runtime_payloads = {
     path.removeprefix("/"): f"runtime-{index}\n".encode()
@@ -565,10 +664,21 @@ contract_manifest_lines = [
 contract_manifest = ("\n".join(contract_manifest_lines) + "\n").encode()
 runtime_contract_sha = hashlib.sha256(contract_manifest).hexdigest()
 contract = (
-    "version=2\n"
+    "version=3\n"
     f"installed_from_commit={'c' * 40}\n"
     f"contract_sha256={runtime_contract_sha}\n"
     + contract_manifest.decode()
+).encode()
+legacy_contract_manifest_lines = [
+    f"{hashlib.sha256(runtime_payloads[path.removeprefix('/')]).hexdigest()}  {path}"
+    for path in legacy_runtime_paths
+]
+legacy_contract_manifest = ("\n".join(legacy_contract_manifest_lines) + "\n").encode()
+legacy_contract = (
+    "version=2\n"
+    f"installed_from_commit={'c' * 40}\n"
+    f"contract_sha256={hashlib.sha256(legacy_contract_manifest).hexdigest()}\n"
+    + legacy_contract_manifest.decode()
 ).encode()
 proof = (
     "version=1\n"
@@ -629,6 +739,15 @@ current = {
     "usr/local/lib/mochirii-social/deploy-runtime.contract": contract,
     **runtime_payloads,
 }
+legacy_current = {
+    **common,
+    **release,
+    "usr/local/lib/mochirii-social/deploy-runtime.contract": legacy_contract,
+    **{
+        path.removeprefix("/"): runtime_payloads[path.removeprefix("/")]
+        for path in legacy_runtime_paths
+    },
+}
 current_cutover = {
     **current,
     f"{runtime_prefix}/shared/private-media-cutover/cutover.state": cutover_state,
@@ -642,9 +761,17 @@ def write_archive(name, entries):
             member.size = len(payload)
             archive.addfile(member, io.BytesIO(payload))
 
-def write_manifest(name, format_value, *, state="ABSENT", proof_value="ABSENT", phase="absent"):
+def write_manifest(
+    name,
+    format_value,
+    *,
+    contract_payload=contract,
+    state="ABSENT",
+    proof_value="ABSENT",
+    phase="absent",
+):
     contract_file_sha = (
-        hashlib.sha256(contract).hexdigest() if format_value == 2 else "ABSENT"
+        hashlib.sha256(contract_payload).hexdigest() if format_value == 2 else "ABSENT"
     )
     (root / f"semantic-{name}.manifest").write_text(
         f"format={format_value}\n"
@@ -661,10 +788,12 @@ def write_manifest(name, format_value, *, state="ABSENT", proof_value="ABSENT", 
     )
 
 write_archive("valid-v1", {**common, **legacy_release})
-write_archive("valid-v2", current)
+write_archive("valid-v2", legacy_current)
+write_archive("valid-v3", current)
 write_archive("valid-cutover", current_cutover)
 write_manifest("valid-v1", 1)
-write_manifest("valid-v2", 2)
+write_manifest("valid-v2", 2, contract_payload=legacy_contract)
+write_manifest("valid-v3", 2)
 write_manifest(
     "valid-cutover",
     2,
@@ -673,7 +802,7 @@ write_manifest(
     phase="completed",
 )
 PY
-for semantic_case in valid-v1 valid-v2 valid-cutover; do
+for semantic_case in valid-v1 valid-v2 valid-v3 valid-cutover; do
   semantic_format=2
   [[ "$semantic_case" == valid-v1 ]] && semantic_format=1
   semantic_root="$test_root/semantic-$semantic_case"
@@ -696,7 +825,7 @@ declare -A semantic_tamper_targets=(
 )
 for semantic_tamper in release-meta contract runtime; do
   semantic_bad_root="$test_root/semantic-bad-$semantic_tamper"
-  cp -a "$test_root/semantic-valid-v2" "$semantic_bad_root"
+  cp -a "$test_root/semantic-valid-v3" "$semantic_bad_root"
   if [[ "$semantic_tamper" == release-meta ]]; then
     printf '%s\n' \
       commit=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
@@ -710,7 +839,7 @@ for semantic_tamper in release-meta contract runtime; do
   fi
   if validate_recovery_configuration_bindings \
       "$semantic_bad_root" \
-      "$test_root/semantic-valid-v2.manifest" \
+      "$test_root/semantic-valid-v3.manifest" \
       "$configuration_runtime_prefix" 2>/dev/null; then
     echo "Configuration bindings accepted tampered evidence: $semantic_tamper" >&2
     exit 1
@@ -957,6 +1086,10 @@ if MOCHIRII_SOCIAL_DEPLOY_LOCK_HELD=1 bash "$backup_script" --verify-cutover-gua
   echo "Backup accepted an active restore-recovery intent." >&2
   exit 1
 fi
+if verify_private_media_boot_safety 2>/dev/null; then
+  echo "The boot guard accepted an active restore-recovery intent." >&2
+  exit 1
+fi
 write_restore_state \
   completed \
   323e4567-e89b-42d3-a456-426614174000 \
@@ -967,6 +1100,7 @@ write_restore_state \
   2026-07-28T00:00:00Z \
   2026-07-28T00:01:00Z
 MOCHIRII_SOCIAL_DEPLOY_LOCK_HELD=1 bash "$backup_script" --verify-cutover-guard >/dev/null
+verify_private_media_boot_safety >/dev/null
 cp "$RESTORE_STATE" "$test_root/restore.valid"
 sed '1s/version=1/version=9/' "$test_root/restore.valid" >"$RESTORE_STATE"
 chmod 0600 "$RESTORE_STATE"
@@ -1020,12 +1154,17 @@ if reject_active_private_media_cutover_state "Behavioral harness" 2>/dev/null; t
   echo "Intent state did not fail closed." >&2
   exit 1
 fi
+if verify_private_media_boot_safety 2>/dev/null; then
+  echo "The boot guard accepted an active private-media cutover." >&2
+  exit 1
+fi
 transition_private_media_cutover_phase intent staged
 [[ "$(private_media_cutover_phase)" == staged ]]
 transition_private_media_cutover_phase staged finalizing
 [[ "$(private_media_cutover_phase)" == finalizing ]]
 transition_private_media_cutover_phase finalizing completed
 reject_active_private_media_cutover_state "Behavioral harness"
+verify_private_media_boot_safety >/dev/null
 cp "$PRIVATE_MEDIA_CUTOVER_STATE" "$test_root/cutover.valid"
 head -n 2 "$test_root/cutover.valid" >"$PRIVATE_MEDIA_CUTOVER_STATE"
 chmod 0600 "$PRIVATE_MEDIA_CUTOVER_STATE"
@@ -1302,8 +1441,16 @@ fi
   runtime_backup_root="$test_root/updater-backups"
   update_state="$test_root/updater.state"
   contract_target=/fixture/deploy-runtime.contract
-  targets=(/fixture/runtime-lib /fixture/deploy /fixture/backup /fixture/restore /fixture/entry)
-  modes=(0644 0755 0755 0755 0755)
+  targets=(
+    /fixture/runtime-lib
+    /fixture/deploy
+    /fixture/backup
+    /fixture/restore
+    /fixture/entry
+    /fixture/boot-guard.service
+    /fixture/docker-guard.conf
+  )
+  modes=(0644 0755 0755 0755 0755 0644 0644)
   updater_operation_id=523e4567-e89b-42d3-a456-426614174000
   updater_commit=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
   updater_backup_root="$runtime_backup_root/deploy-runtime-$updater_commit-$updater_operation_id"

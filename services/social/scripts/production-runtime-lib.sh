@@ -25,6 +25,9 @@ RECOVERY_ENCRYPTED_MAX_BYTES=537919488
 RECOVERY_DATABASE_MAX_BYTES=503316480
 RECOVERY_CONFIGURATION_MAX_BYTES=16777216
 RECOVERY_MANIFEST_MAX_BYTES=4096
+BACKUP_PRODUCER_MANIFEST_MAX_BYTES=1024
+BACKUP_PRODUCER_SIGNATURE_MAX_BYTES=1024
+BACKUP_PRODUCER_SIGNATURE_NAMESPACE=mochirii-social-backup
 
 require_root() {
   if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
@@ -348,6 +351,29 @@ reject_active_private_media_cutover_state() {
   esac
 }
 
+verify_private_media_boot_safety() {
+  local phase
+
+  verify_installed_deploy_runtime_contract || return 1
+  require_root_owned_state_directory || return 1
+  reject_active_restore_state "Docker startup" || return 1
+  phase="$(private_media_cutover_phase)" || return 1
+  case "$phase" in
+    absent | completed)
+      echo "Private-media boot safety passed for phase $phase."
+      return 0
+      ;;
+    intent | staged | finalizing | recovery_required)
+      echo "Docker startup is blocked while private-media cutover phase $phase is active." >&2
+      return 1
+      ;;
+    *)
+      echo "Docker startup is blocked by an unsupported private-media cutover phase." >&2
+      return 1
+      ;;
+  esac
+}
+
 ensure_root_owned_restore_state_directory() {
   if [[ ! -e "$RESTORE_STATE_ROOT" && ! -L "$RESTORE_STATE_ROOT" ]]; then
     install -d -m 0700 -o root -g root "$RESTORE_STATE_ROOT" || return 1
@@ -449,8 +475,10 @@ verify_installed_deploy_runtime_contract() {
     /usr/local/sbin/mochirii-social-backup
     /usr/local/sbin/mochirii-social-restore
     /usr/local/sbin/mochirii-social-deploy-entry
+    /etc/systemd/system/mochirii-social-cutover-boot-guard.service
+    /etc/systemd/system/docker.service.d/10-mochirii-social-cutover-guard.conf
   )
-  local -a expected_modes=(644 755 755 755 755)
+  local -a expected_modes=(644 755 755 755 755 644 644)
   local index
   local manifest_path
 
@@ -463,7 +491,7 @@ verify_installed_deploy_runtime_contract() {
     return 1
   }
   mapfile -t lines <"$DEPLOY_RUNTIME_CONTRACT" || return 1
-  [[ "${#lines[@]}" -eq 8 && "${lines[0]}" == "version=2" ]] || return 1
+  [[ "${#lines[@]}" -eq 10 && "${lines[0]}" == "version=3" ]] || return 1
   [[ "${lines[1]}" =~ ^installed_from_commit=[0-9a-f]{40}$ ]] || return 1
   [[ "${lines[2]}" =~ ^contract_sha256=([0-9a-f]{64})$ ]] || return 1
   local recorded_contract_sha256="${BASH_REMATCH[1]}"
@@ -907,6 +935,10 @@ runtime_required = {
     "usr/local/sbin/mochirii-social-restore",
     "usr/local/sbin/mochirii-social-deploy-entry",
 }
+boot_guard_pair = {
+    "etc/systemd/system/mochirii-social-cutover-boot-guard.service",
+    "etc/systemd/system/docker.service.d/10-mochirii-social-cutover-guard.conf",
+}
 optional_units = {
     "etc/systemd/system/mochirii-social-backup.service",
     "etc/systemd/system/mochirii-social-backup.timer",
@@ -924,7 +956,7 @@ required = common_required | release_required
 allowed = required | optional_units
 if manifest_format == "2":
     required |= runtime_required
-    allowed |= runtime_required | cutover_pair
+    allowed |= runtime_required | boot_guard_pair | cutover_pair
 
 with gzip.open(archive_path, mode="rb") as compressed:
     expanded = compressed.read(expanded_limit + 1)
@@ -969,6 +1001,9 @@ with tarfile.open(fileobj=io.BytesIO(expanded), mode="r:") as archive:
     present_cutover = names & cutover_pair
     if present_cutover and present_cutover != cutover_pair:
         raise SystemExit("Configuration archive has an incomplete cutover evidence pair.")
+    present_boot_guard = names & boot_guard_pair
+    if present_boot_guard and present_boot_guard != boot_guard_pair:
+        raise SystemExit("Configuration archive has an incomplete boot-guard evidence pair.")
 
     for member in members:
         source = archive.extractfile(member)
@@ -1114,7 +1149,24 @@ expected_contract_file_sha = values["deploy_runtime_contract_file_sha256"]
 if not sha_pattern.fullmatch(expected_contract_file_sha) or sha256(contract) != expected_contract_file_sha:
     raise SystemExit("Archived deployment-runtime contract file hash is invalid.")
 contract_lines = contract.read_text(encoding="utf-8").splitlines()
-if len(contract_lines) != 8 or contract_lines[0] != "version=2":
+legacy_runtime_paths = [
+    "/usr/local/lib/mochirii-social/production-runtime-lib.sh",
+    "/usr/local/sbin/mochirii-social-deploy",
+    "/usr/local/sbin/mochirii-social-backup",
+    "/usr/local/sbin/mochirii-social-restore",
+    "/usr/local/sbin/mochirii-social-deploy-entry",
+]
+boot_guard_paths = [
+    "/etc/systemd/system/mochirii-social-cutover-boot-guard.service",
+    "/etc/systemd/system/docker.service.d/10-mochirii-social-cutover-guard.conf",
+]
+if contract_lines and contract_lines[0] == "version=2":
+    runtime_paths = legacy_runtime_paths
+elif contract_lines and contract_lines[0] == "version=3":
+    runtime_paths = legacy_runtime_paths + boot_guard_paths
+else:
+    raise SystemExit("Archived deployment-runtime contract has an invalid exact schema.")
+if len(contract_lines) != len(runtime_paths) + 3:
     raise SystemExit("Archived deployment-runtime contract has an invalid exact schema.")
 if not re.fullmatch(r"installed_from_commit=[0-9a-f]{40}", contract_lines[1]):
     raise SystemExit("Archived deployment-runtime source commit is invalid.")
@@ -1124,13 +1176,6 @@ if not contract_sha_match:
 manifest_payload = ("\n".join(contract_lines[3:]) + "\n").encode()
 if hashlib.sha256(manifest_payload).hexdigest() != contract_sha_match.group(1):
     raise SystemExit("Archived deployment-runtime aggregate does not match its manifest.")
-runtime_paths = [
-    "/usr/local/lib/mochirii-social/production-runtime-lib.sh",
-    "/usr/local/sbin/mochirii-social-deploy",
-    "/usr/local/sbin/mochirii-social-backup",
-    "/usr/local/sbin/mochirii-social-restore",
-    "/usr/local/sbin/mochirii-social-deploy-entry",
-]
 for expected_path, contract_line in zip(runtime_paths, contract_lines[3:], strict=True):
     match = re.fullmatch(r"([0-9a-f]{64})  (/.+)", contract_line)
     if not match or match.group(2) != expected_path:
@@ -1138,6 +1183,10 @@ for expected_path, contract_line in zip(runtime_paths, contract_lines[3:], stric
     archived_runtime = root.joinpath(*expected_path.removeprefix("/").split("/"))
     if not regular_file(archived_runtime) or sha256(archived_runtime) != match.group(1):
         raise SystemExit("Archived deployment-runtime file hash is invalid.")
+for boot_guard_path in boot_guard_paths:
+    archived_boot_guard = root.joinpath(*boot_guard_path.removeprefix("/").split("/"))
+    if contract_lines[0] == "version=2" and os.path.lexists(archived_boot_guard):
+        raise SystemExit("Legacy deployment-runtime archive contains unbound boot-guard configuration.")
 
 state_sha = values["cutover_state_sha256"]
 proof_sha = values["maintenance_proof_sha256"]
@@ -1309,6 +1358,176 @@ verify_secure_backup_environment_file() {
   }
   [[ "$(stat -c '%U:%G:%a' "$environment_path")" == root:root:600 ]] || {
     echo "The backup environment must be root:root mode 0600." >&2
+    return 1
+  }
+}
+
+verify_secure_backup_producer_private_key_file() {
+  local private_key_path="$1"
+  require_root_owned_mode_0600_file \
+    "$private_key_path" \
+    "The backup-producer signing key" || return 1
+  command -v ssh-keygen >/dev/null || {
+    echo "The backup-producer signing key requires ssh-keygen." >&2
+    return 1
+  }
+  local public_key
+  public_key="$(ssh-keygen -y -f "$private_key_path" </dev/null 2>/dev/null)" || {
+    echo "The backup-producer signing key is invalid or not available non-interactively." >&2
+    return 1
+  }
+  [[ "$public_key" =~ ^ssh-ed25519\ [A-Za-z0-9+/=]+$ ]] || {
+    echo "The backup-producer signing key must be Ed25519." >&2
+    return 1
+  }
+}
+
+verify_secure_backup_producer_public_key_file() {
+  local public_key_path="$1"
+  [[ -f "$public_key_path" && ! -L "$public_key_path" ]] || {
+    echo "The backup-producer public key is missing or unsafe." >&2
+    return 1
+  }
+  [[ "$(stat -c '%u:%a' "$public_key_path")" == "$(id -u):600" ]] || {
+    echo "The backup-producer public key must be owned by the current user with mode 0600." >&2
+    return 1
+  }
+  [[ "$(wc -l <"$public_key_path")" -eq 1 ]] || {
+    echo "The backup-producer public key must contain exactly one line." >&2
+    return 1
+  }
+  grep -Eq '^ssh-ed25519 [A-Za-z0-9+/=]+([[:space:]].*)?$' "$public_key_path" || {
+    echo "The backup-producer public key must be Ed25519." >&2
+    return 1
+  }
+}
+
+verify_authenticated_backup_producer_bundle() {
+  local producer_manifest="$1"
+  local producer_signature="$2"
+  local producer_public_key_file="$3"
+  local encrypted_archive="$4"
+  local expected_object_key="$5"
+  local -a lines
+  local allowed_signers
+  local normalized_public_key
+  local expected_archive_name
+  local expected_created_utc
+  local expected_ciphertext_sha256
+  local expected_ciphertext_bytes
+  local expected_public_key_sha256
+
+  command -v ssh-keygen >/dev/null || {
+    echo "Backup-producer authentication requires ssh-keygen." >&2
+    return 1
+  }
+  verify_secure_backup_producer_public_key_file "$producer_public_key_file" || return 1
+  [[ -f "$producer_manifest" && ! -L "$producer_manifest" ]] || {
+    echo "The backup-producer manifest is missing or unsafe." >&2
+    return 1
+  }
+  [[ -f "$producer_signature" && ! -L "$producer_signature" ]] || {
+    echo "The backup-producer signature is missing or unsafe." >&2
+    return 1
+  }
+  [[ "$(stat -c '%s' "$producer_manifest")" -gt 0 && \
+    "$(stat -c '%s' "$producer_manifest")" -le "$BACKUP_PRODUCER_MANIFEST_MAX_BYTES" ]] || {
+    echo "The backup-producer manifest exceeds its bounded size." >&2
+    return 1
+  }
+  [[ "$(stat -c '%s' "$producer_signature")" -gt 0 && \
+    "$(stat -c '%s' "$producer_signature")" -le "$BACKUP_PRODUCER_SIGNATURE_MAX_BYTES" ]] || {
+    echo "The backup-producer signature exceeds its bounded size." >&2
+    return 1
+  }
+  [[ "$expected_object_key" =~ ^(daily|weekly|monthly|manual)/[0-9]{8}T[0-9]{6}Z-[A-Za-z0-9._-]+\.tar\.age$ ]] || {
+    echo "The recovery object key is invalid." >&2
+    return 1
+  }
+
+  normalized_public_key="$(awk 'NR == 1 { print $1 " " $2 }' "$producer_public_key_file")" || return 1
+  [[ "$normalized_public_key" =~ ^ssh-ed25519\ [A-Za-z0-9+/=]+$ ]] || return 1
+  allowed_signers="$(mktemp "$(dirname "$producer_manifest")/.producer-allowed-signers.XXXXXX")" || return 1
+  printf '%s %s\n' "$BACKUP_PRODUCER_SIGNATURE_NAMESPACE" "$normalized_public_key" >"$allowed_signers" || {
+    rm -f -- "$allowed_signers"
+    return 1
+  }
+  chmod 0600 "$allowed_signers" || {
+    rm -f -- "$allowed_signers"
+    return 1
+  }
+  if ! ssh-keygen -Y verify \
+      -f "$allowed_signers" \
+      -I "$BACKUP_PRODUCER_SIGNATURE_NAMESPACE" \
+      -n "$BACKUP_PRODUCER_SIGNATURE_NAMESPACE" \
+      -s "$producer_signature" \
+      <"$producer_manifest" >/dev/null 2>&1; then
+    rm -f -- "$allowed_signers"
+    echo "The backup-producer signature is invalid." >&2
+    return 1
+  fi
+  rm -f -- "$allowed_signers"
+
+  mapfile -t lines <"$producer_manifest" || return 1
+  [[ "${#lines[@]}" -eq 8 ]] || {
+    echo "The backup-producer manifest has an invalid exact schema." >&2
+    return 1
+  }
+  [[ "${lines[0]}" == format=1 ]] || return 1
+  [[ "${lines[1]}" =~ ^created_utc=([0-9]{8}T[0-9]{6}Z)$ ]] || return 1
+  expected_created_utc="${BASH_REMATCH[1]}"
+  [[ "${lines[2]}" =~ ^archive_name=([0-9]{8}T[0-9]{6}Z-[A-Za-z0-9._-]+\.tar\.age)$ ]] || return 1
+  expected_archive_name="${BASH_REMATCH[1]}"
+  [[ "${lines[3]}" =~ ^ciphertext_sha256=([0-9a-f]{64})$ ]] || return 1
+  expected_ciphertext_sha256="${BASH_REMATCH[1]}"
+  [[ "${lines[4]}" =~ ^ciphertext_bytes=([0-9]+)$ ]] || return 1
+  expected_ciphertext_bytes="${BASH_REMATCH[1]}"
+  [[ "${lines[5]}" =~ ^producer_public_key_sha256=([0-9a-f]{64})$ ]] || return 1
+  expected_public_key_sha256="${BASH_REMATCH[1]}"
+  [[ "${lines[6]}" =~ ^release_commit=[0-9a-f]{40}$ ]] || return 1
+  [[ "${lines[7]}" =~ ^release_digest=sha256:[0-9a-f]{64}$ ]] || return 1
+  [[ "$expected_archive_name" == "$expected_created_utc-"* ]] || {
+    echo "The signed backup-producer timestamp does not match its archive name." >&2
+    return 1
+  }
+  [[ "$expected_archive_name" == "${expected_object_key##*/}" ]] || {
+    echo "The signed backup-producer manifest names a different archive." >&2
+    return 1
+  }
+  [[ "$(printf '%s\n' "$normalized_public_key" | sha256sum | awk '{ print $1 }')" == \
+    "$expected_public_key_sha256" ]] || {
+    echo "The signed backup-producer manifest is bound to a different public key." >&2
+    return 1
+  }
+  verify_bounded_encrypted_recovery_file "$encrypted_archive" "$expected_ciphertext_bytes" || return 1
+  [[ "$(sha256sum "$encrypted_archive" | awk '{ print $1 }')" == "$expected_ciphertext_sha256" ]] || {
+    echo "The encrypted recovery payload does not match its signed producer manifest." >&2
+    return 1
+  }
+}
+
+verify_backup_producer_payload_binding() {
+  local producer_manifest="$1"
+  local normalized_payload_manifest="$2"
+  local producer_created_utc
+  local producer_release_commit
+  local producer_release_digest
+  local payload_created_utc
+  local payload_release_commit
+  local payload_release_digest
+
+  [[ -f "$producer_manifest" && ! -L "$producer_manifest" ]] || return 1
+  [[ -f "$normalized_payload_manifest" && ! -L "$normalized_payload_manifest" ]] || return 1
+  producer_created_utc="$(sed -n 's/^created_utc=//p' "$producer_manifest")" || return 1
+  producer_release_commit="$(sed -n 's/^release_commit=//p' "$producer_manifest")" || return 1
+  producer_release_digest="$(sed -n 's/^release_digest=//p' "$producer_manifest")" || return 1
+  payload_created_utc="$(sed -n 's/^created_utc=//p' "$normalized_payload_manifest")" || return 1
+  payload_release_commit="$(sed -n 's/^release_commit=//p' "$normalized_payload_manifest")" || return 1
+  payload_release_digest="$(sed -n 's/^release_digest=//p' "$normalized_payload_manifest")" || return 1
+  [[ "$producer_created_utc" == "$payload_created_utc" && \
+    "$producer_release_commit" == "$payload_release_commit" && \
+    "$producer_release_digest" == "$payload_release_digest" ]] || {
+    echo "The authenticated producer evidence does not match the recovery payload identity." >&2
     return 1
   }
 }

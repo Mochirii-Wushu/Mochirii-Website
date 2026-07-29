@@ -99,6 +99,8 @@ requireIncludes(deployWorkflowPath, deployWorkflow, [
   "UserKnownHostsFile=~/.ssh/known_hosts",
   "docker buildx imagetools inspect",
   "https://social.mochirii.com/",
+  "services/social/systemd/mochirii-social-cutover-boot-guard.service",
+  "/etc/systemd/system/docker.service.d/10-mochirii-social-cutover-guard.conf",
   "cf-mitigated",
   "The public edge blocked the GitHub runner after the hosted public health gates passed.",
 ]);
@@ -194,6 +196,7 @@ requireIncludes(runtimeLibraryPath, runtimeLibrary, [
   "validate_private_media_cutover_state",
   "write_private_media_cutover_state",
   "reject_active_private_media_cutover_state",
+  "verify_private_media_boot_safety",
   "verify_installed_deploy_runtime_contract",
   "verify_candidate_migration_tree",
   "verify_private_media_migration_tree_parity",
@@ -262,6 +265,8 @@ requireIncludes(installerPath, installer, [
   "ls-tree",
   "hash-object --",
   "regular non-symlink file",
+  "mochirii-social-cutover-boot-guard.service",
+  "systemctl daemon-reload",
 ]);
 
 const deploymentRuntimeUpdaterPath = "scripts/install-production-deploy-runtime-update.sh";
@@ -281,7 +286,24 @@ requireIncludes(deploymentRuntimeUpdaterPath, deploymentRuntimeUpdater, [
   "mktemp",
   "mv -T",
   "rollback",
-  "no service was restarted or reloaded",
+  "no workload or service was restarted",
+  "verify_installed_boot_guard_unit",
+]);
+
+const bootGuardPath = "systemd/mochirii-social-cutover-boot-guard.service";
+const bootGuard = read(bootGuardPath);
+requireIncludes(bootGuardPath, bootGuard, [
+  "Before=docker.service",
+  "ExecStart=/usr/local/sbin/mochirii-social-deploy --verify-boot-safety",
+  "NoNewPrivileges=true",
+  "ProtectHome=true",
+]);
+
+const dockerGuardPath = "systemd/docker.service.d/10-mochirii-social-cutover-guard.conf";
+const dockerGuard = read(dockerGuardPath);
+requireIncludes(dockerGuardPath, dockerGuard, [
+  "Requires=mochirii-social-cutover-boot-guard.service",
+  "After=mochirii-social-cutover-boot-guard.service",
 ]);
 
 const migrationPath = "scripts/migrate-production-runtime.sh";
