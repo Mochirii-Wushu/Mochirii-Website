@@ -4,11 +4,15 @@ import "../styles/member-forms.css";
 import "../styles/member-gallery-submit.css";
 import "../styles/member-leader-dashboard.css";
 import type { Metadata } from "next";
+import { notFound, redirect } from "next/navigation";
 import { LeaderDashboard } from "@/components/member-workflow/LeaderDashboard";
 import { BodyPageMarker } from "@/components/public-pages/BodyPageMarker";
 import { PageHero } from "@/components/public-pages/common";
 import { SITE_ORIGIN } from "@/lib/public-urls";
 import { SITE_OG_LOCALE } from "@/lib/site-metadata";
+import { getVerifiedServerSession, verifyServerModeratorAccess } from "@/lib/supabase/server-access";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Mōchirīī Leader Dashboard • Gallery Moderation",
@@ -37,7 +41,19 @@ export const metadata: Metadata = {
   },
 };
 
-export default function LeaderDashboardPage() {
+export default async function LeaderDashboardPage() {
+  const session = await getVerifiedServerSession();
+  if (!session.ok) {
+    if (session.reason === "signed-out") redirect("/auth?redirect=%2Fleader-dashboard");
+    throw new Error("Leader access is unavailable.");
+  }
+
+  const access = await verifyServerModeratorAccess(session.accessToken);
+  if (!access.ok) {
+    if (access.reason === "denied" || access.reason === "invalid-token") notFound();
+    throw new Error("Leader access is unavailable.");
+  }
+
   return (
     <>
       <BodyPageMarker page="leader-dashboard" />
@@ -53,7 +69,7 @@ export default function LeaderDashboardPage() {
       />
       <main className="page-main" id="main">
         <div className="container">
-          <LeaderDashboard />
+          <LeaderDashboard initialAuthorized />
         </div>
       </main>
     </>

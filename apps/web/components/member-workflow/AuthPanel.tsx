@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { ProviderLogo } from "@/components/member-workflow/ProviderLogo";
+import { safeInternalRedirectPath } from "@/lib/auth-redirect";
 import { enabledAuthProviders, enabledOAuthProviders, placeholderOAuthProviders, type OAuthProviderId } from "@/lib/supabase/auth-providers";
 import { getCurrentUser, onAuthStateChange, signInWithPhoneOtp, signInWithProvider, signOut, verifyPhoneOtp } from "@/lib/supabase/auth";
 import { signedInName } from "@/lib/supabase/profile";
@@ -22,15 +23,14 @@ export function AuthPanel() {
   const oauthProviders = useMemo(() => enabledOAuthProviders(), []);
   const placeholderProviders = useMemo(() => placeholderOAuthProviders(), []);
   const phoneProvider = providers.find((provider) => provider.id === "phone");
+  const callbackFailed = searchParams.get("error") === "session";
   const redirectTo = useMemo(() => {
-    const raw = String(searchParams.get("redirect") || "").trim();
-    if (!raw.startsWith("/") || raw.startsWith("//")) return "/account";
-    return raw;
+    return safeInternalRedirectPath(searchParams.get("redirect"));
   }, [searchParams]);
 
-  async function load() {
+  const load = useCallback(async () => {
     setBusy(true);
-    setError("");
+    setError(callbackFailed ? "Sign-in could not be completed. Try again." : "");
     const result = await getCurrentUser();
     const currentUser = result.ok ? result.data?.user || null : null;
     setUser(currentUser);
@@ -40,7 +40,7 @@ export function AuthPanel() {
         : "Choose a sign-in method. Gallery upload access is verified separately.",
     );
     setBusy(false);
-  }
+  }, [callbackFailed]);
 
   useEffect(() => {
     void Promise.resolve().then(() => load());
@@ -50,7 +50,7 @@ export function AuthPanel() {
     return () => {
       subscription.data?.subscription?.unsubscribe();
     };
-  }, []);
+  }, [load]);
 
   async function login(providerId: OAuthProviderId) {
     setBusy(true);
@@ -165,7 +165,9 @@ export function AuthPanel() {
         ) : null}
         {signedIn ? (
           <>
-            <Link className="hero-cta" href="/account">Open Account</Link>
+            <Link className="hero-cta" href={redirectTo}>
+              {redirectTo === "/account" ? "Open Account" : "Continue"}
+            </Link>
             <button className="hero-cta" type="button" onClick={endSession} disabled={busy}>Sign out</button>
           </>
         ) : null}

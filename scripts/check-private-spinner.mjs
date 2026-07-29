@@ -132,7 +132,7 @@ for (const snippet of [
   "new NextResponse(null, {",
   "status: 404",
   "NextResponse.next()",
-  'matcher: ["/spinner"]',
+  'matcher: ["/spinner", "/leader-dashboard", "/oauth/consent"]',
   'path: SPINNER_PAGE_PATH',
   "httpOnly: true",
   "secure: true",
