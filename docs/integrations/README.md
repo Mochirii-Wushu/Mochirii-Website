@@ -27,3 +27,9 @@ machine-checked offline-workstation boundary and its remaining readbacks.
 
 See [Mochirii Social delivery](mochirii-social-delivery.md) for the private
 container, protected environment, deployment, and recovery contract.
+
+See the [cross-repository contract registry](cross-repository-contract-registry.v1.json)
+and [v1 schema](cross-repository-contract-registry.v1.schema.json) for the
+machine-readable target inventory shared by Website, Social, Mobile, Forums,
+Reaper, and Pets. Its `unversioned` entries and explicit gaps are planning
+evidence only; they do not claim deployment or compatibility.
