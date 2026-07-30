@@ -8,18 +8,11 @@ const MAX_JWKS_KEYS = 16;
 const DEFAULT_TIMEOUT_MS = 5_000;
 const CLOCK_SKEW_SECONDS = 60;
 const MAX_TOKEN_LIFETIME_SECONDS = 3_700;
-const VERCEL_OWNER = "mochirii";
-const VERCEL_PROJECT = "mochirii";
-const VERCEL_OWNER_ID = "team_kxEoikL8rs06zcQqN5w6TZN2";
-const VERCEL_PROJECT_ID = "prj_iYdxmeRnENzAHWzeXgbDWpfieSEt";
-const VERCEL_AUDIENCE = `https://vercel.com/${VERCEL_OWNER}`;
+const VERCEL_OWNER_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,98}[a-z0-9])?$/;
+const VERCEL_PROJECT_PATTERN = /^[a-z0-9](?:[a-z0-9._-]{0,98}[a-z0-9])?$/;
+const VERCEL_OWNER_ID_PATTERN = /^team_[A-Za-z0-9]{16,64}$/;
+const VERCEL_PROJECT_ID_PATTERN = /^prj_[A-Za-z0-9]{16,64}$/;
 const ALLOWED_ENVIRONMENTS = new Set(["preview", "production"]);
-const ISSUER_JWKS = new Map([
-  [
-    "https://oidc.vercel.com/mochirii",
-    "https://oidc.vercel.com/mochirii/.well-known/jwks",
-  ],
-]);
 
 type JsonRecord = Record<string, unknown>;
 type FetchLike = (
@@ -34,7 +27,104 @@ type CachedJwks = {
 
 type VerificationJwk = JsonWebKey & { kid: string };
 
+export type GalleryPreviewVercelIdentity = Readonly<{
+  owner: string;
+  ownerId: string;
+  project: string;
+  projectId: string;
+}>;
+
+type GalleryPreviewVercelIdentityInput = Readonly<{
+  owner?: unknown;
+  ownerId?: unknown;
+  project?: unknown;
+  projectId?: unknown;
+}>;
+
+type DerivedVercelIdentity =
+  & GalleryPreviewVercelIdentity
+  & Readonly<{
+    audience: string;
+    issuer: string;
+    jwksUrl: string;
+  }>;
+
+type EnvReader = (name: string) => string | undefined;
+
 const jwksCache = new Map<string, CachedJwks>();
+
+function exactPin(
+  value: unknown,
+  pattern: RegExp,
+  extraCheck: (pin: string) => boolean = () => true,
+) {
+  if (typeof value !== "string" || value !== value.trim()) return null;
+  return pattern.test(value) && extraCheck(value) ? value : null;
+}
+
+function deriveVercelIdentity(
+  value: GalleryPreviewVercelIdentityInput | null | undefined,
+): DerivedVercelIdentity | null {
+  if (!value || typeof value !== "object") return null;
+  const owner = exactPin(value.owner, VERCEL_OWNER_PATTERN);
+  const ownerId = exactPin(value.ownerId, VERCEL_OWNER_ID_PATTERN);
+  const project = exactPin(
+    value.project,
+    VERCEL_PROJECT_PATTERN,
+    (pin) => !pin.includes("---"),
+  );
+  const projectId = exactPin(value.projectId, VERCEL_PROJECT_ID_PATTERN);
+  if (!owner || !ownerId || !project || !projectId) return null;
+
+  const issuer = `https://oidc.vercel.com/${owner}`;
+  const jwksUrl = `${issuer}/.well-known/jwks`;
+  let parsedJwksUrl: URL;
+  try {
+    parsedJwksUrl = new URL(jwksUrl);
+  } catch {
+    return null;
+  }
+  if (
+    parsedJwksUrl.protocol !== "https:" ||
+    parsedJwksUrl.hostname !== "oidc.vercel.com" ||
+    parsedJwksUrl.port !== "" || parsedJwksUrl.username !== "" ||
+    parsedJwksUrl.password !== "" || parsedJwksUrl.search !== "" ||
+    parsedJwksUrl.hash !== "" ||
+    parsedJwksUrl.pathname !== `/${owner}/.well-known/jwks`
+  ) {
+    return null;
+  }
+
+  return {
+    owner,
+    ownerId,
+    project,
+    projectId,
+    issuer,
+    jwksUrl: parsedJwksUrl.href,
+    audience: `https://vercel.com/${owner}`,
+  };
+}
+
+export function galleryPreviewVercelIdentityFromEnv(
+  getEnv: EnvReader = (name) => Deno.env.get(name),
+): GalleryPreviewVercelIdentity | null {
+  const identity = {
+    owner: getEnv("GALLERY_PREVIEW_VERCEL_OWNER"),
+    ownerId: getEnv("GALLERY_PREVIEW_VERCEL_OWNER_ID"),
+    project: getEnv("GALLERY_PREVIEW_VERCEL_PROJECT"),
+    projectId: getEnv("GALLERY_PREVIEW_VERCEL_PROJECT_ID"),
+  };
+  const derived = deriveVercelIdentity(identity);
+  return derived
+    ? {
+      owner: derived.owner,
+      ownerId: derived.ownerId,
+      project: derived.project,
+      projectId: derived.projectId,
+    }
+    : null;
+}
 
 function asRecord(value: unknown): JsonRecord {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -136,21 +226,19 @@ function usableJwk(value: unknown): value is VerificationJwk {
 }
 
 async function loadJwks(
-  issuer: string,
+  identity: DerivedVercelIdentity,
   fetchImpl: FetchLike,
   nowMs: number,
   timeoutMs: number,
   force = false,
 ): Promise<VerificationJwk[] | null> {
-  const cached = jwksCache.get(issuer);
+  const cached = jwksCache.get(identity.issuer);
   if (!force && cached && cached.expiresAt > nowMs) return cached.keys;
-  const jwksUrl = ISSUER_JWKS.get(issuer);
-  if (!jwksUrl) return null;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   let response: Response;
   try {
-    response = await fetchImpl(jwksUrl, {
+    response = await fetchImpl(identity.jwksUrl, {
       method: "GET",
       cache: "no-store",
       redirect: "error",
@@ -180,7 +268,7 @@ async function loadJwks(
   }
   const keys = payload.keys.filter(usableJwk);
   if (keys.length < 1) return null;
-  jwksCache.set(issuer, { expiresAt: nowMs + 5 * 60_000, keys });
+  jwksCache.set(identity.issuer, { expiresAt: nowMs + 5 * 60_000, keys });
   return keys;
 }
 
@@ -192,7 +280,7 @@ function exactNumber(value: unknown): number | null {
 
 function claimsAreBound(
   payload: JsonRecord,
-  issuer: string,
+  identity: DerivedVercelIdentity,
   nowSeconds: number,
 ) {
   const environment = typeof payload.environment === "string"
@@ -202,13 +290,13 @@ function claimsAreBound(
   const notBefore = exactNumber(payload.nbf);
   const expiresAt = exactNumber(payload.exp);
   if (
-    payload.iss !== issuer || payload.aud !== VERCEL_AUDIENCE ||
-    payload.owner !== VERCEL_OWNER || payload.project !== VERCEL_PROJECT ||
-    payload.owner_id !== VERCEL_OWNER_ID ||
-    payload.project_id !== VERCEL_PROJECT_ID ||
+    payload.iss !== identity.issuer || payload.aud !== identity.audience ||
+    payload.owner !== identity.owner || payload.project !== identity.project ||
+    payload.owner_id !== identity.ownerId ||
+    payload.project_id !== identity.projectId ||
     !ALLOWED_ENVIRONMENTS.has(environment) ||
     payload.sub !==
-      `owner:${VERCEL_OWNER}:project:${VERCEL_PROJECT}:environment:${environment}` ||
+      `owner:${identity.owner}:project:${identity.project}:environment:${environment}` ||
     issuedAt === null || notBefore === null || expiresAt === null ||
     issuedAt > nowSeconds + CLOCK_SKEW_SECONDS ||
     notBefore > nowSeconds + CLOCK_SKEW_SECONDS ||
@@ -245,11 +333,13 @@ export async function galleryPreviewSanitizerIsAttested(
     nowMs = Date.now(),
     supabaseUrl = "",
     timeoutMs = DEFAULT_TIMEOUT_MS,
+    vercelIdentity = null,
   }: {
     fetchImpl?: FetchLike;
     nowMs?: number;
     supabaseUrl?: string;
     timeoutMs?: number;
+    vercelIdentity?: GalleryPreviewVercelIdentity | null;
   } = {},
 ): Promise<boolean> {
   const token = String(
@@ -259,6 +349,8 @@ export async function galleryPreviewSanitizerIsAttested(
   if (token === GALLERY_LOCAL_SANITIZER_ATTESTATION) {
     return exactLocalDevelopmentRequest(request, supabaseUrl);
   }
+  const identity = deriveVercelIdentity(vercelIdentity);
+  if (!identity) return false;
   const segments = token.split(".");
   if (segments.length !== 3) return false;
   const [encodedHeader, encodedPayload, encodedSignature] = segments;
@@ -275,15 +367,13 @@ export async function galleryPreviewSanitizerIsAttested(
   ) {
     return false;
   }
-  const issuer = typeof payload.iss === "string" ? payload.iss : "";
-  if (!ISSUER_JWKS.has(issuer)) return false;
   const nowSeconds = Math.floor(nowMs / 1000);
-  if (!claimsAreBound(payload, issuer, nowSeconds)) return false;
+  if (!claimsAreBound(payload, identity, nowSeconds)) return false;
 
-  let keys = await loadJwks(issuer, fetchImpl, nowMs, timeoutMs);
+  let keys = await loadJwks(identity, fetchImpl, nowMs, timeoutMs);
   let jwk = keys?.find((candidate) => candidate.kid === header.kid) || null;
   if (!jwk) {
-    keys = await loadJwks(issuer, fetchImpl, nowMs, timeoutMs, true);
+    keys = await loadJwks(identity, fetchImpl, nowMs, timeoutMs, true);
     jwk = keys?.find((candidate) => candidate.kid === header.kid) || null;
   }
   if (!jwk) return false;

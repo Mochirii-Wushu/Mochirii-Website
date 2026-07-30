@@ -2,7 +2,15 @@ import {
   GALLERY_LOCAL_SANITIZER_ATTESTATION,
   GALLERY_SANITIZER_ATTESTATION_HEADER,
   galleryPreviewSanitizerIsAttested,
+  galleryPreviewVercelIdentityFromEnv,
 } from "./gallery-preview-attestation.ts";
+
+const SYNTHETIC_VERCEL_IDENTITY = {
+  owner: "synthetic-gallery-team",
+  ownerId: "team_TestOnlyGalleryOwner000001",
+  project: "synthetic-gallery-project",
+  projectId: "prj_TestOnlyGalleryProject000001",
+} as const;
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -44,16 +52,17 @@ async function fixture() {
     );
     const environment = String(overrides.environment || "preview");
     const payload = base64Url(JSON.stringify({
-      iss: "https://oidc.vercel.com/mochirii",
-      aud: "https://vercel.com/mochirii",
-      sub: `owner:mochirii:project:mochirii:environment:${environment}`,
+      iss: `https://oidc.vercel.com/${SYNTHETIC_VERCEL_IDENTITY.owner}`,
+      aud: `https://vercel.com/${SYNTHETIC_VERCEL_IDENTITY.owner}`,
+      sub:
+        `owner:${SYNTHETIC_VERCEL_IDENTITY.owner}:project:${SYNTHETIC_VERCEL_IDENTITY.project}:environment:${environment}`,
       iat: nowSeconds,
       nbf: nowSeconds,
       exp: nowSeconds + 3600,
-      owner: "mochirii",
-      owner_id: "team_kxEoikL8rs06zcQqN5w6TZN2",
-      project: "mochirii",
-      project_id: "prj_iYdxmeRnENzAHWzeXgbDWpfieSEt",
+      owner: SYNTHETIC_VERCEL_IDENTITY.owner,
+      owner_id: SYNTHETIC_VERCEL_IDENTITY.ownerId,
+      project: SYNTHETIC_VERCEL_IDENTITY.project,
+      project_id: SYNTHETIC_VERCEL_IDENTITY.projectId,
       environment,
       ...overrides,
     }));
@@ -66,14 +75,25 @@ async function fixture() {
     );
     return `${header}.${payload}.${base64Url(signature)}`;
   }
-  const fetchImpl = () =>
-    Promise.resolve(
+  const fetchImpl = (input: string | URL | Request) => {
+    assert(
+      String(input) ===
+        `https://oidc.vercel.com/${SYNTHETIC_VERCEL_IDENTITY.owner}/.well-known/jwks`,
+      "the verifier requested an unpinned JWKS destination",
+    );
+    return Promise.resolve(
       new Response(JSON.stringify({ keys: [jwk] }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
       }),
     );
-  return { fetchImpl, nowMs: nowSeconds * 1000, token };
+  };
+  return {
+    fetchImpl,
+    nowMs: nowSeconds * 1000,
+    token,
+    vercelIdentity: SYNTHETIC_VERCEL_IDENTITY,
+  };
 }
 
 function request(
@@ -117,6 +137,81 @@ Deno.test("signed Vercel preview and production project identities are accepted"
       ),
       `${environment} Vercel identity was rejected`,
     );
+  }
+});
+
+Deno.test("server-only Vercel identity pins require all four exact values", () => {
+  const values = new Map<string, string>([
+    ["GALLERY_PREVIEW_VERCEL_OWNER", SYNTHETIC_VERCEL_IDENTITY.owner],
+    ["GALLERY_PREVIEW_VERCEL_OWNER_ID", SYNTHETIC_VERCEL_IDENTITY.ownerId],
+    ["GALLERY_PREVIEW_VERCEL_PROJECT", SYNTHETIC_VERCEL_IDENTITY.project],
+    ["GALLERY_PREVIEW_VERCEL_PROJECT_ID", SYNTHETIC_VERCEL_IDENTITY.projectId],
+  ]);
+  const loaded = galleryPreviewVercelIdentityFromEnv((name) =>
+    values.get(name)
+  );
+  assert(
+    JSON.stringify(loaded) === JSON.stringify(SYNTHETIC_VERCEL_IDENTITY),
+    "the exact synthetic identity pins were not loaded",
+  );
+
+  for (const key of values.keys()) {
+    const missing = new Map(values);
+    missing.delete(key);
+    assert(
+      galleryPreviewVercelIdentityFromEnv((name) => missing.get(name)) ===
+        null,
+      `${key} was not required`,
+    );
+  }
+
+  for (
+    const [key, malformed] of [
+      ["GALLERY_PREVIEW_VERCEL_OWNER", "synthetic.example/path"],
+      ["GALLERY_PREVIEW_VERCEL_OWNER_ID", "team_too_short"],
+      ["GALLERY_PREVIEW_VERCEL_PROJECT", "synthetic---project"],
+      ["GALLERY_PREVIEW_VERCEL_PROJECT_ID", "prj_too_short"],
+    ] as const
+  ) {
+    const invalid = new Map(values);
+    invalid.set(key, malformed);
+    assert(
+      galleryPreviewVercelIdentityFromEnv((name) => invalid.get(name)) ===
+        null,
+      `${key} accepted a malformed pin`,
+    );
+  }
+});
+
+Deno.test("missing or malformed identity pins fail before a JWKS request", async () => {
+  const test = await fixture();
+  const token = await test.token();
+  for (
+    const vercelIdentity of [
+      null,
+      {
+        ...SYNTHETIC_VERCEL_IDENTITY,
+        owner: "synthetic.example/path",
+      },
+      {
+        ...SYNTHETIC_VERCEL_IDENTITY,
+        project: "synthetic---project",
+      },
+    ]
+  ) {
+    let fetched = false;
+    assert(
+      !(await galleryPreviewSanitizerIsAttested(request(token), {
+        nowMs: test.nowMs,
+        vercelIdentity,
+        fetchImpl: () => {
+          fetched = true;
+          throw new Error("unexpected JWKS request");
+        },
+      })),
+      "an incomplete or malformed Vercel identity was accepted",
+    );
+    assert(!fetched, "malformed identity pins influenced a JWKS request");
   }
 });
 

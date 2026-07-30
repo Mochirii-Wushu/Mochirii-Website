@@ -335,6 +335,10 @@ VOTE_REMINDER_TIME_ZONE=America/Los_Angeles
 VOTE_REMINDER_CRON_SECRET=<set manually, never commit>
 # DISCORD_VOTE_LINKS_JSON=<optional JSON links secret, never commit real private targets if sensitive>
 GUILD_SCHEDULE_URL=https://mochirii.com/data/guild-schedule.json
+GALLERY_PREVIEW_VERCEL_OWNER=<independent server-side owner slug pin, never commit a real value>
+GALLERY_PREVIEW_VERCEL_OWNER_ID=<independent server-side owner id pin, never commit a real value>
+GALLERY_PREVIEW_VERCEL_PROJECT=<independent server-side project name pin, never commit a real value>
+GALLERY_PREVIEW_VERCEL_PROJECT_ID=<independent server-side project id pin, never commit a real value>
 INSTAGRAM_ACCOUNT_ID=<set manually, never commit>
 INSTAGRAM_EXPECTED_ACCOUNT_ID=<independent server-side pin, never commit a real value>
 INSTAGRAM_ACCESS_TOKEN=<set manually, never commit>
@@ -397,6 +401,10 @@ supabase secrets set DISCORD_VOTE_CHANNEL_ID=1082802012095266866
 supabase secrets set VOTE_REMINDER_TIME_ZONE=America/Los_Angeles
 supabase secrets set VOTE_REMINDER_CRON_SECRET=<set manually, never commit>
 supabase secrets set GUILD_SCHEDULE_URL=https://mochirii.com/data/guild-schedule.json
+supabase secrets set GALLERY_PREVIEW_VERCEL_OWNER=<set manually, never commit>
+supabase secrets set GALLERY_PREVIEW_VERCEL_OWNER_ID=<set manually, never commit>
+supabase secrets set GALLERY_PREVIEW_VERCEL_PROJECT=<set manually, never commit>
+supabase secrets set GALLERY_PREVIEW_VERCEL_PROJECT_ID=<set manually, never commit>
 supabase secrets set INSTAGRAM_ACCOUNT_ID=<set manually, never commit>
 supabase secrets set INSTAGRAM_EXPECTED_ACCOUNT_ID=<set manually, never commit>
 supabase secrets set INSTAGRAM_ACCESS_TOKEN=<set manually, never commit>
@@ -412,7 +420,7 @@ supabase secrets set FACEBOOK_API_VERSION=v26.0
 supabase secrets set FACEBOOK_PAGE_PUBLISH_ENABLED=false
 ```
 
-`supabase secrets set ...` writes remote project secrets. Run it only from a trusted shell and never paste tokens into tracked files.
+`supabase secrets set ...` writes remote project secrets. Run it only from a trusted shell and never paste tokens or private identity pins into tracked files. All four `GALLERY_PREVIEW_VERCEL_*` values are required; the preview endpoint fails closed when any pin is missing or malformed and derives its issuer, JWKS URL, audience, and subject only from those validated pins.
 
 Meta credentials and private expected identifiers live only in Supabase secrets and the approved private recovery boundary. Do not place them in Vercel, browser code, repositories, GitHub Actions logs, issue comments, PR text, screenshots, or public documentation. Keep both publishing flags false while installing or validating credentials.
 

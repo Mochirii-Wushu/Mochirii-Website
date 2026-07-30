@@ -100,6 +100,11 @@ Do not bypass an unusual-activity or account-confirmation checkpoint. Complete h
 Install values only as Supabase Edge Function secrets and in the approved private recovery boundary. Do not place them in Vercel, browser variables, repositories, documentation, terminal transcripts, or pull-request comments.
 
 ```text
+GALLERY_PREVIEW_VERCEL_OWNER
+GALLERY_PREVIEW_VERCEL_OWNER_ID
+GALLERY_PREVIEW_VERCEL_PROJECT
+GALLERY_PREVIEW_VERCEL_PROJECT_ID
+
 META_APP_ID
 META_EXPECTED_APP_ID
 META_APP_SECRET
@@ -116,6 +121,11 @@ INSTAGRAM_ACCESS_TOKEN
 INSTAGRAM_API_VERSION=v26.0
 INSTAGRAM_PUBLISH_ENABLED=false
 ```
+
+The four Gallery preview pins must identify the exact Vercel owner and Website
+project. The Edge verifier rejects missing or malformed pins and derives the
+team-mode issuer, fixed Vercel JWKS URL, audience, and subject from them; do not
+store those expected identifiers in tracked source or Vercel browser variables.
 
 Use a dedicated employee-system-user credential with a 60-day maximum lifetime. The raw system-user token is an administrative bootstrap credential, not the assumed runtime Page token: use it to retrieve the access token for the independently pinned Page, then install and validate that derived Page token in the Facebook and Instagram runtime secret slots with both flags false. Rotate by day 45: create the replacement system-user token, derive the replacement Page token, install and validate it read-only, then revoke the prior credential. Send normal Graph tokens only in the `Authorization` header. Normal Graph requests must use a fresh five-minute-bounded `appsecret_time` and HMAC-SHA256 proof.
 

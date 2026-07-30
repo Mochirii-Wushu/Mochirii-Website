@@ -13,7 +13,10 @@ import {
   gallerySourcePreviewResponse,
 } from "../_shared/gallery-source-decode.ts";
 import { validateGallerySourceBytes } from "../_shared/gallery-source-image.ts";
-import { galleryPreviewSanitizerIsAttested } from "../_shared/gallery-preview-attestation.ts";
+import {
+  galleryPreviewSanitizerIsAttested,
+  galleryPreviewVercelIdentityFromEnv,
+} from "../_shared/gallery-preview-attestation.ts";
 import { safeGalleryModeratorProfile } from "../_shared/gallery-response-safety.ts";
 
 const DEFAULT_PAGE_SIZE = 25;
@@ -111,6 +114,7 @@ async function handleRequest(req: Request): Promise<Response> {
     if (
       !(await galleryPreviewSanitizerIsAttested(req, {
         supabaseUrl: Deno.env.get("SUPABASE_URL") || "",
+        vercelIdentity: galleryPreviewVercelIdentityFromEnv(),
       }))
     ) {
       return new Response(null, {

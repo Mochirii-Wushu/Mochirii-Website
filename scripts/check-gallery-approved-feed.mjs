@@ -531,6 +531,7 @@ assert(finalListResponseStart >= 0, "Approved Gallery list response: final respo
   "const requestedPageSize = boundedInteger(",
   'bodyResult.body.action === "prepare_preview"',
   "galleryPreviewSanitizerIsAttested(req",
+  "galleryPreviewVercelIdentityFromEnv()",
   '"gallery_source_validation_candidate"',
   '"gallery_commit_source_validation"',
   '"gallery_source_validation_states"',
@@ -748,18 +749,40 @@ assertIncludes("Leader Dashboard thumbnail backfill", leaderDashboardParts, "Pre
   "sanitizerAttestation",
 ].forEach((snippet) => assertIncludes("Gallery server attestation forwarding", moderationPreviewServerCore, snippet));
 [
-  '"https://oidc.vercel.com/mochirii/.well-known/jwks"',
-  'payload.aud !== VERCEL_AUDIENCE',
-  'payload.project !== VERCEL_PROJECT',
-  'payload.owner_id !== VERCEL_OWNER_ID',
-  'payload.project_id !== VERCEL_PROJECT_ID',
+  'getEnv("GALLERY_PREVIEW_VERCEL_OWNER")',
+  'getEnv("GALLERY_PREVIEW_VERCEL_OWNER_ID")',
+  'getEnv("GALLERY_PREVIEW_VERCEL_PROJECT")',
+  'getEnv("GALLERY_PREVIEW_VERCEL_PROJECT_ID")',
+  'parsedJwksUrl.hostname !== "oidc.vercel.com"',
+  "fetchImpl(identity.jwksUrl",
+  'payload.aud !== identity.audience',
+  'payload.project !== identity.project',
+  'payload.owner_id !== identity.ownerId',
+  'payload.project_id !== identity.projectId',
   'ALLOWED_ENVIRONMENTS.has(environment)',
   'crypto.subtle.verify(',
   'exactLocalDevelopmentRequest(request, supabaseUrl)',
 ].forEach((snippet) => assertIncludes("Gallery sanitizer workload attestation", previewAttestation, snippet));
 [
+  'const VERCEL_OWNER =',
+  'const VERCEL_PROJECT =',
+  'const ISSUER_JWKS =',
+].forEach((snippet) =>
+  assertNotIncludes("Gallery sanitizer workload attestation", previewAttestation, snippet)
+);
+assert(
+  !/["'`]https:\/\/oidc\.vercel\.com\/[a-z0-9]/u.test(previewAttestation),
+  "Gallery sanitizer workload attestation: a literal Vercel issuer identity was committed.",
+);
+assert(
+  !/["'`](?:team|prj)_[A-Za-z0-9]{16,}["'`]/u.test(previewAttestation),
+  "Gallery sanitizer workload attestation: a literal Vercel provider identifier was committed.",
+);
+[
   "a moderator bearer alone cannot attest the source-byte request",
   "signed Vercel preview and production project identities are accepted",
+  "server-only Vercel identity pins require all four exact values",
+  "missing or malformed identity pins fail before a JWKS request",
   "wrong claims, algorithms, signatures, and time windows fail closed",
   "the local marker is confined to the exact loopback Supabase origin",
 ].forEach((snippet) => assertIncludes("Gallery sanitizer attestation tests", previewAttestationTests, snippet));
