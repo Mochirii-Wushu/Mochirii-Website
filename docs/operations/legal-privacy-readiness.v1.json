@@ -1,0 +1,3203 @@
+{
+  "schemaVersion": 1,
+  "scope": {
+    "repository": "Mochirii-Wushu/Mochirii-Website",
+    "asOf": "2026-07-29",
+    "purpose": "Public-safe source inventory for legal, privacy, retention, rights, and processor decisions. This record is not legal advice, counsel approval, provider proof, or deployment authority.",
+    "surfaces": [
+      {
+        "id": "website-public",
+        "description": "Public website routes, content, metadata, analytics, and performance telemetry.",
+        "state": "active-source"
+      },
+      {
+        "id": "website-members",
+        "description": "Authenticated Website account, membership, profile-link, consent, and moderator workflows.",
+        "state": "active-source"
+      },
+      {
+        "id": "gallery",
+        "description": "Private submission and moderation, bounded public Gallery delivery, and optional external publication.",
+        "state": "active-source"
+      },
+      {
+        "id": "social",
+        "description": "Private guild Social profiles, posts, media, direct messages, moderation, and operational records.",
+        "state": "active-source"
+      },
+      {
+        "id": "discord",
+        "description": "Guild verification, roles, commands, events, reminders, and community operations.",
+        "state": "active-source"
+      },
+      {
+        "id": "raffle",
+        "description": "Public raffle presentation and disabled participation, drawing, claim, and reward foundation.",
+        "state": "activation-gated"
+      },
+      {
+        "id": "storefront",
+        "description": "Password-protected Shopify storefront and prepayment launch-readiness work.",
+        "state": "activation-gated"
+      },
+      {
+        "id": "mobile-ios",
+        "description": "Future first-party iOS client for the private guild Social service.",
+        "state": "deferred"
+      },
+      {
+        "id": "mochi-pets",
+        "description": "Public concept page and deferred private tester/game surfaces.",
+        "state": "deferred"
+      },
+      {
+        "id": "release-operations",
+        "description": "Source review, CI, deployment evidence, audit logs, and incident-response administration.",
+        "state": "active-source"
+      }
+    ],
+    "restrictedEvidence": [
+      "Credentials, tokens, cookies, signed URLs, private identifiers, provider exports, personal data, contracts, counsel communications, and recovery material remain outside public Git.",
+      "Provider dashboards, runtime configuration, legal advice, and current contractual terms require separately authorized readback or qualified external review."
+    ]
+  },
+  "factBoundary": {
+    "repositoryFacts": "SOURCE_OBSERVED means only that reviewed source contains the stated fact.",
+    "runtimeFacts": "Hosted settings, live content, account state, monitoring, contracts, and provider behavior require a fresh authorized runtime readback.",
+    "legalApproval": "No row in this inventory is legal advice or evidence of qualified-counsel or release-owner approval.",
+    "secretValuesAllowed": false,
+    "restrictedEvidence": "Restricted evidence belongs in approved private systems or ignored operational artifacts and must not be copied into this file."
+  },
+  "statusDefinitions": {
+    "SOURCE_OBSERVED": "The statement is present in reviewed repository source; no runtime or legal conclusion follows.",
+    "RUNTIME_READBACK_REQUIRED": "Current hosted or operational truth must be confirmed through separately authorized, non-secret evidence.",
+    "BLOCKED_APPROVAL": "An accountable owner or qualified reviewer must decide and approve the fact or wording before implementation.",
+    "BLOCKED_EXTERNAL": "Current evidence, professional advice, contract review, or provider confirmation is required from outside repository source.",
+    "DEFERRED_BY_EXPLICIT_POLICY": "The surface or decision is intentionally deferred and must remain inactive.",
+    "NOT_APPLICABLE_REVIEWED": "An accountable review determined that the item does not apply, with a retained public-safe rationale."
+  },
+  "operatorFacts": [
+    {
+      "id": "legal-operator-identity",
+      "fact": "Legal operator or controller name and entity type",
+      "value": null,
+      "status": "BLOCKED_APPROVAL",
+      "owner": "release-owner",
+      "question": "Which exact legal person or entity operates each public and member surface?",
+      "evidenceNeeded": [
+        "Approved legal identity and entity-type record",
+        "Qualified-counsel review of controller and operator wording"
+      ],
+      "sourceRefs": [
+        "root-security-policy",
+        "website-privacy-page",
+        "social-privacy-contract"
+      ]
+    },
+    {
+      "id": "formation-and-registration",
+      "fact": "Formation, registration, and principal operating jurisdiction",
+      "value": null,
+      "status": "BLOCKED_APPROVAL",
+      "owner": "release-owner",
+      "question": "Where is the operator formed, registered, and principally operated?",
+      "evidenceNeeded": [
+        "Approved formation and registration facts",
+        "Qualified-counsel jurisdiction analysis"
+      ],
+      "sourceRefs": [
+        "current-state"
+      ]
+    },
+    {
+      "id": "public-guild-trade-names",
+      "fact": "Public guild presentation names",
+      "value": "Mōchirīī and the approved short form Mōchī",
+      "status": "SOURCE_OBSERVED",
+      "owner": null,
+      "question": null,
+      "evidenceNeeded": [],
+      "sourceRefs": [
+        "repository-guidance",
+        "current-state"
+      ]
+    },
+    {
+      "id": "backend-system-name",
+      "fact": "Backend, provider, repository, and technical system name",
+      "value": "Mochirii",
+      "status": "SOURCE_OBSERVED",
+      "owner": null,
+      "question": null,
+      "evidenceNeeded": [],
+      "sourceRefs": [
+        "repository-guidance",
+        "architecture"
+      ]
+    },
+    {
+      "id": "commerce-wordmark",
+      "fact": "Storefront and cosmetics commerce wordmark",
+      "value": "Mochirii Cosmetics",
+      "status": "SOURCE_OBSERVED",
+      "owner": null,
+      "question": null,
+      "evidenceNeeded": [],
+      "sourceRefs": [
+        "shopify-readiness",
+        "current-state"
+      ]
+    },
+    {
+      "id": "public-security-contact",
+      "fact": "Source-declared security and support contact",
+      "value": "support@mochirii.com",
+      "status": "SOURCE_OBSERVED",
+      "owner": null,
+      "question": null,
+      "evidenceNeeded": [],
+      "sourceRefs": [
+        "root-security-policy",
+        "website-security-txt",
+        "social-security-txt"
+      ]
+    },
+    {
+      "id": "contact-monitoring-owner",
+      "fact": "Accountable owner, monitoring coverage, and response service level for support and security requests",
+      "value": null,
+      "status": "RUNTIME_READBACK_REQUIRED",
+      "owner": "security-owner",
+      "question": "Who monitors the public contact and what reviewed response and escalation targets apply?",
+      "evidenceNeeded": [
+        "Non-secret mailbox monitoring readback",
+        "Approved request ownership and escalation record"
+      ],
+      "sourceRefs": [
+        "root-security-policy",
+        "website-privacy-page"
+      ]
+    },
+    {
+      "id": "public-legal-contact-address",
+      "fact": "Public postal address, phone, privacy contact, and representative details",
+      "value": null,
+      "status": "BLOCKED_APPROVAL",
+      "owner": "privacy-owner",
+      "question": "Which public contact and representative details are legally required for each jurisdiction and surface?",
+      "evidenceNeeded": [
+        "Qualified-counsel applicability review",
+        "Release-owner approval of public contact facts"
+      ],
+      "sourceRefs": [
+        "website-privacy-page",
+        "social-legal-notice"
+      ]
+    },
+    {
+      "id": "privacy-and-responsible-roles",
+      "fact": "Controller, privacy lead, representative, commerce responsible person, and incident owner assignments",
+      "value": null,
+      "status": "BLOCKED_APPROVAL",
+      "owner": "release-owner",
+      "question": "Which accountable roles apply to Website, Social, raffle, storefront, mobile, and future game operations?",
+      "evidenceNeeded": [
+        "Approved responsibility matrix",
+        "Qualified-counsel and commerce-compliance review where applicable"
+      ],
+      "sourceRefs": [
+        "shopify-readiness",
+        "current-state"
+      ]
+    },
+    {
+      "id": "public-language",
+      "fact": "Current source-declared public language",
+      "value": "English",
+      "status": "SOURCE_OBSERVED",
+      "owner": null,
+      "question": null,
+      "evidenceNeeded": [],
+      "sourceRefs": [
+        "website-security-txt",
+        "social-security-txt"
+      ]
+    }
+  ],
+  "jurisdictions": [
+    {
+      "id": "website-public-jurisdiction",
+      "surface": "website-public",
+      "audience": "Global public visitors",
+      "jurisdiction": null,
+      "minimumAge": null,
+      "languages": [
+        "English"
+      ],
+      "status": "BLOCKED_APPROVAL",
+      "owner": "privacy-owner",
+      "question": "Which visitor jurisdictions, age rules, notices, and language obligations govern the public website?",
+      "evidenceNeeded": [
+        "Approved launch-jurisdiction matrix",
+        "Qualified-counsel age and notice review"
+      ],
+      "sourceRefs": [
+        "website-privacy-page",
+        "architecture"
+      ]
+    },
+    {
+      "id": "website-member-jurisdiction",
+      "surface": "website-members",
+      "audience": "Verified guild members and moderators",
+      "jurisdiction": null,
+      "minimumAge": null,
+      "languages": [
+        "English"
+      ],
+      "status": "BLOCKED_APPROVAL",
+      "owner": "privacy-owner",
+      "question": "Which countries, age thresholds, and member terms apply to authenticated Website use?",
+      "evidenceNeeded": [
+        "Approved member-country and age matrix",
+        "Qualified-counsel member-terms review"
+      ],
+      "sourceRefs": [
+        "website-privacy-page",
+        "architecture"
+      ]
+    },
+    {
+      "id": "gallery-jurisdiction",
+      "surface": "gallery",
+      "audience": "Submitting members, moderators, public viewers, and optional publication audiences",
+      "jurisdiction": null,
+      "minimumAge": null,
+      "languages": [
+        "English"
+      ],
+      "status": "BLOCKED_EXTERNAL",
+      "owner": "privacy-owner",
+      "question": "Which privacy, publicity, copyright, consent, and removal rules apply to each Gallery publication destination?",
+      "evidenceNeeded": [
+        "Qualified-counsel Gallery and publication review",
+        "Current destination terms and transfer evidence"
+      ],
+      "sourceRefs": [
+        "website-privacy-page",
+        "meta-deletion-page",
+        "gallery-media-delivery"
+      ]
+    },
+    {
+      "id": "social-jurisdiction",
+      "surface": "social",
+      "audience": "Verified guild members and Social moderators",
+      "jurisdiction": null,
+      "minimumAge": null,
+      "languages": [
+        "English"
+      ],
+      "status": "BLOCKED_APPROVAL",
+      "owner": "privacy-owner",
+      "question": "Which governing law, venue, age threshold, member terms, and moderation rules apply to Social?",
+      "evidenceNeeded": [
+        "Qualified-counsel Social terms and privacy review",
+        "Release-owner jurisdiction and age decision"
+      ],
+      "sourceRefs": [
+        "social-site-terms",
+        "social-mobile-terms",
+        "social-community-guidelines",
+        "social-privacy-contract"
+      ]
+    },
+    {
+      "id": "discord-jurisdiction",
+      "surface": "discord",
+      "audience": "Guild members, applicants, moderators, and event participants",
+      "jurisdiction": null,
+      "minimumAge": null,
+      "languages": [
+        "English"
+      ],
+      "status": "BLOCKED_EXTERNAL",
+      "owner": "community-owner",
+      "question": "Which member jurisdictions and platform terms govern verification, roles, events, moderation, and message processing?",
+      "evidenceNeeded": [
+        "Current Discord terms and data-processing review",
+        "Approved member age and country matrix"
+      ],
+      "sourceRefs": [
+        "integration-catalog",
+        "architecture"
+      ]
+    },
+    {
+      "id": "raffle-jurisdiction",
+      "surface": "raffle",
+      "audience": "Verified guild members age 18 or older in an approved country",
+      "jurisdiction": null,
+      "minimumAge": "18+",
+      "languages": [
+        "English"
+      ],
+      "status": "BLOCKED_EXTERNAL",
+      "owner": "raffle-owner",
+      "question": "Which countries may participate and which sponsor, promotion, tax, withholding, registration, bonding, and disclosure rules apply?",
+      "evidenceNeeded": [
+        "Qualified sweepstakes counsel country matrix",
+        "Qualified tax review",
+        "Approved official rules and sponsor identity"
+      ],
+      "sourceRefs": [
+        "raffle-leaderboard",
+        "reward-relay",
+        "current-state"
+      ]
+    },
+    {
+      "id": "storefront-jurisdiction",
+      "surface": "storefront",
+      "audience": "Approved contiguous United States launch region",
+      "jurisdiction": null,
+      "minimumAge": null,
+      "languages": [
+        "English"
+      ],
+      "status": "BLOCKED_EXTERNAL",
+      "owner": "commerce-owner",
+      "question": "Which federal and state commerce, privacy, tax, cosmetics, accessibility, and consumer-protection obligations apply?",
+      "evidenceNeeded": [
+        "Qualified legal, tax, and cosmetic-compliance review",
+        "Approved operational and destination matrix"
+      ],
+      "sourceRefs": [
+        "shopify-readiness",
+        "storefront-lifecycle"
+      ]
+    },
+    {
+      "id": "mobile-jurisdiction",
+      "surface": "mobile-ios",
+      "audience": "Future verified guild members using the iOS client",
+      "jurisdiction": null,
+      "minimumAge": null,
+      "languages": [
+        "English"
+      ],
+      "status": "DEFERRED_BY_EXPLICIT_POLICY",
+      "owner": "mobile-owner",
+      "question": "Which App Store regions, age rating, privacy disclosures, account-deletion flow, and platform terms will apply?",
+      "evidenceNeeded": [
+        "Approved iOS launch-region and age plan",
+        "Current Apple policy and privacy-label review"
+      ],
+      "sourceRefs": [
+        "architecture",
+        "current-state"
+      ]
+    },
+    {
+      "id": "mochi-pets-jurisdiction",
+      "surface": "mochi-pets",
+      "audience": "Public concept visitors and future approved guild testers",
+      "jurisdiction": null,
+      "minimumAge": null,
+      "languages": [
+        "English"
+      ],
+      "status": "DEFERRED_BY_EXPLICIT_POLICY",
+      "owner": "game-owner",
+      "question": "Which tester, game, chat, age, parental-consent, virtual-item, and platform obligations will apply?",
+      "evidenceNeeded": [
+        "Approved game launch and tester matrix",
+        "Qualified game, child-safety, and platform review"
+      ],
+      "sourceRefs": [
+        "mochi-pets-contract",
+        "current-state"
+      ]
+    },
+    {
+      "id": "release-operations-jurisdiction",
+      "surface": "release-operations",
+      "audience": "Repository operators, reviewers, support staff, and incident responders",
+      "jurisdiction": null,
+      "minimumAge": null,
+      "languages": [
+        "English"
+      ],
+      "status": "BLOCKED_APPROVAL",
+      "owner": "release-owner",
+      "question": "Which employment, contractor, audit, incident, and evidence-retention obligations apply to operators?",
+      "evidenceNeeded": [
+        "Approved operator-role and jurisdiction record",
+        "Qualified-counsel records and incident review"
+      ],
+      "sourceRefs": [
+        "operations-readme",
+        "architecture"
+      ]
+    },
+    {
+      "id": "social-parental-controls-jurisdiction",
+      "surface": "social",
+      "audience": "Potential child accounts and parents or guardians if the dormant feature is ever enabled",
+      "jurisdiction": null,
+      "minimumAge": null,
+      "languages": [
+        "English"
+      ],
+      "status": "BLOCKED_APPROVAL",
+      "owner": "privacy-owner",
+      "question": "Should parental controls remain retired, and what minimum age and parental-consent rules would apply if enabled?",
+      "evidenceNeeded": [
+        "Release-owner feature disposition",
+        "Qualified child-privacy and safety review",
+        "Authorized live feature-state readback"
+      ],
+      "sourceRefs": [
+        "social-parental-controls",
+        "social-instance-config"
+      ]
+    }
+  ],
+  "processingActivities": [
+    {
+      "id": "public-website-and-telemetry",
+      "surface": "website-public",
+      "integrationIds": [
+        "website"
+      ],
+      "catalogDataClasses": [
+        "public_content",
+        "website_telemetry"
+      ],
+      "catalogGaps": [],
+      "dataSubjects": [
+        "Public visitors"
+      ],
+      "dataCategories": [
+        "Requested content",
+        "Approximate request and device signals",
+        "Performance and aggregate observability signals",
+        "Security logs"
+      ],
+      "sources": [
+        "Visitor browser and Vercel-hosted application"
+      ],
+      "purposes": [
+        "Deliver the public website",
+        "Measure reliability and performance",
+        "Detect abuse and investigate incidents"
+      ],
+      "legalBasis": null,
+      "destinationIds": [
+        "vercel-website",
+        "vercel-observability",
+        "cloudflare-edge"
+      ],
+      "additionalRecipients": [],
+      "controllerProcessorRole": null,
+      "storage": null,
+      "retentionRuleIds": [
+        "analytics-performance-retention",
+        "security-abuse-log-retention"
+      ],
+      "deletionPath": null,
+      "backupTreatment": null,
+      "crossBorderTransfer": null,
+      "noticeRefs": [
+        "website-privacy-page"
+      ],
+      "status": "BLOCKED_APPROVAL",
+      "owner": "privacy-owner",
+      "question": "What legal basis, exact telemetry inventory, storage, retention, deletion, and transfer wording applies?",
+      "evidenceNeeded": [
+        "Approved cookie, analytics, logging, and legal-basis inventory",
+        "Current Vercel and Cloudflare processing evidence"
+      ],
+      "sourceRefs": [
+        "website-privacy-page",
+        "integration-catalog"
+      ]
+    },
+    {
+      "id": "account-auth-membership",
+      "surface": "website-members",
+      "integrationIds": [
+        "backend",
+        "auth-providers",
+        "phone-auth"
+      ],
+      "catalogDataClasses": [
+        "authentication_identity",
+        "member_verification",
+        "guild_membership_and_roles",
+        "public_member_profile"
+      ],
+      "catalogGaps": [
+        "member_social_profile_links"
+      ],
+      "dataSubjects": [
+        "Applicants",
+        "Verified guild members",
+        "Moderators"
+      ],
+      "dataCategories": [
+        "Account and authentication identifiers",
+        "Guild membership and role evidence",
+        "Verification decisions and timestamps",
+        "Optional profile links and visibility choices"
+      ],
+      "sources": [
+        "Member",
+        "Supabase Auth",
+        "Discord verification",
+        "Authorized moderators"
+      ],
+      "purposes": [
+        "Authenticate users",
+        "Verify guild membership",
+        "Authorize member-only and moderator-only routes",
+        "Maintain optional profile choices"
+      ],
+      "legalBasis": null,
+      "destinationIds": [
+        "supabase-auth",
+        "supabase-postgres",
+        "supabase-edge",
+        "discord-api",
+        "vercel-website"
+      ],
+      "additionalRecipients": [
+        "Authorized guild moderators"
+      ],
+      "controllerProcessorRole": null,
+      "storage": null,
+      "retentionRuleIds": [
+        "account-profile-membership-retention",
+        "session-token-device-retention",
+        "security-abuse-log-retention"
+      ],
+      "deletionPath": null,
+      "backupTreatment": null,
+      "crossBorderTransfer": null,
+      "noticeRefs": [
+        "website-privacy-page"
+      ],
+      "status": "BLOCKED_APPROVAL",
+      "owner": "privacy-owner",
+      "question": "What legal basis, account lifecycle, identity-verification standard, retention, and deletion workflow applies?",
+      "evidenceNeeded": [
+        "Approved account and membership processing record",
+        "Current Auth, Discord, and database provider evidence",
+        "End-to-end account rights tests"
+      ],
+      "sourceRefs": [
+        "website-privacy-page",
+        "integration-catalog",
+        "architecture"
+      ]
+    },
+    {
+      "id": "discord-community-operations",
+      "surface": "discord",
+      "integrationIds": [
+        "discord-community"
+      ],
+      "catalogDataClasses": [
+        "discord_interaction",
+        "discord_message_and_event",
+        "guild_membership_and_roles",
+        "member_verification",
+        "moderation_record",
+        "spotlight_poll",
+        "vote_reminder"
+      ],
+      "catalogGaps": [],
+      "dataSubjects": [
+        "Guild members",
+        "Applicants",
+        "Event participants",
+        "Moderators"
+      ],
+      "dataCategories": [
+        "Platform identifiers",
+        "Guild roles",
+        "Command and event payloads",
+        "Moderation and verification records",
+        "Reminder and poll state"
+      ],
+      "sources": [
+        "Discord",
+        "Member interactions",
+        "Guild moderators"
+      ],
+      "purposes": [
+        "Verify membership",
+        "Operate guild events and commands",
+        "Moderate the community",
+        "Send reviewed reminders and poll results"
+      ],
+      "legalBasis": null,
+      "destinationIds": [
+        "discord-api",
+        "discord-interaction-ingress",
+        "supabase-edge",
+        "supabase-postgres"
+      ],
+      "additionalRecipients": [
+        "Authorized guild moderators"
+      ],
+      "controllerProcessorRole": null,
+      "storage": null,
+      "retentionRuleIds": [
+        "discord-interaction-event-retention",
+        "moderation-consent-audit-retention"
+      ],
+      "deletionPath": null,
+      "backupTreatment": null,
+      "crossBorderTransfer": null,
+      "noticeRefs": [],
+      "status": "BLOCKED_EXTERNAL",
+      "owner": "community-owner",
+      "question": "What platform roles, legal basis, moderation retention, and rights propagation apply?",
+      "evidenceNeeded": [
+        "Current Discord terms and processing documentation",
+        "Approved community moderation and privacy workflow"
+      ],
+      "sourceRefs": [
+        "integration-catalog",
+        "architecture"
+      ]
+    },
+    {
+      "id": "gallery-submission-moderation-publication",
+      "surface": "gallery",
+      "integrationIds": [
+        "website",
+        "backend"
+      ],
+      "catalogDataClasses": [
+        "private_gallery_submission",
+        "public_gallery_media",
+        "moderation_record",
+        "sanitized_social_derivative"
+      ],
+      "catalogGaps": [
+        "gallery_consent_and_withdrawal_request"
+      ],
+      "dataSubjects": [
+        "Submitting members",
+        "People depicted in submitted media",
+        "Moderators",
+        "Public viewers"
+      ],
+      "dataCategories": [
+        "Source image and metadata",
+        "Uploader identity",
+        "Consent and moderation state",
+        "Sanitized publication derivative",
+        "Public caption and bounded delivery URL"
+      ],
+      "sources": [
+        "Submitting member",
+        "Discord ingest",
+        "Authorized moderators"
+      ],
+      "purposes": [
+        "Review member submissions",
+        "Publish approved guild media",
+        "Preserve consent, moderation, withdrawal, and publication evidence"
+      ],
+      "legalBasis": null,
+      "destinationIds": [
+        "supabase-postgres",
+        "supabase-storage",
+        "supabase-edge",
+        "vercel-website"
+      ],
+      "additionalRecipients": [
+        "Authorized gallery moderators",
+        "Public viewers of approved media"
+      ],
+      "controllerProcessorRole": null,
+      "storage": null,
+      "retentionRuleIds": [
+        "gallery-source-derivative-retention",
+        "moderation-consent-audit-retention"
+      ],
+      "deletionPath": null,
+      "backupTreatment": null,
+      "crossBorderTransfer": null,
+      "noticeRefs": [
+        "website-privacy-page",
+        "meta-deletion-page"
+      ],
+      "status": "BLOCKED_APPROVAL",
+      "owner": "gallery-owner",
+      "question": "What legal basis, consent standard, depicted-person process, retention, withdrawal, and deletion terms apply?",
+      "evidenceNeeded": [
+        "Approved Gallery consent and rights policy",
+        "Qualified privacy, publicity, and copyright review",
+        "End-to-end withdrawal and removal test"
+      ],
+      "sourceRefs": [
+        "gallery-media-delivery",
+        "gallery-thumbnail-rollout",
+        "website-privacy-page",
+        "meta-deletion-page"
+      ]
+    },
+    {
+      "id": "optional-meta-gallery-publication",
+      "surface": "gallery",
+      "integrationIds": [
+        "facebook-page-gallery-publishing",
+        "instagram-gallery-publishing"
+      ],
+      "catalogDataClasses": [
+        "facebook_page_publish_job",
+        "instagram_publish_job",
+        "sanitized_social_derivative"
+      ],
+      "catalogGaps": [
+        "external_publication_consent_withdrawal"
+      ],
+      "dataSubjects": [
+        "Submitting members",
+        "People depicted in approved media",
+        "Publication operators"
+      ],
+      "dataCategories": [
+        "Approved derivative and caption",
+        "Consent version",
+        "Publication job and provider identifiers",
+        "Withdrawal and reconciliation evidence"
+      ],
+      "sources": [
+        "Approved Gallery record",
+        "Authorized publication operator",
+        "External publication response"
+      ],
+      "purposes": [
+        "Optionally publish separately approved media",
+        "Reconcile publication and withdrawal state"
+      ],
+      "legalBasis": null,
+      "destinationIds": [
+        "facebook-api",
+        "instagram-api",
+        "supabase-postgres",
+        "supabase-storage",
+        "supabase-edge"
+      ],
+      "additionalRecipients": [
+        "Public audiences on an approved external destination"
+      ],
+      "controllerProcessorRole": null,
+      "storage": null,
+      "retentionRuleIds": [
+        "gallery-source-derivative-retention",
+        "moderation-consent-audit-retention"
+      ],
+      "deletionPath": null,
+      "backupTreatment": null,
+      "crossBorderTransfer": null,
+      "noticeRefs": [
+        "website-privacy-page",
+        "meta-deletion-page"
+      ],
+      "status": "BLOCKED_EXTERNAL",
+      "owner": "gallery-owner",
+      "question": "What provider terms, legal basis, transfer terms, public notice, removal limits, and retention rules apply before activation?",
+      "evidenceNeeded": [
+        "Current provider terms and data-use evidence",
+        "Qualified-counsel publication and transfer review",
+        "Approved destination-specific consent language"
+      ],
+      "sourceRefs": [
+        "facebook-publishing-contract",
+        "instagram-publishing-contract",
+        "meta-deletion-page"
+      ]
+    },
+    {
+      "id": "private-guild-social",
+      "surface": "social",
+      "integrationIds": [
+        "social"
+      ],
+      "catalogDataClasses": [
+        "social_account_mapping",
+        "social_posts_and_media",
+        "private_profile_media",
+        "moderation_record"
+      ],
+      "catalogGaps": [
+        "social_direct_messages",
+        "social_operational_logs",
+        "social_backups"
+      ],
+      "dataSubjects": [
+        "Verified guild members",
+        "Social moderators",
+        "Support and incident reporters"
+      ],
+      "dataCategories": [
+        "Profiles and account mappings",
+        "Posts, media, reactions, follows, and direct messages",
+        "Moderation and support records",
+        "Application, web, database, cache, and security logs",
+        "Backups"
+      ],
+      "sources": [
+        "Member",
+        "Website OAuth and membership service",
+        "Social application",
+        "Authorized moderators"
+      ],
+      "purposes": [
+        "Provide a private guild social platform",
+        "Authorize members",
+        "Deliver and moderate content",
+        "Secure, diagnose, back up, and recover the service"
+      ],
+      "legalBasis": null,
+      "destinationIds": [
+        "mochirii-social",
+        "digitalocean-host",
+        "digitalocean-spaces",
+        "cloudflare-edge"
+      ],
+      "additionalRecipients": [
+        "Authorized Social moderators and support operators"
+      ],
+      "controllerProcessorRole": null,
+      "storage": null,
+      "retentionRuleIds": [
+        "social-content-message-retention",
+        "social-account-deletion-backup-retention",
+        "security-abuse-log-retention"
+      ],
+      "deletionPath": null,
+      "backupTreatment": null,
+      "crossBorderTransfer": null,
+      "noticeRefs": [
+        "social-privacy-contract",
+        "social-site-terms",
+        "social-mobile-terms"
+      ],
+      "status": "BLOCKED_APPROVAL",
+      "owner": "privacy-owner",
+      "question": "What legal basis, terms, moderation authority, direct-message expectations, retention, backup, deletion, and transfer disclosures apply?",
+      "evidenceNeeded": [
+        "Qualified-counsel Social terms and privacy review",
+        "Authorized live configuration and legal-page readback",
+        "Current processor, backup, deletion, and transfer evidence"
+      ],
+      "sourceRefs": [
+        "social-privacy-contract",
+        "social-site-terms",
+        "social-mobile-terms",
+        "social-community-guidelines",
+        "social-deletion-help"
+      ]
+    },
+    {
+      "id": "raffle-participation-draw-claim-reward",
+      "surface": "raffle",
+      "integrationIds": [
+        "raffle-foundation"
+      ],
+      "catalogDataClasses": [
+        "raffle_member_participation",
+        "raffle_draw_claim_and_audit",
+        "raffle_reward_fulfillment",
+        "public_raffle_result",
+        "spinner_media"
+      ],
+      "catalogGaps": [
+        "raffle_legal_eligibility_and_tax_records"
+      ],
+      "dataSubjects": [
+        "Eligible members",
+        "Winners",
+        "Moderators",
+        "Reward operators"
+      ],
+      "dataCategories": [
+        "Eligibility and opt-in state",
+        "Bonus evidence and entry totals",
+        "Draw ledger and immutable audit evidence",
+        "Winner and claim state",
+        "Tax, fraud, notice, and fulfillment metadata"
+      ],
+      "sources": [
+        "Member",
+        "Guild activity evidence",
+        "Authorized moderators",
+        "Deterministic draw workflow",
+        "Reward provider and isolated relay when activated"
+      ],
+      "purposes": [
+        "Administer a lawful drawing",
+        "Verify entries and select a winner",
+        "Publish a bounded result",
+        "Authorize and fulfill a reviewed reward",
+        "Retain required audit evidence"
+      ],
+      "legalBasis": null,
+      "destinationIds": [
+        "supabase-postgres",
+        "supabase-edge",
+        "vercel-website",
+        "reward-provider-api",
+        "reward-provider-webhook-ingress",
+        "reward-relay"
+      ],
+      "additionalRecipients": [
+        "Authorized raffle operators",
+        "Tax or legal advisers when required"
+      ],
+      "controllerProcessorRole": null,
+      "storage": null,
+      "retentionRuleIds": [
+        "raffle-participation-draw-claim-retention",
+        "reward-bearer-link-retention"
+      ],
+      "deletionPath": null,
+      "backupTreatment": null,
+      "crossBorderTransfer": null,
+      "noticeRefs": [],
+      "status": "BLOCKED_EXTERNAL",
+      "owner": "raffle-owner",
+      "question": "What legal basis, country rules, official terms, sponsor, tax, retention, deletion, immutable-evidence, and reward-processing requirements apply?",
+      "evidenceNeeded": [
+        "Qualified sweepstakes and tax review",
+        "Approved official rules and country matrix",
+        "Current reward-provider contract and production eligibility evidence",
+        "Separately approved canary and rights tests"
+      ],
+      "sourceRefs": [
+        "raffle-leaderboard",
+        "reward-relay",
+        "spinner-publication"
+      ]
+    },
+    {
+      "id": "user-activated-external-embeds",
+      "surface": "website-public",
+      "integrationIds": [
+        "spotify-embeds"
+      ],
+      "catalogDataClasses": [
+        "playlist_embed_content"
+      ],
+      "catalogGaps": [
+        "embed_request_telemetry_and_cookies"
+      ],
+      "dataSubjects": [
+        "Visitors who activate an external embed or link"
+      ],
+      "dataCategories": [
+        "Requested embed content",
+        "Request, device, cookie, and telemetry data handled by the external destination"
+      ],
+      "sources": [
+        "Visitor activation",
+        "Reviewed public embed configuration"
+      ],
+      "purposes": [
+        "Play or display user-requested external media"
+      ],
+      "legalBasis": null,
+      "destinationIds": [
+        "spotify-embed"
+      ],
+      "additionalRecipients": [],
+      "controllerProcessorRole": null,
+      "storage": null,
+      "retentionRuleIds": [
+        "analytics-performance-retention"
+      ],
+      "deletionPath": null,
+      "backupTreatment": null,
+      "crossBorderTransfer": null,
+      "noticeRefs": [
+        "website-privacy-page"
+      ],
+      "status": "BLOCKED_EXTERNAL",
+      "owner": "privacy-owner",
+      "question": "What notice, consent, cookie, transfer, and provider terms apply to each user-activated embed?",
+      "evidenceNeeded": [
+        "Current provider cookie and privacy documentation",
+        "Qualified-counsel consent and disclosure review"
+      ],
+      "sourceRefs": [
+        "integration-catalog",
+        "website-privacy-page"
+      ]
+    },
+    {
+      "id": "support-privacy-security-requests",
+      "surface": "website-members",
+      "integrationIds": [
+        "website",
+        "backend"
+      ],
+      "catalogDataClasses": [],
+      "catalogGaps": [
+        "support_privacy_security_request"
+      ],
+      "dataSubjects": [
+        "Visitors",
+        "Members",
+        "Reporters",
+        "Authorized agents"
+      ],
+      "dataCategories": [
+        "Contact details",
+        "Request content and identity-verification evidence",
+        "Response, appeal, escalation, and fulfillment evidence",
+        "Security and legal-hold records"
+      ],
+      "sources": [
+        "Requester",
+        "Support and security operators",
+        "Affected service providers"
+      ],
+      "purposes": [
+        "Respond to support, privacy, security, abuse, and legal requests",
+        "Verify request authority",
+        "Retain required response and incident evidence"
+      ],
+      "legalBasis": null,
+      "destinationIds": [
+        "mochirii-website"
+      ],
+      "additionalRecipients": [
+        "Authorized support, privacy, security, and legal reviewers"
+      ],
+      "controllerProcessorRole": null,
+      "storage": null,
+      "retentionRuleIds": [
+        "support-privacy-security-request-retention"
+      ],
+      "deletionPath": null,
+      "backupTreatment": null,
+      "crossBorderTransfer": null,
+      "noticeRefs": [
+        "website-privacy-page",
+        "meta-deletion-page",
+        "root-security-policy"
+      ],
+      "status": "BLOCKED_APPROVAL",
+      "owner": "privacy-owner",
+      "question": "What intake, verification, deadline, appeal, retention, disclosure, and legal-hold workflow applies?",
+      "evidenceNeeded": [
+        "Approved rights and security-request runbook",
+        "Qualified-counsel deadline and identity-verification review",
+        "End-to-end synthetic workflow evidence"
+      ],
+      "sourceRefs": [
+        "root-security-policy",
+        "website-privacy-page",
+        "meta-deletion-page"
+      ]
+    },
+    {
+      "id": "storefront-customer-order-support",
+      "surface": "storefront",
+      "integrationIds": [
+        "storefront"
+      ],
+      "catalogDataClasses": [
+        "commerce_configuration",
+        "public_content"
+      ],
+      "catalogGaps": [
+        "storefront_customer_order_shipping_tax_marketing_support"
+      ],
+      "dataSubjects": [
+        "Prospective and future customers",
+        "Support contacts",
+        "Store operators"
+      ],
+      "dataCategories": [
+        "Customer, order, shipping, tax, consent, support, complaint, and product-safety records"
+      ],
+      "sources": [
+        "Customer",
+        "Shopify",
+        "Supplier and shipping operations",
+        "Support and compliance operators"
+      ],
+      "purposes": [
+        "Operate the storefront",
+        "Fulfill and support orders",
+        "Meet tax, privacy, product-safety, and complaint obligations"
+      ],
+      "legalBasis": null,
+      "destinationIds": [
+        "shopify-storefront"
+      ],
+      "additionalRecipients": [
+        "Approved fulfillment, shipping, tax, support, and compliance recipients"
+      ],
+      "controllerProcessorRole": null,
+      "storage": null,
+      "retentionRuleIds": [
+        "storefront-customer-order-retention",
+        "support-privacy-security-request-retention"
+      ],
+      "deletionPath": null,
+      "backupTreatment": null,
+      "crossBorderTransfer": null,
+      "noticeRefs": [],
+      "status": "DEFERRED_BY_EXPLICIT_POLICY",
+      "owner": "commerce-owner",
+      "question": "What customer, order, tax, marketing, complaint, safety, retention, and rights terms apply before launch?",
+      "evidenceNeeded": [
+        "Qualified commerce, tax, privacy, and cosmetics review",
+        "Current provider and supplier contracts",
+        "Approved public policies and operational workflows"
+      ],
+      "sourceRefs": [
+        "shopify-readiness",
+        "storefront-lifecycle"
+      ]
+    },
+    {
+      "id": "future-ios-social-client",
+      "surface": "mobile-ios",
+      "integrationIds": [
+        "social"
+      ],
+      "catalogDataClasses": [
+        "authentication_identity",
+        "social_account_mapping",
+        "social_posts_and_media"
+      ],
+      "catalogGaps": [
+        "ios_device_push_diagnostics_and_privacy_manifest"
+      ],
+      "dataSubjects": [
+        "Future verified guild members using iOS"
+      ],
+      "dataCategories": [
+        "Social account and content",
+        "Device and application diagnostics",
+        "Push-notification state if later approved"
+      ],
+      "sources": [
+        "Future iOS client",
+        "Mochirii Social"
+      ],
+      "purposes": [
+        "Provide a first-party mobile Social experience"
+      ],
+      "legalBasis": null,
+      "destinationIds": [
+        "mochirii-social"
+      ],
+      "additionalRecipients": [],
+      "controllerProcessorRole": null,
+      "storage": null,
+      "retentionRuleIds": [
+        "social-content-message-retention",
+        "session-token-device-retention"
+      ],
+      "deletionPath": null,
+      "backupTreatment": null,
+      "crossBorderTransfer": null,
+      "noticeRefs": [],
+      "status": "DEFERRED_BY_EXPLICIT_POLICY",
+      "owner": "mobile-owner",
+      "question": "What App Store privacy, device, diagnostics, push, account-deletion, and regional terms apply?",
+      "evidenceNeeded": [
+        "Approved iOS data-flow and privacy-manifest inventory",
+        "Current Apple policy review",
+        "Qualified-counsel mobile privacy review"
+      ],
+      "sourceRefs": [
+        "architecture",
+        "current-state"
+      ]
+    },
+    {
+      "id": "future-mochi-pets-tester-game",
+      "surface": "mochi-pets",
+      "integrationIds": [
+        "unity-alpha"
+      ],
+      "catalogDataClasses": [
+        "alpha_access_and_terms",
+        "alpha_feedback",
+        "alpha_game_state_and_chat"
+      ],
+      "catalogGaps": [
+        "game_device_diagnostics_virtual_items_and_child_safety"
+      ],
+      "dataSubjects": [
+        "Future approved testers",
+        "Guild members in shared game and chat spaces"
+      ],
+      "dataCategories": [
+        "Tester access and terms acknowledgement",
+        "Feedback",
+        "Game state, shared pet state, chat, reports, and device diagnostics"
+      ],
+      "sources": [
+        "Future Unity clients",
+        "Website tester doorway",
+        "Authorized game moderators"
+      ],
+      "purposes": [
+        "Operate a private guild game and tester program"
+      ],
+      "legalBasis": null,
+      "destinationIds": [
+        "unity-services-api",
+        "supabase-auth",
+        "supabase-edge",
+        "supabase-postgres"
+      ],
+      "additionalRecipients": [
+        "Authorized game moderators"
+      ],
+      "controllerProcessorRole": null,
+      "storage": null,
+      "retentionRuleIds": [
+        "future-game-tester-retention",
+        "security-abuse-log-retention"
+      ],
+      "deletionPath": null,
+      "backupTreatment": null,
+      "crossBorderTransfer": null,
+      "noticeRefs": [],
+      "status": "DEFERRED_BY_EXPLICIT_POLICY",
+      "owner": "game-owner",
+      "question": "What tester, chat, safety, reporting, virtual-item, retention, child-protection, and platform terms apply?",
+      "evidenceNeeded": [
+        "Approved game data-flow and tester plan",
+        "Qualified game, child-safety, privacy, and platform review"
+      ],
+      "sourceRefs": [
+        "mochi-pets-contract",
+        "current-state"
+      ]
+    },
+    {
+      "id": "release-ci-audit-operations",
+      "surface": "release-operations",
+      "integrationIds": [
+        "release-automation"
+      ],
+      "catalogDataClasses": [
+        "source_and_release_metadata"
+      ],
+      "catalogGaps": [
+        "operator_identity_audit_incident_and_legal_hold"
+      ],
+      "dataSubjects": [
+        "Repository contributors",
+        "Reviewers",
+        "Operators",
+        "Security reporters"
+      ],
+      "dataCategories": [
+        "Commit and review metadata",
+        "CI, deployment, provenance, audit, incident, and rollback evidence"
+      ],
+      "sources": [
+        "GitHub",
+        "CI workflows",
+        "Authorized operators",
+        "Affected providers"
+      ],
+      "purposes": [
+        "Review and release source",
+        "Verify provenance",
+        "Investigate incidents",
+        "Preserve rollback and compliance evidence"
+      ],
+      "legalBasis": null,
+      "destinationIds": [
+        "github-actions",
+        "ghcr"
+      ],
+      "additionalRecipients": [
+        "Authorized repository, security, and incident operators"
+      ],
+      "controllerProcessorRole": null,
+      "storage": null,
+      "retentionRuleIds": [
+        "release-audit-incident-retention",
+        "security-abuse-log-retention"
+      ],
+      "deletionPath": null,
+      "backupTreatment": null,
+      "crossBorderTransfer": null,
+      "noticeRefs": [
+        "root-security-policy"
+      ],
+      "status": "BLOCKED_APPROVAL",
+      "owner": "release-owner",
+      "question": "What operator notice, audit retention, deletion exception, incident, and legal-hold rules apply?",
+      "evidenceNeeded": [
+        "Approved operator and incident record schedule",
+        "Current GitHub and registry processing evidence"
+      ],
+      "sourceRefs": [
+        "operations-readme",
+        "architecture",
+        "root-security-policy"
+      ]
+    }
+  ],
+  "subprocessors": [
+    {
+      "id": "vercel",
+      "provider": "Vercel",
+      "destinationIds": [
+        "vercel-website",
+        "vercel-observability"
+      ],
+      "catalogGaps": [],
+      "integrationIds": [
+        "website"
+      ],
+      "state": "active-source",
+      "role": "Website hosting, request processing, analytics, and performance observability",
+      "processingActivityIds": [
+        "public-website-and-telemetry",
+        "account-auth-membership",
+        "gallery-submission-moderation-publication",
+        "raffle-participation-draw-claim-reward"
+      ],
+      "contractDpa": null,
+      "subprocessorList": null,
+      "regions": null,
+      "transferMechanism": null,
+      "governmentAccessReview": null,
+      "deletionReturnTerms": null,
+      "securityEvidence": null,
+      "status": "BLOCKED_EXTERNAL",
+      "owner": "privacy-owner",
+      "question": "What current contract, DPA, subprocessors, regions, transfers, deletion terms, and security evidence apply?",
+      "evidenceNeeded": [
+        "Current Vercel contractual and subprocessor evidence",
+        "Qualified transfer and processor review"
+      ],
+      "sourceRefs": [
+        "integration-catalog",
+        "website-privacy-page"
+      ]
+    },
+    {
+      "id": "supabase",
+      "provider": "Supabase",
+      "destinationIds": [
+        "supabase-auth",
+        "supabase-edge",
+        "supabase-postgres",
+        "supabase-storage"
+      ],
+      "catalogGaps": [],
+      "integrationIds": [
+        "backend",
+        "auth-providers",
+        "phone-auth",
+        "raffle-foundation"
+      ],
+      "state": "active-source",
+      "role": "Authentication, database, row-level authorization, storage, and Edge Functions",
+      "processingActivityIds": [
+        "account-auth-membership",
+        "discord-community-operations",
+        "gallery-submission-moderation-publication",
+        "optional-meta-gallery-publication",
+        "raffle-participation-draw-claim-reward",
+        "future-mochi-pets-tester-game"
+      ],
+      "contractDpa": null,
+      "subprocessorList": null,
+      "regions": null,
+      "transferMechanism": null,
+      "governmentAccessReview": null,
+      "deletionReturnTerms": null,
+      "securityEvidence": null,
+      "status": "BLOCKED_EXTERNAL",
+      "owner": "privacy-owner",
+      "question": "What current contract, DPA, subprocessors, project region, transfers, deletion terms, and security evidence apply?",
+      "evidenceNeeded": [
+        "Current Supabase contractual and project-region evidence",
+        "Qualified transfer and processor review"
+      ],
+      "sourceRefs": [
+        "integration-catalog",
+        "website-privacy-page"
+      ]
+    },
+    {
+      "id": "digitalocean",
+      "provider": "DigitalOcean and Spaces",
+      "destinationIds": [
+        "digitalocean-host",
+        "digitalocean-spaces"
+      ],
+      "catalogGaps": [],
+      "integrationIds": [
+        "social"
+      ],
+      "state": "active-source",
+      "role": "Guild Social compute, media storage, backups, and related infrastructure",
+      "processingActivityIds": [
+        "private-guild-social"
+      ],
+      "contractDpa": null,
+      "subprocessorList": null,
+      "regions": null,
+      "transferMechanism": null,
+      "governmentAccessReview": null,
+      "deletionReturnTerms": null,
+      "securityEvidence": null,
+      "status": "BLOCKED_EXTERNAL",
+      "owner": "privacy-owner",
+      "question": "What current contract, DPA, regions, subprocessors, backup, transfer, deletion, and security terms apply?",
+      "evidenceNeeded": [
+        "Current DigitalOcean and Spaces contractual evidence",
+        "Authorized infrastructure and backup readback",
+        "Qualified transfer and processor review"
+      ],
+      "sourceRefs": [
+        "integration-catalog",
+        "social-privacy-contract"
+      ]
+    },
+    {
+      "id": "cloudflare",
+      "provider": "Cloudflare",
+      "destinationIds": [
+        "cloudflare-edge",
+        "cloudflare-turnstile"
+      ],
+      "catalogGaps": [],
+      "integrationIds": [
+        "website",
+        "social"
+      ],
+      "state": "active-source",
+      "role": "DNS, edge protection, and source-declared bot-abuse controls",
+      "processingActivityIds": [
+        "public-website-and-telemetry",
+        "private-guild-social"
+      ],
+      "contractDpa": null,
+      "subprocessorList": null,
+      "regions": null,
+      "transferMechanism": null,
+      "governmentAccessReview": null,
+      "deletionReturnTerms": null,
+      "securityEvidence": null,
+      "status": "BLOCKED_EXTERNAL",
+      "owner": "privacy-owner",
+      "question": "What current edge, logging, bot-control, contract, region, transfer, deletion, and security terms apply?",
+      "evidenceNeeded": [
+        "Current Cloudflare contractual and configured-service evidence",
+        "Qualified transfer and processor review"
+      ],
+      "sourceRefs": [
+        "integration-catalog",
+        "architecture"
+      ]
+    },
+    {
+      "id": "github",
+      "provider": "GitHub and GitHub Container Registry",
+      "destinationIds": [
+        "github-actions",
+        "ghcr"
+      ],
+      "catalogGaps": [],
+      "integrationIds": [
+        "release-automation"
+      ],
+      "state": "active-source",
+      "role": "Source hosting, review, CI, security scanning, provenance, and container registry",
+      "processingActivityIds": [
+        "release-ci-audit-operations"
+      ],
+      "contractDpa": null,
+      "subprocessorList": null,
+      "regions": null,
+      "transferMechanism": null,
+      "governmentAccessReview": null,
+      "deletionReturnTerms": null,
+      "securityEvidence": null,
+      "status": "BLOCKED_EXTERNAL",
+      "owner": "release-owner",
+      "question": "What current organization contract, data location, subprocessor, transfer, deletion, and operator-data terms apply?",
+      "evidenceNeeded": [
+        "Current GitHub contractual and organization evidence",
+        "Approved operator-data retention review"
+      ],
+      "sourceRefs": [
+        "integration-catalog",
+        "architecture"
+      ]
+    },
+    {
+      "id": "discord",
+      "provider": "Discord",
+      "destinationIds": [
+        "discord-api",
+        "discord-interaction-ingress"
+      ],
+      "catalogGaps": [],
+      "integrationIds": [
+        "discord-community"
+      ],
+      "state": "active-source",
+      "role": "Guild community, identity evidence, events, commands, and moderation",
+      "processingActivityIds": [
+        "account-auth-membership",
+        "discord-community-operations"
+      ],
+      "contractDpa": null,
+      "subprocessorList": null,
+      "regions": null,
+      "transferMechanism": null,
+      "governmentAccessReview": null,
+      "deletionReturnTerms": null,
+      "securityEvidence": null,
+      "status": "BLOCKED_EXTERNAL",
+      "owner": "community-owner",
+      "question": "What current platform terms, data roles, regions, retention, deletion, transfer, and moderation terms apply?",
+      "evidenceNeeded": [
+        "Current Discord terms and data-processing evidence",
+        "Qualified platform and transfer review"
+      ],
+      "sourceRefs": [
+        "integration-catalog",
+        "architecture"
+      ]
+    },
+    {
+      "id": "shopify",
+      "provider": "Shopify",
+      "destinationIds": [
+        "shopify-storefront"
+      ],
+      "catalogGaps": [],
+      "integrationIds": [
+        "storefront"
+      ],
+      "state": "activation-gated",
+      "role": "Storefront hosting, customer, order, tax, marketing, and commerce operations",
+      "processingActivityIds": [
+        "storefront-customer-order-support"
+      ],
+      "contractDpa": null,
+      "subprocessorList": null,
+      "regions": null,
+      "transferMechanism": null,
+      "governmentAccessReview": null,
+      "deletionReturnTerms": null,
+      "securityEvidence": null,
+      "status": "BLOCKED_EXTERNAL",
+      "owner": "commerce-owner",
+      "question": "What current commerce contract, DPA, subprocessors, regions, privacy controls, retention, transfer, and deletion terms apply?",
+      "evidenceNeeded": [
+        "Current Shopify contract and provider configuration readback",
+        "Qualified commerce and privacy review"
+      ],
+      "sourceRefs": [
+        "shopify-readiness",
+        "storefront-lifecycle"
+      ]
+    },
+    {
+      "id": "meta",
+      "provider": "Meta publication destinations",
+      "destinationIds": [
+        "facebook-api",
+        "instagram-api"
+      ],
+      "catalogGaps": [],
+      "integrationIds": [
+        "facebook-page-gallery-publishing",
+        "instagram-gallery-publishing"
+      ],
+      "state": "activation-gated",
+      "role": "Optional public publication of separately approved Gallery derivatives",
+      "processingActivityIds": [
+        "optional-meta-gallery-publication"
+      ],
+      "contractDpa": null,
+      "subprocessorList": null,
+      "regions": null,
+      "transferMechanism": null,
+      "governmentAccessReview": null,
+      "deletionReturnTerms": null,
+      "securityEvidence": null,
+      "status": "BLOCKED_EXTERNAL",
+      "owner": "gallery-owner",
+      "question": "What current publication terms, data-use rules, regions, transfer, removal, deletion, and security terms apply?",
+      "evidenceNeeded": [
+        "Current destination terms and account capability evidence",
+        "Qualified publication, privacy, and transfer review"
+      ],
+      "sourceRefs": [
+        "facebook-publishing-contract",
+        "instagram-publishing-contract",
+        "meta-deletion-page"
+      ]
+    },
+    {
+      "id": "spotify",
+      "provider": "Spotify",
+      "destinationIds": [
+        "spotify-embed"
+      ],
+      "catalogGaps": [],
+      "integrationIds": [
+        "spotify-embeds"
+      ],
+      "state": "active-source",
+      "role": "User-activated public media embed",
+      "processingActivityIds": [
+        "user-activated-external-embeds"
+      ],
+      "contractDpa": null,
+      "subprocessorList": null,
+      "regions": null,
+      "transferMechanism": null,
+      "governmentAccessReview": null,
+      "deletionReturnTerms": null,
+      "securityEvidence": null,
+      "status": "BLOCKED_EXTERNAL",
+      "owner": "privacy-owner",
+      "question": "What current embed, cookie, telemetry, transfer, and privacy terms apply?",
+      "evidenceNeeded": [
+        "Current Spotify embed and privacy documentation",
+        "Qualified cookie and disclosure review"
+      ],
+      "sourceRefs": [
+        "integration-catalog",
+        "website-privacy-page"
+      ]
+    },
+    {
+      "id": "apple-future",
+      "provider": "Apple",
+      "destinationIds": [],
+      "catalogGaps": [
+        "apple_app_store_and_push_services"
+      ],
+      "integrationIds": [],
+      "state": "deferred",
+      "role": "Future App Store distribution and optional platform services",
+      "processingActivityIds": [
+        "future-ios-social-client"
+      ],
+      "contractDpa": null,
+      "subprocessorList": null,
+      "regions": null,
+      "transferMechanism": null,
+      "governmentAccessReview": null,
+      "deletionReturnTerms": null,
+      "securityEvidence": null,
+      "status": "DEFERRED_BY_EXPLICIT_POLICY",
+      "owner": "mobile-owner",
+      "question": "Which Apple services will be used and what current privacy, account, transfer, and deletion terms will apply?",
+      "evidenceNeeded": [
+        "Approved mobile architecture",
+        "Current Apple contractual and platform-policy review"
+      ],
+      "sourceRefs": [
+        "architecture",
+        "current-state"
+      ]
+    },
+    {
+      "id": "reward-provider-relay-future",
+      "provider": "Electronic reward provider and isolated relay",
+      "destinationIds": [
+        "reward-provider-api",
+        "reward-provider-webhook-ingress",
+        "reward-relay"
+      ],
+      "catalogGaps": [
+        "fixed_egress_relay_host"
+      ],
+      "integrationIds": [
+        "raffle-foundation"
+      ],
+      "state": "activation-gated",
+      "role": "Future reward order, webhook, and one-use winner delivery",
+      "processingActivityIds": [
+        "raffle-participation-draw-claim-reward"
+      ],
+      "contractDpa": null,
+      "subprocessorList": null,
+      "regions": null,
+      "transferMechanism": null,
+      "governmentAccessReview": null,
+      "deletionReturnTerms": null,
+      "securityEvidence": null,
+      "status": "BLOCKED_EXTERNAL",
+      "owner": "raffle-owner",
+      "question": "What production eligibility, contract, identity verification, regions, tax, transfer, reward-link, deletion, and security terms apply?",
+      "evidenceNeeded": [
+        "Current production-account approval and contract",
+        "Qualified raffle, tax, privacy, and transfer review",
+        "Separately approved fixed-egress design and canary"
+      ],
+      "sourceRefs": [
+        "reward-relay",
+        "current-state"
+      ]
+    },
+    {
+      "id": "unity-future",
+      "provider": "Unity services",
+      "destinationIds": [
+        "unity-services-api"
+      ],
+      "catalogGaps": [],
+      "integrationIds": [
+        "unity-alpha"
+      ],
+      "state": "deferred",
+      "role": "Future game development and optional runtime services",
+      "processingActivityIds": [
+        "future-mochi-pets-tester-game"
+      ],
+      "contractDpa": null,
+      "subprocessorList": null,
+      "regions": null,
+      "transferMechanism": null,
+      "governmentAccessReview": null,
+      "deletionReturnTerms": null,
+      "securityEvidence": null,
+      "status": "DEFERRED_BY_EXPLICIT_POLICY",
+      "owner": "game-owner",
+      "question": "Which Unity services will be used and what current privacy, safety, transfer, retention, and deletion terms will apply?",
+      "evidenceNeeded": [
+        "Approved game architecture",
+        "Current Unity contractual and platform-policy review"
+      ],
+      "sourceRefs": [
+        "integration-catalog",
+        "mochi-pets-contract"
+      ]
+    }
+  ],
+  "retentionRules": [
+    {
+      "id": "account-profile-membership-retention",
+      "category": "Account, profile, membership, role, and verification records",
+      "processingActivityIds": [
+        "account-auth-membership"
+      ],
+      "liveRetentionPeriod": null,
+      "backupRetentionPeriod": null,
+      "deletionTrigger": null,
+      "deletionPropagation": null,
+      "legalHoldTreatment": null,
+      "status": "BLOCKED_APPROVAL",
+      "owner": "privacy-owner",
+      "question": "How long are account and membership records kept, and how do deletion, revocation, backups, and legal holds interact?",
+      "evidenceNeeded": [
+        "Approved account retention schedule",
+        "Authorized provider and backup readback",
+        "End-to-end deletion and revocation test"
+      ],
+      "sourceRefs": [
+        "website-privacy-page",
+        "integration-catalog"
+      ]
+    },
+    {
+      "id": "session-token-device-retention",
+      "category": "Sessions, authentication tokens, device state, and sign-in evidence",
+      "processingActivityIds": [
+        "account-auth-membership",
+        "future-ios-social-client"
+      ],
+      "liveRetentionPeriod": null,
+      "backupRetentionPeriod": null,
+      "deletionTrigger": null,
+      "deletionPropagation": null,
+      "legalHoldTreatment": null,
+      "status": "BLOCKED_EXTERNAL",
+      "owner": "security-owner",
+      "question": "What current expiry, revocation, device, logging, and backup behavior applies?",
+      "evidenceNeeded": [
+        "Authorized Auth and Social runtime readback",
+        "Approved session and device retention policy"
+      ],
+      "sourceRefs": [
+        "integration-catalog",
+        "social-privacy-contract"
+      ]
+    },
+    {
+      "id": "security-abuse-log-retention",
+      "category": "Security, abuse, request, application, and incident logs",
+      "processingActivityIds": [
+        "public-website-and-telemetry",
+        "account-auth-membership",
+        "private-guild-social",
+        "future-mochi-pets-tester-game",
+        "release-ci-audit-operations"
+      ],
+      "liveRetentionPeriod": null,
+      "backupRetentionPeriod": null,
+      "deletionTrigger": null,
+      "deletionPropagation": null,
+      "legalHoldTreatment": null,
+      "status": "BLOCKED_APPROVAL",
+      "owner": "security-owner",
+      "question": "What minimum and maximum log periods, redaction, access, incident exception, and legal-hold rules apply?",
+      "evidenceNeeded": [
+        "Approved security logging and incident schedule",
+        "Current provider retention evidence"
+      ],
+      "sourceRefs": [
+        "root-security-policy",
+        "social-privacy-contract"
+      ]
+    },
+    {
+      "id": "gallery-source-derivative-retention",
+      "category": "Gallery source media, review previews, public derivatives, and publication revisions",
+      "processingActivityIds": [
+        "gallery-submission-moderation-publication",
+        "optional-meta-gallery-publication"
+      ],
+      "liveRetentionPeriod": null,
+      "backupRetentionPeriod": null,
+      "deletionTrigger": null,
+      "deletionPropagation": null,
+      "legalHoldTreatment": null,
+      "status": "BLOCKED_APPROVAL",
+      "owner": "gallery-owner",
+      "question": "How long are source media, rejected media, derivatives, revisions, and withdrawal evidence kept?",
+      "evidenceNeeded": [
+        "Approved Gallery retention and withdrawal schedule",
+        "Authorized storage and backup readback",
+        "End-to-end removal test"
+      ],
+      "sourceRefs": [
+        "gallery-thumbnail-rollout",
+        "gallery-media-delivery"
+      ]
+    },
+    {
+      "id": "moderation-consent-audit-retention",
+      "category": "Consent, moderation, withdrawal, publication, and reconciliation audit records",
+      "processingActivityIds": [
+        "discord-community-operations",
+        "gallery-submission-moderation-publication",
+        "optional-meta-gallery-publication"
+      ],
+      "liveRetentionPeriod": null,
+      "backupRetentionPeriod": null,
+      "deletionTrigger": null,
+      "deletionPropagation": null,
+      "legalHoldTreatment": null,
+      "status": "BLOCKED_APPROVAL",
+      "owner": "privacy-owner",
+      "question": "Which audit records must remain immutable, for how long, and what data-minimization and rights exceptions apply?",
+      "evidenceNeeded": [
+        "Approved consent and moderation audit schedule",
+        "Qualified-counsel evidence-retention review"
+      ],
+      "sourceRefs": [
+        "website-privacy-page",
+        "meta-deletion-page",
+        "gallery-thumbnail-rollout"
+      ]
+    },
+    {
+      "id": "social-content-message-retention",
+      "category": "Social profiles, posts, media, reactions, follows, and direct messages",
+      "processingActivityIds": [
+        "private-guild-social",
+        "future-ios-social-client"
+      ],
+      "liveRetentionPeriod": null,
+      "backupRetentionPeriod": null,
+      "deletionTrigger": null,
+      "deletionPropagation": null,
+      "legalHoldTreatment": null,
+      "status": "BLOCKED_APPROVAL",
+      "owner": "privacy-owner",
+      "question": "What member-controlled deletion, moderation exception, direct-message, backup, and legal-hold rules apply?",
+      "evidenceNeeded": [
+        "Approved Social content and message schedule",
+        "Authorized live configuration and backup readback",
+        "Qualified-counsel moderation and privacy review"
+      ],
+      "sourceRefs": [
+        "social-privacy-contract",
+        "social-deletion-help"
+      ]
+    },
+    {
+      "id": "social-account-deletion-backup-retention",
+      "category": "Social account deletion, deactivation, backups, restore points, and residual identifiers",
+      "processingActivityIds": [
+        "private-guild-social"
+      ],
+      "liveRetentionPeriod": null,
+      "backupRetentionPeriod": null,
+      "deletionTrigger": null,
+      "deletionPropagation": null,
+      "legalHoldTreatment": null,
+      "status": "BLOCKED_EXTERNAL",
+      "owner": "privacy-owner",
+      "question": "What does live Social configuration actually delete, when, from which systems, and with what backup or legal-hold exceptions?",
+      "evidenceNeeded": [
+        "Authorized deletion and backup configuration readback",
+        "Restore and post-restore access-control evidence",
+        "Qualified-counsel deletion-claim review"
+      ],
+      "sourceRefs": [
+        "social-deletion-help",
+        "social-pixelfed-config",
+        "social-privacy-contract"
+      ]
+    },
+    {
+      "id": "raffle-participation-draw-claim-retention",
+      "category": "Raffle participation, draw ledger, immutable result evidence, claim, tax, fraud, and notice records",
+      "processingActivityIds": [
+        "raffle-participation-draw-claim-reward"
+      ],
+      "liveRetentionPeriod": null,
+      "backupRetentionPeriod": null,
+      "deletionTrigger": null,
+      "deletionPropagation": null,
+      "legalHoldTreatment": null,
+      "status": "BLOCKED_EXTERNAL",
+      "owner": "raffle-owner",
+      "question": "Which records must be immutable, which remain mutable, and what country, tax, claim, audit, deletion, and legal-hold periods apply?",
+      "evidenceNeeded": [
+        "Qualified sweepstakes and tax retention review",
+        "Approved immutable-evidence and participant-rights schedule"
+      ],
+      "sourceRefs": [
+        "raffle-leaderboard",
+        "spinner-publication",
+        "reward-relay"
+      ]
+    },
+    {
+      "id": "reward-bearer-link-retention",
+      "category": "Electronic reward bearer links and relay handles",
+      "processingActivityIds": [
+        "raffle-participation-draw-claim-reward"
+      ],
+      "liveRetentionPeriod": "Source contract forbids retention of raw reward links; production behavior is not activated or proven.",
+      "backupRetentionPeriod": null,
+      "deletionTrigger": "One-use delivery or bounded expiry is required by source design.",
+      "deletionPropagation": null,
+      "legalHoldTreatment": null,
+      "status": "BLOCKED_EXTERNAL",
+      "owner": "raffle-owner",
+      "question": "Can the approved provider and relay satisfy the no-retention, one-use, expiry, audit, and legal-hold design without exposing a bearer secret?",
+      "evidenceNeeded": [
+        "Current provider and relay design review",
+        "Separately approved production canary",
+        "Qualified legal and security review"
+      ],
+      "sourceRefs": [
+        "reward-relay"
+      ]
+    },
+    {
+      "id": "support-privacy-security-request-retention",
+      "category": "Support, privacy, security, abuse, appeal, and legal-request records",
+      "processingActivityIds": [
+        "support-privacy-security-requests",
+        "storefront-customer-order-support"
+      ],
+      "liveRetentionPeriod": null,
+      "backupRetentionPeriod": null,
+      "deletionTrigger": null,
+      "deletionPropagation": null,
+      "legalHoldTreatment": null,
+      "status": "BLOCKED_APPROVAL",
+      "owner": "privacy-owner",
+      "question": "How long are request, verification, response, appeal, incident, and legal-hold records retained?",
+      "evidenceNeeded": [
+        "Approved request and incident retention schedule",
+        "Qualified-counsel deadline and legal-hold review"
+      ],
+      "sourceRefs": [
+        "root-security-policy",
+        "website-privacy-page",
+        "meta-deletion-page"
+      ]
+    },
+    {
+      "id": "analytics-performance-retention",
+      "category": "Website analytics, performance, embed, and aggregate observability records",
+      "processingActivityIds": [
+        "public-website-and-telemetry",
+        "user-activated-external-embeds"
+      ],
+      "liveRetentionPeriod": null,
+      "backupRetentionPeriod": null,
+      "deletionTrigger": null,
+      "deletionPropagation": null,
+      "legalHoldTreatment": null,
+      "status": "BLOCKED_EXTERNAL",
+      "owner": "privacy-owner",
+      "question": "What current event fields, cookie behavior, aggregation, provider periods, deletion, and transfer terms apply?",
+      "evidenceNeeded": [
+        "Authorized analytics and observability readback",
+        "Current provider retention documentation",
+        "Qualified cookie and notice review"
+      ],
+      "sourceRefs": [
+        "website-privacy-page",
+        "integration-catalog"
+      ]
+    },
+    {
+      "id": "discord-interaction-event-retention",
+      "category": "Discord verification, interaction, role, event, reminder, and delivery records",
+      "processingActivityIds": [
+        "discord-community-operations"
+      ],
+      "liveRetentionPeriod": null,
+      "backupRetentionPeriod": null,
+      "deletionTrigger": null,
+      "deletionPropagation": null,
+      "legalHoldTreatment": null,
+      "status": "BLOCKED_EXTERNAL",
+      "owner": "community-owner",
+      "question": "What current Discord and Mochirii retention, deletion, moderation, and audit periods apply?",
+      "evidenceNeeded": [
+        "Current Discord and hosted-record evidence",
+        "Approved community operations schedule"
+      ],
+      "sourceRefs": [
+        "integration-catalog",
+        "architecture"
+      ]
+    },
+    {
+      "id": "storefront-customer-order-retention",
+      "category": "Storefront customer, order, shipping, tax, marketing, complaint, and product-safety records",
+      "processingActivityIds": [
+        "storefront-customer-order-support"
+      ],
+      "liveRetentionPeriod": null,
+      "backupRetentionPeriod": null,
+      "deletionTrigger": null,
+      "deletionPropagation": null,
+      "legalHoldTreatment": null,
+      "status": "DEFERRED_BY_EXPLICIT_POLICY",
+      "owner": "commerce-owner",
+      "question": "Which commercial, tax, privacy, complaint, safety, adverse-event, and legal-hold periods apply before launch?",
+      "evidenceNeeded": [
+        "Qualified commerce, tax, privacy, and cosmetics review",
+        "Current provider and supplier retention evidence"
+      ],
+      "sourceRefs": [
+        "shopify-readiness",
+        "storefront-lifecycle"
+      ]
+    },
+    {
+      "id": "future-game-tester-retention",
+      "category": "Future game tester access, feedback, game state, chat, reports, and diagnostics",
+      "processingActivityIds": [
+        "future-mochi-pets-tester-game"
+      ],
+      "liveRetentionPeriod": null,
+      "backupRetentionPeriod": null,
+      "deletionTrigger": null,
+      "deletionPropagation": null,
+      "legalHoldTreatment": null,
+      "status": "DEFERRED_BY_EXPLICIT_POLICY",
+      "owner": "game-owner",
+      "question": "What tester, chat, safety, moderation, child-protection, and game-state retention rules apply?",
+      "evidenceNeeded": [
+        "Approved game retention and moderation plan",
+        "Qualified game and privacy review"
+      ],
+      "sourceRefs": [
+        "mochi-pets-contract",
+        "current-state"
+      ]
+    },
+    {
+      "id": "release-audit-incident-retention",
+      "category": "Source review, CI, provenance, deployment, rollback, audit, and incident evidence",
+      "processingActivityIds": [
+        "release-ci-audit-operations"
+      ],
+      "liveRetentionPeriod": null,
+      "backupRetentionPeriod": null,
+      "deletionTrigger": null,
+      "deletionPropagation": null,
+      "legalHoldTreatment": null,
+      "status": "BLOCKED_APPROVAL",
+      "owner": "release-owner",
+      "question": "Which release and incident evidence remains immutable, for how long, and what operator-rights exceptions apply?",
+      "evidenceNeeded": [
+        "Approved release and incident evidence schedule",
+        "Qualified legal-hold and operator-data review"
+      ],
+      "sourceRefs": [
+        "operations-readme",
+        "architecture"
+      ]
+    }
+  ],
+  "rightsWorkflows": [
+    {
+      "id": "access",
+      "right": "Access to personal data",
+      "surfaces": [
+        "website-public",
+        "website-members",
+        "gallery",
+        "social",
+        "discord",
+        "raffle",
+        "storefront",
+        "mobile-ios",
+        "mochi-pets",
+        "release-operations"
+      ],
+      "intake": "Source directs requests to support@mochirii.com.",
+      "identityVerification": null,
+      "responseDeadline": null,
+      "appeal": null,
+      "authorizedAgent": null,
+      "providerPropagation": null,
+      "evidenceTest": null,
+      "status": "BLOCKED_APPROVAL",
+      "owner": "privacy-owner",
+      "question": "Which access rights, verification steps, deadlines, scope, exceptions, and provider exports apply by jurisdiction?",
+      "evidenceNeeded": [
+        "Approved jurisdiction-specific rights workflow",
+        "End-to-end synthetic access test"
+      ],
+      "sourceRefs": [
+        "website-privacy-page",
+        "social-privacy-contract"
+      ]
+    },
+    {
+      "id": "correction",
+      "right": "Correction of inaccurate personal data",
+      "surfaces": [
+        "website-members",
+        "gallery",
+        "social",
+        "discord",
+        "raffle",
+        "storefront",
+        "mobile-ios",
+        "mochi-pets"
+      ],
+      "intake": "Source directs requests to support@mochirii.com.",
+      "identityVerification": null,
+      "responseDeadline": null,
+      "appeal": null,
+      "authorizedAgent": null,
+      "providerPropagation": null,
+      "evidenceTest": null,
+      "status": "BLOCKED_APPROVAL",
+      "owner": "privacy-owner",
+      "question": "Which records may be corrected, which immutable evidence requires an appended correction, and what deadlines apply?",
+      "evidenceNeeded": [
+        "Approved correction and immutable-evidence workflow",
+        "End-to-end synthetic correction test"
+      ],
+      "sourceRefs": [
+        "website-privacy-page",
+        "social-privacy-contract",
+        "spinner-publication"
+      ]
+    },
+    {
+      "id": "deletion",
+      "right": "Deletion or erasure",
+      "surfaces": [
+        "website-members",
+        "gallery",
+        "social",
+        "discord",
+        "raffle",
+        "storefront",
+        "mobile-ios",
+        "mochi-pets",
+        "release-operations"
+      ],
+      "intake": "Website and Social source direct eligible requests to support@mochirii.com.",
+      "identityVerification": null,
+      "responseDeadline": null,
+      "appeal": null,
+      "authorizedAgent": null,
+      "providerPropagation": null,
+      "evidenceTest": null,
+      "status": "BLOCKED_EXTERNAL",
+      "owner": "privacy-owner",
+      "question": "What can be deleted, what must be retained, how are backups and providers handled, and what proof is returned?",
+      "evidenceNeeded": [
+        "Qualified-counsel deletion and exception review",
+        "Authorized provider and backup readback",
+        "End-to-end synthetic deletion and restore test"
+      ],
+      "sourceRefs": [
+        "website-privacy-page",
+        "meta-deletion-page",
+        "social-deletion-help",
+        "social-privacy-contract"
+      ]
+    },
+    {
+      "id": "portability-export",
+      "right": "Portability and account or content export",
+      "surfaces": [
+        "website-members",
+        "gallery",
+        "social",
+        "discord",
+        "raffle",
+        "storefront",
+        "mobile-ios",
+        "mochi-pets"
+      ],
+      "intake": null,
+      "identityVerification": null,
+      "responseDeadline": null,
+      "appeal": null,
+      "authorizedAgent": null,
+      "providerPropagation": null,
+      "evidenceTest": null,
+      "status": "BLOCKED_APPROVAL",
+      "owner": "privacy-owner",
+      "question": "Which export rights apply and what machine-readable, secure, scoped export can be produced without exposing other members?",
+      "evidenceNeeded": [
+        "Qualified-counsel portability review",
+        "Approved secure export design and synthetic test"
+      ],
+      "sourceRefs": [
+        "website-privacy-page",
+        "social-privacy-contract"
+      ]
+    },
+    {
+      "id": "restriction",
+      "right": "Restriction of processing",
+      "surfaces": [
+        "website-members",
+        "gallery",
+        "social",
+        "discord",
+        "raffle",
+        "storefront",
+        "mobile-ios",
+        "mochi-pets"
+      ],
+      "intake": null,
+      "identityVerification": null,
+      "responseDeadline": null,
+      "appeal": null,
+      "authorizedAgent": null,
+      "providerPropagation": null,
+      "evidenceTest": null,
+      "status": "BLOCKED_APPROVAL",
+      "owner": "privacy-owner",
+      "question": "Where does restriction apply and how is it enforced across active and backup systems?",
+      "evidenceNeeded": [
+        "Qualified-counsel applicability review",
+        "Approved restriction workflow and synthetic test"
+      ],
+      "sourceRefs": [
+        "website-privacy-page",
+        "social-privacy-contract"
+      ]
+    },
+    {
+      "id": "objection",
+      "right": "Objection to processing",
+      "surfaces": [
+        "website-public",
+        "website-members",
+        "gallery",
+        "social",
+        "discord",
+        "raffle",
+        "storefront",
+        "mobile-ios",
+        "mochi-pets"
+      ],
+      "intake": null,
+      "identityVerification": null,
+      "responseDeadline": null,
+      "appeal": null,
+      "authorizedAgent": null,
+      "providerPropagation": null,
+      "evidenceTest": null,
+      "status": "BLOCKED_APPROVAL",
+      "owner": "privacy-owner",
+      "question": "Which objection rights apply to which purposes, and what compelling-interest or legal exceptions exist?",
+      "evidenceNeeded": [
+        "Qualified-counsel applicability review",
+        "Approved objection workflow and synthetic test"
+      ],
+      "sourceRefs": [
+        "website-privacy-page",
+        "social-privacy-contract"
+      ]
+    },
+    {
+      "id": "consent-withdrawal",
+      "right": "Withdrawal of consent",
+      "surfaces": [
+        "gallery",
+        "social",
+        "discord",
+        "raffle",
+        "storefront",
+        "mobile-ios",
+        "mochi-pets"
+      ],
+      "intake": "Gallery and optional publication source describe manual withdrawal requests.",
+      "identityVerification": null,
+      "responseDeadline": null,
+      "appeal": null,
+      "authorizedAgent": null,
+      "providerPropagation": null,
+      "evidenceTest": null,
+      "status": "BLOCKED_APPROVAL",
+      "owner": "privacy-owner",
+      "question": "Which activities rely on consent, how is withdrawal authenticated, and what prior processing or retention remains lawful?",
+      "evidenceNeeded": [
+        "Approved purpose-by-purpose consent inventory",
+        "End-to-end Gallery and provider withdrawal test"
+      ],
+      "sourceRefs": [
+        "website-privacy-page",
+        "meta-deletion-page",
+        "social-privacy-contract"
+      ]
+    },
+    {
+      "id": "sale-share-targeted-ad-opt-out",
+      "right": "Opt out of sale, sharing, or targeted advertising where applicable",
+      "surfaces": [
+        "website-public",
+        "website-members",
+        "gallery",
+        "social",
+        "discord",
+        "storefront",
+        "mobile-ios"
+      ],
+      "intake": null,
+      "identityVerification": null,
+      "responseDeadline": null,
+      "appeal": null,
+      "authorizedAgent": null,
+      "providerPropagation": null,
+      "evidenceTest": null,
+      "status": "BLOCKED_EXTERNAL",
+      "owner": "privacy-owner",
+      "question": "Do any current or planned flows qualify as sale, sharing, cross-context behavioral advertising, or targeted advertising in an applicable jurisdiction?",
+      "evidenceNeeded": [
+        "Qualified-counsel applicability review",
+        "Current advertising, analytics, embed, and provider data-flow evidence"
+      ],
+      "sourceRefs": [
+        "website-privacy-page",
+        "social-privacy-contract",
+        "storefront-lifecycle"
+      ]
+    },
+    {
+      "id": "global-privacy-control",
+      "right": "Global Privacy Control and browser privacy signals",
+      "surfaces": [
+        "website-public",
+        "storefront"
+      ],
+      "intake": "Browser signal when legally applicable.",
+      "identityVerification": null,
+      "responseDeadline": null,
+      "appeal": null,
+      "authorizedAgent": null,
+      "providerPropagation": null,
+      "evidenceTest": null,
+      "status": "BLOCKED_EXTERNAL",
+      "owner": "privacy-owner",
+      "question": "Where is GPC legally required and how must Website, storefront, analytics, and downstream providers respond?",
+      "evidenceNeeded": [
+        "Qualified-counsel applicability review",
+        "Current provider behavior readback",
+        "End-to-end GPC test"
+      ],
+      "sourceRefs": [
+        "storefront-lifecycle",
+        "shopify-readiness"
+      ]
+    },
+    {
+      "id": "appeal",
+      "right": "Appeal a privacy, account, moderation, or automated decision where applicable",
+      "surfaces": [
+        "website-members",
+        "gallery",
+        "social",
+        "discord",
+        "raffle",
+        "storefront",
+        "mobile-ios",
+        "mochi-pets"
+      ],
+      "intake": null,
+      "identityVerification": null,
+      "responseDeadline": null,
+      "appeal": null,
+      "authorizedAgent": null,
+      "providerPropagation": null,
+      "evidenceTest": null,
+      "status": "BLOCKED_APPROVAL",
+      "owner": "privacy-owner",
+      "question": "Which decisions require an appeal path, independent reviewer, deadline, and retained rationale?",
+      "evidenceNeeded": [
+        "Qualified-counsel and community-governance review",
+        "Approved appeal workflow and synthetic test"
+      ],
+      "sourceRefs": [
+        "social-community-guidelines",
+        "website-privacy-page"
+      ]
+    },
+    {
+      "id": "authorized-agent",
+      "right": "Use of an authorized agent",
+      "surfaces": [
+        "website-public",
+        "website-members",
+        "gallery",
+        "social",
+        "discord",
+        "raffle",
+        "storefront",
+        "mobile-ios",
+        "mochi-pets"
+      ],
+      "intake": null,
+      "identityVerification": null,
+      "responseDeadline": null,
+      "appeal": null,
+      "authorizedAgent": null,
+      "providerPropagation": null,
+      "evidenceTest": null,
+      "status": "BLOCKED_APPROVAL",
+      "owner": "privacy-owner",
+      "question": "Which jurisdictions require authorized-agent requests and what proof of authority is proportionate?",
+      "evidenceNeeded": [
+        "Qualified-counsel applicability review",
+        "Approved agent-verification workflow and synthetic test"
+      ],
+      "sourceRefs": [
+        "website-privacy-page",
+        "meta-deletion-page"
+      ]
+    },
+    {
+      "id": "non-retaliation",
+      "right": "Non-retaliation or non-discrimination for exercising applicable privacy rights",
+      "surfaces": [
+        "website-public",
+        "website-members",
+        "gallery",
+        "social",
+        "discord",
+        "raffle",
+        "storefront",
+        "mobile-ios",
+        "mochi-pets"
+      ],
+      "intake": null,
+      "identityVerification": null,
+      "responseDeadline": null,
+      "appeal": null,
+      "authorizedAgent": null,
+      "providerPropagation": null,
+      "evidenceTest": null,
+      "status": "BLOCKED_APPROVAL",
+      "owner": "privacy-owner",
+      "question": "Which non-retaliation protections apply and how are they reflected in community, raffle, storefront, and moderation rules?",
+      "evidenceNeeded": [
+        "Qualified-counsel applicability review",
+        "Approved community and operational policy"
+      ],
+      "sourceRefs": [
+        "social-community-guidelines",
+        "shopify-readiness"
+      ]
+    }
+  ],
+  "publicClaims": [
+    {
+      "id": "social-absolute-private-no-sharing",
+      "claim": "Everything is private with no data sharing outside.",
+      "sourceRefs": [
+        "social-branding-config",
+        "social-app-config",
+        "social-instance-config",
+        "social-manifest"
+      ],
+      "processingActivityIds": [
+        "private-guild-social"
+      ],
+      "disposition": "Do not broaden or repeat this absolute statement. Any future redline must distinguish private member access and disabled federation from limited processor, moderator, security, legal, and member-directed disclosures.",
+      "conflict": "The Social privacy contract itself describes moderators, service providers, legal disclosure, and the possibility that members copy or share content.",
+      "candidateRedline": null,
+      "status": "BLOCKED_APPROVAL",
+      "owner": "privacy-owner",
+      "question": "What concise member-facing wording is accurate after provider and counsel review?",
+      "evidenceNeeded": [
+        "Current Social data-flow and processor evidence",
+        "Qualified-counsel claim review",
+        "Release-owner copy approval"
+      ]
+    },
+    {
+      "id": "social-no-sale-limited-provider",
+      "claim": "Mochirii Social does not sell member data and uses providers only to host, secure, store, and deliver the service.",
+      "sourceRefs": [
+        "social-privacy-contract"
+      ],
+      "processingActivityIds": [
+        "private-guild-social"
+      ],
+      "disposition": "Retain as unsubstantiated until current contracts, subprocessors, analytics, support, legal-disclosure, and provider-purpose evidence are reviewed.",
+      "conflict": "Repository source does not prove current provider contracts, subprocessors, downstream purposes, or jurisdiction-specific sale and sharing definitions.",
+      "candidateRedline": null,
+      "status": "BLOCKED_EXTERNAL",
+      "owner": "privacy-owner",
+      "question": "Can current contracts and data flows substantiate the no-sale and purpose-limitation claims in every applicable jurisdiction?",
+      "evidenceNeeded": [
+        "Current processor contracts and subprocessor lists",
+        "Qualified-counsel sale and sharing analysis"
+      ]
+    },
+    {
+      "id": "social-terms-divergence",
+      "claim": "Desktop and mobile Social terms present one current, approved contract.",
+      "sourceRefs": [
+        "social-site-terms",
+        "social-mobile-terms"
+      ],
+      "processingActivityIds": [
+        "private-guild-social"
+      ],
+      "disposition": "Do not treat either fallback as approved. Replace with one source-owned, versioned contract only after live DB readback, counsel review, assent design, and release-owner approval.",
+      "conflict": "Desktop fallback is short current-looking Mochirii copy; mobile fallback is dated September 2022 and names Canada with an ambiguous venue clause. Both accept raw database page content.",
+      "candidateRedline": null,
+      "status": "BLOCKED_EXTERNAL",
+      "owner": "privacy-owner",
+      "question": "What terms are live, which governing law and venue apply, and how will identical source-owned terms and assent evidence be established?",
+      "evidenceNeeded": [
+        "Authorized live Social terms-page readback",
+        "Qualified-counsel terms review",
+        "Approved assent and version-retention design"
+      ]
+    },
+    {
+      "id": "social-guidelines-jurisdiction-public-timeline",
+      "claim": "Social community guidelines match the private non-federated guild service and current jurisdiction.",
+      "sourceRefs": [
+        "social-community-guidelines"
+      ],
+      "processingActivityIds": [
+        "private-guild-social",
+        "discord-community-operations"
+      ],
+      "disposition": "Do not publish replacement moderation terms without owner and counsel approval; first establish the live database page, moderation authority, appeal path, and applicable jurisdiction.",
+      "conflict": "The fallback is dated June 2019, refers to a public timeline and Canada, Germany, and France, and allows a database override.",
+      "candidateRedline": null,
+      "status": "BLOCKED_EXTERNAL",
+      "owner": "community-owner",
+      "question": "What guidelines are live and what current moderation, appeal, jurisdiction, and private-community rules should replace them?",
+      "evidenceNeeded": [
+        "Authorized live guidelines readback",
+        "Qualified-counsel and community-governance review",
+        "Release-owner copy approval"
+      ]
+    },
+    {
+      "id": "social-legal-notice-source-gap",
+      "claim": "The repository proves the current Social legal notice.",
+      "sourceRefs": [
+        "social-legal-notice",
+        "social-site-controller"
+      ],
+      "processingActivityIds": [
+        "private-guild-social"
+      ],
+      "disposition": "Keep absent or blocked until the live page is read and exact operator facts are approved; do not infer legal identity from branding.",
+      "conflict": "The route renders database content only and has no source fallback or version binding.",
+      "candidateRedline": null,
+      "status": "BLOCKED_EXTERNAL",
+      "owner": "privacy-owner",
+      "question": "What legal-notice content is live and which operator facts are required?",
+      "evidenceNeeded": [
+        "Authorized live legal-notice readback",
+        "Approved operator facts",
+        "Qualified-counsel review"
+      ]
+    },
+    {
+      "id": "social-unfinished-data-policy",
+      "claim": "The linked Social data-policy help page provides a complete policy.",
+      "sourceRefs": [
+        "social-data-policy"
+      ],
+      "processingActivityIds": [
+        "private-guild-social"
+      ],
+      "disposition": "Redirect to the approved privacy contract or retire the link only after exact source and release approval.",
+      "conflict": "The source page states that it is not finished.",
+      "candidateRedline": null,
+      "status": "BLOCKED_APPROVAL",
+      "owner": "privacy-owner",
+      "question": "Should the route redirect to the privacy contract or be removed from navigation?",
+      "evidenceNeeded": [
+        "Release-owner route disposition",
+        "Regression and link-inventory evidence"
+      ]
+    },
+    {
+      "id": "social-empty-platform-terms",
+      "claim": "The linked Social Platform or API Terms page defines a usable developer contract.",
+      "sourceRefs": [
+        "social-platform-page"
+      ],
+      "processingActivityIds": [
+        "private-guild-social"
+      ],
+      "disposition": "Retire the route and navigation until an actual developer/API program and approved contract exist.",
+      "conflict": "The active linked page is empty while developer and API terms are not otherwise established.",
+      "candidateRedline": null,
+      "status": "BLOCKED_APPROVAL",
+      "owner": "release-owner",
+      "question": "Should the empty platform route be removed and return an opaque not-found response?",
+      "evidenceNeeded": [
+        "Release-owner route disposition",
+        "Regression and navigation evidence"
+      ]
+    },
+    {
+      "id": "social-permanent-account-deletion",
+      "claim": "Deleting a Social account permanently removes all listed data according to the public help text.",
+      "sourceRefs": [
+        "social-deletion-help",
+        "social-pixelfed-config"
+      ],
+      "processingActivityIds": [
+        "private-guild-social"
+      ],
+      "disposition": "Do not promise permanent or immediate deletion until live configuration, asynchronous deletion, backups, moderation, security, legal holds, and restore behavior are verified.",
+      "conflict": "Source configuration defaults account deletion off, while help text makes broad permanent-removal claims without backup or legal-hold qualifications.",
+      "candidateRedline": null,
+      "status": "BLOCKED_EXTERNAL",
+      "owner": "privacy-owner",
+      "question": "What deletion behavior is live and which exceptions and timeframes are accurate?",
+      "evidenceNeeded": [
+        "Authorized live deletion and backup readback",
+        "End-to-end deletion and restore test",
+        "Qualified-counsel claim review"
+      ]
+    },
+    {
+      "id": "website-privacy-scope-global-footer",
+      "claim": "The globally linked Website privacy notice covers every Website, Social, raffle, storefront, mobile, and future game processing activity.",
+      "sourceRefs": [
+        "website-privacy-page",
+        "website-footer"
+      ],
+      "processingActivityIds": [
+        "public-website-and-telemetry",
+        "account-auth-membership",
+        "gallery-submission-moderation-publication",
+        "raffle-participation-draw-claim-reward",
+        "storefront-customer-order-support",
+        "future-ios-social-client",
+        "future-mochi-pets-tester-game"
+      ],
+      "disposition": "Treat the current notice as a Gallery-focused source statement, not a complete global legal notice. Any scope expansion requires the full processing inventory, counsel review, and owner-approved public copy.",
+      "conflict": "The global footer links the notice, but its detailed scope centers on mochirii.com and the member Gallery workflow.",
+      "candidateRedline": null,
+      "status": "BLOCKED_APPROVAL",
+      "owner": "privacy-owner",
+      "question": "Should one global notice cover all surfaces or should approved surface-specific notices be linked?",
+      "evidenceNeeded": [
+        "Completed processing and jurisdiction inventory",
+        "Qualified-counsel notice architecture review",
+        "Release-owner public-copy approval"
+      ]
+    },
+    {
+      "id": "website-private-url-wording",
+      "claim": "All Gallery review and publication media uses private storage with temporary, time-limited URLs.",
+      "sourceRefs": [
+        "website-privacy-page",
+        "gallery-media-delivery",
+        "gallery-thumbnail-rollout"
+      ],
+      "processingActivityIds": [
+        "gallery-submission-moderation-publication",
+        "optional-meta-gallery-publication"
+      ],
+      "disposition": "Scope future wording: private review and provider-publication access may use bounded private delivery, while approved public Gallery media uses stable credential-free bounded Edge URLs.",
+      "conflict": "The public media contract intentionally serves stable bounded Edge URLs for approved content rather than signed bearer URLs.",
+      "candidateRedline": null,
+      "status": "BLOCKED_APPROVAL",
+      "owner": "privacy-owner",
+      "question": "What exact public wording accurately distinguishes private review, provider publication, and approved public media delivery?",
+      "evidenceNeeded": [
+        "Source-to-runtime media delivery verification",
+        "Qualified-counsel and release-owner copy approval"
+      ]
+    },
+    {
+      "id": "meta-deletion-label-breadth",
+      "claim": "The globally visible Data Deletion label describes a complete account and site-wide deletion workflow.",
+      "sourceRefs": [
+        "meta-deletion-page",
+        "website-footer"
+      ],
+      "processingActivityIds": [
+        "gallery-submission-moderation-publication",
+        "optional-meta-gallery-publication",
+        "support-privacy-security-requests"
+      ],
+      "disposition": "Keep the workflow scoped to Gallery and optional publication data until a complete rights process exists; any label or scope change requires approval.",
+      "conflict": "The page is a specific Gallery and optional publication process, while the footer label can be read as a site-wide deletion mechanism.",
+      "candidateRedline": null,
+      "status": "BLOCKED_APPROVAL",
+      "owner": "privacy-owner",
+      "question": "What route name, label, and scope accurately describe the current workflow?",
+      "evidenceNeeded": [
+        "Approved rights architecture",
+        "Qualified-counsel and release-owner copy review"
+      ]
+    },
+    {
+      "id": "social-parental-controls-age",
+      "claim": "Social child accounts and the source-visible age threshold reflect an approved age and parental-consent policy.",
+      "sourceRefs": [
+        "social-parental-controls",
+        "social-instance-config"
+      ],
+      "processingActivityIds": [
+        "private-guild-social"
+      ],
+      "disposition": "Keep the feature disabled and do not infer an approved age policy. Retire or redesign only after owner, counsel, live-state, and existing-account review.",
+      "conflict": "Source contains child-account and age-16 surfaces while configuration defaults the feature off and the intended minimum age is not approved.",
+      "candidateRedline": null,
+      "status": "BLOCKED_APPROVAL",
+      "owner": "privacy-owner",
+      "question": "Should parental controls be permanently retired, and what minimum age applies to every member surface?",
+      "evidenceNeeded": [
+        "Release-owner age and feature decision",
+        "Authorized live feature and account readback",
+        "Qualified child-privacy and safety review"
+      ]
+    }
+  ],
+  "approvalGates": [
+    {
+      "id": "operator-and-jurisdiction",
+      "category": "Operator identity and jurisdiction",
+      "requirements": [
+        "Approve legal operator, entity type, trade names, public contact, responsible roles, operating jurisdictions, launch jurisdictions, languages, and age thresholds."
+      ],
+      "status": "BLOCKED_APPROVAL",
+      "owner": "release-owner",
+      "question": "Which exact operator and jurisdiction facts may be used in counsel and public records?",
+      "evidenceNeeded": [
+        "Approved operator-fact record",
+        "Qualified-counsel jurisdiction review"
+      ],
+      "sourceRefs": [
+        "current-state",
+        "architecture"
+      ]
+    },
+    {
+      "id": "processing-retention-rights",
+      "category": "Processing, retention, rights, and incidents",
+      "requirements": [
+        "Approve legal bases, data purposes, retention periods, backup handling, legal holds, rights deadlines, appeals, authorized agents, provider propagation, and incident or breach workflow."
+      ],
+      "status": "BLOCKED_APPROVAL",
+      "owner": "privacy-owner",
+      "question": "Which jurisdiction-specific processing and rights rules apply to each surface?",
+      "evidenceNeeded": [
+        "Completed processing and retention matrices",
+        "Qualified-counsel review",
+        "Synthetic rights workflow evidence"
+      ],
+      "sourceRefs": [
+        "website-privacy-page",
+        "social-privacy-contract"
+      ]
+    },
+    {
+      "id": "processor-contract-transfer",
+      "category": "Processors, contracts, transfers, and security",
+      "requirements": [
+        "Obtain current contracts, DPAs, subprocessors, regions, transfer mechanisms, government-access review, deletion terms, and security evidence for every active or gated provider."
+      ],
+      "status": "BLOCKED_EXTERNAL",
+      "owner": "privacy-owner",
+      "question": "Which providers may continue after current contractual, transfer, and security review?",
+      "evidenceNeeded": [
+        "Current provider evidence",
+        "Qualified-counsel and security review",
+        "Release-owner provider decision"
+      ],
+      "sourceRefs": [
+        "integration-catalog",
+        "architecture"
+      ]
+    },
+    {
+      "id": "public-legal-copy",
+      "category": "Terms, privacy, community, deletion, age, and public claims",
+      "requirements": [
+        "Resolve every registered contradiction, use one versioned source of truth per notice, retain review evidence, and obtain exact counsel and release-owner approval before changing public legal copy."
+      ],
+      "status": "BLOCKED_APPROVAL",
+      "owner": "release-owner",
+      "question": "Which exact reviewed text, effective date, version, assent method, and route architecture will be published?",
+      "evidenceNeeded": [
+        "Qualified-counsel redlines",
+        "Release-owner exact-copy approval",
+        "Source, build, and rendered hash binding"
+      ],
+      "sourceRefs": [
+        "website-privacy-page",
+        "social-site-terms",
+        "social-mobile-terms",
+        "social-community-guidelines"
+      ]
+    },
+    {
+      "id": "raffle-activation",
+      "category": "Raffle sponsor, eligibility, rules, tax, reward, and funding",
+      "requirements": [
+        "Approve sponsor, official rules, country matrix, no-purchase structure, odds disclosures, tax and withholding process, reward-provider production access, funding, relay, secrets, schedules, and canary."
+      ],
+      "status": "BLOCKED_EXTERNAL",
+      "owner": "raffle-owner",
+      "question": "When do counsel, tax, provider, security, funding, and production evidence make one exact raffle cycle launchable?",
+      "evidenceNeeded": [
+        "Qualified sweepstakes and tax approval",
+        "Current reward-provider approval",
+        "Separately approved relay and canary evidence"
+      ],
+      "sourceRefs": [
+        "raffle-leaderboard",
+        "reward-relay",
+        "current-state"
+      ]
+    },
+    {
+      "id": "storefront-activation",
+      "category": "Storefront legal, privacy, cosmetics, tax, and operations",
+      "requirements": [
+        "Complete the existing prepayment and payment gates without weakening policy, privacy-choice, GPC, complaint, product-safety, tax, fulfillment, or evidence requirements."
+      ],
+      "status": "BLOCKED_EXTERNAL",
+      "owner": "commerce-owner",
+      "question": "When are every product, policy, privacy, tax, safety, fulfillment, and checkout gate independently approved?",
+      "evidenceNeeded": [
+        "Completed Shopify launch-readiness ledger",
+        "Qualified legal, tax, privacy, and cosmetics approval",
+        "Authenticated provider readbacks"
+      ],
+      "sourceRefs": [
+        "shopify-readiness",
+        "storefront-lifecycle"
+      ]
+    },
+    {
+      "id": "future-mobile-game",
+      "category": "Future iOS and game legal readiness",
+      "requirements": [
+        "Keep mobile and game development, platform services, tester access, chat, child-safety, privacy manifests, and launch regions deferred until separately designed and approved."
+      ],
+      "status": "DEFERRED_BY_EXPLICIT_POLICY",
+      "owner": "release-owner",
+      "question": "Which architecture and legal review must precede any future mobile or game activation?",
+      "evidenceNeeded": [
+        "Approved mobile and game architecture",
+        "Current platform policies",
+        "Qualified privacy, child-safety, and game review"
+      ],
+      "sourceRefs": [
+        "architecture",
+        "mochi-pets-contract",
+        "current-state"
+      ]
+    },
+    {
+      "id": "cost-and-counsel",
+      "category": "External professional review and cost",
+      "requirements": [
+        "Prepare a private counsel packet, obtain cost approval, retain qualified jurisdiction-specific review, and record public-safe approval references without committing privileged or personal material."
+      ],
+      "status": "BLOCKED_APPROVAL",
+      "owner": "release-owner",
+      "question": "What review scope, budget, reviewers, and evidence-retention boundary are approved?",
+      "evidenceNeeded": [
+        "Approved counsel scope and cost",
+        "Qualified reviewer engagement",
+        "Public-safe approval receipt"
+      ],
+      "sourceRefs": [
+        "operations-readme",
+        "current-state"
+      ]
+    }
+  ],
+  "sourceRefs": [
+    {
+      "id": "repository-guidance",
+      "path": "AGENTS.md",
+      "kind": "source-policy",
+      "description": "Repository ownership, branding, provider, secret, and validation boundaries."
+    },
+    {
+      "id": "root-security-policy",
+      "path": "SECURITY.md",
+      "kind": "security-policy",
+      "description": "Repository vulnerability-reporting and security boundary."
+    },
+    {
+      "id": "website-security-txt",
+      "path": "apps/web/public/.well-known/security.txt",
+      "kind": "public-security-metadata",
+      "description": "Website security contact metadata."
+    },
+    {
+      "id": "social-security-txt",
+      "path": "services/social/public/.well-known/security.txt",
+      "kind": "public-security-metadata",
+      "description": "Social security contact metadata."
+    },
+    {
+      "id": "website-privacy-page",
+      "path": "apps/web/components/public-pages/route-pages/PrivacyPage.tsx",
+      "kind": "public-notice-source",
+      "description": "Current Website and Gallery privacy-notice source."
+    },
+    {
+      "id": "meta-deletion-page",
+      "path": "apps/web/components/public-pages/route-pages/MetaDataDeletionPage.tsx",
+      "kind": "public-rights-source",
+      "description": "Current Gallery and optional publication removal-request source."
+    },
+    {
+      "id": "website-footer",
+      "path": "apps/web/components/SiteFooter.tsx",
+      "kind": "public-navigation-source",
+      "description": "Global footer legal and support links."
+    },
+    {
+      "id": "integration-catalog",
+      "path": "docs/integrations/integration-exposure-catalog.v1.json",
+      "kind": "source-inventory",
+      "description": "Current source inventory of integrations, data classes, destinations, and runtime-readback requirements."
+    },
+    {
+      "id": "architecture",
+      "path": "docs/architecture.md",
+      "kind": "architecture",
+      "description": "System ownership, data-flow, and activation boundary."
+    },
+    {
+      "id": "operations-readme",
+      "path": "docs/operations/README.md",
+      "kind": "operations-policy",
+      "description": "No-secret operational evidence and provider-approval boundary."
+    },
+    {
+      "id": "current-state",
+      "path": "docs/operations/CURRENT-STATE.md",
+      "kind": "state-summary",
+      "description": "Mutable public-safe source and hosted-state summary."
+    },
+    {
+      "id": "social-privacy-contract",
+      "path": "services/social/resources/views/site/partial/privacy-contract.blade.php",
+      "kind": "public-notice-source",
+      "description": "Shared desktop and mobile Social privacy source."
+    },
+    {
+      "id": "social-site-terms",
+      "path": "services/social/resources/views/site/terms.blade.php",
+      "kind": "public-terms-source",
+      "description": "Desktop Social terms source and database override boundary."
+    },
+    {
+      "id": "social-mobile-terms",
+      "path": "services/social/resources/views/mobile/terms.blade.php",
+      "kind": "public-terms-source",
+      "description": "Mobile Social terms source and database override boundary."
+    },
+    {
+      "id": "social-legal-notice",
+      "path": "services/social/resources/views/site/legal-notice.blade.php",
+      "kind": "public-legal-source",
+      "description": "Database-only Social legal-notice view."
+    },
+    {
+      "id": "social-site-controller",
+      "path": "services/social/app/Http/Controllers/SiteController.php",
+      "kind": "runtime-source",
+      "description": "Cached Social database-page loading behavior."
+    },
+    {
+      "id": "social-community-guidelines",
+      "path": "services/social/resources/views/site/help/community-guidelines.blade.php",
+      "kind": "public-community-source",
+      "description": "Social community-guidelines fallback and database override."
+    },
+    {
+      "id": "social-data-policy",
+      "path": "services/social/resources/views/site/help/data-policy.blade.php",
+      "kind": "public-help-source",
+      "description": "Incomplete Social data-policy help surface."
+    },
+    {
+      "id": "social-platform-page",
+      "path": "services/social/resources/views/site/platform.blade.php",
+      "kind": "public-terms-source",
+      "description": "Empty Social platform and API terms surface."
+    },
+    {
+      "id": "social-branding-config",
+      "path": "services/social/config/mochirii-branding.php",
+      "kind": "public-copy-source",
+      "description": "Canonical Social presentation description."
+    },
+    {
+      "id": "social-app-config",
+      "path": "services/social/config/app.php",
+      "kind": "runtime-source",
+      "description": "Social application description source."
+    },
+    {
+      "id": "social-instance-config",
+      "path": "services/social/config/instance.php",
+      "kind": "runtime-source",
+      "description": "Social instance description and parental-control defaults."
+    },
+    {
+      "id": "social-manifest",
+      "path": "services/social/public/manifest.json",
+      "kind": "public-copy-source",
+      "description": "Installable Social application description."
+    },
+    {
+      "id": "social-deletion-help",
+      "path": "services/social/resources/views/site/help/your-profile.blade.php",
+      "kind": "public-help-source",
+      "description": "Social account and content deletion help text."
+    },
+    {
+      "id": "social-pixelfed-config",
+      "path": "services/social/config/pixelfed.php",
+      "kind": "runtime-source",
+      "description": "Source defaults for Social account deletion and related behavior."
+    },
+    {
+      "id": "social-parental-controls",
+      "path": "services/social/resources/views/site/help/parental-controls.blade.php",
+      "kind": "public-help-source",
+      "description": "Social parental-control and child-account help text."
+    },
+    {
+      "id": "gallery-media-delivery",
+      "path": "docs/integrations/gallery-public-media-delivery.md",
+      "kind": "integration-contract",
+      "description": "Private source and stable bounded public Gallery media-delivery contract."
+    },
+    {
+      "id": "gallery-thumbnail-rollout",
+      "path": "docs/operations/GALLERY-THUMBNAIL-ROLLOUT.md",
+      "kind": "operations-contract",
+      "description": "Gallery derivative, revision, retention, and release boundaries."
+    },
+    {
+      "id": "facebook-publishing-contract",
+      "path": "docs/integrations/facebook-page-gallery-publishing.md",
+      "kind": "integration-contract",
+      "description": "Disabled optional Facebook Page Gallery publication contract."
+    },
+    {
+      "id": "instagram-publishing-contract",
+      "path": "docs/integrations/instagram-gallery-publishing.md",
+      "kind": "integration-contract",
+      "description": "Disabled optional Instagram Gallery publication contract."
+    },
+    {
+      "id": "raffle-leaderboard",
+      "path": "docs/operations/MONTHLY-RAFFLE-LEADERBOARD.md",
+      "kind": "operations-contract",
+      "description": "Disabled raffle participation and member-only leaderboard foundation."
+    },
+    {
+      "id": "reward-relay",
+      "path": "docs/integrations/reward-relay.md",
+      "kind": "integration-contract",
+      "description": "Disabled reward relay, bearer-link, idempotency, and activation contract."
+    },
+    {
+      "id": "spinner-publication",
+      "path": "docs/operations/SPINNER-RAFFLE-WINNER-PUBLICATION.md",
+      "kind": "operations-contract",
+      "description": "Official versus test spinner and public winner publication boundary."
+    },
+    {
+      "id": "shopify-readiness",
+      "path": "docs/operations/SHOPIFY-LAUNCH-READINESS.md",
+      "kind": "readiness-ledger",
+      "description": "Storefront product, policy, privacy, tax, safety, operations, and launch gates."
+    },
+    {
+      "id": "storefront-lifecycle",
+      "path": "docs/operations/STOREFRONT-SURFACE-LIFECYCLE-2026-07-29.md",
+      "kind": "operations-contract",
+      "description": "Storefront route and privacy-choice lifecycle decisions."
+    },
+    {
+      "id": "mochi-pets-contract",
+      "path": "docs/integrations/mochi-pets-website-contract.md",
+      "kind": "integration-contract",
+      "description": "Deferred Website-to-game source and activation boundary."
+    }
+  ]
+}

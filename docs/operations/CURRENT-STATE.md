@@ -191,6 +191,31 @@ Social source declare `mailto:support@mochirii.com` as the operational
   Asset/CSP validators now fail closed on malformed media, unexpected external
   origin/file pairs, and unreviewed multiline runtime-load sites.
 
+## Legal and Privacy Readiness
+
+- The source-only
+  [`LEGAL-PRIVACY-READINESS-2026-07-29.md`](./LEGAL-PRIVACY-READINESS-2026-07-29.md)
+  decision packet and
+  [`legal-privacy-readiness.v1.json`](./legal-privacy-readiness.v1.json)
+  inventory cover ten repository-owned or planned surfaces, thirteen
+  processing activities, processor and transfer evidence, retention, rights,
+  twelve registered public-claim conflicts, and exact future approval gates.
+- The fail-closed validator reports 5 `SOURCE_OBSERVED`,
+  1 `RUNTIME_READBACK_REQUIRED`, 42 `BLOCKED_APPROVAL`,
+  35 `BLOCKED_EXTERNAL`, 10 `DEFERRED_BY_EXPLICIT_POLICY`, and
+  0 `NOT_APPLICABLE_REVIEWED` rows. An explicit blocker is valid inventory
+  state, not evidence of readiness.
+- No legal operator, jurisdiction, legal basis, retention period, rights
+  deadline, processor contract, transfer mechanism, counsel review, or public
+  legal copy is inferred or approved. Website and Social public copy remains
+  unchanged.
+- Social terms, guidelines, legal-notice source authority, absolute privacy
+  description, deletion promises, and age or parental-control posture remain
+  blocked pending exact owner decisions, qualified review, and authorized
+  runtime evidence.
+- The packet used repository source only. It did not inspect credentials, use a
+  shared Supabase stack, contact providers, or change hosted state.
+
 ## Website Reliability Release
 
 - PR #534 was squash-merged through protected `main` as

@@ -84,7 +84,11 @@ that do not yet exist.
 Data purpose, storage location, retention, deletion propagation, recipient
 category, and cross-border status remain requirement-level ledger fields. They
 must be explicit before a target flow is activated; absence is not inferred as
-no collection or no transfer.
+no collection or no transfer. The source-only
+[`legal and privacy readiness inventory`](operations/legal-privacy-readiness.v1.json)
+tracks those decisions, rights workflows, public-claim conflicts, and external
+evidence gaps. It is not legal approval, provider proof, or deployment
+authority.
 
 ## Current Hosted Boundaries
 

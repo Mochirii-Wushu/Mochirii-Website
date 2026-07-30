@@ -26,6 +26,10 @@ Web or iOS artifact is connected.
 - `CURRENT-STATE.md`: current hosted state and exact resume point.
 - `deployment.md`: release, verification, and rollback boundaries.
 - `integration-operations-runbook.md`: provider-adjacent operating rules.
+- `LEGAL-PRIVACY-READINESS-2026-07-29.md`: source-only legal and privacy
+  decision packet; not legal advice or release authority.
+- `legal-privacy-readiness.v1.json`: machine-readable operator, jurisdiction,
+  processing, processor, retention, rights, claim, and approval inventory.
 - `ORGANIZATION-RECONCILIATION-2026-07-27.md`: public-safe repository,
   branch, issue, worktree, provider-effect, and cleanup disposition ledger.
 - `private-spinner.md`: role-separated live-spinner operation, privacy,
@@ -48,6 +52,9 @@ Web or iOS artifact is connected.
 
 Generated screenshots, logs, JSON readbacks, provider exports, and rollback
 captures do not belong here. Store them under ignored `.artifacts/operations`.
+Contracts, counsel communications, personal data, private business records,
+credentials, and provider evidence remain in their approved restricted
+boundaries and must not be copied into either legal/privacy readiness file.
 
 ## Rules
 

@@ -597,6 +597,16 @@ if (/pixelfed|shopify/iu.test(securityTxt)) {
   failures.push("public/.well-known/security.txt must remain Mochirii-only public security metadata");
 }
 
+const securityPolicy = read("SECURITY.md");
+requireIncludes("SECURITY.md", securityPolicy, [
+  "support@mochirii.com",
+  "https://social.mochirii.com/.well-known/security.txt",
+  "https://github.com/Mochirii-Wushu/Mochirii-Website/security/policy",
+]);
+if (/hello@pixelfed\.org/iu.test(securityPolicy)) {
+  failures.push("SECURITY.md must not direct Mochirii vulnerability reports to an upstream contact");
+}
+
 const requestIdMiddleware = read("app/Http/Middleware/MochiriiRequestId.php");
 requireIncludes("app/Http/Middleware/MochiriiRequestId.php", requestIdMiddleware, [
   "public const HEADER = 'X-Request-ID'",

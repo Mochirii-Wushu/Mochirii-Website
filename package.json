@@ -73,6 +73,7 @@
     "check:guild-schedule": "node scripts/check-guild-schedule.mjs",
     "check:host-independence": "node scripts/check-host-independence.mjs",
     "check:integration-exposure-catalog": "node scripts/check-integration-exposure-catalog.mjs",
+    "check:legal-privacy-readiness": "node scripts/check-legal-privacy-readiness.mjs",
     "gate:host-independence": "node scripts/check-host-independence.mjs --require-complete",
     "check:hosted-public-boundaries": "node scripts/check-hosted-public-boundaries.mjs",
     "check:home-celebration-splash": "node scripts/check-home-celebration-splash.mjs",
