@@ -53,7 +53,7 @@ const strongSecretPatterns = [
 ];
 
 const secretAssignmentPattern =
-  /\b([A-Z0-9_]*(?:SECRET|TOKEN|PASSWORD|SERVICE_ROLE_KEY|DATABASE_URL|CLIENT_SECRET|WEBHOOK)[A-Z0-9_]*)\s*=\s*([^`'"\s)]*)/g;
+  /\b([A-Z0-9_]*(?:SECRET|TOKEN|PASSWORD|SERVICE_ROLE_KEY|DATABASE_URL|CLIENT_SECRET|WEBHOOK))\b\s*=\s*([^`'"\s)]*)/g;
 
 const failures = [];
 const warnings = [];
