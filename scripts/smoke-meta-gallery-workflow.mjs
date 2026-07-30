@@ -139,18 +139,16 @@ async function runMemberWorkflow(browser) {
     assert(!(await rights.isChecked()), "Upload-rights attestation must be unchecked by default.");
     assert(await rights.getAttribute("required") !== null, "Upload-rights attestation must be required.");
 
-    await instagram.focus();
-    await page.keyboard.press("Space");
-    assert(await instagram.isChecked(), "Instagram opt-in was not independently keyboard operable.");
+    await instagram.press("Space");
+    await waitForCheckedState(page, "#instagramOptIn", true, "Instagram opt-in was not independently keyboard operable");
     assert(!(await facebook.isChecked()), "Instagram selection changed the Facebook Page opt-in.");
-    await instagram.focus();
-    await page.keyboard.press("Space");
-    await facebook.focus();
-    await page.keyboard.press("Space");
-    assert(await facebook.isChecked(), "Facebook Page opt-in was not independently keyboard operable.");
+    await instagram.press("Space");
+    await waitForCheckedState(page, "#instagramOptIn", false, "Instagram opt-in did not clear from the keyboard");
+    await facebook.press("Space");
+    await waitForCheckedState(page, "#facebookPageOptIn", true, "Facebook Page opt-in was not independently keyboard operable");
     assert(!(await instagram.isChecked()), "Facebook Page selection changed the Instagram opt-in.");
-    await facebook.focus();
-    await page.keyboard.press("Space");
+    await facebook.press("Space");
+    await waitForCheckedState(page, "#facebookPageOptIn", false, "Facebook Page opt-in did not clear from the keyboard");
 
     await file.setInputFiles(imageFixture("rights-gate.jpg", "image/jpeg"));
     await instagram.check();
@@ -335,9 +333,8 @@ async function runRepresentativeBrowser(browserType, browserName) {
     await assertHealthyDocument(page, `${browserName} Gallery submission`);
     assert(!(await page.locator("#instagramOptIn").isChecked()), `${browserName}: Instagram opt-in was not initially unchecked.`);
     assert(!(await page.locator("#facebookPageOptIn").isChecked()), `${browserName}: Facebook Page opt-in was not initially unchecked.`);
-    await page.locator("#instagramOptIn").focus();
-    await page.keyboard.press("Space");
-    assert(await page.locator("#instagramOptIn").isChecked(), `${browserName}: Instagram opt-in was not keyboard operable.`);
+    await page.locator("#instagramOptIn").press("Space");
+    await waitForCheckedState(page, "#instagramOptIn", true, `${browserName}: Instagram opt-in was not keyboard operable`);
     assert(!(await page.locator("#facebookPageOptIn").isChecked()), `${browserName}: destination checkboxes were not independent.`);
     await assertNoHorizontalOverflow(page, `${browserName} Gallery submission`);
 
@@ -855,6 +852,15 @@ async function waitForFocus(page, selector, label, expectedText = "") {
     return candidates.some((node) => node === document.activeElement && (!text || node.textContent?.trim() === text));
   }, { targetSelector: selector, text: expectedText }, { timeout: 2_000 }).catch(() => {
     throw new Error(`${label} did not receive focus.`);
+  });
+}
+
+async function waitForCheckedState(page, selector, expected, label) {
+  await page.waitForFunction(({ targetSelector, checked }) => {
+    const node = document.querySelector(targetSelector);
+    return node instanceof HTMLInputElement && node.checked === checked;
+  }, { targetSelector: selector, checked: expected }, { timeout: 2_000 }).catch(() => {
+    throw new Error(`${label}.`);
   });
 }
 
