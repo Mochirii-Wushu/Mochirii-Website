@@ -3,6 +3,7 @@ import {
   safeGalleryModerationSubmission,
   safeGalleryModeratorProfile,
   safeGalleryPublishJob,
+  safeInstagramPublishQueueItem,
 } from "./gallery-response-safety.ts";
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -57,6 +58,67 @@ Deno.test("Gallery response helpers strip provider identifiers, profile URLs, pu
   assert(
     !encoded.includes("example.invalid"),
     "URL-bearing provider copy leaked",
+  );
+});
+
+Deno.test("Instagram queue response uses an exact browser-safe top-level shape", () => {
+  const safe = safeInstagramPublishQueueItem({
+    id: "job-id",
+    status: "reconcile_required",
+    eligibilityReason: null,
+    caption: "Reviewed caption",
+    altText: "Reviewed alt text",
+    instagramMediaId: "synthetic-stable-media-id",
+    instagramPermalink: "https://www.instagram.com/p/synthetic/",
+    attemptCount: 1,
+    attemptStartedAt: "2026-07-29T00:00:00Z",
+    publishedAt: null,
+    createdAt: "2026-07-29T00:00:00Z",
+    updatedAt: "2026-07-29T00:01:00Z",
+    galleryPublicationId: "publication-id",
+    thumbnailUrl: "https://project.supabase.co/functions/v1/gallery-thumbnail",
+    previewError: null,
+    submission: { id: "submission-id" },
+    events: [],
+    instagramContainerId: "synthetic-private-container-id",
+    instagram_container_id: "synthetic-private-snake-container-id",
+    containerId: "synthetic-private-alias-id",
+    container_id: "synthetic-private-snake-alias-id",
+    providerResponse: "synthetic-private-provider-response",
+  });
+  const expectedKeys = [
+    "altText",
+    "attemptCount",
+    "attemptStartedAt",
+    "caption",
+    "createdAt",
+    "eligibilityReason",
+    "events",
+    "galleryPublicationId",
+    "id",
+    "instagramMediaId",
+    "instagramPermalink",
+    "previewError",
+    "publishedAt",
+    "status",
+    "submission",
+    "thumbnailUrl",
+    "updatedAt",
+  ];
+  assert(
+    JSON.stringify(Object.keys(safe).sort()) === JSON.stringify(expectedKeys),
+    "Instagram queue response shape drifted",
+  );
+  const encoded = JSON.stringify(safe);
+  assert(
+    encoded.includes("synthetic-stable-media-id"),
+    "stable reconciliation media evidence was lost",
+  );
+  assert(
+    !encoded.includes("private-container") &&
+      !encoded.includes("private-alias") &&
+      !encoded.includes("private-provider-response"),
+    "private transient provider state reached the Instagram queue DTO",
   );
 });
 

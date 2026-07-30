@@ -55,6 +55,31 @@ export function safeGalleryPublishJob(
   };
 }
 
+export function safeInstagramPublishQueueItem(
+  value: unknown,
+): GalleryJsonRecord {
+  const item = record(value);
+  return {
+    id: item.id,
+    status: item.status,
+    eligibilityReason: item.eligibilityReason,
+    caption: item.caption,
+    altText: item.altText,
+    instagramMediaId: item.instagramMediaId,
+    instagramPermalink: item.instagramPermalink,
+    attemptCount: item.attemptCount,
+    attemptStartedAt: item.attemptStartedAt,
+    publishedAt: item.publishedAt,
+    createdAt: item.createdAt,
+    updatedAt: item.updatedAt,
+    galleryPublicationId: item.galleryPublicationId,
+    thumbnailUrl: item.thumbnailUrl,
+    previewError: item.previewError,
+    submission: item.submission,
+    events: item.events,
+  };
+}
+
 export function safeGalleryModerationSubmission(
   value: unknown,
 ): GalleryJsonRecord {

@@ -173,12 +173,16 @@ for (const [functionName, expectedVerifyJwt] of [
 
 [
   '"test:gallery-moderation-boundaries"',
-  '"test:gallery-social-consent-withdrawal"',
   '"test:gallery-source-decode"',
   '"test:gallery-preview-attestation"',
   '"test:gallery-discord-ingest"',
   '"test:gallery-public-feed"',
 ].forEach((snippet) => assertIncludes("full repository check", checkAll, snippet));
+assertNotIncludes(
+  "static/unit full repository check",
+  checkAll,
+  '"test:gallery-social-consent-withdrawal"',
+);
 
 if (approvedFeedClientTests !== null) {
   assertIncludes("package scripts", packageJson, '"test:gallery-approved-feed-client"');
@@ -632,6 +636,7 @@ assertNotIncludes(
 [
   "safeGalleryModerationSubmission",
   "safeGalleryPublishJob",
+  "safeInstagramPublishQueueItem",
   "safeGalleryModerationConflict",
 ].forEach((snippet) =>
   assertIncludes("Gallery response allowlist", galleryResponseSafety, snippet)
@@ -639,6 +644,7 @@ assertNotIncludes(
 [
   "strip private paths and source evidence",
   "strip provider identifiers, profile URLs, publication copy, and raw job fields",
+  "Instagram queue response uses an exact browser-safe top-level shape",
   "conflicts expose only reviewed categories",
 ].forEach((snippet) =>
   assertIncludes("Gallery response allowlist tests", galleryResponseSafetyTests, snippet)

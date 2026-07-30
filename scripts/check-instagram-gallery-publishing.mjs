@@ -5,6 +5,8 @@ const required = [
   "docs/integrations/instagram-gallery-publishing.md",
   "docs/instagram-gallery-publishing-deployment-runbook.md",
   "supabase/functions/_shared/instagram-publishing.ts",
+  "supabase/functions/_shared/gallery-response-safety.ts",
+  "supabase/functions/_shared/gallery-response-safety_test.ts",
   "supabase/functions/_shared/meta-graph-security.ts",
   "supabase/functions/_shared/meta-provider-diagnostic.ts",
   "supabase/functions/_shared/social-publication-copy.ts",
@@ -31,6 +33,15 @@ const diagnostic = read(
 );
 const publishEndpoint = read(
   "supabase/functions/publish-instagram-gallery-submission/index.ts",
+);
+const queueEndpoint = read(
+  "supabase/functions/list-instagram-publish-queue/index.ts",
+);
+const responseSafety = read(
+  "supabase/functions/_shared/gallery-response-safety.ts",
+);
+const responseSafetyTests = read(
+  "supabase/functions/_shared/gallery-response-safety_test.ts",
 );
 const reconcile = read(
   "supabase/functions/resolve-instagram-publish-reconciliation/index.ts",
@@ -136,6 +147,11 @@ requireText(
 requireText(publisher, "/media_publish", "container publish endpoint");
 requireText(
   publisher,
+  "instagramContainerId",
+  "server-private container reconciliation state",
+);
+requireText(
+  publisher,
   "id,owner,username,permalink,media_type",
   "official media ownership readback",
 );
@@ -154,6 +170,26 @@ requireText(
   publishEndpoint,
   "confirmation_fingerprint",
   "fingerprint request",
+);
+requireText(
+  queueEndpoint,
+  "safeInstagramPublishQueueItem({",
+  "browser queue response allowlist",
+);
+requireText(
+  responseSafety,
+  "safeInstagramPublishQueueItem",
+  "Instagram queue response projector",
+);
+requireText(
+  responseSafetyTests,
+  "Instagram queue response uses an exact browser-safe top-level shape",
+  "exact queue response-shape regression",
+);
+requireText(
+  responseSafetyTests,
+  "private transient provider state reached the Instagram queue DTO",
+  "transient container-id rejection regression",
 );
 requireText(
   publisher,
@@ -207,6 +243,16 @@ forbidText(status, "account_type", "undocumented subtype diagnostic");
 forbidText(publisher, "CONTAINER_POLL_INTERVAL_MS", "rapid container polling");
 forbidText(publisher, "CONTAINER_POLL_ATTEMPTS", "container polling loop");
 forbidText(publisher, "sleepImpl", "in-request container polling sleep");
+forbidText(
+  queueEndpoint,
+  "instagram_container_id",
+  "private container id database projection",
+);
+forbidText(
+  queueEndpoint,
+  "instagramContainerId",
+  "private container id browser field",
+);
 forbidText(production, "console.error", "unsafe raw error logging");
 forbidText(production, "console.warn", "unsafe raw warning logging");
 forbidText(runbook, "v25.0", "stale runbook API version");

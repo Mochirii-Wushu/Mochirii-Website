@@ -9,6 +9,7 @@ import {
   safeString,
 } from "../_shared/gallery-moderation.ts";
 import { normalizeInstagramPostPermalink } from "../_shared/instagram-publishing.ts";
+import { safeInstagramPublishQueueItem } from "../_shared/gallery-response-safety.ts";
 import { logSafeMetaEvent } from "../_shared/safe-telemetry.ts";
 
 const DEFAULT_QUEUE_LIMIT = 25;
@@ -218,7 +219,7 @@ async function handleRequest(req: Request): Promise<Response> {
   let jobQuery = access.adminClient
     .from("gallery_instagram_publish_jobs")
     .select(
-      "id,submission_id,status,eligibility_reason,caption,alt_text,instagram_container_id,instagram_media_id,instagram_permalink,attempt_count,attempt_started_at,published_by,published_at,created_at,updated_at",
+      "id,submission_id,status,eligibility_reason,caption,alt_text,instagram_media_id,instagram_permalink,attempt_count,attempt_started_at,published_by,published_at,created_at,updated_at",
     )
     .limit(requestedLimit + 1);
 
@@ -416,13 +417,12 @@ async function handleRequest(req: Request): Promise<Response> {
       };
     });
 
-    queue.push({
+    queue.push(safeInstagramPublishQueueItem({
       id: jobId,
       status: safeString(job.status, 40),
       eligibilityReason: safeString(job.eligibility_reason, 300),
       caption: safeString(job.caption, 2200),
       altText: safeString(job.alt_text, 1000),
-      instagramContainerId: safeString(job.instagram_container_id, 255),
       instagramMediaId: safeString(job.instagram_media_id, 100),
       instagramPermalink: normalizeInstagramPostPermalink(
         job.instagram_permalink,
@@ -467,7 +467,7 @@ async function handleRequest(req: Request): Promise<Response> {
         ),
       },
       events,
-    });
+    }));
   }
 
   summary.shown = queue.length;

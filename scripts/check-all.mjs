@@ -69,7 +69,6 @@ const checks = [
   ["test:live-gallery-media-smoke-guard", ["node", "--test", "scripts/lib/live-gallery-media-smoke-guard.test.mjs"]],
   ["test:gallery-thumbnail", ["deno", "test", "--lock=deno.lock", "--frozen=true", "supabase/functions/_shared/gallery-thumbnail_test.ts"]],
   ["test:gallery-public-feed", ["deno", "test", "--lock=deno.lock", "--frozen=true", "supabase/functions/_shared/gallery-public-feed_test.ts"]],
-  ["test:gallery-social-consent-withdrawal", ["supabase", "test", "db", "--local", "supabase/tests/gallery_social_consent_withdrawal_test.sql"]],
   ["test:gallery-moderation-boundaries", ["deno", "test", "--node-modules-dir=auto", "--import-map=supabase/functions/list-gallery-review-queue/deno.json", "--lock=deno.lock", "--frozen=true", "supabase/functions/_shared/gallery-moderation_test.ts", "supabase/functions/_shared/gallery-response-safety_test.ts"]],
   ["test:gallery-source-image", ["deno", "test", "--lock=deno.lock", "--frozen=true", "supabase/functions/_shared/gallery-source-image_test.ts"]],
   ["test:gallery-source-decode", ["deno", "test", "--lock=deno.lock", "--frozen=true", "supabase/functions/_shared/gallery-source-decode_test.ts"]],
