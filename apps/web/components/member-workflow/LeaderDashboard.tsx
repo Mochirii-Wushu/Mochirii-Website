@@ -20,12 +20,23 @@ import {
   deleteRejectedGallerySubmission,
   listGalleryReviewQueue,
   listInstagramPublishQueue,
-  markInstagramGallerySubmissionShared,
   moderateGallerySubmission,
+  prepareGalleryReviewPreview,
   publishInstagramGallerySubmission,
+  resolveInstagramPublishReconciliation,
   reviewMemberVerification,
 } from "@/lib/supabase/moderation";
-import { createGalleryThumbnail } from "@/lib/gallery-thumbnail";
+import {
+  createGalleryPublicationMedia,
+  createGalleryThumbnail,
+  type GalleryModerationMedia,
+} from "@/lib/gallery-thumbnail";
+import {
+  instagramPublishConfirmation,
+  instagramReconciliationFingerprint,
+} from "@/lib/gallery/instagram-action-confirmation";
+import { validateSocialPublicationCopy } from "@/lib/gallery/social-publication-copy";
+import type { InstagramPublicationRequest } from "@/lib/gallery/social-publication-request";
 import {
   text,
   type GalleryReviewQueue,
@@ -48,13 +59,24 @@ import {
   normalizeStatus,
   statusConfig,
   statuses,
-  type InstagramAction,
+  type InstagramReconciliationDraft,
   type InstagramJobMessage,
 } from "./LeaderDashboardParts";
+import { FacebookPagePublishQueue } from "./FacebookPagePublishQueue";
 import { WorkflowEmptyState, WorkflowNotice } from "./WorkflowState";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 type GalleryThumbnailState = "all" | "missing" | "ready";
+type GalleryPreviewSelection = {
+  submissionId: string;
+  previewKey: string;
+  preparedBlob: Blob;
+  sourceWidth: number;
+  sourceHeight: number;
+  previewWidth: number;
+  previewHeight: number;
+  blob: Blob | null;
+};
 
 export function LeaderDashboard() {
   const [busy, setBusy] = useState(true);
@@ -69,7 +91,10 @@ export function LeaderDashboard() {
   const [reasons, setReasons] = useState<Record<string, string>>({});
   const [cleanupConfirmations, setCleanupConfirmations] = useState<Record<string, boolean | undefined>>({});
   const [cleanupBusyId, setCleanupBusyId] = useState("");
+  const [galleryPreview, setGalleryPreview] = useState<GalleryPreviewSelection | null>(null);
   const [instagramActiveStatus, setInstagramActiveStatus] = useState("queued");
+  const [instagramCursor, setInstagramCursor] = useState("");
+  const [instagramCursorHistory, setInstagramCursorHistory] = useState<string[]>([]);
   const [instagramQueue, setInstagramQueue] = useState<InstagramPublishQueue | null>(null);
   const [instagramApiStatus, setInstagramApiStatus] = useState<InstagramApiStatus | null>(null);
   const [instagramBusy, setInstagramBusy] = useState(false);
@@ -79,9 +104,9 @@ export function LeaderDashboard() {
   const [instagramError, setInstagramError] = useState("");
   const [instagramCaptions, setInstagramCaptions] = useState<Record<string, string>>({});
   const [instagramAltTexts, setInstagramAltTexts] = useState<Record<string, string>>({});
-  const [instagramPermalinks, setInstagramPermalinks] = useState<Record<string, string>>({});
-  const [instagramNotes, setInstagramNotes] = useState<Record<string, string>>({});
-  const [instagramConfirmations, setInstagramConfirmations] = useState<Record<string, InstagramAction | undefined>>({});
+  const [instagramConfirmations, setInstagramConfirmations] = useState<Record<string, InstagramPublicationRequest | undefined>>({});
+  const [instagramReconciliationDrafts, setInstagramReconciliationDrafts] = useState<Record<string, InstagramReconciliationDraft | undefined>>({});
+  const [instagramReconciliationConfirmations, setInstagramReconciliationConfirmations] = useState<Record<string, string | undefined>>({});
   const [instagramJobMessages, setInstagramJobMessages] = useState<Record<string, InstagramJobMessage | undefined>>({});
   const [memberVerificationUserId, setMemberVerificationUserId] = useState("");
   const [memberVerificationMethod, setMemberVerificationMethod] = useState("manual_review");
@@ -97,8 +122,39 @@ export function LeaderDashboard() {
   const [spinnerLaunchBusy, setSpinnerLaunchBusy] = useState(false);
   const [spinnerLaunchMessage, setSpinnerLaunchMessage] = useState("");
   const leaderLoadGenerationRef = useRef(0);
+  const galleryPreviewRequestRef = useRef<AbortController | null>(null);
+
+  const cancelGalleryPreviewRequest = useCallback(() => {
+    galleryPreviewRequestRef.current?.abort();
+    galleryPreviewRequestRef.current = null;
+  }, []);
+
+  const retainGalleryPreviewBlob = useCallback((
+    submissionId: string,
+    previewKey: string,
+    blob: Blob | null,
+  ) => {
+    setGalleryPreview((current) => {
+      if (
+        !current || current.submissionId !== submissionId ||
+        current.previewKey !== previewKey || current.blob === blob
+      ) return current;
+      return { ...current, blob };
+    });
+  }, []);
+
+  const rejectGalleryPreview = useCallback((submissionId: string, previewKey: string) => {
+    setGalleryPreview((current) =>
+      current?.submissionId === submissionId && current.previewKey === previewKey
+        ? null
+        : current
+    );
+    setReviewError("The prepared Gallery preview could not be loaded. Prepare it again before reviewing this image.");
+    setReviewStatus("");
+  }, []);
 
   const clearModeratorState = useCallback(() => {
+    cancelGalleryPreviewRequest();
     setQueue(null);
     setReviewStatus("");
     setReviewError("");
@@ -106,6 +162,9 @@ export function LeaderDashboard() {
     setReasons({});
     setCleanupConfirmations({});
     setCleanupBusyId("");
+    setGalleryPreview(null);
+    setInstagramCursor("");
+    setInstagramCursorHistory([]);
     setInstagramQueue(null);
     setInstagramApiStatus(null);
     setInstagramBusy(false);
@@ -115,9 +174,9 @@ export function LeaderDashboard() {
     setInstagramError("");
     setInstagramCaptions({});
     setInstagramAltTexts({});
-    setInstagramPermalinks({});
-    setInstagramNotes({});
     setInstagramConfirmations({});
+    setInstagramReconciliationDrafts({});
+    setInstagramReconciliationConfirmations({});
     setInstagramJobMessages({});
     setMemberVerificationUserId("");
     setMemberVerificationReason("");
@@ -128,7 +187,7 @@ export function LeaderDashboard() {
     setMemberVerificationLast(null);
     setSpinnerLaunchBusy(false);
     setSpinnerLaunchMessage("");
-  }, []);
+  }, [cancelGalleryPreviewRequest]);
 
   const loadQueue = useCallback(async ({
     status = "pending",
@@ -145,6 +204,7 @@ export function LeaderDashboard() {
   } = {}) => {
     const requestGeneration = loadGeneration ?? leaderLoadGenerationRef.current;
     if (!isCurrentAuthLoadGeneration(leaderLoadGenerationRef, requestGeneration)) return;
+    cancelGalleryPreviewRequest();
     const nextStatus = normalizeStatus(status);
     const nextPage = Math.max(1, Math.trunc(page));
     const nextThumbnailState = nextStatus === "approved" ? thumbnailState : "all";
@@ -152,6 +212,7 @@ export function LeaderDashboard() {
     setActiveStatus(nextStatus);
     setQueuePage(nextPage);
     setQueueThumbnailState(nextThumbnailState);
+    setGalleryPreview(null);
     setBusy(true);
     setReviewError("");
     setReviewStatus(`Loading ${config.label.toLowerCase()} submissions.`);
@@ -180,14 +241,18 @@ export function LeaderDashboard() {
           : config.empty),
     );
     setBusy(false);
-  }, []);
+  }, [cancelGalleryPreviewRequest]);
 
   const loadInstagramQueue = useCallback(async ({
-    status = instagramActiveStatus,
+    status = "queued",
+    cursor = "",
+    history = [],
     successMessage = "",
     loadGeneration,
   }: {
     status?: string;
+    cursor?: string;
+    history?: string[];
     successMessage?: string;
     loadGeneration?: number;
   } = {}) => {
@@ -198,10 +263,16 @@ export function LeaderDashboard() {
     setInstagramActiveStatus(nextStatus);
     setInstagramBusy(true);
     setInstagramError("");
+    setInstagramConfirmations({});
+    setInstagramReconciliationConfirmations({});
     setInstagramStatus(`Loading ${config.label.toLowerCase()} Instagram jobs.`);
 
-    const requestedStatus = nextStatus === "shared_manually" ? "all" : nextStatus;
-    const result = await listInstagramPublishQueue({ status: requestedStatus });
+    const requestedCursor = String(cursor || "").trim();
+    const requestedHistory = history.map((entry) => String(entry || "").trim());
+    const result = await listInstagramPublishQueue({
+      status: nextStatus,
+      cursor: requestedCursor,
+    });
     if (!isCurrentAuthLoadGeneration(leaderLoadGenerationRef, requestGeneration)) return;
     if (!result.ok) {
       setInstagramQueue(null);
@@ -212,19 +283,15 @@ export function LeaderDashboard() {
     }
 
     const responseData = result.data || { jobs: [] };
-    const responseJobs = Array.isArray(responseData.jobs) ? responseData.jobs : [];
-    const jobs = nextStatus === "shared_manually"
-      ? responseJobs.filter((job) => text(job.status) === "shared_manually")
-      : responseJobs;
+    const jobs = Array.isArray(responseData.jobs) ? responseData.jobs : [];
     const data = {
       ...responseData,
       jobs,
       count: jobs.length,
-      summary: {
-        ...(responseData.summary || {}),
-        ...(nextStatus === "shared_manually" ? { shared_manually: jobs.length } : {}),
-      },
+      summary: { ...(responseData.summary || {}) },
     };
+    setInstagramCursor(requestedCursor);
+    setInstagramCursorHistory(requestedHistory);
     setInstagramQueue(data);
     setInstagramStatus(
       successMessage ||
@@ -233,7 +300,7 @@ export function LeaderDashboard() {
           : config.empty),
     );
     setInstagramBusy(false);
-  }, [instagramActiveStatus]);
+  }, []);
 
   const loadInstagramApiStatus = useCallback(async (successMessage = "", loadGeneration?: number) => {
     const requestGeneration = loadGeneration ?? leaderLoadGenerationRef.current;
@@ -290,20 +357,21 @@ export function LeaderDashboard() {
     // reads are independent review tools and must not hold that doorway open.
     void Promise.allSettled([
       loadQueue({ status: "pending", page: 1, thumbnailState: "all", loadGeneration }),
-      loadInstagramQueue({ status: instagramActiveStatus, loadGeneration }),
+      loadInstagramQueue({ status: "queued", loadGeneration }),
       loadInstagramApiStatus("", loadGeneration),
     ]);
-  }, [clearModeratorState, instagramActiveStatus, loadInstagramApiStatus, loadInstagramQueue, loadQueue]);
+  }, [clearModeratorState, loadInstagramApiStatus, loadInstagramQueue, loadQueue]);
 
   useEffect(() => {
     const subscription = onAuthStateChange(() => {
       void measureAuthenticatedRouteTask("leader-dashboard", checkAccess);
     });
     return () => {
+      cancelGalleryPreviewRequest();
       invalidateAuthLoadGeneration(leaderLoadGenerationRef);
       subscription.data?.subscription?.unsubscribe();
     };
-  }, [checkAccess]);
+  }, [cancelGalleryPreviewRequest, checkAccess]);
 
   useEffect(() => {
     const url = new URL(window.location.href);
@@ -342,6 +410,12 @@ export function LeaderDashboard() {
   async function moderate(item: GalleryReviewSubmission, action: "approved" | "rejected" | "thumbnail") {
     const submissionId = text(item.id);
     const reason = text(reasons[submissionId]);
+    const expectedUpdatedAt = text(item.updatedAt);
+
+    if (!expectedUpdatedAt) {
+      setReviewError("Refresh the moderation queue before reviewing this submission.");
+      return;
+    }
 
     if (action === "rejected" && reason.length < 2) {
       setReviewError("Add a decline reason before rejecting this submission.");
@@ -358,27 +432,37 @@ export function LeaderDashboard() {
           : "Preparing the gallery thumbnail before approval.",
     );
 
-    let thumbnail = null;
+    let publicationMedia: GalleryModerationMedia | null = null;
     if (action !== "rejected") {
-      const previewUrl = text(item.signedPreviewUrl);
-      if (!previewUrl) {
-        setReviewError("The image preview must be available before preparing its gallery thumbnail.");
+      const previewBlob = galleryPreview?.submissionId === submissionId
+        ? galleryPreview.blob
+        : null;
+      if (!previewBlob) {
+        setReviewError("Prepare the private preview and wait for it to load before reviewing this image.");
         setReviewStatus("");
         setBusy(false);
         return;
       }
 
       try {
-        thumbnail = await createGalleryThumbnail(previewUrl);
+        publicationMedia = action === "thumbnail" && item.publicationReady
+          ? { display: null, thumbnail: await createGalleryThumbnail(previewBlob) }
+          : await createGalleryPublicationMedia(previewBlob);
       } catch (error) {
-        setReviewError(error instanceof Error ? error.message : "The gallery thumbnail could not be prepared.");
+        setReviewError(error instanceof Error ? error.message : "The Gallery publication media could not be prepared.");
         setReviewStatus("");
         setBusy(false);
         return;
       }
     }
 
-    const result = await moderateGallerySubmission(submissionId, action, reason, thumbnail);
+    const result = await moderateGallerySubmission(
+      submissionId,
+      action,
+      reason,
+      publicationMedia,
+      expectedUpdatedAt,
+    );
     if (!result.ok) {
       setReviewError(result.message || "The submission could not be moderated.");
       setReviewStatus("");
@@ -395,6 +479,76 @@ export function LeaderDashboard() {
     if (action === "approved") {
       await loadInstagramQueue({ status: instagramActiveStatus });
     }
+  }
+
+  async function prepareReviewPreview(item: GalleryReviewSubmission) {
+    const requestGeneration = leaderLoadGenerationRef.current;
+    const submissionId = text(item.id);
+    const expectedUpdatedAt = text(item.updatedAt);
+    if (!submissionId || !expectedUpdatedAt) {
+      setReviewError("Refresh the moderation queue before preparing this preview.");
+      return;
+    }
+
+    cancelGalleryPreviewRequest();
+    const requestController = new AbortController();
+    galleryPreviewRequestRef.current = requestController;
+    setBusy(true);
+    setGalleryPreview(null);
+    setReviewError("");
+    setReviewStatus("Preparing one private Gallery preview.");
+    const result = await prepareGalleryReviewPreview(
+      submissionId,
+      expectedUpdatedAt,
+      { signal: requestController.signal },
+    );
+    if (
+      galleryPreviewRequestRef.current !== requestController ||
+      !isCurrentAuthLoadGeneration(leaderLoadGenerationRef, requestGeneration)
+    ) return;
+    galleryPreviewRequestRef.current = null;
+    if (!result.ok) {
+      setReviewError(result.message || "The private Gallery preview could not be prepared.");
+      setReviewStatus("");
+      setBusy(false);
+      return;
+    }
+
+    const preview = result.data;
+    const sourceWidth = Number(preview?.sourceWidth || 0);
+    const sourceHeight = Number(preview?.sourceHeight || 0);
+    const previewWidth = Number(preview?.previewWidth || 0);
+    const previewHeight = Number(preview?.previewHeight || 0);
+    const sourceValidatedAt = text(preview?.sourceValidatedAt);
+    const dimensionsAreValid =
+      Number.isSafeInteger(sourceWidth) && sourceWidth > 0 &&
+      Number.isSafeInteger(sourceHeight) && sourceHeight > 0 &&
+      Number.isSafeInteger(previewWidth) && previewWidth > 0 &&
+      Number.isSafeInteger(previewHeight) && previewHeight > 0;
+    if (
+      text(preview?.submissionId) !== submissionId ||
+      !(preview?.blob instanceof Blob) || !dimensionsAreValid ||
+      !sourceValidatedAt || !Number.isFinite(Date.parse(sourceValidatedAt))
+    ) {
+      setReviewError("The private Gallery preview response could not be verified.");
+      setReviewStatus("");
+      setBusy(false);
+      return;
+    }
+
+    const previewKey = `${submissionId}:${sourceValidatedAt}:${previewWidth}x${previewHeight}`;
+    setGalleryPreview({
+      submissionId,
+      previewKey,
+      preparedBlob: preview.blob,
+      sourceWidth,
+      sourceHeight,
+      previewWidth,
+      previewHeight,
+      blob: null,
+    });
+    setReviewStatus(result.message || "Private Gallery preview prepared.");
+    setBusy(false);
   }
 
   function armRejectedCleanup(item: GalleryReviewSubmission) {
@@ -503,41 +657,43 @@ export function LeaderDashboard() {
     }));
   }
 
-  function armInstagramAction(job: InstagramPublishJob, action: InstagramAction) {
-    const jobId = text(job.id);
-    if (!jobId) {
-      setInstagramError("Choose an Instagram publishing job before continuing.");
-      return;
-    }
-
-    setInstagramError("");
-    setInstagramConfirmations((current) => ({ ...current, [jobId]: action }));
-    setInstagramJobMessage(
-      jobId,
-      action === "manual-share"
-        ? {
-          kind: "status",
-          message: "Ready to confirm manual sharing after the image has been posted from the official account.",
-        }
-        : {
-          kind: "status",
-          message: "Ready to confirm Meta API publishing. Use only with action-time approval.",
-        },
-    );
+  async function instagramModeratorId() {
+    const auth = await requireAuth();
+    const userId = text(auth.data?.user?.id).toLowerCase();
+    if (!auth.ok || !userId) throw new Error("Sign in again before confirming Instagram publication.");
+    return userId;
   }
 
-  function cancelInstagramAction(job: InstagramPublishJob) {
+  async function armInstagramPublish(job: InstagramPublishJob) {
     const jobId = text(job.id);
-    if (!jobId) return;
-    setInstagramConfirmations((current) => ({ ...current, [jobId]: undefined }));
-    setInstagramJobMessage(jobId, undefined);
+    const caption = instagramCaptions[jobId] ?? text(job.caption, "A pretty guild showcase from Mōchirīī.");
+    const altText = instagramAltTexts[jobId] ?? text(job.altText);
+    const validation = validateSocialPublicationCopy([caption, altText]);
+    if (!jobId || !altText.trim() || !validation.ok) {
+      const message = !jobId
+        ? "Choose an Instagram publishing job."
+        : !altText.trim()
+          ? "Moderator-reviewed Instagram alt text is required."
+          : validation.message || "URLs are not allowed in Meta publication copy.";
+      setInstagramError(message);
+      if (jobId) setInstagramJobMessage(jobId, { kind: "error", message });
+      return;
+    }
+    try {
+      const request = await instagramPublishConfirmation(job, await instagramModeratorId(), caption, altText);
+      setInstagramConfirmations((current) => ({ ...current, [jobId]: request }));
+      setInstagramJobMessage(jobId, { kind: "status", message: "Second confirmation prepared for this exact caption, alt text, and job revision." });
+      setInstagramError("");
+    } catch (error) {
+      setInstagramError(error instanceof Error ? error.message : "Instagram confirmation could not be prepared.");
+    }
   }
 
   async function publishInstagram(job: InstagramPublishJob) {
     const jobId = text(job.id);
-    const caption = instagramCaptions[jobId] ?? text(job.caption, "Shared from the Mōchirīī guild gallery.");
+    const caption = instagramCaptions[jobId] ?? text(job.caption, "A pretty guild showcase from Mōchirīī.");
     const altText = instagramAltTexts[jobId] ?? text(job.altText);
-    const metaApiReady = Boolean(instagramApiStatus?.configured && instagramApiStatus.accountReachable && instagramApiStatus.publishEnabled);
+    const metaApiReady = Boolean(instagramApiStatus?.ready && instagramApiStatus.configured && instagramApiStatus.publishEnabled);
 
     if (!metaApiReady) {
       setInstagramJobMessage(jobId, {
@@ -547,8 +703,18 @@ export function LeaderDashboard() {
       return;
     }
 
-    if (instagramConfirmations[jobId] !== "publish") {
-      armInstagramAction(job, "publish");
+    const armed = instagramConfirmations[jobId];
+    if (!armed) return armInstagramPublish(job);
+
+    let request: InstagramPublicationRequest;
+    try {
+      request = await instagramPublishConfirmation(job, await instagramModeratorId(), caption, altText);
+    } catch (error) {
+      setInstagramError(error instanceof Error ? error.message : "Instagram confirmation could not be prepared.");
+      return;
+    }
+    if (request.confirmation_fingerprint !== armed.confirmation_fingerprint) {
+      await armInstagramPublish(job);
       return;
     }
 
@@ -557,12 +723,8 @@ export function LeaderDashboard() {
     setInstagramStatus("Publishing image to Instagram.");
     setInstagramJobMessage(jobId, { kind: "status", message: "Publishing image to Instagram through the Meta API." });
 
-    const result = await publishInstagramGallerySubmission({
-      jobId,
-      caption,
-      altText,
-      confirmPublish: true,
-    });
+    setInstagramConfirmations((current) => ({ ...current, [jobId]: undefined }));
+    const result = await publishInstagramGallerySubmission(request);
 
     if (!result.ok) {
       setInstagramJobMessage(jobId, {
@@ -588,65 +750,77 @@ export function LeaderDashboard() {
     });
   }
 
-  async function copyInstagramText(value: string, label: string) {
-    const clean = value.trim();
-    if (!clean) {
-      setInstagramError(`${label} is empty.`);
-      return;
-    }
-
-    try {
-      await navigator.clipboard.writeText(clean);
-      setInstagramError("");
-      setInstagramStatus(`${label} copied.`);
-    } catch {
-      setInstagramError(`${label} could not be copied by this browser.`);
-    }
+  function initialInstagramReconciliation(job: InstagramPublishJob): InstagramReconciliationDraft {
+    return {
+      resolution: "",
+      note: "",
+      instagramMediaId: text(job.instagramMediaId),
+      instagramPermalink: text(job.instagramPermalink),
+    };
   }
 
-  async function markSharedManually(job: InstagramPublishJob) {
-    const jobId = text(job.id);
-    const instagramPermalink = instagramPermalinks[jobId] ?? text(job.instagramPermalink);
-    const moderatorNote = instagramNotes[jobId] ?? "";
+  function updateInstagramReconciliation(jobId: string, draft: InstagramReconciliationDraft) {
+    setInstagramReconciliationDrafts((current) => ({ ...current, [jobId]: draft }));
+    setInstagramReconciliationConfirmations((current) => ({ ...current, [jobId]: undefined }));
+    setInstagramJobMessage(jobId, undefined);
+  }
 
-    if (instagramConfirmations[jobId] !== "manual-share") {
-      armInstagramAction(job, "manual-share");
+  async function armInstagramReconciliation(job: InstagramPublishJob) {
+    const jobId = text(job.id);
+    const draft = instagramReconciliationDrafts[jobId] || initialInstagramReconciliation(job);
+    if (!jobId || !draft.resolution || !draft.note.trim()) {
+      setInstagramError("Complete the Instagram inspection outcome and note before confirming.");
       return;
     }
+    const fingerprint = await instagramReconciliationFingerprint(job, draft);
+    setInstagramReconciliationConfirmations((current) => ({
+      ...current,
+      [jobId]: fingerprint,
+    }));
+    setInstagramJobMessage(jobId, { kind: "status", message: "Reconciliation prepared for this exact inspected result." });
+    setInstagramError("");
+  }
 
+  async function reconcileInstagram(job: InstagramPublishJob) {
+    const jobId = text(job.id);
+    const draft = instagramReconciliationDrafts[jobId] || initialInstagramReconciliation(job);
+    const fingerprint = await instagramReconciliationFingerprint(job, draft);
+    if (instagramReconciliationConfirmations[jobId] !== fingerprint) return armInstagramReconciliation(job);
+    if (!draft.resolution) return;
     setInstagramBusyJobId(jobId);
     setInstagramError("");
-    setInstagramStatus("Marking Instagram job as shared manually.");
-    setInstagramJobMessage(jobId, { kind: "status", message: "Marking this Instagram job as shared manually." });
-
-    const result = await markInstagramGallerySubmissionShared({
+    setInstagramStatus("Recording the inspected Instagram result.");
+    setInstagramReconciliationConfirmations((current) => ({ ...current, [jobId]: undefined }));
+    const result = await resolveInstagramPublishReconciliation({
       jobId,
-      instagramPermalink,
-      moderatorNote,
-      confirmManualShare: true,
+      resolution: draft.resolution,
+      instagramMediaId: draft.instagramMediaId,
+      instagramPermalink: draft.instagramPermalink,
+      note: draft.note,
+      confirmReconciliation: true,
     });
 
     if (!result.ok) {
       setInstagramJobMessage(jobId, {
         kind: "error",
-        message: result.message || "Instagram job could not be marked shared manually.",
+        message: result.message || "Instagram reconciliation could not be recorded.",
       });
-      setInstagramError(result.message || "Instagram job could not be marked shared manually.");
+      setInstagramError(result.message || "Instagram reconciliation could not be recorded.");
       setInstagramStatus("");
       setInstagramBusyJobId("");
       await loadInstagramQueue({ status: instagramActiveStatus });
       return;
     }
 
-    setInstagramConfirmations((current) => ({ ...current, [jobId]: undefined }));
+    setInstagramReconciliationDrafts((current) => ({ ...current, [jobId]: undefined }));
     setInstagramJobMessage(jobId, {
       kind: "success",
-      message: result.message || "Instagram job marked as shared manually.",
+      message: result.message || "Instagram reconciliation recorded.",
     });
     setInstagramBusyJobId("");
     await loadInstagramQueue({
       status: instagramActiveStatus,
-      successMessage: `${result.message || "Instagram job marked as shared manually."} It is now listed under Shared manually.`,
+      successMessage: result.message || "Instagram reconciliation recorded.",
     });
   }
 
@@ -755,6 +929,9 @@ export function LeaderDashboard() {
         {submissions.length ? (
           submissions.map((item) => {
             const id = text(item.id, "unknown");
+            const selectedPreview = galleryPreview?.submissionId === id
+              ? galleryPreview
+              : null;
             return (
               <SubmissionCard
                 item={item}
@@ -762,9 +939,19 @@ export function LeaderDashboard() {
                 busy={busy || cleanupBusyId === id}
                 reason={reasons[id] || ""}
                 cleanupArmed={Boolean(cleanupConfirmations[id])}
+                previewKey={selectedPreview?.previewKey || ""}
+                previewBlob={selectedPreview?.preparedBlob || null}
+                previewSourceWidth={selectedPreview?.sourceWidth || 0}
+                previewSourceHeight={selectedPreview?.sourceHeight || 0}
+                previewWidth={selectedPreview?.previewWidth || 0}
+                previewHeight={selectedPreview?.previewHeight || 0}
+                previewReady={Boolean(selectedPreview?.blob)}
                 key={id}
                 onReasonChange={(value) => setReasons((current) => ({ ...current, [id]: value.slice(0, 500) }))}
                 onModerate={moderate}
+                onPreparePreview={prepareReviewPreview}
+                onPreviewBlobChange={retainGalleryPreviewBlob}
+                onPreviewError={rejectGalleryPreview}
                 onArmCleanup={armRejectedCleanup}
                 onCancelCleanup={cancelRejectedCleanup}
                 onDeleteRejected={cleanupRejectedSubmission}
@@ -874,7 +1061,18 @@ export function LeaderDashboard() {
           <p className="kicker">Instagram Queue</p>
           <h2 className="section-title">Approved Social Publishing</h2>
         </div>
-        <button className="hero-cta" type="button" onClick={() => loadInstagramQueue({ status: instagramActiveStatus })} disabled={instagramBusy}>Refresh</button>
+        <button
+          className="hero-cta"
+          type="button"
+          onClick={() => loadInstagramQueue({
+            status: instagramActiveStatus,
+            cursor: instagramCursor,
+            history: instagramCursorHistory,
+          })}
+          disabled={instagramBusy || Boolean(instagramBusyJobId)}
+        >
+          Refresh
+        </button>
       </div>
 
       <div className="queue-tabs" role="group" aria-label="Instagram publishing queues">
@@ -884,7 +1082,7 @@ export function LeaderDashboard() {
             type="button"
             data-status={status.id}
             aria-pressed={status.id === instagramActiveStatus}
-            disabled={instagramBusy}
+            disabled={instagramBusy || Boolean(instagramBusyJobId)}
             key={status.id}
             onClick={() => loadInstagramQueue({ status: status.id })}
           >
@@ -906,30 +1104,43 @@ export function LeaderDashboard() {
         {instagramJobs.length ? (
           instagramJobs.map((job) => {
             const id = text(job.id, "unknown");
-            const metaPublishAvailable = Boolean(instagramApiStatus?.configured && instagramApiStatus.accountReachable && instagramApiStatus.publishEnabled);
+            const metaPublishAvailable = Boolean(instagramApiStatus?.ready && instagramApiStatus.configured && instagramApiStatus.publishEnabled);
+            const reconciliation = instagramReconciliationDrafts[id] || initialInstagramReconciliation(job);
             return (
               <InstagramJobCard
                 job={job}
                 busy={instagramBusy || instagramBusyJobId === id}
-                caption={instagramCaptions[id] ?? text(job.caption, "Shared from the Mōchirīī guild gallery.")}
+                caption={instagramCaptions[id] ?? text(job.caption, "A pretty guild showcase from Mōchirīī.")}
                 altText={instagramAltTexts[id] ?? text(job.altText)}
-                permalinkValue={instagramPermalinks[id] ?? text(job.instagramPermalink)}
-                moderatorNote={instagramNotes[id] ?? ""}
-                confirmation={instagramConfirmations[id]}
+                confirmationArmed={Boolean(instagramConfirmations[id])}
+                reconciliation={reconciliation}
+                reconciliationArmed={Boolean(instagramReconciliationConfirmations[id])}
                 jobMessage={instagramJobMessages[id]}
                 metaPublishAvailable={metaPublishAvailable}
                 key={id}
-                onCaptionChange={(value) => setInstagramCaptions((current) => ({ ...current, [id]: value }))}
-                onAltTextChange={(value) => setInstagramAltTexts((current) => ({ ...current, [id]: value }))}
-                onPermalinkChange={(value) => setInstagramPermalinks((current) => ({ ...current, [id]: value }))}
-                onModeratorNoteChange={(value) => setInstagramNotes((current) => ({ ...current, [id]: value }))}
-                onCopyCaption={() => copyInstagramText(instagramCaptions[id] ?? text(job.caption, "Shared from the Mōchirīī guild gallery."), "Instagram caption")}
-                onCopyAltText={() => copyInstagramText(instagramAltTexts[id] ?? text(job.altText), "Instagram alt text")}
-                onArmManualShare={(item) => armInstagramAction(item, "manual-share")}
-                onConfirmManualShare={markSharedManually}
-                onArmPublish={(item) => armInstagramAction(item, "publish")}
+                onCaptionChange={(value) => {
+                  setInstagramCaptions((current) => ({ ...current, [id]: value }));
+                  setInstagramConfirmations((current) => ({ ...current, [id]: undefined }));
+                  setInstagramJobMessage(id, undefined);
+                }}
+                onAltTextChange={(value) => {
+                  setInstagramAltTexts((current) => ({ ...current, [id]: value }));
+                  setInstagramConfirmations((current) => ({ ...current, [id]: undefined }));
+                  setInstagramJobMessage(id, undefined);
+                }}
+                onArmPublish={(item) => void armInstagramPublish(item)}
                 onConfirmPublish={publishInstagram}
-                onCancelAction={cancelInstagramAction}
+                onCancelPublish={() => {
+                  setInstagramConfirmations((current) => ({ ...current, [id]: undefined }));
+                  setInstagramJobMessage(id, undefined);
+                }}
+                onReconciliationChange={(draft) => updateInstagramReconciliation(id, draft)}
+                onArmReconciliation={(item) => void armInstagramReconciliation(item)}
+                onConfirmReconciliation={reconcileInstagram}
+                onCancelReconciliation={() => {
+                  setInstagramReconciliationConfirmations((current) => ({ ...current, [id]: undefined }));
+                  setInstagramJobMessage(id, undefined);
+                }}
               />
             );
           })
@@ -939,7 +1150,44 @@ export function LeaderDashboard() {
           </WorkflowEmptyState>
         )}
       </div>
+      {(instagramCursorHistory.length || instagramQueue?.nextCursor) ? (
+        <nav className="auth-actions" aria-label="Instagram publishing pages">
+          <button
+            className="hero-cta"
+            type="button"
+            disabled={instagramBusy || Boolean(instagramBusyJobId) || !instagramCursorHistory.length}
+            onClick={() => {
+              const history = instagramCursorHistory.slice(0, -1);
+              void loadInstagramQueue({
+                status: instagramActiveStatus,
+                cursor: instagramCursorHistory.at(-1) || "",
+                history,
+              });
+            }}
+          >
+            Previous page
+          </button>
+          <span className="review-action-note">Page {instagramCursorHistory.length + 1}</span>
+          <button
+            className="hero-cta"
+            type="button"
+            disabled={instagramBusy || Boolean(instagramBusyJobId) || !instagramQueue?.nextCursor}
+            onClick={() => {
+              if (instagramQueue?.nextCursor) {
+                void loadInstagramQueue({
+                  status: instagramActiveStatus,
+                  cursor: instagramQueue.nextCursor,
+                  history: [...instagramCursorHistory, instagramCursor],
+                });
+              }
+            }}
+          >
+            Next page
+          </button>
+        </nav>
+      ) : null}
     </section>
+    <FacebookPagePublishQueue />
     </>
   );
 }

@@ -1,11 +1,11 @@
-import { requireBrowserSupabaseClient } from "./client";
+import { invokeEdgeFunction, requireBrowserSupabaseClient } from "./client";
 import {
   ACCEPTED_IMAGE_TYPES,
-  INSTAGRAM_WEBSITE_OPT_IN_COPY_VERSION,
   MAX_UPLOAD_BYTES,
   MEMBER_GALLERY_BUCKET,
   SUBMISSION_FIELDS,
 } from "./config";
+import { buildGallerySocialWithdrawalRequest } from "@/lib/gallery/social-consent-withdrawal";
 import { requireAuth } from "./auth";
 import { requireActiveMember } from "./profile";
 import {
@@ -14,6 +14,9 @@ import {
   failedResult,
   okResult,
   type GallerySubmission,
+  type GallerySocialDestination,
+  type GallerySocialWithdrawalResponse,
+  type GallerySocialWithdrawalStatus,
   type GallerySubmissionMetadata,
 } from "./types";
 
@@ -55,7 +58,7 @@ export function validateGalleryFile(file: File | null | undefined) {
   if (!file) throw new Error("Choose an image file before uploading.");
   if (!acceptedTypes.has(file.type)) throw new Error("Upload a JPEG, PNG, or WebP image.");
   if (file.size <= 0) throw new Error("The selected file is empty.");
-  if (file.size > MAX_UPLOAD_BYTES) throw new Error("Images must be 50 MB or smaller.");
+  if (file.size > MAX_UPLOAD_BYTES) throw new Error("Images must be 8 MiB or smaller.");
 }
 
 export function cleanSubmissionMetadata(metadata: GallerySubmissionMetadata = {}) {
@@ -76,6 +79,13 @@ export async function uploadMemberGalleryImage(file: File | null | undefined, me
     const client = requireBrowserSupabaseClient();
     validateGalleryFile(file);
     const validFile = file as File;
+    const socialOptIn = metadata.instagramOptIn === true || metadata.facebookPageOptIn === true;
+    if (metadata.uploadRightsConfirmed !== true) {
+      throw new Error("Confirm that you own or may submit this image and have permission involving identifiable people.");
+    }
+    if (socialOptIn && validFile.type.toLowerCase() !== "image/jpeg") {
+      throw new Error("Instagram or Facebook Page publishing requires a JPEG. Uncheck both destinations to submit a PNG or WebP image to the Gallery only.");
+    }
 
     const access = await requireActiveMember({ refresh: true });
     if (!access.ok || !access.data?.user) return access;
@@ -83,7 +93,7 @@ export async function uploadMemberGalleryImage(file: File | null | undefined, me
     const user = access.data.user;
     const cleanMetadata = cleanSubmissionMetadata(metadata);
     const storagePath = buildStoragePath(user.id, validFile);
-    const { data: uploadData, error: uploadError } = await client.storage
+    const { error: uploadError } = await client.storage
       .from(MEMBER_GALLERY_BUCKET)
       .upload(storagePath, validFile, {
         cacheControl: "3600",
@@ -101,26 +111,24 @@ export async function uploadMemberGalleryImage(file: File | null | undefined, me
       mime_type: validFile.type,
       size_bytes: validFile.size,
       ...cleanMetadata,
+      upload_rights_confirmed: true,
       instagram_opt_in: metadata.instagramOptIn === true,
-      instagram_opt_in_at: metadata.instagramOptIn === true ? new Date().toISOString() : null,
-      instagram_opt_in_source: metadata.instagramOptIn === true ? "website_upload" : null,
-      instagram_opt_in_copy_version: metadata.instagramOptIn === true ? INSTAGRAM_WEBSITE_OPT_IN_COPY_VERSION : null,
+      facebook_page_opt_in: metadata.facebookPageOptIn === true,
     };
 
     const { data: submission, error: insertError } = await client
       .from("gallery_submissions")
       .insert(row)
-      .select("*")
+      .select("id,original_filename,mime_type,size_bytes,title,caption,category,status,rejection_reason,reviewed_at,created_at,updated_at,submission_source,instagram_opt_in,facebook_page_opt_in,upload_rights_confirmed")
       .single();
 
     if (insertError) {
       await client.storage.from(MEMBER_GALLERY_BUCKET).remove([storagePath]).catch(() => {});
-      return failedResult(insertError, { upload: uploadData, storagePath });
+      return failedResult(insertError);
     }
 
     return okResult(
       {
-        upload: uploadData,
         submission: submission as GallerySubmission,
       },
       "Image submitted for moderation.",
@@ -138,7 +146,7 @@ export async function listMyGallerySubmissions() {
 
     const { data, error, status, statusText } = await client
       .from("gallery_submissions")
-      .select("id,storage_bucket,storage_path,original_filename,mime_type,size_bytes,title,caption,category,status,rejection_reason,reviewed_at,created_at,updated_at,submission_source,instagram_opt_in,instagram_opt_in_at,instagram_opt_in_source,instagram_opt_in_copy_version")
+      .select("id,original_filename,mime_type,size_bytes,title,caption,category,status,rejection_reason,reviewed_at,created_at,updated_at,submission_source,instagram_opt_in,instagram_opt_in_at,instagram_opt_in_source,instagram_opt_in_copy_version,instagram_opt_in_contract_version,instagram_consent_version,facebook_page_opt_in,facebook_page_opt_in_at,facebook_page_opt_in_source,facebook_page_opt_in_copy_version,facebook_page_opt_in_contract_version,facebook_page_consent_version,upload_rights_confirmed")
       .eq("user_id", auth.data.user.id)
       .order("created_at", { ascending: false });
 
@@ -152,8 +160,42 @@ export async function listMyGallerySubmissions() {
       });
     }
 
-    return okResult((Array.isArray(data) ? data : []) as GallerySubmission[]);
+    const submissions = (Array.isArray(data) ? data : []) as GallerySubmission[];
+    const submissionIds = submissions.map((submission) => submission.id).filter(Boolean);
+    if (!submissionIds.length) return okResult(submissions);
+
+    const { data: withdrawalData, error: withdrawalError } = await client
+      .from("gallery_social_withdrawal_status")
+      .select("submission_id,destination,state,external_removal_required,requested_at,updated_at")
+      .in("submission_id", submissionIds);
+    if (withdrawalError) return failedResult<GallerySubmission[]>(withdrawalError);
+
+    const withdrawalsBySubmission = new Map<string, GallerySocialWithdrawalStatus[]>();
+    for (const status of (Array.isArray(withdrawalData) ? withdrawalData : []) as GallerySocialWithdrawalStatus[]) {
+      const current = withdrawalsBySubmission.get(status.submission_id) || [];
+      current.push(status);
+      withdrawalsBySubmission.set(status.submission_id, current);
+    }
+    return okResult(submissions.map((submission) => ({
+      ...submission,
+      social_withdrawals: withdrawalsBySubmission.get(submission.id) || [],
+    })));
   } catch (error) {
     return failedResult<GallerySubmission[]>(error);
+  }
+}
+
+export async function withdrawGalleryPublicationConsent(
+  submissionId: string,
+  destination: GallerySocialDestination,
+) {
+  try {
+    const body = buildGallerySocialWithdrawalRequest(submissionId, destination);
+    return invokeEdgeFunction<GallerySocialWithdrawalResponse>(
+      "withdraw-gallery-publication-consent",
+      body,
+    );
+  } catch (error) {
+    return failedResult<GallerySocialWithdrawalResponse>(error);
   }
 }

@@ -1,90 +1,755 @@
-import { SUPABASE_PROJECT_REF } from "@/lib/public-urls";
+import publicUrls from "../../config/public-urls.json" with { type: "json" };
+
+export const GALLERY_CATEGORY_SLUGS = [
+  "portraits",
+  "gatherings",
+  "action",
+  "scenery",
+  "companions",
+] as const;
+
+export const GALLERY_MEMBER_SUBMISSIONS_CATEGORY = "member-submissions" as const;
+export const GALLERY_ALL_CATEGORY = "all" as const;
+export const GALLERY_QUERY_MAX_LENGTH = 80;
+
+export type GalleryCategorySlug = (typeof GALLERY_CATEGORY_SLUGS)[number];
+export type GalleryFilterSlug =
+  | typeof GALLERY_ALL_CATEGORY
+  | typeof GALLERY_MEMBER_SUBMISSIONS_CATEGORY
+  | GalleryCategorySlug;
+
+const categorySet = new Set<string>(GALLERY_CATEGORY_SLUGS);
+const filterSet = new Set<string>([
+  GALLERY_ALL_CATEGORY,
+  GALLERY_MEMBER_SUBMISSIONS_CATEGORY,
+  ...GALLERY_CATEGORY_SLUGS,
+]);
+
+const galleryFilterLabels: Record<GalleryFilterSlug, string> = {
+  all: "All",
+  portraits: "Portraits",
+  gatherings: "Gatherings",
+  action: "Action",
+  scenery: "Scenery",
+  companions: "Companions",
+  "member-submissions": "Member Submissions",
+};
+
+export function normalizedGallerySlug(value: unknown) {
+  return String(value ?? "")
+    .normalize("NFKC")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+export function isGalleryCategory(value: unknown): value is GalleryCategorySlug {
+  return categorySet.has(normalizedGallerySlug(value));
+}
+
+export function isGalleryFilter(value: unknown): value is GalleryFilterSlug {
+  return filterSet.has(normalizedGallerySlug(value));
+}
+
+export function galleryFilterLabel(value: GalleryFilterSlug) {
+  return galleryFilterLabels[value];
+}
+
+export function normalizeGalleryQuery(value: unknown) {
+  return String(value ?? "").normalize("NFKC").trim().slice(0, GALLERY_QUERY_MAX_LENGTH);
+}
+
+export function galleryItemCategories(value: unknown): GalleryFilterSlug[] {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.map(normalizedGallerySlug).filter(isGalleryFilter))];
+}
+
+export const APPROVED_GALLERY_SCHEMA_VERSION = 2;
+export const APPROVED_GALLERY_PAGE_SIZE = 24;
+
+export type ApprovedGallerySort = "newest" | "oldest";
 
 export type ApprovedGallerySubmission = {
-  id?: string | null;
-  title?: string | null;
-  caption?: string | null;
-  category?: string | null;
-  mime_type?: string | null;
-  size_bytes?: number | null;
-  created_at?: string | null;
-  reviewed_at?: string | null;
-  uploader_display_name?: string | null;
-  uploader_discord_name?: string | null;
-  full_signed_url?: string | null;
-  thumbnail_signed_url?: string | null;
-  thumbnail_size_bytes?: number | null;
-  preview_error?: string | null;
+  id: string;
+  title: string | null;
+  caption: string | null;
+  category: (typeof GALLERY_CATEGORY_SLUGS)[number];
+  categories: GalleryFilterSlug[];
+  mime_type: "image/webp";
+  size_bytes: number;
+  created_at: string;
+  reviewed_at: string;
+  thumbnail_url: string;
+  thumbnail_size_bytes: number;
+  thumbnail_width: number;
+  thumbnail_height: number;
 };
 
-export type ApprovedGalleryFeed = {
-  submissions: ApprovedGallerySubmission[];
-  count?: number;
-  signedUrlSeconds?: number;
+export type ApprovedGalleryFacets = Record<
+  typeof GALLERY_MEMBER_SUBMISSIONS_CATEGORY | (typeof GALLERY_CATEGORY_SLUGS)[number],
+  number
+>;
+
+export type ApprovedGalleryPage = {
+  schemaVersion: typeof APPROVED_GALLERY_SCHEMA_VERSION;
+  items: ApprovedGallerySubmission[];
+  count: number;
+  totalEligible: number;
+  facets: ApprovedGalleryFacets;
+  hasMore: boolean;
+  nextCursor: string | null;
+  partial: boolean;
+  complete: boolean;
+  deliveryFailures: number;
+  delivery: "bounded-edge-media";
+  cacheSeconds: number;
 };
 
-type PublicGalleryFeedResult = {
+export type ApprovedGalleryPageRequest = {
+  cursor?: string | null;
+  sort?: ApprovedGallerySort;
+  category?: GalleryFilterSlug | null;
+  query?: string | null;
+  pageSize?: number;
+};
+
+export type PublicGalleryFeedResult<T> = {
   ok: boolean;
   status: number;
   statusText: string;
-  data: ApprovedGalleryFeed | null;
+  data: T | null;
   message: string | null;
 };
 
-function publicApprovedGalleryFeedUrl() {
-  const configuredUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || "").replace(/\/+$/, "");
-  const baseUrl = configuredUrl || `https://${SUPABASE_PROJECT_REF}.supabase.co`;
-  return `${baseUrl}/functions/v1/list-approved-gallery-submissions`;
+type JsonRecord = Record<string, unknown>;
+
+const unavailableMessage = "Member-submitted images are temporarily unavailable.";
+const fullImageUnavailableMessage = "The full image is unavailable.";
+const thumbnailUnavailableMessage = "The image preview is unavailable.";
+const APPROVED_GALLERY_REQUEST_TIMEOUT_MS = 8_000;
+const APPROVED_GALLERY_MEDIA_TIMEOUT_MS = 15_000;
+const APPROVED_GALLERY_JSON_MAX_BYTES = 64 * 1024;
+const APPROVED_GALLERY_DISPLAY_MAX_BYTES = 2 * 1024 * 1024;
+const APPROVED_GALLERY_CACHE_MAX_ENTRIES = 40;
+const APPROVED_GALLERY_CACHE_MAX_TTL_MS = 60_000;
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const cursorPattern = /^[A-Za-z0-9_-]{1,1024}$/;
+const galleryMediaPath = "/functions/v1/list-approved-gallery-submissions";
+const listDataKeys = new Set([
+  "schemaVersion",
+  "items",
+  "count",
+  "totalEligible",
+  "facets",
+  "hasMore",
+  "nextCursor",
+  "partial",
+  "complete",
+  "deliveryFailures",
+  "delivery",
+  "cacheSeconds",
+]);
+const itemKeys = new Set([
+  "id",
+  "title",
+  "caption",
+  "category",
+  "categories",
+  "mime_type",
+  "size_bytes",
+  "created_at",
+  "reviewed_at",
+  "thumbnail_url",
+  "thumbnail_size_bytes",
+  "thumbnail_width",
+  "thumbnail_height",
+]);
+
+function record(value: unknown): JsonRecord | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as JsonRecord
+    : null;
 }
 
-function asFeed(value: unknown): ApprovedGalleryFeed | null {
-  if (!value || typeof value !== "object") return null;
-  const candidate = value as Partial<ApprovedGalleryFeed>;
-  if (!Array.isArray(candidate.submissions)) return null;
-  return candidate as ApprovedGalleryFeed;
+function hasOnlyKeys(value: JsonRecord, allowed: Set<string>) {
+  return Object.keys(value).every((key) => allowed.has(key));
 }
 
-export async function listApprovedGallerySubmissions(signal?: AbortSignal): Promise<PublicGalleryFeedResult> {
+function stringOrNull(value: unknown, maximumLength: number): string | null | undefined {
+  if (value === null) return null;
+  if (typeof value !== "string") return undefined;
+  const clean = value.normalize("NFKC").trim();
+  if (clean.length > maximumLength) return undefined;
+  return clean || null;
+}
+
+function nonemptyString(value: unknown, maximumLength: number): string | null {
+  const clean = stringOrNull(value, maximumLength);
+  return typeof clean === "string" && clean ? clean : null;
+}
+
+function safeInteger(value: unknown, minimum: number, maximum: number): number | null {
+  return Number.isSafeInteger(value) && Number(value) >= minimum && Number(value) <= maximum
+    ? Number(value)
+    : null;
+}
+
+function responseContentLength(response: Response, maximum: number) {
+  const header = response.headers.get("content-length");
+  if (header === null) return null;
+  if (!/^\d+$/u.test(header)) return -1;
+  const value = Number(header);
+  return Number.isSafeInteger(value) && value >= 0 && value <= maximum ? value : -1;
+}
+
+async function cancelResponseBody(response: Response) {
   try {
-    const response = await fetch(publicApprovedGalleryFeedUrl(), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: "{}",
-      signal,
-    });
-    const payload = await response.json().catch(() => null) as Record<string, unknown> | null;
-    const data = asFeed(payload?.data || payload);
-    const message = typeof payload?.message === "string" ? payload.message : null;
-    const payloadFailed = payload?.ok === false;
+    await response.body?.cancel();
+  } catch {
+    // The body may already be closed or aborted.
+  }
+}
 
-    if (!response.ok || payloadFailed || !data) {
-      return {
-        ok: false,
-        status: response.status,
-        statusText: response.statusText,
-        data,
-        message: message || "Approved gallery feed could not be loaded.",
-      };
+async function readBoundedResponseBytes(response: Response, maximum: number) {
+  if (!response.body) return null;
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let received = 0;
+  try {
+    while (true) {
+      const chunk = await reader.read();
+      if (chunk.done) break;
+      if (!chunk.value?.byteLength) continue;
+      received += chunk.value.byteLength;
+      if (received > maximum) {
+        await reader.cancel("gallery_response_too_large");
+        return null;
+      }
+      chunks.push(chunk.value);
     }
+  } finally {
+    reader.releaseLock();
+  }
+  const bytes = new Uint8Array(received);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return bytes;
+}
 
-    return {
-      ok: true,
-      status: response.status,
-      statusText: response.statusText,
-      data,
-      message,
+async function readBoundedJson(response: Response) {
+  const contentType = (response.headers.get("content-type") || "")
+    .split(";", 1)[0]
+    .trim()
+    .toLowerCase();
+  const contentEncoding = (response.headers.get("content-encoding") || "identity")
+    .trim()
+    .toLowerCase();
+  const contentLength = responseContentLength(response, APPROVED_GALLERY_JSON_MAX_BYTES);
+  if (contentType !== "application/json" || contentEncoding !== "identity" || contentLength === -1) {
+    await cancelResponseBody(response);
+    return null;
+  }
+  const bytes = await readBoundedResponseBytes(response, APPROVED_GALLERY_JSON_MAX_BYTES);
+  if (!bytes || (contentLength !== null && bytes.byteLength !== contentLength)) return null;
+  try {
+    return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)) as unknown;
+  } catch {
+    return null;
+  }
+}
+
+function validDateOrNull(value: unknown) {
+  const clean = stringOrNull(value, 80);
+  if (clean === null) return null;
+  return typeof clean === "string" && Number.isFinite(Date.parse(clean)) ? clean : undefined;
+}
+
+function isLoopbackHttp(url: URL) {
+  return url.protocol === "http:" &&
+    (url.hostname === "localhost" || url.hostname === "127.0.0.1");
+}
+
+function configuredSupabaseUrl() {
+  const projectRef = String(publicUrls.supabaseProjectRef || "").trim().toLowerCase();
+  const fallback = new URL(`https://${projectRef}.supabase.co`);
+  const configured = (process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
+  if (!configured) return fallback;
+
+  try {
+    const url = new URL(configured);
+    const exactRoot = url.pathname === "/" && !url.search && !url.hash &&
+      !url.username && !url.password;
+    const hostedProject = url.protocol === "https:" && !url.port &&
+      url.hostname === `${projectRef}.supabase.co`;
+    const localProject = process.env.NODE_ENV !== "production" && isLoopbackHttp(url);
+    if (!exactRoot || (!hostedProject && !localProject)) return fallback;
+    return new URL(url.origin);
+  } catch {
+    return fallback;
+  }
+}
+
+function validGalleryMediaUrl(
+  value: unknown,
+  mediaKind: "display" | "thumbnail",
+  publicationId: string,
+) {
+  const clean = nonemptyString(value, 4_000);
+  if (!clean) return null;
+  try {
+    const url = new URL(clean);
+    const configured = configuredSupabaseUrl();
+    if (
+      url.origin !== configured.origin ||
+      (url.protocol !== "https:" && !isLoopbackHttp(url)) ||
+      url.username || url.password ||
+      url.hash || url.pathname !== galleryMediaPath ||
+      [...url.searchParams.keys()].sort().join(",") !== "asset,id" ||
+      url.searchParams.get("asset") !== (mediaKind === "display" ? "full" : "thumbnail") ||
+      url.searchParams.get("id") !== publicationId
+    ) {
+      return null;
+    }
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+function parseItem(value: unknown): ApprovedGallerySubmission | null {
+  const item = record(value);
+  if (!item || !hasOnlyKeys(item, itemKeys)) return null;
+
+  const id = nonemptyString(item.id, 80);
+  const title = stringOrNull(item.title, 80);
+  const caption = stringOrNull(item.caption, 300);
+  const rawCategory = stringOrNull(item.category, 40);
+  const rawCategories = Array.isArray(item.categories) ? item.categories : null;
+  const categories = galleryItemCategories(item.categories);
+  const mimeType = stringOrNull(item.mime_type, 80);
+  const sizeBytes = safeInteger(item.size_bytes, 0, Number.MAX_SAFE_INTEGER);
+  const createdAt = validDateOrNull(item.created_at);
+  const reviewedAt = validDateOrNull(item.reviewed_at);
+  const thumbnailUrl = id
+    ? validGalleryMediaUrl(item.thumbnail_url, "thumbnail", id)
+    : null;
+  const thumbnailSizeBytes = safeInteger(item.thumbnail_size_bytes, 1, 80 * 1024);
+  const thumbnailWidth = safeInteger(item.thumbnail_width, 1, 720);
+  const thumbnailHeight = safeInteger(item.thumbnail_height, 1, 720);
+  const category = rawCategory !== null && isGalleryCategory(rawCategory) ? rawCategory : undefined;
+
+  if (
+    !id || !uuidPattern.test(id) || title === undefined || caption === undefined || category === undefined ||
+    !rawCategories || rawCategories.length !== categories.length || categories.length < 1 || categories.length > 2 ||
+    categories.includes(GALLERY_ALL_CATEGORY) || !categories.includes(GALLERY_MEMBER_SUBMISSIONS_CATEGORY) ||
+    categories.length !== 2 || !categories.includes(category) ||
+    mimeType !== "image/webp" || sizeBytes === null || sizeBytes < 1 || sizeBytes > 2 * 1024 * 1024 ||
+    !createdAt || !reviewedAt ||
+    !thumbnailUrl || thumbnailSizeBytes === null || thumbnailWidth === null || thumbnailHeight === null
+  ) return null;
+
+  return {
+    id,
+    title,
+    caption,
+    category,
+    categories,
+    mime_type: mimeType,
+    size_bytes: sizeBytes,
+    created_at: createdAt,
+    reviewed_at: reviewedAt,
+    thumbnail_url: thumbnailUrl,
+    thumbnail_size_bytes: thumbnailSizeBytes,
+    thumbnail_width: thumbnailWidth,
+    thumbnail_height: thumbnailHeight,
+  };
+}
+
+function parseFacets(value: unknown): ApprovedGalleryFacets | null {
+  const facets = record(value);
+  const keys = [GALLERY_MEMBER_SUBMISSIONS_CATEGORY, ...GALLERY_CATEGORY_SLUGS] as const;
+  if (!facets || Object.keys(facets).length !== keys.length || !keys.every((key) => key in facets)) return null;
+  const parsed = Object.fromEntries(
+    keys.map((key) => [key, safeInteger(facets[key], 0, Number.MAX_SAFE_INTEGER)]),
+  );
+  return Object.values(parsed).every((count) => count !== null)
+    ? parsed as ApprovedGalleryFacets
+    : null;
+}
+
+export function parseApprovedGalleryPage(value: unknown): ApprovedGalleryPage | null {
+  const data = record(value);
+  if (
+    !data || Object.keys(data).length !== listDataKeys.size ||
+    !hasOnlyKeys(data, listDataKeys) || data.schemaVersion !== APPROVED_GALLERY_SCHEMA_VERSION
+  ) return null;
+  if (!Array.isArray(data.items)) return null;
+  const items = data.items.map(parseItem);
+  if (items.some((item) => item === null)) return null;
+  const itemIds = items.map((item) => item?.id || "");
+  if (new Set(itemIds).size !== itemIds.length) return null;
+
+  const count = safeInteger(data.count, 0, APPROVED_GALLERY_PAGE_SIZE);
+  const totalEligible = safeInteger(data.totalEligible, 0, Number.MAX_SAFE_INTEGER);
+  const facets = parseFacets(data.facets);
+  const nextCursor = data.nextCursor === null ? null : nonemptyString(data.nextCursor, 1024);
+  const deliveryFailures = safeInteger(data.deliveryFailures, 0, APPROVED_GALLERY_PAGE_SIZE);
+  const cacheSeconds = safeInteger(data.cacheSeconds, 1, 60);
+  if (
+    count === null || count !== items.length || totalEligible === null || totalEligible < items.length || !facets ||
+    typeof data.hasMore !== "boolean" || (data.hasMore && (!nextCursor || !cursorPattern.test(nextCursor))) ||
+    (!data.hasMore && nextCursor !== null) || data.partial !== false ||
+    typeof data.complete !== "boolean" || deliveryFailures !== 0 ||
+    data.complete !== !data.hasMore ||
+    data.delivery !== "bounded-edge-media" || cacheSeconds === null
+  ) return null;
+
+  return {
+    schemaVersion: APPROVED_GALLERY_SCHEMA_VERSION,
+    items: items as ApprovedGallerySubmission[],
+    count,
+    totalEligible,
+    facets,
+    hasMore: data.hasMore,
+    nextCursor,
+    partial: data.partial,
+    complete: data.complete,
+    deliveryFailures,
+    delivery: "bounded-edge-media",
+    cacheSeconds,
+  };
+}
+
+function approvedGalleryFeedUrl() {
+  return `${configuredSupabaseUrl().origin}/functions/v1/list-approved-gallery-submissions`;
+}
+
+function approvedGalleryMediaUrl(
+  kind: "full" | "thumbnail",
+  id: string,
+): string | null {
+  if (!uuidPattern.test(id)) return null;
+  const url = new URL(approvedGalleryFeedUrl());
+  url.searchParams.set("asset", kind);
+  url.searchParams.set("id", id);
+  return validGalleryMediaUrl(
+    url.toString(),
+    kind === "full" ? "display" : "thumbnail",
+    id,
+  );
+}
+
+class GalleryRequestTimeoutError extends Error {
+  constructor() {
+    super("The Gallery request timed out.");
+    this.name = "GalleryRequestTimeoutError";
+  }
+}
+
+function abortError() {
+  return new DOMException("The operation was aborted.", "AbortError");
+}
+
+export async function fetchWithGalleryTimeout(
+  input: string,
+  init: RequestInit,
+  callerSignal?: AbortSignal,
+  timeoutMs = APPROVED_GALLERY_REQUEST_TIMEOUT_MS,
+) {
+  return fetchWithBoundedTimeout(
+    input,
+    init,
+    callerSignal,
+    Math.max(1, Math.min(APPROVED_GALLERY_REQUEST_TIMEOUT_MS, timeoutMs)),
+  );
+}
+
+async function fetchWithBoundedTimeout(
+  input: string,
+  init: RequestInit,
+  callerSignal: AbortSignal | undefined,
+  timeoutMs: number,
+) {
+  if (callerSignal?.aborted) throw abortError();
+
+  const controller = new AbortController();
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  let removeCallerAbort = () => {};
+  const stop = new Promise<Response>((_resolve, reject) => {
+    const onCallerAbort = () => {
+      controller.abort();
+      reject(abortError());
     };
+    if (callerSignal) {
+      callerSignal.addEventListener("abort", onCallerAbort, { once: true });
+      removeCallerAbort = () => callerSignal.removeEventListener("abort", onCallerAbort);
+    }
+    timeout = setTimeout(() => {
+      controller.abort();
+      reject(new GalleryRequestTimeoutError());
+    }, timeoutMs);
+  });
+
+  try {
+    return await Promise.race([
+      fetch(input, { ...init, signal: controller.signal }),
+      stop,
+    ]);
+  } finally {
+    if (timeout !== undefined) clearTimeout(timeout);
+    removeCallerAbort();
+  }
+}
+
+type GalleryCacheEntry = {
+  controller: AbortController;
+  consumers: number;
+  expiresAt: number;
+  promise: Promise<PublicGalleryFeedResult<unknown>>;
+  settled: boolean;
+};
+
+const approvedGalleryResponseCache = new Map<string, GalleryCacheEntry>();
+
+function pruneApprovedGalleryCache(now = Date.now()) {
+  for (const [key, entry] of approvedGalleryResponseCache) {
+    if (entry.settled && entry.expiresAt <= now) approvedGalleryResponseCache.delete(key);
+  }
+}
+
+function makeRoomInApprovedGalleryCache() {
+  while (approvedGalleryResponseCache.size >= APPROVED_GALLERY_CACHE_MAX_ENTRIES) {
+    const settled = [...approvedGalleryResponseCache].find(([, entry]) => entry.settled);
+    const oldest = settled || approvedGalleryResponseCache.entries().next().value;
+    if (!oldest) break;
+    const [key, entry] = oldest;
+    if (!entry.settled) entry.controller.abort();
+    approvedGalleryResponseCache.delete(key);
+  }
+}
+
+function galleryCacheTtlMs(result: PublicGalleryFeedResult<unknown>) {
+  const data = record(result.data);
+  const cacheSeconds = safeInteger(data?.cacheSeconds, 1, 60);
+  return result.ok && cacheSeconds !== null
+    ? Math.min(APPROVED_GALLERY_CACHE_MAX_TTL_MS, cacheSeconds * 1_000)
+    : 0;
+}
+
+function consumeGalleryCacheEntry<T>(
+  key: string,
+  entry: GalleryCacheEntry,
+  signal?: AbortSignal,
+): Promise<PublicGalleryFeedResult<T>> {
+  if (signal?.aborted) return Promise.reject(abortError());
+  entry.consumers += 1;
+
+  return new Promise((resolve, reject) => {
+    let complete = false;
+    const release = () => {
+      if (complete) return;
+      complete = true;
+      signal?.removeEventListener("abort", onAbort);
+      entry.consumers -= 1;
+      if (!entry.settled && entry.consumers === 0 && approvedGalleryResponseCache.get(key) === entry) {
+        approvedGalleryResponseCache.delete(key);
+        entry.controller.abort();
+      }
+    };
+    const onAbort = () => {
+      release();
+      reject(abortError());
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
+    entry.promise.then(
+      (result) => {
+        release();
+        resolve(result as PublicGalleryFeedResult<T>);
+      },
+      (error) => {
+        release();
+        reject(error);
+      },
+    );
+  });
+}
+
+async function performApprovedGalleryRequest<T>({
+  body,
+  signal,
+  parse,
+  unavailable,
+}: {
+  body: JsonRecord;
+  signal: AbortSignal;
+  parse: (value: unknown) => T | null;
+  unavailable: string;
+}): Promise<PublicGalleryFeedResult<T>> {
+  try {
+    const response = await fetchWithGalleryTimeout(approvedGalleryFeedUrl(), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      cache: "no-store",
+      credentials: "omit",
+    }, signal);
+    const payload = record(await readBoundedJson(response));
+    const data = payload?.ok === true ? parse(payload.data) : null;
+    if (!response.ok || !data) {
+      return { ok: false, status: response.status, statusText: response.statusText, data: null, message: unavailable };
+    }
+    return { ok: true, status: response.status, statusText: response.statusText, data, message: null };
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") throw error;
-
-    return {
-      ok: false,
-      status: 0,
-      statusText: "",
-      data: null,
-      message: error instanceof Error ? error.message : "Approved gallery feed could not be loaded.",
-    };
+    return { ok: false, status: 0, statusText: "", data: null, message: unavailable };
   }
+}
+
+async function requestApprovedGallery<T>({
+  body,
+  cacheCompleted = true,
+  signal,
+  parse,
+  unavailable,
+}: {
+  body: JsonRecord;
+  cacheCompleted?: boolean;
+  signal?: AbortSignal;
+  parse: (value: unknown) => T | null;
+  unavailable: string;
+}): Promise<PublicGalleryFeedResult<T>> {
+  const cacheKey = `${approvedGalleryFeedUrl()}\n${JSON.stringify(body)}`;
+  const now = Date.now();
+  pruneApprovedGalleryCache(now);
+  let entry = approvedGalleryResponseCache.get(cacheKey);
+  if (entry?.settled && entry.expiresAt <= now) {
+    approvedGalleryResponseCache.delete(cacheKey);
+    entry = undefined;
+  }
+
+  if (!entry) {
+    makeRoomInApprovedGalleryCache();
+    const controller = new AbortController();
+    entry = {
+      controller,
+      consumers: 0,
+      expiresAt: Number.POSITIVE_INFINITY,
+      settled: false,
+      promise: Promise.resolve({ ok: false, status: 0, statusText: "", data: null, message: unavailable }),
+    };
+    const currentEntry = entry;
+    currentEntry.promise = performApprovedGalleryRequest({ body, signal: controller.signal, parse, unavailable })
+      .then((result) => {
+        currentEntry.settled = true;
+        const ttlMs = galleryCacheTtlMs(result);
+        if (cacheCompleted && ttlMs > 0 && approvedGalleryResponseCache.get(cacheKey) === currentEntry) {
+          currentEntry.expiresAt = Date.now() + ttlMs;
+        } else {
+          approvedGalleryResponseCache.delete(cacheKey);
+        }
+        return result as PublicGalleryFeedResult<unknown>;
+      }, (error) => {
+        currentEntry.settled = true;
+        approvedGalleryResponseCache.delete(cacheKey);
+        throw error;
+      });
+    approvedGalleryResponseCache.set(cacheKey, currentEntry);
+  }
+
+  return consumeGalleryCacheEntry<T>(cacheKey, entry, signal);
+}
+
+export async function listApprovedGallerySubmissions(
+  request: ApprovedGalleryPageRequest = {},
+  signal?: AbortSignal,
+): Promise<PublicGalleryFeedResult<ApprovedGalleryPage>> {
+  const pageSize = Number.isSafeInteger(request.pageSize)
+    ? Math.min(APPROVED_GALLERY_PAGE_SIZE, Math.max(1, Number(request.pageSize)))
+    : APPROVED_GALLERY_PAGE_SIZE;
+  const query = normalizeGalleryQuery(request.query);
+  const cursor = typeof request.cursor === "string" && cursorPattern.test(request.cursor)
+    ? request.cursor
+    : null;
+  const category = request.category && isGalleryFilter(request.category) &&
+      request.category !== GALLERY_ALL_CATEGORY
+    ? request.category
+    : null;
+  return requestApprovedGallery({
+    body: {
+      action: "list",
+      pageSize,
+      cursor,
+      sort: request.sort === "oldest" ? "oldest" : "newest",
+      category,
+      query: query || null,
+    },
+    signal,
+    parse: parseApprovedGalleryPage,
+    unavailable: unavailableMessage,
+  });
+}
+
+async function resolveApprovedGalleryAsset(
+  action: "full" | "thumbnail",
+  id: string,
+  signal?: AbortSignal,
+) {
+  if (!uuidPattern.test(id)) throw new Error(action === "full" ? fullImageUnavailableMessage : thumbnailUnavailableMessage);
+  if (signal?.aborted) throw abortError();
+  const mediaUrl = approvedGalleryMediaUrl(action, id);
+  if (!mediaUrl) {
+    throw new Error(action === "full" ? fullImageUnavailableMessage : thumbnailUnavailableMessage);
+  }
+  return mediaUrl;
+}
+
+export function resolveApprovedGalleryOriginal(id: string, signal?: AbortSignal) {
+  return resolveApprovedGalleryAsset("full", id, signal);
+}
+
+export async function loadApprovedGalleryOriginal(id: string, signal?: AbortSignal) {
+  const mediaUrl = await resolveApprovedGalleryOriginal(id, signal);
+  try {
+    const response = await fetchWithBoundedTimeout(mediaUrl, {
+      method: "GET",
+      cache: "default",
+      credentials: "omit",
+    }, signal, APPROVED_GALLERY_MEDIA_TIMEOUT_MS);
+    const contentType = (response.headers.get("content-type") || "")
+      .split(";", 1)[0]
+      .trim()
+      .toLowerCase();
+    const contentLength = responseContentLength(response, APPROVED_GALLERY_DISPLAY_MAX_BYTES);
+    const contentEncoding = (response.headers.get("content-encoding") || "identity")
+      .trim()
+      .toLowerCase();
+    if (
+      !response.ok || contentType !== "image/webp" || contentEncoding !== "identity" ||
+      contentLength === -1 || contentLength === 0
+    ) {
+      await cancelResponseBody(response);
+      throw new Error(fullImageUnavailableMessage);
+    }
+
+    const bytes = await readBoundedResponseBytes(response, APPROVED_GALLERY_DISPLAY_MAX_BYTES);
+    if (!bytes) throw new Error(fullImageUnavailableMessage);
+    const blob = new Blob([bytes], { type: "image/webp" });
+    if (
+      blob.type.toLowerCase() !== "image/webp" || blob.size < 1 ||
+      blob.size > APPROVED_GALLERY_DISPLAY_MAX_BYTES ||
+      (contentLength !== null && blob.size !== contentLength)
+    ) throw new Error(fullImageUnavailableMessage);
+    return blob;
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") throw error;
+    throw new Error(fullImageUnavailableMessage);
+  }
+}
+
+export function refreshApprovedGalleryThumbnail(id: string, signal?: AbortSignal) {
+  return resolveApprovedGalleryAsset("thumbnail", id, signal);
 }

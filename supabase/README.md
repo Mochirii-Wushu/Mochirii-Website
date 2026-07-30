@@ -793,7 +793,7 @@ The database stores:
 
 All three tables have RLS enabled and service-role-only grants. Browser clients receive no direct candidate, Discord ID, voter, or vote-count access. The website Home and Spotlight pages may replace the configured fallback title with the finalized winner name only; they do not expose the winner's Discord handle, profile link, avatar, raw vote totals, or candidate list.
 
-Discord uploads are idempotent by message/attachment ID. They go through the same moderator approval queue as website uploads and do not appear publicly until approved. Discord attachment `content_type` is advisory because Discord may omit or mislabel it; `submit-discord-gallery-image` downloads the approved Discord CDN URL and accepts only JPEG, PNG, or WebP byte signatures under 50 MB before storing the sniffed MIME type.
+Discord uploads are idempotent by message/attachment ID. They go through the same moderator approval queue as website uploads and do not appear publicly until approved. Discord attachment `content_type` is advisory because Discord may omit or mislabel it; `submit-discord-gallery-image` downloads the approved Discord CDN URL and accepts only JPEG, PNG, or WebP byte signatures up to 8 MiB before storing the sniffed MIME type.
 
 The private Reaper source repo is `Mochirii-Wushu/Reaper-Discord-Bot`, which remains the command/contract helper and rollback runtime reference. Production Reaper is Supabase-hosted Discord Interactions. Its gallery slash command requires only `image`; `title`, `subtitle`, and the Discord boolean opt-in stay optional:
 

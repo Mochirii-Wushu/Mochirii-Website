@@ -4,6 +4,7 @@ const failures = [];
 const required = [
   "docs/integrations/instagram-gallery-publishing.md",
   "docs/instagram-gallery-publishing-deployment-runbook.md",
+  "apps/web/components/member-workflow/LeaderDashboard.tsx",
   "supabase/functions/_shared/instagram-publishing.ts",
   "supabase/functions/_shared/gallery-response-safety.ts",
   "supabase/functions/_shared/gallery-response-safety_test.ts",
@@ -56,6 +57,9 @@ const withdrawal = read(
 const docs = read("docs/integrations/instagram-gallery-publishing.md");
 const runbook = read(
   "docs/instagram-gallery-publishing-deployment-runbook.md",
+);
+const dashboard = read(
+  "apps/web/components/member-workflow/LeaderDashboard.tsx",
 );
 const production = [
   publisher,
@@ -253,6 +257,32 @@ requireText(
   "public profile link fields remain empty",
   "link-free Meta profiles",
 );
+requireText(
+  dashboard,
+  "galleryPreviewRequestRef.current?.abort()",
+  "caller-cancelable private preview",
+);
+requireText(
+  dashboard,
+  "{ signal: requestController.signal }",
+  "private preview abort propagation",
+);
+requireText(
+  dashboard,
+  'aria-label="Instagram publishing pages"',
+  "Instagram queue pagination controls",
+);
+requireText(dashboard, "Previous page", "Instagram previous-page control");
+requireText(dashboard, "Next page", "Instagram next-page control");
+if (
+  !/const loadInstagramQueue[\s\S]*?setInstagramConfirmations\(\{\}\);[\s\S]*?setInstagramReconciliationConfirmations\(\{\}\);[\s\S]*?listInstagramPublishQueue\(\{[\s\S]*?cursor: requestedCursor,/u.test(
+    dashboard,
+  )
+) {
+  failures.push(
+    "Missing Instagram page/filter confirmation reset and cursor request binding",
+  );
+}
 
 forbidText(production, "graph.instagram.com", "legacy Graph host");
 forbidText(production, "instagramAppSecretProof", "legacy untimed proof");

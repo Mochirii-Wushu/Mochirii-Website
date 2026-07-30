@@ -9,7 +9,7 @@ const layoutLimit = 63 * 1024;
 const homeIncrementalLimit = 5 * 1024;
 const publicRouteLimit = 225 * 1024;
 const forbiddenRuntimeMarkers = ["GoTrueClient", "PostgrestError", "RealtimeClient"];
-const galleryMarker = "Approved gallery feed could not be loaded.";
+const galleryMarker = "Member-submitted images are temporarily unavailable.";
 const publicRoutes = [
   "/",
   "/announcements",

@@ -8,8 +8,10 @@ The Gallery is Mōchirīī's visual memory: screenshots of scenes, members, gath
 
 - Gallery data lives in `apps/web/public/data/gallery.json`.
 - The current static Gallery source has 73 images in the `general` album.
-- Approved member and Discord submissions are added at runtime through separate short-lived thumbnail and full-image URLs and are not written into `apps/web/public/data/gallery.json`.
+- Approved member and Discord submissions are added at runtime and are not written into `apps/web/public/data/gallery.json`. Public feed schema version 2 lists stable, credential-free thumbnail Edge URLs; one bounded display-image Edge URL is resolved on demand from a stable opaque publication ID after the viewer opens.
 - The public approved-feed request lives in `apps/web/lib/gallery/approved-feed.ts`. That module uses plain `fetch` and browser-safe public configuration only; it must not import the Supabase SDK, authentication, moderation, upload, or private account modules.
+- Runtime browsing uses a bounded 24-item keyset page and an opaque cursor carrying one stable snapshot. Keep pagination sequential; never replace it with a fixed first-page cap or expose cursor internals in the UI.
+- The default Random mix orders the static collection before first paint, then appends asynchronously loaded runtime cards. Runtime arrival must never move a static card the visitor has already seen. Newest and Oldest may combine both sources only through the prefix proven complete by the current runtime keyset boundary; load the next runtime page before exposing the uncertain tail.
 - Do not change image paths unless assets are actually added, replaced, or removed in the same scoped task.
 - Captions and alt text should match visible image content.
 - Do not invent player identities, events, locations, or actions that are not visible or otherwise confirmed.
@@ -21,13 +23,22 @@ The Gallery is Mōchirīī's visual memory: screenshots of scenes, members, gath
 - The grid uses thumbnails for page speed.
 - The lightbox opens full images.
 - Never let the lightbox open `/thumbs/` images.
-- Every approved runtime submission needs a private WebP derivative no larger than 720 pixels on its longest edge and 80 KiB. The moderator browser prepares it during approval; the Edge Function verifies both the WebP structure and a complete pixel decode before storage.
+- Every runtime publication needs two private, metadata-stripped WebP assets prepared by the moderator browser: a display image no larger than 2560 pixels on either edge and 2 MiB, and a thumbnail no larger than 720 pixels on either edge and 80 KiB. The Edge Function verifies both WebP structures and fully decodes every pixel before storage.
 - Do not use managed on-the-fly image transformations for this path. They are an optional provider feature with a separate cost/configuration boundary, while the stored derivative has no per-view transform requirement.
-- The worst-case first 24 member derivatives and the representative first 24 static thumbnails must each remain below 2 MiB. Browser tests also require no original request before the viewer opens and CLS no greater than 0.1.
+- The worst-case first 24 member thumbnails and the representative first 24 static thumbnails must each remain below 2 MiB. Browser tests also require no display-image request before the viewer opens and CLS no greater than 0.1.
 - When a viewer opens, it keeps the already-loaded thumbnail visible while the full image transfers and decodes. The shared loading status is accessible, a decode failure retains the thumbnail with a plain error message, and Close must work immediately without waiting for the image request.
+- If a runtime thumbnail fails, re-resolve the same bounded Edge URL once and update the shared Gallery item state as well as the grid image. The image component increments its attempt key even when the stable URL is unchanged, so the retry actually reloads while a later viewer uses the same refreshed item state.
 - The canonical Next Gallery renders static items in bounded batches of 24; keep the `Show more images` control as the only expansion action unless a later scoped performance pass replaces the pattern. The immutable legacy release remains rollback-only.
-- Approved member and Discord submissions may render with time-limited signed URLs only. Derivatives live below the service-owned `_approved/thumbs/{submission}/{revision}.webp` prefix; members cannot insert, update, read, or delete that prefix. Do not expose raw storage buckets, storage paths, service-role keys, or private media references to browser code.
+- Published member and Discord media render only through stable, credential-free Edge media URLs keyed by the opaque publication UUID. The private display path is `_approved/publications/{publication}/display.webp`; each thumbnail revision lives at `_approved/publications/{publication}/revisions/{revision}/thumbnail.webp`. Members cannot insert, update, read, or delete that service-owned prefix. Before returning bytes, the Edge boundary reserves the request and expected bytes in the database-backed global budget, resolves the exact immutable object, and verifies its recorded size and SHA-256. Successful media uses a five-minute private browser cache. Never expose buckets, Storage paths, service-role keys, source originals, uploader identity, object evidence, or display URLs in list responses.
+- Every runtime thumbnail DTO includes its validated decoded width and height. Use that evidence to reserve proportional layout before loading; reject absent or out-of-range geometry instead of guessing.
 - Home Gallery Spotlight must keep using thumbnail paths in its grid and full-size Gallery images in its lightbox.
+
+### Shared grid-media contract
+
+- Home Screenshot Spotlight and `/gallery` render thumbnails through `apps/web/components/ResponsiveGalleryMedia.tsx` and the neutral geometry in `apps/web/app/styles/shell-gallery-media.css`.
+- `/gallery` carries its visual scope in server-rendered markup (`.gallery-page`); route styling must not wait for the client-side body marker, so the same geometry is present before hydration and with JavaScript disabled.
+- The shared media wrapper fills the stable 16:10 card and uses `object-fit: cover`; page-specific styles may add borders, scrims, hover treatment, or color without redefining the image geometry.
+- A member-photo request failure must never masquerade as an empty Gallery. Keep the static Gallery available, distinguish loading, successful-empty, and temporary-unavailability states, and provide the bounded `Try again` action without exposing provider or internal-system language.
 
 ### Universal lightbox contract
 
@@ -36,7 +47,8 @@ The Gallery is Mōchirīī's visual memory: screenshots of scenes, members, gath
 - The viewer uses a fluid safe-area-aware shell, a `1160px` maximum card width, `100vh`/`100dvh` height bounds, and `object-fit: contain` so images keep their natural proportions without crop.
 - If enlarged text or a long caption exceeds the available height, the keyboard-focusable card scrolls vertically while the image remains visible. The viewer must never introduce horizontal scrolling.
 - Keep the existing dialog semantics, 44px close target, Escape handling, focus containment and return, backdrop close, and body-scroll restoration.
-- The current private-original contract permits uploads up to 50 MiB. If measured production opens remain slow after the thumbnail/loading release, review a second service-owned viewer derivative sized for the `1160px` viewer and high-density displays. That requires a separate migration, decoded-image policy, atomic selection, cleanup, and rollout review; do not fold it into the thumbnail contract informally.
+- The private-original contract accepts static JPEG, PNG, or WebP files up to 8 MiB, 4096 pixels on either edge, and 12.6 megapixels. Client checks provide prompt feedback. For one moderator-selected item, the protected Edge boundary requires both the moderator session and the signed Website workload identity, reserves the exact source bytes, structurally validates and fully decodes the exact Storage object, and records the durable validation timestamp. A same-origin Node route then fully decodes and re-renders a metadata-free WebP no larger than 2560 pixels per edge or 2 MiB. The browser receives only that prepared derivative; it never receives a source URL, workload token, or signed Storage capability, and the queue never bulk-downloads originals.
+- The display derivative is already sized for the `1160px` viewer and high-density displays. Do not add another public derivative or on-demand transformation without a separately measured and approved media contract.
 
 ## 4. Categories
 
@@ -51,8 +63,10 @@ Current categories:
 Category rules:
 
 - Categories power the visible Gallery filters.
-- Every image needs a valid `category`.
+- Static images need a valid canonical `category`. Runtime submissions always belong to `member-submissions` and may additionally belong to one canonical visual category.
+- A historical runtime row with a null or noncanonical category remains private until a moderator explicitly reviews and republishes it. Never infer a visual category from its source, filename, caption, or provider metadata.
 - Category labels and counts are generated from `apps/web/public/data/gallery.json`.
+- Runtime totals and facets come from the complete server-side snapshot, not only the currently loaded page. Merge those figures with static counts without counting a runtime item twice.
 - Do not hardcode category totals in HTML or JavaScript.
 - Keep category slugs lowercase and kebab-case if new categories are ever approved.
 
@@ -79,6 +93,10 @@ Category rules:
 
 Gallery category URLs use `?category=`.
 
+Runtime search uses `?q=` and is limited to 80 Unicode-normalized characters. Clearing search removes that query parameter. Browser Back and Forward must restore category, sort, and query together.
+
+The Next route normalizes `category`, `sort`, and `q` at the server boundary and passes that state into the client browser. A direct or shared deep link must therefore render its selected controls and static results correctly in the first server response, without a post-hydration default-state flash.
+
 Valid examples:
 
 - `/gallery?category=portraits`
@@ -89,14 +107,16 @@ Valid examples:
 
 Invalid categories fall back to All and clean the URL. Browser Back and Forward should preserve the selected filter, image count, and `aria-pressed` state.
 
-## 8. Copy Link
+## 8. Share and Copy Links
 
+- Share gallery opens the browser or operating system share sheet when Web Share is available from the user-activated control.
+- If Web Share is unavailable or fails, Share gallery uses the same local copy fallback as Copy link. Canceling the share sheet does not copy anything.
 - Copy link copies the current Gallery URL.
 - Category URLs include the selected category.
 - All uses the clean `/gallery` URL where possible.
 - `/gallery.html` remains redirect compatibility for legacy and rollback links; do not emit it as the canonical Next URL.
 - Feedback uses a short `aria-live` status message.
-- Keep the control plain: `Copy link`, `Link copied`, and `Copy failed`.
+- Keep feedback plain: `Gallery shared`, `Link copied`, and `Copy failed`.
 
 ## 9. Counts
 
@@ -160,15 +180,20 @@ runtime noise.
 - Check a physical iPhone in portrait and both landscape directions, plus an iPad in portrait and landscape, with Safari browser chrome expanded and collapsed. Confirm the header, footer, skip link, mobile menu, both lightboxes, captions, close controls, touch dismissal, and focus return stay inside the nonzero safe area.
 - Confirm All shows the current static Gallery image count before approved member submissions load.
 - Confirm counts match current data.
-- Confirm Copy link works.
+- Confirm Share gallery uses Web Share when available and copies the exact current URL as its fallback.
+- Confirm Copy link works independently.
 - Confirm Browser Back and Forward update the selected filter.
 - Confirm the lightbox opens full images, not `/thumbs/`.
 - Confirm Escape, backdrop, and close-button dismissal restore focus and page scroll.
 - Confirm long captions scroll vertically by keyboard as well as pointer/touch without clipping or collapsing the image.
 - Confirm no horizontal overflow.
 - Confirm the initial Gallery render is capped at 24 images and `Show more images` expands the next batch.
-- Confirm approved runtime submissions use signed URLs and do not display raw Supabase storage references.
-- Confirm approved runtime submissions use distinct thumbnail and full-image URLs, and that the full image is not requested before its viewer opens.
+- Confirm runtime list pages contain only stable thumbnail Edge URLs and do not display uploader identity, raw Storage references, display URLs, object evidence, or source-original URLs.
+- Confirm no runtime display-image request occurs before its viewer opens, opening one item requests only its stable publication ID, and closing/changing the item aborts obsolete work.
+- Force one malformed publication or quota-reservation failure and confirm the runtime page fails safely without partial items, a cursor advance, or a skipped publication.
+- Traverse more than 80 runtime fixtures through sequential opaque cursors and confirm no duplicates, gaps, or rows approved after the first-page snapshot.
+- Confirm every runtime item belongs to Member Submissions and one canonical visual category, while legacy null or noncanonical rows remain private until explicit republication.
+- Confirm thumbnail geometry reserves card space and one expired-thumbnail retry cannot become an unbounded request loop.
 - Confirm the random mix is stable through hydration and does not reshuffle after first paint.
 
 ## 13. Media Performance

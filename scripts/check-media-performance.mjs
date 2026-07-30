@@ -94,6 +94,12 @@ assert(
 );
 
 const galleryBrowser = read("apps/web/components/public-pages/GalleryBrowser.tsx");
+const galleryBrowserState = read("apps/web/lib/gallery/browser-state.ts");
+const universalImageLightbox = read("apps/web/components/UniversalImageLightbox.tsx");
+const responsiveGalleryMediaPath = "apps/web/components/ResponsiveGalleryMedia.tsx";
+const sharedGalleryMediaStylesPath = "apps/web/app/styles/shell-gallery-media.css";
+const responsiveGalleryMedia = read(responsiveGalleryMediaPath);
+const sharedGalleryMediaStyles = read(sharedGalleryMediaStylesPath);
 const homeGalleryLightbox = read("apps/web/components/HomeGalleryLightbox.tsx");
 const homeGalleryLightboxModal = read("apps/web/components/HomeGalleryLightboxModal.tsx");
 const approvedGalleryFeed = read("apps/web/lib/gallery/approved-feed.ts");
@@ -136,22 +142,65 @@ assert(!homeGalleryLightbox.includes("<Suspense fallback={null}>"), "Home galler
 assert(!homeGalleryLightboxModal.includes("useBodyScrollLock("), "Home gallery lazy modal must not replace the parent-owned scroll lock.");
 
 [
-  "const galleryRenderBatchSize = 24;",
+  "const galleryRenderBatchSize = APPROVED_GALLERY_PAGE_SIZE;",
   "const renderedItems = useMemo(() => visibleItems.slice(0, effectiveRenderLimit)",
   'id="galleryLoadMore"',
-  "<img src={item.thumb} alt={item.alt} width={16} height={10} loading=\"lazy\" decoding=\"async\" />",
-  "src={openItem.full}",
-  "const fullSignedUrl = text(submission.full_signed_url);",
-  "const thumbnailSignedUrl = text(submission.thumbnail_signed_url);",
-  "full: fullSignedUrl,",
-  "thumb: thumbnailSignedUrl,",
-  "fullSignedUrl === thumbnailSignedUrl",
-  "thumbnailSizeBytes > 80 * 1024",
-  "function stableMixOrder(items: NormalizedGalleryItem[], seed: number)",
-  "const randomSeed = useMemo(",
-  "stableMixSeed(",
-  "submission.preview_error",
+  "src: submission.thumbnail_url,",
+  "thumb: submission.thumbnail_url,",
+  "thumbnailWidth: submission.thumbnail_width,",
+  "thumbnailHeight: submission.thumbnail_height,",
+  "submission.categories",
+  "nextCursor",
+  "hasMore",
+  "const randomSeed = useMemo(() => stableGalleryMixSeed(staticItems)",
+  "orderGalleryPresentation({",
+  'import { UniversalImageLightbox } from "@/components/UniversalImageLightbox";',
+  "<UniversalImageLightbox",
 ].forEach((snippet) => assertIncludes("GalleryBrowser media contract", galleryBrowser, snippet));
+
+[
+  "stableGalleryMixOrder",
+  "stableGalleryMixSeed",
+  "return [...stableGalleryMixOrder(staticItems, randomSeed), ...runtimeItems]",
+].forEach((snippet) => assertIncludes("Gallery stable presentation contract", galleryBrowserState, snippet));
+[
+  'import { ResponsiveGalleryMedia } from "@/components/ResponsiveGalleryMedia";',
+  "<ResponsiveGalleryMedia",
+  "src={item.thumb}",
+  "intrinsicWidth={item.thumbnailWidth}",
+  "intrinsicHeight={item.thumbnailHeight}",
+].forEach((snippet) => assertIncludes("Gallery shared thumbnail media", galleryBrowser, snippet));
+[
+  "responsive-gallery-media__image",
+  'loading={loading}',
+  'decoding="async"',
+  'status: "loading"',
+  'status: "ready"',
+  'status: "error"',
+  "Image unavailable",
+  "intrinsicWidth?: number;",
+  "intrinsicHeight?: number;",
+  "width={imageWidth}",
+  "height={imageHeight}",
+].forEach((snippet) => assertIncludes("shared Gallery media component", responsiveGalleryMedia, snippet));
+[
+  ".responsive-gallery-frame{",
+  "aspect-ratio:16 / 10;",
+  ".responsive-gallery-media{",
+  "width:100%;",
+  "height:100%;",
+  ".responsive-gallery-media__image{",
+  "object-fit:cover;",
+  "object-position:center;",
+].forEach((snippet) => assertIncludes("shared Gallery media geometry", sharedGalleryMediaStyles, snippet));
+[
+  'import { createPortal } from "react-dom";',
+  'role="dialog"',
+  'aria-modal="true"',
+  "<LightboxImage",
+  "src={item.fullSrc}",
+  "previewSrc={item.previewSrc}",
+].forEach((snippet) => assertIncludes("universal Gallery lightbox", universalImageLightbox, snippet));
 
 assert(!galleryBrowser.includes("setRandomSeed"), "GalleryBrowser must not reshuffle after first paint.");
 assert(!galleryBrowser.includes("createRandomSeed"), "GalleryBrowser must not use a per-render random seed.");
@@ -166,9 +215,12 @@ const approvedTypeMatch = approvedGalleryFeed.match(/export type ApprovedGallery
 assert(Boolean(approvedTypeMatch), "ApprovedGallerySubmission type was not found.");
 if (approvedTypeMatch) {
   const approvedType = approvedTypeMatch[0];
-  assertIncludes("ApprovedGallerySubmission", approvedType, "full_signed_url?: string | null;");
-  assertIncludes("ApprovedGallerySubmission", approvedType, "thumbnail_signed_url?: string | null;");
-  assertIncludes("ApprovedGallerySubmission", approvedType, "thumbnail_size_bytes?: number | null;");
+  assertIncludes("ApprovedGallerySubmission", approvedType, "thumbnail_url: string;");
+  assertIncludes("ApprovedGallerySubmission", approvedType, "thumbnail_size_bytes: number;");
+  assertIncludes("ApprovedGallerySubmission", approvedType, "thumbnail_width: number;");
+  assertIncludes("ApprovedGallerySubmission", approvedType, "thumbnail_height: number;");
+  assert(!approvedType.includes("full_url"), "ApprovedGallerySubmission list DTO must not expose an original URL.");
+  assert(!approvedType.includes("uploader"), "ApprovedGallerySubmission must not expose member identity attribution.");
   assert(!approvedType.includes("storage_path"), "ApprovedGallerySubmission must not expose storage_path.");
   assert(!approvedType.includes("storage_bucket"), "ApprovedGallerySubmission must not expose storage_bucket.");
 }

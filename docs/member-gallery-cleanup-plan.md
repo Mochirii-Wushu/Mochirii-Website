@@ -25,11 +25,11 @@ Current member Gallery behavior:
 
 - Storage bucket: `member-gallery`
 - Bucket visibility: private
-- Upload cap: `50 MB` / `52428800` bytes
+- Upload cap: `8 MiB` / `8388608` bytes
 - Allowed MIME types: `image/jpeg`, `image/png`, `image/webp`
 - Submission statuses: `pending`, `approved`, `rejected`, `archived`
-- Review queue signed preview lifetime: 10 minutes
-- Public approved-feed signed URL lifetime: 1 hour
+- Review previews: prepared one at a time through a private same-origin sanitizer; no signed Storage URL reaches the browser
+- Public approved-feed media: bounded Edge delivery by opaque publication ID; no signed Storage URL reaches the browser
 - Public Gallery reads approved member submissions through `list-approved-gallery-submissions`
 - Leader Dashboard reads queue states through `list-gallery-review-queue`
 - Moderation actions are expected to create `gallery_moderation_events`

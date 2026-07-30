@@ -10,7 +10,7 @@ const requireMutationApproval =
   process.argv.includes("--require-mutation-approval") ||
   process.env.QA_LIVE_MEMBER_REQUIRE_MUTATION_APPROVAL === "1";
 const selfTestMode = process.argv.includes("--self-test");
-const maxUploadBytes = 50 * 1024 * 1024;
+const maxUploadBytes = 8 * 1024 * 1024;
 
 const requiredVars = [
   "QA_TEST_MEMBER_EMAIL_OR_LABEL",
@@ -278,7 +278,7 @@ function checkImagePath(values) {
   }
 
   if (stats.size > maxUploadBytes) {
-    addStrictIssue("QA_TEST_IMAGE_PATH_LOCAL must be under 50 MB.");
+    addStrictIssue("QA_TEST_IMAGE_PATH_LOCAL must be 8 MiB or smaller.");
   }
 
   if (!allowedUploadExtensions.has(path.extname(absoluteImagePath).toLowerCase())) {

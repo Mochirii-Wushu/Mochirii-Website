@@ -111,7 +111,7 @@ QA_TEST_CAPTION_MARKER=Mochirii QA Test disposable upload
 QA_ALLOW_LIVE_MUTATION=false
 ```
 
-Strict preflight prints only key names and pass/fail labels. It fails if local labels look like private identifiers, if raw private Storage paths or obvious token/secret values appear, if the image path is missing, relative, inside the repository, empty, over 50 MB, or not JPEG/PNG/WebP, or if `QA_ALLOW_LIVE_MUTATION` is enabled during D02.
+Strict preflight prints only key names and pass/fail labels. It fails if local labels look like private identifiers, if raw private Storage paths or obvious token/secret values appear, if the image path is missing, relative, inside the repository, empty, over 8 MiB, or not JPEG/PNG/WebP, or if `QA_ALLOW_LIVE_MUTATION` is enabled during D02.
 
 Before mutating production test data, set `QA_ALLOW_LIVE_MUTATION=true` locally only after explicit human approval.
 
@@ -176,7 +176,7 @@ Run this gate only after D02 passes and explicit mutation approval exists.
 Preconditions:
 
 - `QA_ALLOW_LIVE_MUTATION=true` is set in the local ignored QA file.
-- A disposable image exists outside the repo, is JPEG/PNG/WebP, and is under 50 MB.
+- A disposable image exists outside the repo, is JPEG/PNG/WebP, and is 8 MiB or smaller.
 - `prepare:live-member-qa-image` may be used to create a repo-external disposable PNG before setting `QA_TEST_IMAGE_PATH_LOCAL`.
 - `QA_TEST_IMAGE_PATH_LOCAL` is an absolute path to that repo-external image.
 - The title and caption use the local QA marker.

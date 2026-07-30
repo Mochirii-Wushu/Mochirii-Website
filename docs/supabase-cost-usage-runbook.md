@@ -88,9 +88,9 @@ The active upload policy from the repo and production review is:
 
 - Bucket: `member-gallery`
 - Bucket visibility: private
-- Browser and bucket upload cap: `50 MB` / `52428800` bytes
+- Browser and bucket upload cap: `8 MiB` / `8388608` bytes
 - Allowed MIME types: `image/jpeg`, `image/png`, `image/webp`
-- Public Gallery delivery: approved submissions only, through short-lived signed URLs returned by the approved-feed function
+- Public Gallery delivery: approved submissions only, through bounded Edge media responses addressed by opaque publication IDs
 - Pending, rejected, and archived submissions: not listed in the public Gallery
 
 Do not make the bucket public to reduce complexity. That would change the privacy model and must be handled as a separate security-reviewed branch.
@@ -265,8 +265,8 @@ The member Gallery cost posture is healthy when:
 
 - the site remains static and browser-safe
 - the `member-gallery` bucket remains private
-- uploads stay capped at 50 MB and image-only MIME types
-- approved public images are served through short-lived signed URLs
+- uploads stay capped at 8 MiB and image-only MIME types
+- approved public images are served through bounded Edge media responses without signed Storage URLs
 - protected functions fail closed for anonymous users
 - usage growth matches member activity
 - broad gallery/browser matrices use local or reviewed Preview fixtures unless a bounded live canary has exact approval

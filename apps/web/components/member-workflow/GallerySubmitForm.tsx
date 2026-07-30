@@ -1,11 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { type FormEvent, useCallback, useEffect, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { requireAuth, onAuthStateChange } from "@/lib/supabase/auth";
 import { getCurrentProfile, profileIsActive, verifyMemberAccess } from "@/lib/supabase/profile";
-import { listMyGallerySubmissions, uploadMemberGalleryImage } from "@/lib/supabase/gallery-submissions";
-import { type GallerySubmission, type MemberAccessResponse, type MemberProfile, text } from "@/lib/supabase/types";
+import {
+  listMyGallerySubmissions,
+  uploadMemberGalleryImage,
+  withdrawGalleryPublicationConsent,
+} from "@/lib/supabase/gallery-submissions";
+import { gallerySocialWithdrawalLabel } from "@/lib/gallery/social-consent-withdrawal";
+import {
+  type GallerySocialDestination,
+  type GallerySubmission,
+  type MemberAccessResponse,
+  type MemberProfile,
+  text,
+} from "@/lib/supabase/types";
 import { formatDateShort, uploadAccess } from "./format";
 import { WorkflowEmptyState, WorkflowNotice } from "./WorkflowState";
 
@@ -14,8 +25,29 @@ function SubmissionStatus({ status }: { status?: string | null }) {
   return <span className={`submission-status submission-status--${value}`}>{value}</span>;
 }
 
-function SubmissionItem({ item }: { item: GallerySubmission }) {
+function SubmissionItem({
+  item,
+  busyDestination,
+  armedDestination,
+  onWithdraw,
+  onCancelWithdrawal,
+}: {
+  item: GallerySubmission;
+  busyDestination?: GallerySocialDestination;
+  armedDestination?: GallerySocialDestination;
+  onWithdraw: (item: GallerySubmission, destination: GallerySocialDestination) => void;
+  onCancelWithdrawal: () => void;
+}) {
   const instagramOptIn = item.instagram_opt_in === true;
+  const facebookPageOptIn = item.facebook_page_opt_in === true;
+  const withdrawals = Array.isArray(item.social_withdrawals) ? item.social_withdrawals : [];
+  const sharingLabel = instagramOptIn && facebookPageOptIn
+    ? "Instagram and Facebook Page consent"
+    : instagramOptIn
+      ? "Instagram consent"
+      : facebookPageOptIn
+        ? "Facebook Page consent"
+        : "Site Gallery only";
 
   return (
     <article className="submission-item">
@@ -27,8 +59,43 @@ function SubmissionItem({ item }: { item: GallerySubmission }) {
       <div className="submission-meta">
         <span>{formatDateShort(item.created_at, "Unknown date")}</span>
         {item.category ? <span>{item.category}</span> : null}
-        <span>{instagramOptIn ? "Instagram opt-in" : "Site Gallery only"}</span>
+        <span>{sharingLabel}</span>
       </div>
+      {(instagramOptIn || facebookPageOptIn) ? (
+        <div className="auth-actions" aria-label={`Publication consent for ${text(item.title || item.original_filename, "this image")}`}>
+          {(["instagram", "facebook_page"] as const).map((destination) => {
+            const selected = destination === "instagram" ? instagramOptIn : facebookPageOptIn;
+            if (!selected) return null;
+            const withdrawn = withdrawals.find((status) => status.destination === destination);
+            const label = destination === "instagram" ? "Instagram" : "Facebook Page";
+            if (withdrawn) {
+              return <span className="review-action-note" key={destination}>{label}: {gallerySocialWithdrawalLabel(withdrawn)}</span>;
+            }
+            const armed = armedDestination === destination;
+            return (
+              <span key={destination}>
+                <button
+                  className="hero-cta"
+                  type="button"
+                  disabled={Boolean(busyDestination)}
+                  onClick={() => onWithdraw(item, destination)}
+                >
+                  {busyDestination === destination
+                    ? "Withdrawing…"
+                    : armed
+                      ? `Confirm ${label} withdrawal`
+                      : `Withdraw ${label} consent`}
+                </button>
+                {armed ? (
+                  <button className="hero-cta" type="button" disabled={Boolean(busyDestination)} onClick={onCancelWithdrawal}>
+                    Cancel
+                  </button>
+                ) : null}
+              </span>
+            );
+          })}
+        </div>
+      ) : null}
     </article>
   );
 }
@@ -44,9 +111,15 @@ export function GallerySubmitForm() {
   const [category, setCategory] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [instagramOptIn, setInstagramOptIn] = useState(false);
+  const [facebookPageOptIn, setFacebookPageOptIn] = useState(false);
+  const [uploadRightsConfirmed, setUploadRightsConfirmed] = useState(false);
+  const [fileInputKey, setFileInputKey] = useState(0);
+  const [withdrawalArmed, setWithdrawalArmed] = useState<{ submissionId: string; destination: GallerySocialDestination } | null>(null);
+  const [withdrawalBusy, setWithdrawalBusy] = useState<{ submissionId: string; destination: GallerySocialDestination } | null>(null);
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const [submissionsError, setSubmissionsError] = useState("");
+  const outcomeRef = useRef<HTMLDivElement>(null);
 
   const loadSubmissions = useCallback(async () => {
     setSubmissionsError("");
@@ -108,7 +181,27 @@ export function GallerySubmitForm() {
     setError("");
     setStatus("Submitting image for moderation.");
 
-    const result = await uploadMemberGalleryImage(file, { title, caption, category, instagramOptIn });
+    if (!uploadRightsConfirmed) {
+      setError("Confirm the upload-rights statement before submitting this image.");
+      setStatus("");
+      setBusy(false);
+      return;
+    }
+    if ((instagramOptIn || facebookPageOptIn) && file?.type.toLowerCase() !== "image/jpeg") {
+      setError("Instagram or Facebook Page publishing requires a JPEG. Uncheck both destinations to submit a PNG or WebP image to the Gallery only.");
+      setStatus("");
+      setBusy(false);
+      return;
+    }
+
+    const result = await uploadMemberGalleryImage(file, {
+      title,
+      caption,
+      category,
+      instagramOptIn,
+      facebookPageOptIn,
+      uploadRightsConfirmed,
+    });
     if (!result.ok) {
       setError(result.message || "Upload failed.");
       setStatus("");
@@ -121,10 +214,40 @@ export function GallerySubmitForm() {
     setCategory("");
     setFile(null);
     setInstagramOptIn(false);
+    setFacebookPageOptIn(false);
+    setUploadRightsConfirmed(false);
+    setFileInputKey((current) => current + 1);
     await checkAccess();
     await loadSubmissions();
     setStatus("Image submitted for moderation. It will not appear in the public Gallery until Moderator approval.");
     setBusy(false);
+    requestAnimationFrame(() => outcomeRef.current?.focus());
+  }
+
+  async function withdrawConsent(item: GallerySubmission, destination: GallerySocialDestination) {
+    const submissionId = text(item.id);
+    if (!submissionId) return;
+    if (withdrawalArmed?.submissionId !== submissionId || withdrawalArmed.destination !== destination) {
+      setWithdrawalArmed({ submissionId, destination });
+      setStatus(`Review the ${destination === "instagram" ? "Instagram" : "Facebook Page"} withdrawal, then confirm.`);
+      setError("");
+      requestAnimationFrame(() => outcomeRef.current?.focus());
+      return;
+    }
+    setWithdrawalBusy({ submissionId, destination });
+    setError("");
+    setStatus("Withdrawing destination-specific publication consent.");
+    const result = await withdrawGalleryPublicationConsent(submissionId, destination);
+    if (!result.ok) {
+      setError(result.message || "Publication consent could not be withdrawn.");
+      setStatus("");
+    } else {
+      setStatus(result.message || "Publication consent was withdrawn.");
+      await loadSubmissions();
+    }
+    setWithdrawalArmed(null);
+    setWithdrawalBusy(null);
+    requestAnimationFrame(() => outcomeRef.current?.focus());
   }
 
   const allowed = mode === "allowed";
@@ -184,12 +307,13 @@ export function GallerySubmitForm() {
             <form className="glass-card glass-card--primary glass-pad auth-form upload-form" id="uploadForm" onSubmit={submitImage}>
               <p className="kicker">Pending Moderation</p>
               <h2 className="section-title">Upload Image</h2>
-              <p className="muted">Accepted file types are JPEG, PNG & WebP. The browser limit is 50 MB.</p>
+              <p className="muted">Accepted file types are JPEG, PNG & WebP, up to 8 MiB. Public Meta destinations require JPEG.</p>
               <WorkflowNotice tone={access.ok ? "success" : "warning"}>{access.guidance}</WorkflowNotice>
 
               <label className="form-field">
                 <span>Image file</span>
                 <input
+                  key={fileInputKey}
                   id="imageFile"
                   name="imageFile"
                   type="file"
@@ -224,6 +348,19 @@ export function GallerySubmitForm() {
 
               <label className="form-check">
                 <input
+                  id="uploadRightsConfirmed"
+                  name="uploadRightsConfirmed"
+                  type="checkbox"
+                  checked={uploadRightsConfirmed}
+                  required
+                  disabled={busy}
+                  onChange={(event) => setUploadRightsConfirmed(event.target.checked)}
+                />
+                <span>I confirm that I own this image or may submit it, and that I have permission involving any identifiable people shown.</span>
+              </label>
+
+              <label className="form-check">
+                <input
                   id="instagramOptIn"
                   name="instagramOptIn"
                   type="checkbox"
@@ -231,15 +368,39 @@ export function GallerySubmitForm() {
                   disabled={busy}
                   onChange={(event) => setInstagramOptIn(event.target.checked)}
                 />
-                <span>Allow Mōchirīī to share this image on our official Instagram if approved.</span>
+                <span>
+                  I authorize Mōchirīī moderators to publish this image to the official public Instagram account after separate Gallery approval and publication confirmation. Moderators may edit the caption and required alt text. Public or third-party copies may persist after Mōchirīī removes its own copy. Withdrawal and deletion instructions are at mochirii.com.
+                </span>
               </label>
+
+              <label className="form-check">
+                <input
+                  id="facebookPageOptIn"
+                  name="facebookPageOptIn"
+                  type="checkbox"
+                  checked={facebookPageOptIn}
+                  disabled={busy}
+                  onChange={(event) => setFacebookPageOptIn(event.target.checked)}
+                />
+                <span>
+                  I authorize Mōchirīī moderators to publish this image and a moderator-edited caption to the official public Facebook Page after separate Gallery approval and publication confirmation. A moderator may then share the Page post manually to the Mōchirīī Guild Facebook group. Public or third-party copies may persist after Mōchirīī removes its own copy. Withdrawal and deletion instructions are at mochirii.com.
+                </span>
+              </label>
+
+              {(instagramOptIn || facebookPageOptIn) ? (
+                <WorkflowNotice tone="warning">
+                  Public publishing is optional and destination-specific. Upload and initial Gallery approval do not contact Meta. Each selected destination requires a later moderator confirmation.
+                </WorkflowNotice>
+              ) : null}
 
               <div className="auth-actions">
                 <button className="hero-cta hero-cta--primary" type="submit" disabled={busy}>Submit for Review</button>
               </div>
 
-              <WorkflowNotice id="uploadStatus" hidden={!status}>{status}</WorkflowNotice>
-              <WorkflowNotice id="uploadError" tone="danger" role="alert" hidden={!error}>{error}</WorkflowNotice>
+              <div ref={outcomeRef} tabIndex={-1} aria-label="Gallery submission outcome">
+                <WorkflowNotice id="uploadStatus" hidden={!status}>{status}</WorkflowNotice>
+                <WorkflowNotice id="uploadError" tone="danger" role="alert" hidden={!error}>{error}</WorkflowNotice>
+              </div>
             </form>
           </section>
 
@@ -252,7 +413,19 @@ export function GallerySubmitForm() {
                 </div>
               </div>
               <div className="submission-list" id="submissionsList" aria-live="polite">
-                {submissions.length ? submissions.map((item) => <SubmissionItem item={item} key={item.id} />) : (
+                {submissions.length ? submissions.map((item) => (
+                  <SubmissionItem
+                    item={item}
+                    key={item.id}
+                    busyDestination={withdrawalBusy?.submissionId === item.id ? withdrawalBusy.destination : undefined}
+                    armedDestination={withdrawalArmed?.submissionId === item.id ? withdrawalArmed.destination : undefined}
+                    onWithdraw={withdrawConsent}
+                    onCancelWithdrawal={() => {
+                      setWithdrawalArmed(null);
+                      setStatus("Publication-consent withdrawal canceled.");
+                    }}
+                  />
+                )) : (
                   <WorkflowEmptyState title={busy ? "Loading submissions" : "No submissions yet"}>
                     {busy ? "Checking your member gallery submissions." : "Submitted images will appear here after you send them for review."}
                   </WorkflowEmptyState>

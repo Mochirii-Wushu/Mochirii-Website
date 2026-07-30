@@ -1,10 +1,11 @@
 import galleryData from "@/public/data/gallery.json";
+import type { GalleryRouteState } from "@/lib/gallery/browser-state";
 import { BodyPageMarker } from "../BodyPageMarker";
 import { GalleryBrowser } from "../GalleryBrowser";
 import { BadgeRow, PageHero, text } from "../common";
 import { record, records, strings } from "../page-helpers";
 
-function GalleryItems() {
+function GalleryItems({ initialState }: { initialState: GalleryRouteState }) {
   const data = record(galleryData);
   const categories = records(data.categories).map((category) => ({
     slug: text(category.slug),
@@ -24,15 +25,15 @@ function GalleryItems() {
     })),
   );
 
-  return <GalleryBrowser categories={categories} items={items} />;
+  return <GalleryBrowser categories={categories} initialState={initialState} items={items} />;
 }
 
-export function GalleryPage() {
+export function GalleryPage({ initialState }: { initialState: GalleryRouteState }) {
   const data = record(galleryData);
   const meta = record(data.meta);
 
   return (
-    <>
+    <div className="gallery-page" data-gallery-page>
       <BodyPageMarker page="gallery" />
       <PageHero
         page="gallery"
@@ -43,7 +44,7 @@ export function GalleryPage() {
         title={text(meta.title, "Guild Album")}
         intro={
           <p className="lede" id="galleryDesc">
-            {text(meta.description, "Shared runs, quiet roads, and little guild moments worth keeping.")}
+            {text(meta.description, "Portraits, gatherings, action, and scenery from the guild album.")}
           </p>
         }
         badges={<BadgeRow items={["Tip: click any image to view it full size."]} label="Gallery tips" />}
@@ -55,11 +56,11 @@ export function GalleryPage() {
             <p className="muted" id="galleryIntro">
               Send screenshots to the Discord gallery channel when a run, view, or tiny guild moment feels worth saving.
             </p>
-            <GalleryItems />
+            <GalleryItems initialState={initialState} />
             <p id="galleryError" className="sr-only" role="status" aria-live="polite" />
           </section>
         </div>
       </main>
-    </>
+    </div>
   );
 }

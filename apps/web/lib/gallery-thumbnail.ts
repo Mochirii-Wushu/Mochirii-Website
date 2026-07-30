@@ -3,6 +3,8 @@
 export const galleryThumbnailMimeType = "image/webp";
 export const galleryThumbnailMaximumBytes = 80 * 1024;
 export const galleryThumbnailMaximumEdge = 720;
+export const galleryDisplayMaximumBytes = 2 * 1024 * 1024;
+export const galleryDisplayMaximumEdge = 2560;
 
 export type GalleryThumbnailPayload = {
   base64: string;
@@ -12,10 +14,27 @@ export type GalleryThumbnailPayload = {
   height: number;
 };
 
+export type GalleryDisplayPayload = GalleryThumbnailPayload;
+export type GalleryPublicationMedia = {
+  display: GalleryDisplayPayload;
+  thumbnail: GalleryThumbnailPayload;
+};
+export type GalleryModerationMedia = {
+  display: GalleryDisplayPayload | null;
+  thumbnail: GalleryThumbnailPayload;
+};
+
 type DrawableImage = ImageBitmap | HTMLImageElement;
 
-const edgeSteps = [720, 640, 560, 480, 400, 320, 240, 180] as const;
-const qualitySteps = [0.82, 0.72, 0.62, 0.52, 0.42, 0.32] as const;
+const thumbnailEdgeSteps = [720, 640, 560, 480, 400, 320, 240, 180] as const;
+const thumbnailQualitySteps = [0.82, 0.72, 0.62, 0.52, 0.42, 0.32] as const;
+const displayEdgeSteps = [2560, 2304, 2048, 1920, 1600, 1440, 1280, 1024] as const;
+const displayQualitySteps = [0.88, 0.82, 0.76, 0.7, 0.64, 0.58] as const;
+const galleryPreparedMaximumPixels = galleryDisplayMaximumEdge * galleryDisplayMaximumEdge;
+
+function normalizedMimeType(value: string | null | undefined) {
+  return String(value || "").split(";", 1)[0].trim().toLowerCase();
+}
 
 function canvasBlob(
   canvas: HTMLCanvasElement,
@@ -96,24 +115,72 @@ async function blobToBase64(blob: Blob): Promise<string> {
   return btoa(binary);
 }
 
-export async function createGalleryThumbnail(
-  sourceUrl: string,
-): Promise<GalleryThumbnailPayload> {
-  const response = await fetch(sourceUrl, {
-    credentials: "omit",
-    cache: "no-store",
-  });
-  if (!response.ok) {
-    throw new Error("The gallery image preview could not be loaded.");
-  }
+async function encodeBoundedWebp(
+  canvas: HTMLCanvasElement,
+  context: CanvasRenderingContext2D,
+  decoded: { image: DrawableImage; width: number; height: number },
+  maximumBytes: number,
+  edgeSteps: readonly number[],
+  qualitySteps: readonly number[],
+): Promise<GalleryThumbnailPayload | null> {
+  const attemptedDimensions = new Set<string>();
+  for (const maximumEdge of edgeSteps) {
+    const dimensions = boundedDimensions(
+      decoded.width,
+      decoded.height,
+      maximumEdge,
+    );
+    const dimensionKey = `${dimensions.width}x${dimensions.height}`;
+    if (attemptedDimensions.has(dimensionKey)) continue;
+    attemptedDimensions.add(dimensionKey);
 
-  const sourceBlob = await response.blob();
-  if (!sourceBlob.type.startsWith("image/")) {
-    throw new Error("The gallery image preview was not an image.");
+    canvas.width = dimensions.width;
+    canvas.height = dimensions.height;
+    context.clearRect(0, 0, dimensions.width, dimensions.height);
+    context.drawImage(
+      decoded.image,
+      0,
+      0,
+      dimensions.width,
+      dimensions.height,
+    );
+
+    for (const quality of qualitySteps) {
+      const image = await canvasBlob(canvas, quality);
+      if (!image || image.type !== galleryThumbnailMimeType) continue;
+      if (image.size < 1 || image.size > maximumBytes) continue;
+
+      return {
+        base64: await blobToBase64(image),
+        mime_type: galleryThumbnailMimeType,
+        size_bytes: image.size,
+        width: dimensions.width,
+        height: dimensions.height,
+      };
+    }
+  }
+  return null;
+}
+
+async function createGalleryMedia(
+  sourceBlob: Blob,
+  includeDisplay: boolean,
+): Promise<{ display: GalleryDisplayPayload | null; thumbnail: GalleryThumbnailPayload }> {
+  const sourceMimeType = normalizedMimeType(sourceBlob.type);
+  if (sourceMimeType !== galleryThumbnailMimeType) {
+    throw new Error("The gallery image preview has an unsupported image type.");
+  }
+  if (sourceBlob.size < 1 || sourceBlob.size > galleryDisplayMaximumBytes) {
+    throw new Error("The gallery image preview has an invalid file size.");
   }
 
   const decoded = await decodeImage(sourceBlob);
-  if (decoded.width < 1 || decoded.height < 1) {
+  if (
+    decoded.width < 1 || decoded.height < 1 ||
+    decoded.width > galleryDisplayMaximumEdge ||
+    decoded.height > galleryDisplayMaximumEdge ||
+    decoded.width * decoded.height > galleryPreparedMaximumPixels
+  ) {
     decoded.release();
     throw new Error("The gallery image has invalid dimensions.");
   }
@@ -126,39 +193,25 @@ export async function createGalleryThumbnail(
   }
 
   try {
-    for (const maximumEdge of edgeSteps) {
-      const dimensions = boundedDimensions(
-        decoded.width,
-        decoded.height,
-        maximumEdge,
-      );
-      canvas.width = dimensions.width;
-      canvas.height = dimensions.height;
-      context.clearRect(0, 0, dimensions.width, dimensions.height);
-      context.drawImage(
-        decoded.image,
-        0,
-        0,
-        dimensions.width,
-        dimensions.height,
-      );
-
-      for (const quality of qualitySteps) {
-        const thumbnail = await canvasBlob(canvas, quality);
-        if (!thumbnail || thumbnail.type !== galleryThumbnailMimeType) continue;
-        if (
-          thumbnail.size < 1 || thumbnail.size > galleryThumbnailMaximumBytes
-        ) continue;
-
-        return {
-          base64: await blobToBase64(thumbnail),
-          mime_type: galleryThumbnailMimeType,
-          size_bytes: thumbnail.size,
-          width: dimensions.width,
-          height: dimensions.height,
-        };
-      }
-    }
+    const display = includeDisplay
+      ? await encodeBoundedWebp(
+        canvas,
+        context,
+        decoded,
+        galleryDisplayMaximumBytes,
+        displayEdgeSteps,
+        displayQualitySteps,
+      )
+      : null;
+    const thumbnail = await encodeBoundedWebp(
+      canvas,
+      context,
+      decoded,
+      galleryThumbnailMaximumBytes,
+      thumbnailEdgeSteps,
+      thumbnailQualitySteps,
+    );
+    if ((!includeDisplay || display) && thumbnail) return { display, thumbnail };
   } finally {
     canvas.width = 0;
     canvas.height = 0;
@@ -166,6 +219,22 @@ export async function createGalleryThumbnail(
   }
 
   throw new Error(
-    "This image could not be reduced to the gallery thumbnail limit.",
+    "This image could not be reduced to the Gallery publication limits.",
   );
+}
+
+export async function createGalleryPublicationMedia(
+  sourceBlob: Blob,
+): Promise<GalleryPublicationMedia> {
+  const media = await createGalleryMedia(sourceBlob, true);
+  if (!media.display) {
+    throw new Error("The Gallery display image could not be prepared.");
+  }
+  return { display: media.display, thumbnail: media.thumbnail };
+}
+
+export async function createGalleryThumbnail(
+  sourceBlob: Blob,
+): Promise<GalleryThumbnailPayload> {
+  return (await createGalleryMedia(sourceBlob, false)).thumbnail;
 }

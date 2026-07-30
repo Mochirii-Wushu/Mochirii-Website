@@ -1,5 +1,7 @@
 # Gallery Thumbnail Rollout Packet
 
+Current state: the later Gallery feed v2 release supersedes this packet's 50 MiB and signed-URL delivery assumptions. Active source uploads are capped at 8 MiB, and immutable display/thumbnail revisions are delivered through bounded Edge responses by opaque publication ID.
+
 ## Scope
 
 This packet adds one stored, bounded WebP derivative for each approved member Gallery submission. It does not use Supabase Image Transformations, create a paid resource, make the private bucket public, or change the static Gallery assets.
@@ -15,7 +17,7 @@ This packet adds one stored, bounded WebP derivative for each approved member Ga
 
 The public feed never returns a raw bucket or Storage path. The Gallery grid loads only the derivative; the private original is requested only after the visitor opens the viewer. The shared Home/Gallery image surface keeps the cached thumbnail visible while the full image transfers and decodes, exposes an accessible loading or error state, and never blocks viewer dismissal on that request.
 
-The existing member-original limit remains 50 MiB. A second bounded viewer derivative could reduce high-percentile opening time, but it would add another service-owned object, metadata contract, decoder limit, atomic-selection branch, cleanup path, migration, backfill, and rollback surface. Keep that as a separate evidence-gated packet unless production measurements justify the added state.
+This packet originally retained the older 50 MiB member-original limit. Gallery feed v2 now enforces 8 MiB sources and includes the bounded viewer derivative described above; treat the remainder of this document as historical rollout evidence.
 
 ## Deployment boundary
 

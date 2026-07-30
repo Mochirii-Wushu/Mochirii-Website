@@ -9,6 +9,7 @@ const galleryPagePath = "apps/web/app/gallery/page.tsx";
 const homeLightboxPath = "apps/web/components/HomeGalleryLightbox.tsx";
 const homeModalPath = "apps/web/components/HomeGalleryLightboxModal.tsx";
 const galleryBrowserPath = "apps/web/components/public-pages/GalleryBrowser.tsx";
+const universalLightboxPath = "apps/web/components/UniversalImageLightbox.tsx";
 const lightboxImagePath = "apps/web/components/LightboxImage.tsx";
 const lightboxOverlayPath = "apps/web/components/useLightboxOverlay.ts";
 const layoutPath = "apps/web/app/layout.tsx";
@@ -25,6 +26,7 @@ const galleryPage = readFileSync(galleryPagePath, "utf8").replace(/\r\n/g, "\n")
 const homeLightbox = readFileSync(homeLightboxPath, "utf8").replace(/\r\n/g, "\n");
 const homeModal = readFileSync(homeModalPath, "utf8").replace(/\r\n/g, "\n");
 const galleryBrowser = readFileSync(galleryBrowserPath, "utf8").replace(/\r\n/g, "\n");
+const universalLightbox = readFileSync(universalLightboxPath, "utf8").replace(/\r\n/g, "\n");
 const lightboxImage = readFileSync(lightboxImagePath, "utf8").replace(/\r\n/g, "\n");
 const lightboxOverlay = readFileSync(lightboxOverlayPath, "utf8").replace(/\r\n/g, "\n");
 const layout = readFileSync(layoutPath, "utf8").replace(/\r\n/g, "\n");
@@ -157,7 +159,9 @@ expectIncludes("Home shared lightbox import", homePage, 'import "./styles/shell-
 expectIncludes("Gallery shared lightbox import", galleryPage, 'import "../styles/shell-lightbox.css";', galleryPagePath);
 expectIncludes("Gallery visual treatment import", galleryPage, 'import "../styles/public-gallery.css";', galleryPagePath);
 expectIncludes("Home keyboard-scrollable lightbox card", homeModal, '<figure className="lightbox-card" tabIndex={0}>', homeModalPath);
-expectIncludes("Gallery keyboard-scrollable lightbox card", galleryBrowser, '<figure className="lightbox-card" tabIndex={0}>', galleryBrowserPath);
+expectIncludes("Gallery shared lightbox import", galleryBrowser, 'import { UniversalImageLightbox } from "@/components/UniversalImageLightbox";', galleryBrowserPath);
+expectIncludes("Gallery shared lightbox use", galleryBrowser, "<UniversalImageLightbox", galleryBrowserPath);
+expectIncludes("Gallery keyboard-scrollable lightbox card", universalLightbox, '<figure className="lightbox-card" tabIndex={0}>', universalLightboxPath);
 expectIncludes("Home deferred modal import", homeLightbox, "const LazyHomeGalleryLightboxModal = lazy(() =>", homeLightboxPath);
 expectIncludes("Home prepared body portal", homeLightbox, "const portalRoot = useBodyPortalRoot();", homeLightboxPath);
 expectIncludes("Home immediate loading fallback", homeLightbox, "<HomeGalleryLightboxFallback", homeLightboxPath);
@@ -167,8 +171,8 @@ if (homeLightbox.includes("<Suspense fallback={null}>")) {
 }
 expectIncludes("Home shared full-image loader", homeModal, "<LightboxImage", homeModalPath);
 expectIncludes("Home thumbnail placeholder", homeModal, "previewSrc={item.image}", homeModalPath);
-expectIncludes("Gallery shared full-image loader", galleryBrowser, "<LightboxImage", galleryBrowserPath);
-expectIncludes("Gallery thumbnail placeholder", galleryBrowser, "previewSrc={openItem.thumb}", galleryBrowserPath);
+expectIncludes("Gallery shared full-image loader", universalLightbox, "<LightboxImage", universalLightboxPath);
+expectIncludes("Gallery thumbnail placeholder", universalLightbox, "previewSrc={item.previewSrc}", universalLightboxPath);
 expectIncludes("Decode-aware image state", lightboxImage, "data-image-state={imageState}", lightboxImagePath);
 expectIncludes("User-requested full-image priority", lightboxImage, 'fetchPriority="high"', lightboxImagePath);
 expectIncludes("Accessible full-image status", lightboxImage, 'role="status" aria-live="polite"', lightboxImagePath);
