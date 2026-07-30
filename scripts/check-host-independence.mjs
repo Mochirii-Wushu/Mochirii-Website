@@ -153,6 +153,52 @@ const reviewedLoopbacks = new Map([
       { value: '"127.0.0.1"', count: 2 },
     ],
   ],
+  [
+    "supabase/functions/_shared/gallery-preview-attestation.ts",
+    [
+      {
+        value: 'hostname === "localhost" || hostname === "127.0.0.1"',
+        count: 1,
+      },
+    ],
+  ],
+  [
+    "supabase/functions/_shared/gallery-preview-attestation_test.ts",
+    [
+      {
+        value: '"http://127.0.0.1:54321/functions/v1/list-gallery-review-queue"',
+        count: 1,
+      },
+      { value: '{ supabaseUrl: "http://localhost:54321" }', count: 1 },
+      {
+        value: '"http://127.0.0.1.example.com:54321/functions/v1/list-gallery-review-queue"',
+        count: 1,
+      },
+      { value: '"http://127.0.0.1.example.com:54321"', count: 1 },
+      {
+        value: '"http://127.0.0.1:54322/functions/v1/list-gallery-review-queue"',
+        count: 1,
+      },
+      { value: '"http://127.0.0.1:54321"', count: 1 },
+    ],
+  ],
+  [
+    "supabase/functions/_shared/social-publication-copy.ts",
+    [
+      {
+        value:
+          "const LOCALHOST_RE = /(?:^|[^a-z0-9_-])localhost(?::\\d{1,5})?(?:\\/|$)/iu;",
+        count: 1,
+      },
+    ],
+  ],
+  [
+    "supabase/functions/_shared/social-publication-copy_test.ts",
+    [
+      { value: '"127.0.0.1:8080/path"', count: 1 },
+      { value: '"localhost:3000/path"', count: 1 },
+    ],
+  ],
 ]);
 
 if (!existsSync(manifestPath)) failures.push("hosted runtime manifest is missing");

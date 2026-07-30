@@ -36,10 +36,17 @@ const databaseArtifactPattern = /\.(?:sql|sqlite|sqlite3)$/i;
 const reviewedDatabaseTestPaths = new Set([
   "supabase/tests/member_social_links_test.sql",
   "supabase/tests/fixtures/reviewed_sya_spinner_classification.sql",
+  "supabase/operations/reconcile_gallery_public_feed_v2.sql",
+  "supabase/operations/validate_gallery_submission_categories.sql",
   "supabase/operations/validate_gallery_submission_thumbnails.sql",
   "supabase/operations/validate_reviewed_sya_spinner_classification.sql",
+  "supabase/tests/facebook_page_gallery_publishing_test.sql",
+  "supabase/tests/gallery_public_feed_v2_test.sql",
+  "supabase/tests/gallery_social_consent_withdrawal_test.sql",
   "supabase/tests/gallery_submission_thumbnails_test.sql",
+  "supabase/tests/instagram_gallery_publishing_hardening_test.sql",
   "supabase/tests/private_live_spinner_test.sql",
+  "supabase/tests/social_gallery_derivative_test.sql",
   "supabase/tests/spinner_media_jobs_test.sql",
   "supabase/tests/official_raffle_publication_test.sql",
 ]);

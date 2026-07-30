@@ -47,6 +47,12 @@ verify_jwt = true
 import_map = "./functions/delete-rejected-gallery-submission/deno.json"
 entrypoint = "./functions/delete-rejected-gallery-submission/index.ts"
 
+[functions.withdraw-gallery-publication-consent]
+enabled = true
+verify_jwt = true
+import_map = "./functions/withdraw-gallery-publication-consent/deno.json"
+entrypoint = "./functions/withdraw-gallery-publication-consent/index.ts"
+
 [functions.list-approved-gallery-submissions]
 enabled = true
 verify_jwt = false
@@ -113,6 +119,12 @@ verify_jwt = true
 import_map = "./functions/publish-instagram-gallery-submission/deno.json"
 entrypoint = "./functions/publish-instagram-gallery-submission/index.ts"
 
+[functions.resolve-instagram-publish-reconciliation]
+enabled = true
+verify_jwt = true
+import_map = "./functions/resolve-instagram-publish-reconciliation/deno.json"
+entrypoint = "./functions/resolve-instagram-publish-reconciliation/index.ts"
+
 [functions.mark-instagram-gallery-submission-shared]
 enabled = true
 verify_jwt = true
@@ -124,6 +136,30 @@ enabled = true
 verify_jwt = true
 import_map = "./functions/check-instagram-api-status/deno.json"
 entrypoint = "./functions/check-instagram-api-status/index.ts"
+
+[functions.list-facebook-page-publish-queue]
+enabled = true
+verify_jwt = true
+import_map = "./functions/list-facebook-page-publish-queue/deno.json"
+entrypoint = "./functions/list-facebook-page-publish-queue/index.ts"
+
+[functions.publish-facebook-page-gallery-submission]
+enabled = true
+verify_jwt = true
+import_map = "./functions/publish-facebook-page-gallery-submission/deno.json"
+entrypoint = "./functions/publish-facebook-page-gallery-submission/index.ts"
+
+[functions.resolve-facebook-page-publish-reconciliation]
+enabled = true
+verify_jwt = true
+import_map = "./functions/resolve-facebook-page-publish-reconciliation/deno.json"
+entrypoint = "./functions/resolve-facebook-page-publish-reconciliation/index.ts"
+
+[functions.check-facebook-page-api-status]
+enabled = true
+verify_jwt = true
+import_map = "./functions/check-facebook-page-api-status/deno.json"
+entrypoint = "./functions/check-facebook-page-api-status/index.ts"
 
 [functions.list-member-profiles]
 enabled = true

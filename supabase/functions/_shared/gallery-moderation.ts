@@ -1,5 +1,12 @@
-import { createClient, type SupabaseClient, type User } from "@supabase/supabase-js";
-import { resolveDiscordIdentity, type SyncedProviderIdentity } from "./member-verification-identity.ts";
+import {
+  createClient,
+  type SupabaseClient,
+  type User,
+} from "@supabase/supabase-js";
+import {
+  resolveDiscordIdentity,
+  type SyncedProviderIdentity,
+} from "./member-verification-identity.ts";
 import { getServiceRoleKey } from "./supabase-service-role.ts";
 
 export type JsonRecord = Record<string, unknown>;
@@ -18,17 +25,44 @@ type ModeratorAccessFailure = {
   response: Response;
 };
 
-export type ModeratorAccessResult = ModeratorAccessSuccess | ModeratorAccessFailure;
+export type ModeratorAccessResult =
+  | ModeratorAccessSuccess
+  | ModeratorAccessFailure;
 
 export const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
 const DISCORD_API_BASE = "https://discord.com/api/v10";
 const EXPECTED_DISCORD_GUILD_ID = "1078630751077142608";
 const EXPECTED_MODERATOR_ROLE_IDS = ["1078630751165222984"];
+const OPTIONAL_JSON_MAXIMUM_BYTES = 16 * 1024;
+const DISCORD_LOOKUP_TIMEOUT_MS = 5_000;
+const DISCORD_RESPONSE_MAXIMUM_BYTES = 32 * 1024;
+
+type DiscordModeratorLookupSuccess = {
+  ok: true;
+  roleIds: string[];
+};
+
+type DiscordModeratorLookupFailure = {
+  ok: false;
+  status: number;
+  error: string;
+  message: string;
+};
+
+export type DiscordModeratorLookupResult =
+  | DiscordModeratorLookupSuccess
+  | DiscordModeratorLookupFailure;
+
+type FetchLike = (
+  input: string | URL | Request,
+  init?: RequestInit,
+) => Promise<Response>;
 
 export function jsonResponse(body: JsonRecord, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -41,11 +75,15 @@ export function jsonResponse(body: JsonRecord, status = 200): Response {
 }
 
 export function asRecord(value: unknown): JsonRecord {
-  return value && typeof value === "object" && !Array.isArray(value) ? value as JsonRecord : {};
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as JsonRecord
+    : {};
 }
 
 export function asStringArray(value: unknown): string[] {
-  return Array.isArray(value) ? value.map((item) => String(item)).filter(Boolean) : [];
+  return Array.isArray(value)
+    ? value.map((item) => String(item)).filter(Boolean)
+    : [];
 }
 
 export function safeString(value: unknown, maxLength: number): string | null {
@@ -61,15 +99,272 @@ export function parseCsv(value: string | null | undefined): string[] {
     .filter(Boolean);
 }
 
-export async function readOptionalJsonBody(req: Request): Promise<{ ok: true; body: JsonRecord } | ModeratorAccessFailure> {
-  const contentType = req.headers.get("content-type") || "";
-  if (!contentType.toLowerCase().includes("application/json")) {
-    return { ok: true, body: {} };
+async function readBoundedResponseRecord(
+  response: Response,
+  maximumBytes: number,
+  signal?: AbortSignal,
+): Promise<JsonRecord | null> {
+  const contentLength = Number(response.headers.get("content-length") || 0);
+  if (Number.isFinite(contentLength) && contentLength > maximumBytes) {
+    await response.body?.cancel("response_too_large");
+    return null;
+  }
+  if (!response.body) return null;
+
+  const reader = response.body.getReader();
+  const abortRead = () => {
+    void reader.cancel("request_deadline_exceeded");
+  };
+  if (signal?.aborted) {
+    abortRead();
+    reader.releaseLock();
+    return null;
+  }
+  signal?.addEventListener("abort", abortRead, { once: true });
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      totalBytes += value.byteLength;
+      if (totalBytes > maximumBytes) {
+        await reader.cancel("response_too_large");
+        return null;
+      }
+      chunks.push(value);
+    }
+  } catch {
+    return null;
+  } finally {
+    signal?.removeEventListener("abort", abortRead);
+    reader.releaseLock();
   }
 
   try {
-    return { ok: true, body: asRecord(await req.json()) };
+    const bytes = new Uint8Array(totalBytes);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    const raw = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? parsed as JsonRecord
+      : null;
   } catch {
+    return null;
+  }
+}
+
+export async function verifyLiveDiscordModerator(
+  input: {
+    botToken: string;
+    discordUserId: string;
+    expectedRoleIds: string[];
+    timeoutMs?: number;
+  },
+  fetchImpl: FetchLike = fetch,
+): Promise<DiscordModeratorLookupResult> {
+  const timeoutMs = Number.isSafeInteger(input.timeoutMs) &&
+      Number(input.timeoutMs) > 0 && Number(input.timeoutMs) <= 15_000
+    ? Number(input.timeoutMs)
+    : DISCORD_LOOKUP_TIMEOUT_MS;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const finish = (
+    result: DiscordModeratorLookupResult,
+  ): DiscordModeratorLookupResult => {
+    clearTimeout(timeout);
+    return result;
+  };
+  let response: Response;
+
+  try {
+    response = await fetchImpl(
+      `${DISCORD_API_BASE}/guilds/${
+        encodeURIComponent(EXPECTED_DISCORD_GUILD_ID)
+      }/members/${encodeURIComponent(input.discordUserId)}`,
+      {
+        headers: {
+          Authorization: `Bot ${input.botToken}`,
+          Accept: "application/json",
+        },
+        cache: "no-store",
+        redirect: "error",
+        signal: controller.signal,
+      },
+    );
+  } catch {
+    return finish(
+      controller.signal.aborted
+        ? {
+          ok: false,
+          status: 503,
+          error: "discord_lookup_timeout",
+          message:
+            "Discord moderation verification timed out. Please try again later.",
+        }
+        : {
+          ok: false,
+          status: 502,
+          error: "discord_lookup_failed",
+          message:
+            "Discord moderation verification could not be completed. Please try again later.",
+        },
+    );
+  }
+
+  if (response.status === 429) {
+    return finish({
+      ok: false,
+      status: 429,
+      error: "discord_rate_limited",
+      message: "Discord verification is rate limited. Please try again soon.",
+    });
+  }
+  if (response.status === 404) {
+    return finish({
+      ok: false,
+      status: 403,
+      error: "not_guild_member",
+      message:
+        "Moderator access requires membership in the Mōchirīī Discord server.",
+    });
+  }
+  if (response.status === 401 || response.status === 403) {
+    return finish({
+      ok: false,
+      status: 502,
+      error: "discord_configuration_error",
+      message:
+        "Discord moderation verification is not available yet. Please contact leadership.",
+    });
+  }
+  if (!response.ok) {
+    return finish({
+      ok: false,
+      status: 502,
+      error: "discord_lookup_failed",
+      message:
+        "Discord moderation verification could not be completed. Please try again later.",
+    });
+  }
+
+  const member = await readBoundedResponseRecord(
+    response,
+    DISCORD_RESPONSE_MAXIMUM_BYTES,
+    controller.signal,
+  );
+  if (controller.signal.aborted) {
+    return finish({
+      ok: false,
+      status: 503,
+      error: "discord_lookup_timeout",
+      message:
+        "Discord moderation verification timed out. Please try again later.",
+    });
+  }
+  const rawRoles = member?.roles;
+  const pending = member?.pending;
+  if (
+    !Array.isArray(rawRoles) ||
+    rawRoles.some((roleId) =>
+      typeof roleId !== "string" || !/^\d{16,22}$/.test(roleId)
+    ) ||
+    (pending !== undefined && typeof pending !== "boolean")
+  ) {
+    return finish({
+      ok: false,
+      status: 502,
+      error: "discord_response_invalid",
+      message:
+        "Discord moderation verification could not be completed. Please try again later.",
+    });
+  }
+
+  const roles = [...new Set(rawRoles)];
+  if (pending === true) {
+    return finish({
+      ok: false,
+      status: 403,
+      error: "discord_onboarding_pending",
+      message:
+        "Complete Discord server onboarding before using gallery moderation.",
+    });
+  }
+  const roleSet = new Set(roles);
+  if (input.expectedRoleIds.some((roleId) => !roleSet.has(roleId))) {
+    return finish({
+      ok: false,
+      status: 403,
+      error: "missing_moderator_role",
+      message: "Gallery moderation requires the Discord Moderator role.",
+    });
+  }
+
+  return finish({ ok: true, roleIds: roles });
+}
+
+async function readBoundedJsonBody(
+  req: Request,
+  maximumBytes: number,
+): Promise<JsonRecord | null> {
+  if (!Number.isSafeInteger(maximumBytes) || maximumBytes < 1 || !req.body) {
+    return null;
+  }
+
+  const contentLength = Number(req.headers.get("content-length") || 0);
+  if (Number.isFinite(contentLength) && contentLength > maximumBytes) {
+    return null;
+  }
+
+  const reader = req.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      totalBytes += value.byteLength;
+      if (totalBytes > maximumBytes) {
+        await reader.cancel("request_too_large");
+        return null;
+      }
+      chunks.push(value);
+    }
+  } catch {
+    return null;
+  } finally {
+    reader.releaseLock();
+  }
+
+  if (totalBytes < 1) return null;
+  try {
+    const bytes = new Uint8Array(totalBytes);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    const raw = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    return asRecord(JSON.parse(raw));
+  } catch {
+    return null;
+  }
+}
+
+export async function readOptionalJsonBody(
+  req: Request,
+  maximumBytes = OPTIONAL_JSON_MAXIMUM_BYTES,
+): Promise<{ ok: true; body: JsonRecord } | ModeratorAccessFailure> {
+  const contentType = req.headers.get("content-type")?.split(";", 1)[0]
+    .trim().toLowerCase();
+  if (contentType !== "application/json") return { ok: true, body: {} };
+
+  const body = await readBoundedJsonBody(req, maximumBytes);
+  if (!body) {
     return {
       ok: false,
       response: jsonResponse(
@@ -82,34 +377,58 @@ export async function readOptionalJsonBody(req: Request): Promise<{ ok: true; bo
       ),
     };
   }
+  return { ok: true, body };
 }
 
-export async function readRequiredJsonBody(req: Request): Promise<{ ok: true; body: JsonRecord } | ModeratorAccessFailure> {
-  try {
-    return { ok: true, body: asRecord(await req.json()) };
-  } catch {
+export async function readRequiredJsonBody(
+  req: Request,
+  maximumBytes = 64 * 1024,
+): Promise<{ ok: true; body: JsonRecord } | ModeratorAccessFailure> {
+  const contentType = req.headers.get("content-type")?.split(";", 1)[0]
+    .trim().toLowerCase();
+  if (contentType !== "application/json") {
     return {
       ok: false,
       response: jsonResponse(
         {
           ok: false,
-          error: "invalid_json",
-          message: "Request body must be valid JSON.",
+          error: "invalid_request",
+          message: "Request body must be bounded JSON.",
         },
         400,
       ),
     };
   }
+
+  const body = await readBoundedJsonBody(req, maximumBytes);
+  if (!body) {
+    return {
+      ok: false,
+      response: jsonResponse(
+        {
+          ok: false,
+          error: "invalid_request",
+          message: "Request body must be bounded JSON.",
+        },
+        400,
+      ),
+    };
+  }
+  return { ok: true, body };
 }
 
-function moderatorConfigMatches(configuredRoleIds: string[]): boolean {
+export function moderatorConfigMatches(configuredRoleIds: string[]): boolean {
   return (
     configuredRoleIds.length === EXPECTED_MODERATOR_ROLE_IDS.length &&
-    EXPECTED_MODERATOR_ROLE_IDS.every((roleId) => configuredRoleIds.includes(roleId))
+    EXPECTED_MODERATOR_ROLE_IDS.every((roleId) =>
+      configuredRoleIds.includes(roleId)
+    )
   );
 }
 
-export async function requireModeratorAccess(req: Request): Promise<ModeratorAccessResult> {
+export async function requireModeratorAccess(
+  req: Request,
+): Promise<ModeratorAccessResult> {
   const authHeader = req.headers.get("Authorization") || "";
   const accessToken = authHeader.replace(/^Bearer\s+/i, "").trim();
 
@@ -136,7 +455,8 @@ export async function requireModeratorAccess(req: Request): Promise<ModeratorAcc
           ok: false,
           hasAccess: false,
           error: "invalid_auth",
-          message: "Your sign-in session could not be verified. Please sign in again.",
+          message:
+            "Your sign-in session could not be verified. Please sign in again.",
         },
         401,
       ),
@@ -147,8 +467,12 @@ export async function requireModeratorAccess(req: Request): Promise<ModeratorAcc
   const serviceRoleKey = getServiceRoleKey();
   const configuredGuildId = Deno.env.get("DISCORD_GUILD_ID") || "";
   const botToken = Deno.env.get("DISCORD_BOT_TOKEN") || "";
-  const configuredModeratorRoleIds = parseCsv(Deno.env.get("DISCORD_MODERATOR_ROLE_IDS"));
-  const moderatorRoleNames = parseCsv(Deno.env.get("DISCORD_MODERATOR_ROLE_NAMES"));
+  const configuredModeratorRoleIds = parseCsv(
+    Deno.env.get("DISCORD_MODERATOR_ROLE_IDS"),
+  );
+  const moderatorRoleNames = parseCsv(
+    Deno.env.get("DISCORD_MODERATOR_ROLE_NAMES"),
+  );
   const guildConfigMatches = configuredGuildId === EXPECTED_DISCORD_GUILD_ID;
   const roleConfigMatches = moderatorConfigMatches(configuredModeratorRoleIds);
 
@@ -179,7 +503,8 @@ export async function requireModeratorAccess(req: Request): Promise<ModeratorAcc
           ok: false,
           hasAccess: false,
           error: "moderation_not_configured",
-          message: "Gallery moderation is not configured yet. Please contact leadership.",
+          message:
+            "Gallery moderation is not configured yet. Please contact leadership.",
         },
         500,
       ),
@@ -193,12 +518,14 @@ export async function requireModeratorAccess(req: Request): Promise<ModeratorAcc
     },
   });
 
-  const { data: userData, error: userError } = await adminClient.auth.getUser(accessToken);
+  const { data: userData, error: userError } = await adminClient.auth.getUser(
+    accessToken,
+  );
   const user = userData?.user;
 
   if (userError || !user?.id) {
     console.warn("gallery moderation invalid user JWT", {
-      message: userError?.message || "Missing user",
+      category: userError ? "authentication_rejected" : "missing_user",
     });
 
     return {
@@ -208,7 +535,8 @@ export async function requireModeratorAccess(req: Request): Promise<ModeratorAcc
           ok: false,
           hasAccess: false,
           error: "invalid_auth",
-          message: "Your sign-in session could not be verified. Please sign in again.",
+          message:
+            "Your sign-in session could not be verified. Please sign in again.",
         },
         401,
       ),
@@ -226,7 +554,6 @@ export async function requireModeratorAccess(req: Request): Promise<ModeratorAcc
   if (identityError) {
     console.error("gallery moderation trusted identity lookup failed", {
       code: identityError.code,
-      message: identityError.message,
     });
     return {
       ok: false,
@@ -235,7 +562,8 @@ export async function requireModeratorAccess(req: Request): Promise<ModeratorAcc
           ok: false,
           hasAccess: false,
           error: "identity_lookup_failed",
-          message: "Moderator access could not be verified. Please try again later.",
+          message:
+            "Moderator access could not be verified. Please try again later.",
         },
         500,
       ),
@@ -255,117 +583,87 @@ export async function requireModeratorAccess(req: Request): Promise<ModeratorAcc
           ok: false,
           hasAccess: false,
           error: "missing_discord_identity",
-          message: "Discord identity was not found on this account. Link Discord from Account and try again.",
+          message:
+            "Discord identity was not found on this account. Link Discord from Account and try again.",
         },
         403,
       ),
     };
   }
 
-  const discordResponse = await fetch(
-    `${DISCORD_API_BASE}/guilds/${encodeURIComponent(EXPECTED_DISCORD_GUILD_ID)}/members/${encodeURIComponent(discordUserId)}`,
-    {
-      headers: {
-        Authorization: `Bot ${botToken}`,
-        Accept: "application/json",
-      },
-    },
-  );
-
-  if (discordResponse.status === 429) {
-    const retryAfter = discordResponse.headers.get("retry-after");
-    console.warn("gallery moderation Discord rate limited", { retryAfter });
-
-    return {
-      ok: false,
-      response: jsonResponse(
-        {
-          ok: false,
-          hasAccess: false,
-          error: "discord_rate_limited",
-          message: retryAfter
-            ? `Discord verification is rate limited. Try again in ${retryAfter} seconds.`
-            : "Discord verification is rate limited. Please try again soon.",
-        },
-        429,
-      ),
-    };
-  }
-
-  if (discordResponse.status === 404) {
-    return {
-      ok: false,
-      response: jsonResponse(
-        {
-          ok: false,
-          hasAccess: false,
-          error: "not_guild_member",
-          message: "Moderator access requires membership in the Mochirii Discord server.",
-        },
-        403,
-      ),
-    };
-  }
-
-  if (discordResponse.status === 401 || discordResponse.status === 403) {
-    console.error("gallery moderation Discord bot permission/configuration error", {
-      status: discordResponse.status,
+  const { data: profileData, error: profileError } = await adminClient
+    .from("member_profiles")
+    .select("member_status,discord_user_id,discord_member_pending")
+    .eq("id", userId)
+    .maybeSingle();
+  if (profileError) {
+    console.error("gallery moderation local standing lookup failed", {
+      code: profileError.code,
     });
-
     return {
       ok: false,
       response: jsonResponse(
         {
           ok: false,
           hasAccess: false,
-          error: "discord_configuration_error",
-          message: "Discord moderation verification is not available yet. Please contact leadership.",
+          error: "member_standing_lookup_failed",
+          message:
+            "Moderator access could not be verified. Please try again later.",
         },
-        502,
+        500,
       ),
     };
   }
 
-  if (!discordResponse.ok) {
-    console.error("gallery moderation Discord lookup failed", {
-      status: discordResponse.status,
-      statusText: discordResponse.statusText,
-    });
-
+  const profile = asRecord(profileData);
+  const memberStatus = safeString(profile.member_status, 40);
+  const profileDiscordUserId = safeString(profile.discord_user_id, 40);
+  if (
+    memberStatus !== "active" ||
+    profile.discord_member_pending === true ||
+    profileDiscordUserId !== discordUserId
+  ) {
+    const category = profile.discord_member_pending === true
+      ? "discord_onboarding_pending"
+      : profileDiscordUserId !== discordUserId
+      ? "discord_identity_drift"
+      : "member_not_active";
     return {
       ok: false,
       response: jsonResponse(
         {
           ok: false,
           hasAccess: false,
-          error: "discord_lookup_failed",
-          message: "Discord moderation verification could not be completed. Please try again later.",
-        },
-        502,
-      ),
-    };
-  }
-
-  const member = await discordResponse.json() as JsonRecord;
-  const roles = asStringArray(member.roles);
-  const roleSet = new Set(roles);
-  const missingModeratorRoleIds = EXPECTED_MODERATOR_ROLE_IDS.filter((roleId) => !roleSet.has(roleId));
-  const pending = member.pending === true;
-
-  if (pending || missingModeratorRoleIds.length > 0) {
-    return {
-      ok: false,
-      response: jsonResponse(
-        {
-          ok: false,
-          hasAccess: false,
-          error: pending ? "discord_onboarding_pending" : "missing_moderator_role",
-          missingRoleIds: missingModeratorRoleIds,
-          message: pending
+          error: category,
+          message: category === "discord_onboarding_pending"
             ? "Complete Discord server onboarding before using gallery moderation."
-            : "Gallery moderation requires the Discord Moderator role.",
+            : "Gallery moderation requires a current verified member account.",
         },
         403,
+      ),
+    };
+  }
+
+  const liveModerator = await verifyLiveDiscordModerator({
+    botToken,
+    discordUserId,
+    expectedRoleIds: EXPECTED_MODERATOR_ROLE_IDS,
+  });
+  if (!liveModerator.ok) {
+    console.warn("gallery moderation live Discord authorization failed", {
+      category: liveModerator.error,
+      status: liveModerator.status,
+    });
+    return {
+      ok: false,
+      response: jsonResponse(
+        {
+          ok: false,
+          hasAccess: false,
+          error: liveModerator.error,
+          message: liveModerator.message,
+        },
+        liveModerator.status,
       ),
     };
   }
@@ -376,7 +674,7 @@ export async function requireModeratorAccess(req: Request): Promise<ModeratorAcc
     user,
     userId,
     discordUserId,
-    roleIds: roles,
+    roleIds: liveModerator.roleIds,
   };
 }
 
@@ -394,7 +692,10 @@ function looksLikeJwt(token: string): boolean {
 }
 
 function base64UrlDecode(value: string): Uint8Array {
-  const padded = value.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(value.length / 4) * 4, "=");
+  const padded = value.replace(/-/g, "+").replace(/_/g, "/").padEnd(
+    Math.ceil(value.length / 4) * 4,
+    "=",
+  );
   const binary = atob(padded);
   return Uint8Array.from(binary, (char) => char.charCodeAt(0));
 }

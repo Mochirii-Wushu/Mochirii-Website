@@ -45,10 +45,14 @@ const listMemberProfiles = read("supabase/functions/list-member-profiles/index.t
 const getMemberProfile = read("supabase/functions/get-member-profile/index.ts");
 const visibleProfileCards = read("supabase/functions/list-visible-profile-cards/index.ts");
 const approvedFeed = read("supabase/functions/list-approved-gallery-submissions/index.ts");
+const approvedFeedShared = read("supabase/functions/_shared/gallery-public-feed.ts");
 const migrationGallery = read("supabase/migrations/20260513081523_create_discord_role_gated_gallery_uploads.sql");
 const migrationGalleryModeration = read("supabase/migrations/20260513195853_create_gallery_moderation_events.sql");
 const migrationProfiles = read("supabase/migrations/20260608210000_add_member_profiles_and_media.sql");
 const migrationRefine = read("supabase/migrations/20260608233000_refine_member_profile_identity_media.sql");
+const migrationGalleryPublicationRevisions = read(
+  "supabase/migrations/20260728132000_add_gallery_publication_revisions.sql",
+);
 
 const retiredFiles = [
   "apps/web/app/members/page.tsx",
@@ -92,7 +96,7 @@ for (const file of retiredFiles) {
   "public.handle_new_member_profile()",
   "security definer",
   "member-gallery",
-  "Approved submissions with a validated derivative become eligible for the approved public Gallery feed",
+  "Approved submissions with a validated public derivative become eligible for the Gallery feed",
   "member profile publishing is retired",
   "shared backend identity data",
   "list-visible-profile-cards",
@@ -221,12 +225,53 @@ assertRegex("profile client", profileClient, /\.update\(\s*clean\s*\)/, "Profile
 ].forEach((snippet) => assertIncludes("visible profile cards", visibleProfileCards, snippet));
 
 [
-  "MEMBER_GALLERY_BUCKET",
-  "signedUrlSeconds",
-  "createSignedUrls",
-  "storage_path",
-  "thumbnail_storage_path",
+  "GALLERY_PUBLIC_SCHEMA_VERSION",
+  "isLegacyGalleryListRequest",
+  'adminClient.rpc("gallery_reserve_public_delivery"',
+  '"gallery_public_feed_page_v2"',
+  '"gallery_reserve_public_media_v2"',
+  "publicMediaUrl",
+  "toPublicGalleryItem",
+  "toLegacyGalleryItem",
+  'delivery: "bounded-edge-media"',
 ].forEach((snippet) => assertIncludes("approved gallery feed", approvedFeed, snippet));
+
+[
+  "export const GALLERY_PUBLIC_SCHEMA_VERSION = 2;",
+  "containsBearerCapability",
+  "parseGalleryDatabasePage",
+  "thumbnail_url: thumbnailUrl",
+  "full_signed_url: safeFullUrl",
+  "uploader_display_name: null",
+].forEach((snippet) => assertIncludes("approved gallery feed shared contract", approvedFeedShared, snippet));
+
+assertNotIncludes("approved gallery feed", approvedFeed, "createSignedUrls");
+assertRegex(
+  "approved Gallery v2 public item",
+  approvedFeedShared,
+  /export function toPublicGalleryItem\([\s\S]*?return \{(?:(?!storagePath|storageBucket|userId|full_signed_url|thumbnail_signed_url)[\s\S])*thumbnail_url: thumbnailUrl,[\s\S]*?^\}/m,
+  "Gallery feed v2 must expose a bounded Edge thumbnail URL without private storage or member fields.",
+);
+assertRegex(
+  "approved Gallery legacy compatibility item",
+  approvedFeedShared,
+  /export function toLegacyGalleryItem\([\s\S]*?return \{(?:(?!storagePath|storageBucket|userId)[\s\S])*full_signed_url: safeFullUrl,[\s\S]*?thumbnail_signed_url: thumbnailUrl,[\s\S]*?^\}/m,
+  "The deferred Website UI compatibility DTO must use Edge media URLs without private storage or member fields.",
+);
+
+[
+  "private.gallery_public_delivery_windows",
+  "create or replace function public.gallery_reserve_public_delivery(",
+  "daily_byte_limit constant bigint := 67108864;",
+  "create or replace function public.gallery_public_feed_page_v2(",
+  "interval '10 minutes'",
+  "create function public.gallery_reserve_public_media_v2(",
+  "interval '1 hour'",
+  "from public, anon, authenticated;",
+  "to service_role;",
+].forEach((snippet) =>
+  assertIncludes("approved Gallery reservation contract", migrationGalleryPublicationRevisions, snippet)
+);
 
 [
   "alter table public.member_profiles enable row level security;",

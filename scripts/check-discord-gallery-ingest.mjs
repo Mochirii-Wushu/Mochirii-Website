@@ -4,12 +4,18 @@ import path from "node:path";
 const root = process.cwd();
 
 const files = {
+  checker: "scripts/check-discord-gallery-ingest.mjs",
   config: "supabase/config.toml",
   function: "supabase/functions/submit-discord-gallery-image/index.ts",
+  ingestShared: "supabase/functions/_shared/gallery-discord-ingest.ts",
+  ingestSharedTests: "supabase/functions/_shared/gallery-discord-ingest_test.ts",
+  sourceImageShared: "supabase/functions/_shared/gallery-source-image.ts",
+  envExample: "supabase/functions/.env.example",
   importMap: "supabase/functions/submit-discord-gallery-image/deno.json",
   sourceMigration: "supabase/migrations/20260524114802_add_discord_gallery_submission_source.sql",
   revokeMigration: "supabase/migrations/20260524115932_revoke_public_rls_auto_enable_execute.sql",
   previousGalleryMigration: "supabase/migrations/20260513081523_create_discord_role_gated_gallery_uploads.sql",
+  currentConsentMigration: "supabase/migrations/20260729224212_add_gallery_social_consent_withdrawal.sql",
   readme: "supabase/README.md",
 };
 
@@ -36,41 +42,18 @@ function assertNotMatches(label, text, pattern, message) {
   if (pattern.test(text)) failures.push(`${label}: ${message}`);
 }
 
-function extractFunction(text, functionName) {
-  const start = text.indexOf(`function ${functionName}`);
-  if (start < 0) {
-    failures.push(`submit-discord-gallery-image: missing ${functionName} function.`);
-    return "";
-  }
-
-  const open = text.indexOf("{", start);
-  if (open < 0) {
-    failures.push(`submit-discord-gallery-image: malformed ${functionName} function.`);
-    return "";
-  }
-
-  let depth = 0;
-  for (let index = open; index < text.length; index += 1) {
-    const char = text[index];
-    if (char === "{") depth += 1;
-    if (char === "}") depth -= 1;
-    if (depth === 0) return text.slice(start, index + 1);
-  }
-
-  failures.push(`submit-discord-gallery-image: unterminated ${functionName} function.`);
-  return "";
-}
-
-function assertEqual(label, actual, expected) {
-  if (actual !== expected) failures.push(`${label}: expected ${expected}, got ${actual}`);
-}
-
+const checkerSource = read(files.checker);
 const config = read(files.config);
 const functionSource = read(files.function);
+const ingestShared = read(files.ingestShared);
+const ingestSharedTests = read(files.ingestSharedTests);
+const sourceImageShared = read(files.sourceImageShared);
+const envExample = read(files.envExample);
 const importMap = read(files.importMap);
 const sourceMigration = read(files.sourceMigration);
 const revokeMigration = read(files.revokeMigration);
 const previousGalleryMigration = read(files.previousGalleryMigration);
+const currentConsentMigration = read(files.currentConsentMigration);
 const readme = read(files.readme);
 const authenticatedInsertGrant = previousGalleryMigration.match(
   /grant insert \(([\s\S]*?)\) on table public\.gallery_submissions to authenticated;/,
@@ -86,11 +69,9 @@ assertIncludes("import map", importMap, '"@supabase/supabase-js": "npm:@supabase
 
 [
   'const MEMBER_GALLERY_BUCKET = "member-gallery";',
-  "const MAX_SIZE_BYTES = 50 * 1024 * 1024;",
-  'const EXPECTED_DISCORD_GUILD_ID = "1078630751077142608";',
-  'const EXPECTED_REQUIRED_ROLE_IDS = ["1468659807736299520", "1078630751077142615"];',
-  'const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);',
-  'const DISCORD_CDN_HOSTS = new Set(["cdn.discordapp.com", "media.discordapp.net", "media.discordapp.com"]);',
+  "const MAX_SIZE_BYTES = 8 * 1024 * 1024;",
+  "const MAX_REQUEST_BODY_BYTES = 32 * 1024;",
+  "const ATTACHMENT_TIMEOUT_MS = 15_000;",
   "const RECENT_VERIFICATION_MS = 7 * 24 * 60 * 60 * 1000;",
   '"Access-Control-Allow-Methods": "POST, OPTIONS"',
   "x-mochirii-reaper-secret",
@@ -101,13 +82,17 @@ assertIncludes("import map", importMap, '"@supabase/supabase-js": "npm:@supabase
   "getServiceRoleKey()",
   "guildConfigMatches",
   "roleConfigMatches",
-  "bearerOrHeaderSecret(req) !== ingestSecret",
+  'from "../_shared/gallery-discord-ingest.ts"',
+  'from "../_shared/gallery-source-image.ts"',
+  "readBoundedJsonRecord(req, MAX_REQUEST_BODY_BYTES)",
+  "downloadAllowlistedAttachment({",
+  "maximumBytes: MAX_SIZE_BYTES",
+  "timeoutMs: ATTACHMENT_TIMEOUT_MS",
+  "validateGallerySourceBytes(bytes)",
+  "sourceValidation.source.mimeType",
   'return jsonResponse({ ok: false, message: "Method not allowed." }, 405);',
   'if (req.method === "OPTIONS")',
   "validAttachmentUrl(body.attachmentUrl)",
-  "sniffMime(bytes)",
-  "responseMime",
-  "downloadedSize: bytes.byteLength",
   "That file could not be read as a JPEG, PNG, or WebP image.",
   ".eq(\"submission_source\", \"discord\")",
   ".eq(\"discord_message_id\", messageId)",
@@ -127,10 +112,43 @@ assertIncludes("import map", importMap, '"@supabase/supabase-js": "npm:@supabase
   "discord_attachment_id: attachmentId",
   "discord_user_id: discordUserId",
   "instagramOptIn",
-  "INSTAGRAM_OPT_IN_COPY_VERSION",
   "instagram_opt_in: instagramOptIn",
-  'instagram_opt_in_source: instagramOptIn ? "discord_slash_command" : null',
 ].forEach((snippet) => assertIncludes("submit-discord-gallery-image", functionSource, snippet));
+
+assertMatches(
+  "submit-discord-gallery-image",
+  functionSource,
+  /const EXPECTED_DISCORD_GUILD_ID = "\d{16,22}";/,
+  "the trusted bridge must pin one Discord guild snowflake without duplicating its private value in the checker.",
+);
+
+assertMatches(
+  "submit-discord-gallery-image",
+  functionSource,
+  /const EXPECTED_REQUIRED_ROLE_IDS = \[\s*"\d{16,22}",\s*"\d{16,22}",?\s*\];/,
+  "the trusted bridge must pin the two required Discord role snowflakes.",
+);
+
+assertMatches(
+  "submit-discord-gallery-image",
+  functionSource,
+  /const ALLOWED_MIME_TYPES = new Set\(\[\s*"image\/jpeg",\s*"image\/png",\s*"image\/webp",?\s*\]\);/,
+  "the ingest MIME allowlist must remain limited to JPEG, PNG, and WebP.",
+);
+
+assertMatches(
+  "submit-discord-gallery-image",
+  functionSource,
+  /const DISCORD_CDN_HOSTS = new Set\(\[\s*"cdn\.discordapp\.com",\s*"media\.discordapp\.net",\s*"media\.discordapp\.com",?\s*\]\);/,
+  "the attachment host allowlist must remain limited to Discord CDN hosts.",
+);
+
+assertMatches(
+  "submit-discord-gallery-image",
+  functionSource,
+  /!await constantTimeSecretEquals\(\s*bearerOrHeaderSecret\(req\),\s*ingestSecret\s*\)/,
+  "the trusted bridge secret must use the shared constant-time comparison.",
+);
 
 assertMatches(
   "submit-discord-gallery-image",
@@ -142,22 +160,22 @@ assertMatches(
 assertMatches(
   "submit-discord-gallery-image",
   functionSource,
-  /contentLength[\s\S]*contentLength > MAX_SIZE_BYTES/,
-  "attachment content-length must be bounded before body read.",
+  /attachmentDownload = await downloadAllowlistedAttachment\(\{[\s\S]*maximumBytes: MAX_SIZE_BYTES,[\s\S]*timeoutMs: ATTACHMENT_TIMEOUT_MS,/,
+  "attachments must use the shared bounded, timed, allowlisted downloader.",
 );
 
 assertMatches(
   "submit-discord-gallery-image",
   functionSource,
-  /bytes\.byteLength <= 0 \|\| bytes\.byteLength > MAX_SIZE_BYTES \|\| !sniffedMime/,
-  "downloaded attachment bytes must be non-empty and bounded.",
+  /const sourceValidation = await validateGallerySourceBytes\(bytes\);[\s\S]*bytes\.byteLength <= 0 \|\| bytes\.byteLength > MAX_SIZE_BYTES \|\|[\s\S]*!sourceValidation\.ok \|\| !sniffedMime/,
+  "downloaded bytes must remain bounded and pass shared structural image validation.",
 );
 
 assertNotMatches(
   "submit-discord-gallery-image",
   functionSource,
-  /sniffedMime\s*!==\s*declaredMime/,
-  "Discord-declared MIME metadata is advisory; sniffed bytes must be the final image type authority.",
+  /\bfetch\s*\(/,
+  "attachment requests must stay inside the reviewed shared downloader.",
 );
 
 assertNotMatches(
@@ -174,24 +192,104 @@ assertNotMatches(
   "ingest function must not create or expose public/signed image URLs.",
 );
 
-const sniffMimeSource = extractFunction(functionSource, "sniffMime")
-  .replace(/function sniffMime\(bytes: Uint8Array\): string \| null/, "function sniffMime(bytes)");
-const sniffMime = sniffMimeSource
-  ? new Function(`${sniffMimeSource}; return sniffMime;`)()
-  : () => null;
+assertNotMatches(
+  "submit-discord-gallery-image",
+  functionSource,
+  /\b(?:uploadRightsConfirmed|facebookPageOptIn)\b|(?:upload_rights_confirmed|instagram_consent_version|facebook_page_opt_in|facebook_page_consent_version)\s*:/,
+  "the Discord bridge must not mint current website rights or destination-consent evidence.",
+);
 
-assertEqual(
-  "sniffMime png fixture",
-  sniffMime(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])),
-  "image/png",
+[
+  "export async function constantTimeSecretEquals(",
+  'crypto.subtle.digest("SHA-256", encoder.encode(provided))',
+  'crypto.subtle.digest("SHA-256", encoder.encode(expected))',
+  "difference |= providedBytes[index] ^ expectedBytes[index]",
+  "export async function readBoundedJsonRecord(",
+  'contentType !== "application/json"',
+  "totalBytes > maximumBytes",
+  "export async function downloadAllowlistedAttachment({",
+  'redirect: "manual"',
+  "new AbortController()",
+  "contentLength > maximumBytes",
+  "readBoundedResponseBytes(response, maximumBytes)",
+].forEach((snippet) => assertIncludes("shared Discord ingest boundary", ingestShared, snippet));
+
+assertMatches(
+  "shared Discord ingest boundary",
+  ingestShared,
+  /for \(let index = 0; index < expectedBytes\.length; index \+= 1\)[\s\S]*return difference === 0;/,
+  "secret comparison must use a fixed-length digest loop before returning equality.",
 );
-assertEqual("sniffMime jpeg fixture", sniffMime(new Uint8Array([0xff, 0xd8, 0xff, 0xdb])), "image/jpeg");
-assertEqual(
-  "sniffMime webp fixture",
-  sniffMime(new Uint8Array([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50])),
-  "image/webp",
+
+assertMatches(
+  "shared Discord ingest boundary",
+  ingestShared,
+  /const timeout = setTimeout\(\(\) => controller\.abort\(\), timeoutMs\);[\s\S]*finally \{\s*clearTimeout\(timeout\);/,
+  "the attachment deadline must cover the full request and always be cleared.",
 );
-assertEqual("sniffMime non-image fixture", sniffMime(new Uint8Array([0x3c, 0x68, 0x74, 0x6d, 0x6c])), null);
+
+assertMatches(
+  "shared Discord ingest boundary",
+  ingestShared,
+  /throw new GalleryDiscordIngestError\([\s\S]*controller\.signal\.aborted[\s\S]*"attachment_timeout"[\s\S]*"attachment_fetch_failed"/,
+  "unexpected attachment failures must collapse to fixed, URL-free error categories.",
+);
+
+[
+  "ingest secrets use a fixed-length digest comparison",
+  "request JSON is content-type checked and bounded while streaming",
+  "attachment redirects remain manual and inside the allowlist",
+  "attachment bodies and deadlines fail closed",
+  "attachment fetch failures never retain signed URL details",
+].forEach((snippet) => assertIncludes("shared Discord ingest tests", ingestSharedTests, snippet));
+
+[
+  "export const GALLERY_SOURCE_IMAGE_MAX_BYTES = 8 * 1024 * 1024;",
+  "function detectMimeType(bytes: Uint8Array)",
+  "export async function validateGallerySourceBytes(",
+  'if (mimeType === "image/jpeg") return parseJpeg(bytes);',
+  'if (mimeType === "image/png") return parsePng(bytes);',
+].forEach((snippet) => assertIncludes("shared Gallery source validation", sourceImageShared, snippet));
+
+assertMatches(
+  "shared Gallery source validation",
+  sourceImageShared,
+  /\["image\/jpeg", "image\/png", "image\/webp"\]\.includes\(declared\)/,
+  "structural source validation must retain the exact accepted MIME allowlist.",
+);
+
+[
+  "add column upload_rights_confirmed boolean not null default false",
+  "add column instagram_consent_version text",
+  "add column facebook_page_consent_version text",
+  "gallery_submissions_instagram_consent_v3_check",
+  "gallery_submissions_facebook_consent_v3_check",
+  "2026-07-website-public-instagram-publish-v3",
+  "2026-07-website-public-facebook-page-group-v3",
+  "2026-07-gallery-upload-rights-v1",
+  "destination in ('instagram', 'facebook_page')",
+].forEach((snippet) => assertIncludes("current destination consent migration", currentConsentMigration, snippet));
+
+assertMatches(
+  "current destination consent migration",
+  currentConsentMigration,
+  /gallery_submissions_instagram_consent_v3_check[\s\S]*instagram_opt_in is true[\s\S]*instagram_opt_in_source = 'website_upload'[\s\S]*instagram_consent_version =[\s\S]*'2026-07-website-public-instagram-publish-v3'[\s\S]*upload_rights_confirmed is true/,
+  "Instagram v3 consent must independently require its own opt-in plus website rights attestation.",
+);
+
+assertMatches(
+  "current destination consent migration",
+  currentConsentMigration,
+  /gallery_submissions_facebook_consent_v3_check[\s\S]*facebook_page_opt_in is true[\s\S]*facebook_page_opt_in_source = 'website_upload'[\s\S]*facebook_page_consent_version =[\s\S]*'2026-07-website-public-facebook-page-group-v3'[\s\S]*upload_rights_confirmed is true/,
+  "Facebook Page v3 consent must independently require its own opt-in plus website rights attestation.",
+);
+
+assertMatches(
+  "current destination consent migration",
+  currentConsentMigration,
+  /create function private\.attest_gallery_upload_rights\(\)[\s\S]*?if new\.submission_source = 'website'[\s\S]*?and new\.upload_rights_confirmed is true[\s\S]*?else[\s\S]*?new\.upload_rights_confirmed := false;/,
+  "server rights attestation must fail closed for non-website submissions.",
+);
 
 [
   "add column if not exists submission_source text not null default 'website'",
@@ -203,11 +301,17 @@ assertEqual("sniffMime non-image fixture", sniffMime(new Uint8Array([0x3c, 0x68,
   "gallery_submissions_submission_source_check",
   "submission_source in ('website', 'discord')",
   "gallery_submissions_discord_source_required_check",
-  "discord_guild_id = '1078630751077142608'",
   "gallery_submissions_discord_id_format_check",
   "create unique index if not exists gallery_submissions_discord_attachment_key",
   "create index if not exists gallery_submissions_discord_user_id_idx",
 ].forEach((snippet) => assertIncludes("source migration", sourceMigration, snippet));
+
+assertMatches(
+  "source migration",
+  sourceMigration,
+  /discord_guild_id = '\d{16,22}'/,
+  "Discord-source rows must remain pinned to one guild snowflake without duplicating its private value in the checker.",
+);
 
 assertMatches(
   "source migration",
@@ -235,8 +339,21 @@ assertNotMatches(
   "browser-authenticated insert grants must not include Discord source metadata.",
 );
 
+assertIncludes(
+  "function environment example",
+  envExample,
+  "DISCORD_GALLERY_CHANNEL_ID=",
+);
+
+assertNotMatches(
+  "Discord gallery ingest checker",
+  checkerSource,
+  /\b\d{16,22}\b/,
+  "checker fixtures must not contain private provider identifiers.",
+);
+
 [
-  "DISCORD_GALLERY_CHANNEL_ID=1508077313965817856",
+  "DISCORD_GALLERY_CHANNEL_ID",
   "DISCORD_GALLERY_INGEST_SECRET=<set manually, never commit>",
   "share_to_instagram",
   "instagramOptIn",

@@ -98,6 +98,10 @@ const homeGalleryLightbox = read("apps/web/components/HomeGalleryLightbox.tsx");
 const homeGalleryLightboxModal = read("apps/web/components/HomeGalleryLightboxModal.tsx");
 const approvedGalleryFeed = read("apps/web/lib/gallery/approved-feed.ts");
 const approvedFunction = read("supabase/functions/list-approved-gallery-submissions/index.ts");
+const publicFeedShared = read("supabase/functions/_shared/gallery-public-feed.ts");
+const galleryPublicationRevisionsMigration = read(
+  "supabase/migrations/20260728132000_add_gallery_publication_revisions.sql",
+);
 const thumbnailParser = read("supabase/functions/_shared/gallery-thumbnail.ts");
 const thumbnailDecoder = read("supabase/functions/_shared/gallery-webp-decoder.ts");
 const thumbnailValidatorSource = read("supabase/functions/_shared/gallery-webp-validator.c");
@@ -169,26 +173,82 @@ if (approvedTypeMatch) {
   assert(!approvedType.includes("storage_bucket"), "ApprovedGallerySubmission must not expose storage_bucket.");
 }
 
-const responseItemMatch = approvedFunction.match(/const item: JsonRecord = \{[\s\S]*?\n    \};/);
-assert(Boolean(responseItemMatch), "list-approved-gallery-submissions response item was not found.");
-if (responseItemMatch) {
-  const responseItem = responseItemMatch[0];
-  assertIncludes("approved gallery response item", responseItem, "thumbnail_signed_url: thumbnailSignedUrl,");
-  assertIncludes("approved gallery response item", responseItem, "full_signed_url: fullSignedUrl,");
-  assertIncludes("approved gallery response item", responseItem, "thumbnail_size_bytes: thumbnailSizeBytes,");
-  assert(!responseItem.includes("storage_path"), "Approved gallery response item must not expose storage_path.");
-  assert(!responseItem.includes("storage_bucket"), "Approved gallery response item must not expose storage_bucket.");
+const publicResponseItemMatch = publicFeedShared.match(
+  /export function toPublicGalleryItem\([\s\S]*?^\}/m,
+);
+assert(Boolean(publicResponseItemMatch), "Gallery feed v2 public item serializer was not found.");
+if (publicResponseItemMatch) {
+  const responseItem = publicResponseItemMatch[0];
+  assertIncludes("Gallery feed v2 public item", responseItem, "thumbnail_url: thumbnailUrl,");
+  assertIncludes("Gallery feed v2 public item", responseItem, "thumbnail_size_bytes: thumbnailSizeBytes,");
+  assertIncludes("Gallery feed v2 public item", responseItem, "thumbnail_width: thumbnailWidth,");
+  assertIncludes("Gallery feed v2 public item", responseItem, "thumbnail_height: thumbnailHeight,");
+  assert(!responseItem.includes("storagePath"), "Gallery feed v2 item must not expose storagePath.");
+  assert(!responseItem.includes("storageBucket"), "Gallery feed v2 item must not expose storageBucket.");
+  assert(!responseItem.includes("userId"), "Gallery feed v2 item must not expose userId.");
+  assert(!responseItem.includes("signed_url"), "Gallery feed v2 item must not expose bearer-style signed URL fields.");
+}
+
+const legacyResponseItemMatch = publicFeedShared.match(
+  /export function toLegacyGalleryItem\([\s\S]*?^\}/m,
+);
+assert(Boolean(legacyResponseItemMatch), "Deferred Website Gallery compatibility serializer was not found.");
+if (legacyResponseItemMatch) {
+  const responseItem = legacyResponseItemMatch[0];
+  assertIncludes("deferred Website Gallery compatibility item", responseItem, "full_signed_url: safeFullUrl,");
+  assertIncludes("deferred Website Gallery compatibility item", responseItem, "thumbnail_signed_url: thumbnailUrl,");
+  assertIncludes("deferred Website Gallery compatibility item", responseItem, "thumbnail_size_bytes: thumbnailSizeBytes,");
+  assert(!responseItem.includes("storagePath"), "Website compatibility DTO must not expose storagePath.");
+  assert(!responseItem.includes("storageBucket"), "Website compatibility DTO must not expose storageBucket.");
+  assert(!responseItem.includes("userId"), "Website compatibility DTO must not expose userId.");
 }
 
 [
-  'adminClient.rpc(\n    "gallery_publishable_submissions"',
-  "const SIGNING_PATH_BATCH = 40;",
-  "Promise.all(",
-  ".createSignedUrls(paths, SIGNED_URL_SECONDS)",
-  "thumbnailSizeBytes > 80 * 1024",
-  'thumbnailMimeType !== "image/webp"',
-  "if (!thumbnailSignedUrl || !fullSignedUrl)",
+  '"gallery_reserve_public_media_v2"',
+  ".download(storagePath)",
+  "await sha256Hex(mediaBytes) !== mediaSha256",
+  'adminClient.rpc("gallery_reserve_public_delivery"',
+  "p_reserved_bytes: 65536",
+  '"gallery_public_feed_page_v2"',
+  "parseGalleryDatabasePage",
+  "publicFeedEvidenceCache.getOrLoad",
+  'publicMediaUrl(supabaseUrl, "thumbnail", id)',
+  'publicMediaUrl(supabaseUrl, "full", id)',
+  'delivery: "bounded-edge-media"',
 ].forEach((snippet) => assertIncludes("approved gallery derivative contract", approvedFunction, snippet));
+assert(
+  !approvedFunction.includes("createSignedUrls"),
+  "Approved Gallery delivery must not mint replayable Storage signed URLs.",
+);
+assert(
+  !approvedFunction.includes("/storage/v1/object/sign/"),
+  "Approved Gallery delivery must not embed a Storage signing path.",
+);
+
+[
+  "export const GALLERY_PUBLIC_PAGE_SIZE = 24;",
+  "export const GALLERY_PUBLIC_EVIDENCE_CACHE_TTL_MS = 15 * 1000;",
+  "export const GALLERY_PUBLIC_EVIDENCE_CACHE_MAX_ENTRIES = 32;",
+  "export const GALLERY_PUBLIC_CIRCUIT_MAX_CONCURRENT = 12;",
+  "containsBearerCapability(page)",
+  'const maximumBytes = kind === "thumbnail" ? 80 * 1024 : 2 * 1024 * 1024;',
+  'const maximumDimension = kind === "thumbnail" ? 720 : 2560;',
+].forEach((snippet) => assertIncludes("Gallery feed v2 bounded helper", publicFeedShared, snippet));
+
+[
+  "create or replace function public.gallery_reserve_public_delivery(",
+  "minute_request_limit := case requested_kind",
+  "day_request_limit := case requested_kind",
+  "daily_byte_limit constant bigint := 67108864;",
+  "pg_catalog.pg_advisory_xact_lock(",
+  "on conflict (window_started_at, delivery_kind) do update",
+  "create or replace function public.gallery_public_feed_page_v2(",
+  "interval '10 minutes'",
+  "create function public.gallery_reserve_public_media_v2(",
+  "interval '1 hour'",
+].forEach((snippet) =>
+  assertIncludes("Gallery feed v2 reservation windows", galleryPublicationRevisionsMigration, snippet)
+);
 
 const generatedValidatorDigest = createHash("sha256").update(thumbnailValidatorModule).digest("hex");
 assert(
@@ -216,7 +276,7 @@ assert(
 [
   'GALLERY_THUMBNAIL_MAX_BYTES = 80 * 1024',
   'GALLERY_THUMBNAIL_MAX_EDGE = 720',
-  'return `_approved/thumbs/${submissionId}/${revisionId}.webp`;',
+  'return `_approved/publications/${publicationId}/revisions/${revisionId}/thumbnail.webp`;',
 ].forEach((snippet) => assertIncludes("gallery thumbnail parser", thumbnailParser, snippet));
 [
   'LIBWEBP_VERSION="1.6.0"',

@@ -29,7 +29,7 @@ Every deployed function owns a local `deno.json` with exact direct dependency
 versions, following [Supabase's function dependency guidance](https://supabase.com/docs/guides/functions/dependencies).
 The Supabase CLI uses that file as Deno configuration when bundling a function;
 it does not upload the repository root `deno.lock`. Accordingly,
-`npm run check:supabase-edge-types` checks all 31 entrypoints with their real
+`npm run check:supabase-edge-types` checks all 39 entrypoints with their real
 function-local configuration and no deployment lock, records and audits each
 entrypoint's current resolution in its own temporary lock, and separately audits
 the repository lock used by local tooling. Never describe the root lock as
@@ -98,7 +98,7 @@ It also exposes Auth/profile/gallery helpers:
 - `publishInstagramGallerySubmission(options)`
 - `listApprovedGallerySubmissions()`
 
-Instagram production migration and Edge Functions are deployed. Reaper rollout, Instagram secret setup, dry-run payloads, and any live Instagram post are tracked in [`../docs/instagram-gallery-publishing-deployment-runbook.md`](../docs/instagram-gallery-publishing-deployment-runbook.md).
+The hardened Facebook Page and Instagram Gallery publishing release is source-only until its focused migrations and Edge Functions receive separate production approvals. Both destination flags default to `false`; local validation must not create provider objects. Provider setup and activation remain governed by the focused integration runbooks under [`../docs/integrations`](../docs/integrations).
 
 Migration history note: keep `supabase/migrations/20260607094500_restore_instagram_gallery_publishing_history.sql` and `supabase/migrations/20260608093407_restore_manual_instagram_share_history.sql` in place. The Instagram publishing schema now lives in `supabase/migrations/20260607125027_add_instagram_gallery_publishing.sql`, and the manual sharing status schema now lives in `supabase/migrations/20260608173000_add_manual_instagram_share_status.sql`, but Supabase Preview compares remote migration versions to local files and needs the original timestamps represented locally.
 
@@ -336,9 +336,18 @@ VOTE_REMINDER_CRON_SECRET=<set manually, never commit>
 # DISCORD_VOTE_LINKS_JSON=<optional JSON links secret, never commit real private targets if sensitive>
 GUILD_SCHEDULE_URL=https://mochirii.com/data/guild-schedule.json
 INSTAGRAM_ACCOUNT_ID=<set manually, never commit>
+INSTAGRAM_EXPECTED_ACCOUNT_ID=<independent server-side pin, never commit a real value>
 INSTAGRAM_ACCESS_TOKEN=<set manually, never commit>
-INSTAGRAM_API_VERSION=<set manually, never commit>
-INSTAGRAM_API_BASE_URL=<optional Meta-compatible test base URL>
+INSTAGRAM_API_VERSION=v26.0
+INSTAGRAM_PUBLISH_ENABLED=false
+META_APP_ID=<set manually, never commit>
+META_EXPECTED_APP_ID=<independent server-side pin, never commit a real value>
+META_APP_SECRET=<set manually, never commit>
+FACEBOOK_PAGE_ID=<set manually, never commit>
+FACEBOOK_EXPECTED_PAGE_ID=<independent server-side pin, never commit a real value>
+FACEBOOK_PAGE_ACCESS_TOKEN=<set manually, never commit>
+FACEBOOK_API_VERSION=v26.0
+FACEBOOK_PAGE_PUBLISH_ENABLED=false
 DISCORD_WEBHOOK_GALLERY_APPROVED=<set manually, never commit>
 DISCORD_WEBHOOK_MOD_LOG=<set manually, never commit>
 DISCORD_EVENTS_CHANNEL_ID=<set per environment>
@@ -363,6 +372,12 @@ supabase functions serve list-instagram-publish-queue --env-file supabase/functi
 supabase functions serve mark-instagram-gallery-submission-shared --env-file supabase/functions/.env.local
 supabase functions serve check-instagram-api-status --env-file supabase/functions/.env.local
 supabase functions serve publish-instagram-gallery-submission --env-file supabase/functions/.env.local
+supabase functions serve resolve-instagram-publish-reconciliation --env-file supabase/functions/.env.local
+supabase functions serve list-facebook-page-publish-queue --env-file supabase/functions/.env.local
+supabase functions serve check-facebook-page-api-status --env-file supabase/functions/.env.local
+supabase functions serve publish-facebook-page-gallery-submission --env-file supabase/functions/.env.local
+supabase functions serve resolve-facebook-page-publish-reconciliation --env-file supabase/functions/.env.local
+supabase functions serve withdraw-gallery-publication-consent --env-file supabase/functions/.env.local
 ```
 
 Production secret examples:
@@ -383,13 +398,23 @@ supabase secrets set VOTE_REMINDER_TIME_ZONE=America/Los_Angeles
 supabase secrets set VOTE_REMINDER_CRON_SECRET=<set manually, never commit>
 supabase secrets set GUILD_SCHEDULE_URL=https://mochirii.com/data/guild-schedule.json
 supabase secrets set INSTAGRAM_ACCOUNT_ID=<set manually, never commit>
+supabase secrets set INSTAGRAM_EXPECTED_ACCOUNT_ID=<set manually, never commit>
 supabase secrets set INSTAGRAM_ACCESS_TOKEN=<set manually, never commit>
-supabase secrets set INSTAGRAM_API_VERSION=<set manually, never commit>
+supabase secrets set INSTAGRAM_API_VERSION=v26.0
+supabase secrets set INSTAGRAM_PUBLISH_ENABLED=false
+supabase secrets set META_APP_ID=<set manually, never commit>
+supabase secrets set META_EXPECTED_APP_ID=<set manually, never commit>
+supabase secrets set META_APP_SECRET=<set manually, never commit>
+supabase secrets set FACEBOOK_PAGE_ID=<set manually, never commit>
+supabase secrets set FACEBOOK_EXPECTED_PAGE_ID=<set manually, never commit>
+supabase secrets set FACEBOOK_PAGE_ACCESS_TOKEN=<set manually, never commit>
+supabase secrets set FACEBOOK_API_VERSION=v26.0
+supabase secrets set FACEBOOK_PAGE_PUBLISH_ENABLED=false
 ```
 
 `supabase secrets set ...` writes remote project secrets. Run it only from a trusted shell and never paste tokens into tracked files.
 
-Instagram credentials live only in Supabase secrets. Do not place Instagram access tokens, account IDs, API base URLs, or API versions in Vercel, browser code, GitHub Actions logs, issue comments, PR text, or public docs with real values.
+Meta credentials and private expected identifiers live only in Supabase secrets and the approved private recovery boundary. Do not place them in Vercel, browser code, repositories, GitHub Actions logs, issue comments, PR text, screenshots, or public documentation. Keep both publishing flags false while installing or validating credentials.
 
 Verify remote secrets without printing secret values:
 
@@ -527,12 +552,13 @@ The website does not assign Discord roles in this phase.
 - optional title/caption/category
 - upload source (`website` or `discord`)
 - Discord guild/channel/message/attachment/user IDs for Discord submissions
-- Instagram opt-in boolean, timestamp, source, and copy version
+- independent Instagram and Facebook Page opt-ins, both false by default
+- upload-rights attestation and server-recorded destination consent provenance
 - private bounded WebP derivative path, MIME type, and byte size
 - moderation status
 - review fields for moderator approval or decline actions
 
-Uploads stay `pending` and do not appear in the public Gallery in this phase.
+Uploads begin `pending` and do not appear publicly until a separate moderator approval produces a valid public Gallery derivative.
 
 `gallery_moderation_events` stores privileged moderation audit records:
 
@@ -554,6 +580,10 @@ Browser clients do not receive direct insert, update, or delete privileges for m
 - attempt count, last error, queued/published actors, and timestamps
 
 `gallery_instagram_publish_events` stores service-role audit events for Instagram publishing jobs. Browser clients receive no direct table privileges for either Instagram publishing table.
+
+`gallery_facebook_page_publish_jobs` and `gallery_facebook_page_publish_events` provide the equivalent second-stage queue and immutable audit trail for the official Facebook Page. They never target a Facebook Group; moderators may manually share a verified Page post into the Guild group after Page publication.
+
+Immutable consent, rights, confirmation, withdrawal, and removal-request evidence is stored in the private schema. Members use the narrow `withdraw-gallery-publication-consent` Edge endpoint; neither browser role receives direct access to private evidence or either provider queue.
 
 ## Storage Bucket Plan
 
@@ -610,6 +640,12 @@ No public read access is granted.
 - anon and authenticated browser clients receive no direct table privileges.
 - service_role can manage rows from trusted Edge Functions after moderator verification.
 
+`gallery_facebook_page_publish_jobs` and `gallery_facebook_page_publish_events`:
+
+- RLS is enabled.
+- anon and authenticated browser clients receive no direct table privileges.
+- state changes use reviewed service-role RPCs only after live moderator verification.
+
 `discord_managed_permission_overwrites`:
 
 - RLS is enabled.
@@ -619,13 +655,15 @@ No public read access is granted.
 
 ## Service-Only Default-Deny Tables
 
-The following tables are service-role-only audit, sync, moderation, or poll internals. Migration `20260712164503_service_only_default_deny_policies.sql` reasserts revoked `public`, `anon`, and `authenticated` privileges and adds one restrictive `service_only_default_deny` policy for the client roles. The policy always evaluates to false and exists to make the default-deny intent explicit without granting browser access. Do not add permissive anon or authenticated policies unless a future task explicitly redesigns the table's public data contract.
+The following tables are service-role-only audit, sync, moderation, provider-queue, or poll internals. Migration `20260712164503_service_only_default_deny_policies.sql` establishes the shared default-deny boundary, and later focused migrations apply the same contract to newly introduced provider tables. Client privileges stay revoked and each restrictive client policy always evaluates to false. Do not add permissive anon or authenticated policies unless a future task explicitly redesigns the table's public data contract.
 
 - `discord_managed_permission_overwrites`
 - `discord_resources`
 - `discord_sync_log`
 - `gallery_instagram_publish_events`
 - `gallery_instagram_publish_jobs`
+- `gallery_facebook_page_publish_events`
+- `gallery_facebook_page_publish_jobs`
 - `gallery_moderation_events`
 - `member_auth_identities`
 - `member_verifications`
@@ -658,7 +696,7 @@ Both functions require a signed-in Supabase user JWT and then verify Discord ser
 
 `list-gallery-review-queue` is moderator-only. It supports `pending`, `approved`, `rejected`, and `archived` queue filters, returns dashboard counts, joins safe uploader/moderator profile display fields, includes recent `gallery_moderation_events`, and creates short-lived signed URLs for private `member-gallery` objects. The Storage bucket stays private and no public read policy is added.
 
-`moderate-gallery-submission` accepts `approved` or `rejected` for a pending submission and `thumbnail` for an approved historical submission. Approval requires a client-prepared WebP derivative that the function validates structurally and fully decodes with pinned libwebp 1.6.0. It must be static, at most 720 pixels on either edge, and at most 80 KiB. Each attempt uses a unique immutable revision under the service-only `_approved/thumbs/{submission}/{revision}.webp` prefix. The row change and `gallery_moderation_events` insert commit through one service-only database function, so an audit failure rolls back moderation. Approved submissions with a validated derivative become eligible for the approved public Gallery feed; they are not written into `data/gallery.json`.
+`moderate-gallery-submission` accepts `approved` or `rejected` for a pending submission and `thumbnail` for an approved historical submission. Approval validates the client-prepared public WebP thumbnail and, for current eligible destination consent, prepares a separate randomized metadata-stripped JPEG derivative inside the private bucket boundary. The source version and derivative digest are bound to immutable consent evidence. The moderation change, audit event, and at most one job for each selected destination commit through reviewed service-only RPCs; a failure cannot leave a publishable partial job. Gallery approval never sends a Meta request. Approved submissions with a validated public derivative become eligible for the Gallery feed; they are not written into `data/gallery.json`.
 
 `list-gallery-review-queue` paginates and filters historical approved rows by thumbnail state. `list-approved-gallery-submissions` asks a service-only database function to filter complete rows and matching Storage metadata before applying its limit, then signs paths in bounded batches. Member policies allow updates and deletes only for pending originals; moderated originals and the service-owned derivative prefix are immutable to member sessions.
 
@@ -807,27 +845,25 @@ Rank roles are display-only vanity roles. Reaper creates or adopts only the conf
 
 See [`../docs/member-profiles-and-rank-roles.md`](../docs/member-profiles-and-rank-roles.md) for the retired website surface boundary and verification checklist.
 
-## Instagram Publishing Queue
+## Meta Gallery Publishing Queues
 
-Instagram publishing uses three moderator-only Edge Functions:
+The nine Meta endpoints are moderator-only, use `POST`, require a signed-in Supabase user JWT, and repeat the live Discord Moderator-role check before any service-role work:
 
-- `list-instagram-publish-queue`
-- `check-instagram-api-status`
-- `publish-instagram-gallery-submission`
-- `mark-instagram-gallery-submission-shared`
+- Instagram: `list-instagram-publish-queue`, `check-instagram-api-status`, `publish-instagram-gallery-submission`, and `resolve-instagram-publish-reconciliation`
+- Facebook Page: `list-facebook-page-publish-queue`, `check-facebook-page-api-status`, `publish-facebook-page-gallery-submission`, and `resolve-facebook-page-publish-reconciliation`
+- Legacy compatibility: `mark-instagram-gallery-submission-shared`, retained only as an authenticated `409` response with no mutation path
 
-All four require a signed-in Supabase user JWT and server-side Discord Moderator verification. They use service-role credentials only inside the Edge runtime. The `member-gallery` bucket remains private. Current launch mode is manual sharing: moderators download the signed preview, copy caption and alt text, post through the official Instagram account or Meta Business Suite, optionally paste the permalink, and mark the job `shared_manually`. The Meta API status function is diagnostic-only and must not create media containers or publish posts. The API publishing function remains available only after the diagnostic passes; it creates a short-lived signed URL only when sending the image URL to Meta.
+Member consent withdrawal is separate: `withdraw-gallery-publication-consent` authenticates the submission owner and records an immutable destination-specific withdrawal. Queued, failed, or ineligible work is canceled atomically; ambiguous in-flight work is quarantined for moderator inspection; a published copy creates a removal request rather than claiming provider deletion.
 
-Approval behavior:
+Gallery approval and public publication are two distinct audited decisions. Approval creates no provider request. A publish action must carry the destination, current job revision timestamp, reviewed copy, and a confirmation fingerprint bound to the moderator and current state. Copy edits, stale state, a different destination, or reuse by another moderator invalidate confirmation.
 
-- Non-opted-in approved images do not create an Instagram job.
-- Opted-in JPEG images create a `queued` Instagram job.
-- Opted-in PNG or WebP images create an `ineligible` job with a clear reason.
-- Existing submissions are not retroactively opted in.
+Both provider versions are pinned to Graph `v26.0` and both server-side publishing flags default to `false`. Diagnostic endpoints are read-only and persist only bounded readiness categories. Meta's token debugger requires the inspected token in a query parameter, which conflicts with this release's Authorization-only token rule; the diagnostic therefore fails closed at that step until an explicit narrow transport exception is approved or Meta provides a compliant interface.
 
-The Leader Dashboard shows the Instagram Queue with preview, title, caption/subtitle, uploader, consent, eligibility, job state, last error, and permalink after publish or manual share. Moderators can edit caption and alt text, download the image, copy caption and alt text, enter a manual permalink/note, and mark a job shared manually. The dashboard must show a visible in-card confirmation before calling `mark-instagram-gallery-submission-shared` or future `publish-instagram-gallery-submission` because both record an external publishing decision.
+Instagram publication uses `graph.facebook.com`: create a single-image media container from the private sanitized JPEG's temporary bearer-free signed URL, poll bounded processing status, then call `media_publish`. It requires moderator-reviewed alt text, reads `content_publishing_limit`, and verifies the returned media identity, username, and canonical permalink before recording success. No Instagram copy or profile field should contain `mochirii.com`.
 
-V1 supports single-image Instagram feed posts only. Reels, Stories, carousels, hashtags automation, scheduling, and image conversion are out of scope. Any future live Meta setup, Supabase secret change, Edge Function redeployment, slash-command registration, or real Instagram post requires explicit owner approval.
+Facebook publication sends the same sanitized JPEG to `POST /{page-id}/photos`, then verifies returned ownership and the canonical Page permalink against the independent server-side Page pin. The integration has no Facebook Group API path. After a verified Page post succeeds, the dashboard may offer a moderator-only manual handoff to share that Page post into the Guild group.
+
+Provider timeouts, network loss, ambiguous 5xx responses, and missing created-object identifiers enter `reconcile_required`; they never auto-retry. Legacy Instagram jobs stay preserved for audit and cannot be silently upgraded or API-published. Any credential installation, flag change, deployment, genuine canary, public post, or removal remains a separately approved provider action.
 
 ## Approved Public Gallery Feed
 

@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "releaseId": "meta-gallery-publishing-2026-07-29",
+  "baseMigration": "20260727212838_consolidate_member_social_links_select_policy.sql",
+  "releaseMigrationCeiling": "20260729224212_add_gallery_social_consent_withdrawal.sql",
+  "generatedMigration": "20260729224212_add_gallery_social_consent_withdrawal.sql",
+  "canonicalHashFormat": "path<TAB>sha256 joined by LF without a trailing LF",
+  "migrations": [
+    {
+      "path": "supabase/migrations/20260728130000_add_gallery_public_feed_v2.sql",
+      "sha256": "e2931034512d090bc80cf3ad9c1372de6ec2aedb654eec758787deac0cbe3987"
+    },
+    {
+      "path": "supabase/migrations/20260728132000_add_gallery_publication_revisions.sql",
+      "sha256": "a8be4b715d461dfac2fbbf441b006060efa0997e384c9bba2070d2eda320e030"
+    },
+    {
+      "path": "supabase/migrations/20260729042835_add_facebook_page_gallery_publishing.sql",
+      "sha256": "ab9c0d2af81a889a439460d6570d39f1de1c3714c26562bc15c936eb1aba72cf"
+    },
+    {
+      "path": "supabase/migrations/20260729054645_harden_instagram_gallery_publishing.sql",
+      "sha256": "aaa9b22326ebe1a4b777abe51a78627d0a45c2a33018f53178c8519ea94b4154"
+    },
+    {
+      "path": "supabase/migrations/20260729062000_add_sanitized_social_derivatives.sql",
+      "sha256": "1eb39d97be64f2eef7504d14132e36741ce250282ecdcf82f2f30ebb08cb7317"
+    },
+    {
+      "path": "supabase/migrations/20260729064000_enforce_social_publish_claim_consent.sql",
+      "sha256": "01412be40e6ebcf5127b935ba4dabda1ad88c4b4ea60cd39b0977eb8cdedf78b"
+    },
+    {
+      "path": "supabase/migrations/20260729064500_reassert_facebook_publish_claim_scope.sql",
+      "sha256": "f2a45fc5de47fb6f2fa504d6929dd015c0ef2467dd9cc4c903c6cf6e570b351d"
+    },
+    {
+      "path": "supabase/migrations/20260729065000_enforce_instagram_consent_contract_handshake.sql",
+      "sha256": "48ac073f9154d55d98baf88c91709622470881a94c617a8082594f857f9a3355"
+    },
+    {
+      "path": "supabase/migrations/20260729070000_bind_social_derivatives_to_consent_source.sql",
+      "sha256": "96b897c5e5022c91ac8ef95de2004cabc4bb3ea6da407240d54834ece948b2eb"
+    },
+    {
+      "path": "supabase/migrations/20260729071000_allow_audited_instagram_legacy_reconciliation.sql",
+      "sha256": "af1d26e7d8f8735642ad7bcb09b41108135f4586b2173dfb046af61c8789303c"
+    },
+    {
+      "path": "supabase/migrations/20260729071146_enforce_facebook_consent_contract_and_permalink_integrity.sql",
+      "sha256": "dc6186c179a35319df56b7c99c4f334ae1ce43c131dab78d16a5879059020275"
+    },
+    {
+      "path": "supabase/migrations/20260729072000_randomize_social_derivative_paths_and_reduce_facebook_privileges.sql",
+      "sha256": "9d01013bd80cc9bc3bdad6c31e86f3c7799d0cf3d264e560fa83db1aebb01ea4"
+    },
+    {
+      "path": "supabase/migrations/20260729224212_add_gallery_social_consent_withdrawal.sql",
+      "sha256": "68f57265bfc2f796db5cdd1366ee895180c9a3201b339ba2c600bf65dcb6ba25"
+    }
+  ],
+  "manifestSha256": "f9baa0aebe94fc96eeb16e38bb048261a7eab167fecb3e1a4a13e2ea3c0260a8"
+}

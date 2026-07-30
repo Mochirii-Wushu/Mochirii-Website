@@ -42,6 +42,14 @@ const protectedFunctions = [
     body: {},
   },
   {
+    name: "withdraw-gallery-publication-consent",
+    body: {
+      submission_id: "00000000-0000-4000-8000-000000000000",
+      destination: "instagram",
+      reason: "Smoke test only.",
+    },
+  },
+  {
     name: "list-instagram-publish-queue",
     body: { status: "queued" },
   },
@@ -51,7 +59,18 @@ const protectedFunctions = [
       job_id: "00000000-0000-4000-8000-000000000000",
       caption: "Smoke test only.",
       alt_text: "Smoke test placeholder.",
-      confirmPublish: true,
+      expected_updated_at: "2026-07-29T00:00:00.000Z",
+      confirmation_fingerprint: "0".repeat(64),
+      confirm_instagram_publish: true,
+    },
+  },
+  {
+    name: "resolve-instagram-publish-reconciliation",
+    body: {
+      job_id: "00000000-0000-4000-8000-000000000000",
+      resolution: "confirmed_not_published",
+      note: "Smoke test only.",
+      confirm_reconciliation: true,
     },
   },
   {
@@ -65,6 +84,33 @@ const protectedFunctions = [
   },
   {
     name: "check-instagram-api-status",
+    body: {},
+  },
+  {
+    name: "list-facebook-page-publish-queue",
+    body: { status: "queued", page_size: 20 },
+  },
+  {
+    name: "publish-facebook-page-gallery-submission",
+    body: {
+      job_id: "00000000-0000-4000-8000-000000000000",
+      message: "Smoke test only.",
+      expected_updated_at: "2026-07-29T00:00:00.000Z",
+      confirmation_fingerprint: "0".repeat(64),
+      confirm_facebook_publish: true,
+    },
+  },
+  {
+    name: "resolve-facebook-page-publish-reconciliation",
+    body: {
+      job_id: "00000000-0000-4000-8000-000000000000",
+      resolution: "confirmed_not_published",
+      note: "Smoke test only.",
+      confirm_reconciliation: true,
+    },
+  },
+  {
+    name: "check-facebook-page-api-status",
     body: {},
   },
   {
@@ -112,6 +158,8 @@ const secretProtectedFunctions = [
       mimeType: "image/png",
       sizeBytes: 1,
       instagramOptIn: false,
+      facebookPageOptIn: false,
+      uploadRightsConfirmed: true,
     },
   },
   {

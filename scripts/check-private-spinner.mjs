@@ -432,9 +432,66 @@ const configuredFunctions = Array.from(
   source.supabaseConfig.matchAll(/^\[functions\.([^\]]+)\]$/gmu),
   (match) => match[1],
 );
-if (configuredFunctions.length !== 33) {
+const expectedConfiguredFunctions = [
+  "verify-discord-member",
+  "verify-member-access",
+  "review-member-verification",
+  "list-gallery-review-queue",
+  "spinner-live-session",
+  "moderate-gallery-submission",
+  "delete-rejected-gallery-submission",
+  "withdraw-gallery-publication-consent",
+  "list-approved-gallery-submissions",
+  "submit-discord-gallery-image",
+  "reaper-discord-interactions",
+  "reaper-spinner-dispatch",
+  "reaper-discord-member-sync",
+  "send-vote-reminder",
+  "send-member-spotlight-poll",
+  "publish-member-spotlight-winner",
+  "get-current-spotlight-winner",
+  "list-instagram-publish-queue",
+  "publish-instagram-gallery-submission",
+  "resolve-instagram-publish-reconciliation",
+  "mark-instagram-gallery-submission-shared",
+  "check-instagram-api-status",
+  "list-facebook-page-publish-queue",
+  "publish-facebook-page-gallery-submission",
+  "resolve-facebook-page-publish-reconciliation",
+  "check-facebook-page-api-status",
+  "list-member-profiles",
+  "list-visible-profile-cards",
+  "get-member-profile",
+  "submit-member-profile-media",
+  "list-member-profile-media-queue",
+  "moderate-member-profile-media",
+  "mochi-pets-alpha-session",
+  "mochi-pets-unity-auth",
+  "mochi-pets-alpha-action",
+  "mochi-pets-alpha-progress",
+  "mochi-pets-alpha-admin",
+  "submit-mochi-pets-feedback",
+  "sync-pixelfed-social-account",
+];
+const configuredFunctionSet = new Set(configuredFunctions);
+const expectedFunctionSet = new Set(expectedConfiguredFunctions);
+const missingConfiguredFunctions = expectedConfiguredFunctions.filter(
+  (functionName) => !configuredFunctionSet.has(functionName),
+);
+const unexpectedConfiguredFunctions = configuredFunctions.filter(
+  (functionName) => !expectedFunctionSet.has(functionName),
+);
+if (
+  configuredFunctions.length !== expectedConfiguredFunctions.length ||
+  configuredFunctionSet.size !== configuredFunctions.length ||
+  missingConfiguredFunctions.length ||
+  unexpectedConfiguredFunctions.length
+) {
   failures.push(
-    `spinner release inventory: expected 33 configured functions, found ${configuredFunctions.length}.`,
+    `spinner release inventory: expected the exact reviewed ${expectedConfiguredFunctions.length}-function configuration; ` +
+      `missing ${missingConfiguredFunctions.join(", ") || "none"}; ` +
+      `unexpected ${unexpectedConfiguredFunctions.join(", ") || "none"}; ` +
+      `found ${configuredFunctions.length} entries (${configuredFunctionSet.size} unique).`,
   );
 }
 for (const functionName of ["spinner-live-session", "reaper-spinner-dispatch"]) {
@@ -442,7 +499,17 @@ for (const functionName of ["spinner-live-session", "reaper-spinner-dispatch"]) 
     failures.push(`spinner release inventory: missing ${functionName}.`);
   }
 }
-for (const functionName of configuredFunctions) {
+const metaGalleryFunctions = new Set([
+  "withdraw-gallery-publication-consent",
+  "resolve-instagram-publish-reconciliation",
+  "list-facebook-page-publish-queue",
+  "publish-facebook-page-gallery-submission",
+  "resolve-facebook-page-publish-reconciliation",
+  "check-facebook-page-api-status",
+]);
+for (const functionName of expectedConfiguredFunctions.filter(
+  (configuredFunction) => !metaGalleryFunctions.has(configuredFunction),
+)) {
   includes(
     "spinner operations runbook inventory",
     source.runbook,

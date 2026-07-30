@@ -1,340 +1,226 @@
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
-import path from "node:path";
-
-const root = process.cwd();
-
-const files = {
-  packageJson: "package.json",
-  checkAll: "scripts/check-all.mjs",
-  config: "supabase/config.toml",
-  migrationHistory: "supabase/migrations/20260607094500_restore_instagram_gallery_publishing_history.sql",
-  migration: "supabase/migrations/20260607125027_add_instagram_gallery_publishing.sql",
-  manualMigrationHistory: "supabase/migrations/20260608093407_restore_manual_instagram_share_history.sql",
-  discordIngest: "supabase/functions/submit-discord-gallery-image/index.ts",
-  moderation: "supabase/functions/moderate-gallery-submission/index.ts",
-  listQueue: "supabase/functions/list-instagram-publish-queue/index.ts",
-  checkMeta: "supabase/functions/check-instagram-api-status/index.ts",
-  publish: "supabase/functions/publish-instagram-gallery-submission/index.ts",
-  markShared: "supabase/functions/mark-instagram-gallery-submission-shared/index.ts",
-  envExample: "supabase/functions/.env.example",
-  supabaseReadme: "supabase/README.md",
-  moderationRunbook: "docs/member-gallery-moderation-runbook.md",
-  deploymentRunbook: "docs/instagram-gallery-publishing-deployment-runbook.md",
-  nextSubmit: "apps/web/components/member-workflow/GallerySubmitForm.tsx",
-  nextDashboard: "apps/web/components/member-workflow/LeaderDashboard.tsx",
-  nextDashboardParts: "apps/web/components/member-workflow/LeaderDashboardParts.tsx",
-  nextHelpers: "apps/web/lib/supabase/moderation.ts",
-  nextUploads: "apps/web/lib/supabase/gallery-submissions.ts",
-};
+import { existsSync, readFileSync } from "node:fs";
 
 const failures = [];
-
-function read(file) {
-  const fullPath = path.join(root, file);
-  if (!existsSync(fullPath)) {
-    failures.push(`${file}: missing Instagram gallery publishing file.`);
-    return "";
-  }
-  return readFileSync(fullPath, "utf8");
+const required = [
+  "docs/integrations/instagram-gallery-publishing.md",
+  "docs/instagram-gallery-publishing-deployment-runbook.md",
+  "supabase/functions/_shared/instagram-publishing.ts",
+  "supabase/functions/_shared/meta-graph-security.ts",
+  "supabase/functions/_shared/meta-provider-diagnostic.ts",
+  "supabase/functions/_shared/social-publication-copy.ts",
+  "supabase/functions/_shared/social-publication-confirmation.ts",
+  "supabase/functions/check-instagram-api-status/index.ts",
+  "supabase/functions/list-instagram-publish-queue/index.ts",
+  "supabase/functions/publish-instagram-gallery-submission/index.ts",
+  "supabase/functions/resolve-instagram-publish-reconciliation/index.ts",
+  "supabase/functions/mark-instagram-gallery-submission-shared/index.ts",
+  "supabase/functions/withdraw-gallery-publication-consent/index.ts",
+];
+for (const file of required) {
+  if (!existsSync(file)) failures.push(`Missing ${file}`);
 }
 
-function assertIncludes(label, text, snippet) {
-  if (!text.includes(snippet)) failures.push(`${label}: expected snippet not found: ${snippet}`);
+const read = (file) => existsSync(file) ? readFileSync(file, "utf8") : "";
+const publisher = read("supabase/functions/_shared/instagram-publishing.ts");
+const security = read("supabase/functions/_shared/meta-graph-security.ts");
+const copyPolicy = read(
+  "supabase/functions/_shared/social-publication-copy.ts",
+);
+const diagnostic = read(
+  "supabase/functions/_shared/meta-provider-diagnostic.ts",
+);
+const publishEndpoint = read(
+  "supabase/functions/publish-instagram-gallery-submission/index.ts",
+);
+const reconcile = read(
+  "supabase/functions/resolve-instagram-publish-reconciliation/index.ts",
+);
+const status = read("supabase/functions/check-instagram-api-status/index.ts");
+const stub = read(
+  "supabase/functions/mark-instagram-gallery-submission-shared/index.ts",
+);
+const withdrawal = read(
+  "supabase/functions/withdraw-gallery-publication-consent/index.ts",
+);
+const docs = read("docs/integrations/instagram-gallery-publishing.md");
+const runbook = read(
+  "docs/instagram-gallery-publishing-deployment-runbook.md",
+);
+const production = [
+  publisher,
+  security,
+  diagnostic,
+  publishEndpoint,
+  reconcile,
+  status,
+  stub,
+  withdrawal,
+].join("\n");
+
+function requireText(text, needle, label) {
+  if (!text.includes(needle)) failures.push(`Missing ${label}: ${needle}`);
+}
+function forbidText(text, needle, label) {
+  if (text.includes(needle)) failures.push(`Forbidden ${label}: ${needle}`);
 }
 
-function assertMatches(label, text, pattern, message) {
-  if (!pattern.test(text)) failures.push(`${label}: ${message}`);
-}
-
-function assertNotMatches(label, text, pattern, message) {
-  if (pattern.test(text)) failures.push(`${label}: ${message}`);
-}
-
-function walkFiles(dir, results = []) {
-  const full = path.join(root, dir);
-  if (!existsSync(full)) return results;
-  for (const entry of readdirSync(full)) {
-    const child = path.join(full, entry);
-    const stat = statSync(child);
-    if (stat.isDirectory()) {
-      if ([".next", "node_modules"].includes(entry)) continue;
-      walkFiles(path.relative(root, child), results);
-    } else {
-      results.push(path.relative(root, child).replaceAll("\\", "/"));
-    }
-  }
-  return results;
-}
-
-const packageJson = read(files.packageJson);
-const checkAll = read(files.checkAll);
-const config = read(files.config);
-const migrationHistory = read(files.migrationHistory);
-const migration = read(files.migration);
-const manualMigrationHistory = read(files.manualMigrationHistory);
-const discordIngest = read(files.discordIngest);
-const moderation = read(files.moderation);
-const listQueue = read(files.listQueue);
-const checkMeta = read(files.checkMeta);
-const publish = read(files.publish);
-const markShared = read(files.markShared);
-const envExample = read(files.envExample);
-const supabaseReadme = read(files.supabaseReadme);
-const moderationRunbook = read(files.moderationRunbook);
-const deploymentRunbook = read(files.deploymentRunbook);
-const nextSubmit = read(files.nextSubmit);
-const nextDashboard = [read(files.nextDashboard), read(files.nextDashboardParts)].join("\n");
-const nextHelpers = read(files.nextHelpers);
-const nextUploads = read(files.nextUploads);
-
-assertIncludes("package.json", packageJson, '"check:instagram-gallery-publishing"');
-assertIncludes("check-all", checkAll, "check:instagram-gallery-publishing");
-
-[
-  "[functions.list-instagram-publish-queue]",
-  "[functions.publish-instagram-gallery-submission]",
-  "[functions.mark-instagram-gallery-submission-shared]",
-  "[functions.check-instagram-api-status]",
-  'verify_jwt = true',
-  'entrypoint = "./functions/list-instagram-publish-queue/index.ts"',
-  'entrypoint = "./functions/publish-instagram-gallery-submission/index.ts"',
-  'entrypoint = "./functions/mark-instagram-gallery-submission-shared/index.ts"',
-  'entrypoint = "./functions/check-instagram-api-status/index.ts"',
-].forEach((snippet) => assertIncludes("supabase config", config, snippet));
-
-[
-  "Restores the original Supabase migration version",
-  "20260607125027_add_instagram_gallery_publishing.sql",
-  "select 1;",
-].forEach((snippet) => assertIncludes("migration history restore", migrationHistory, snippet));
-
-[
-  "Restores the original Supabase migration version",
-  "20260608173000_add_manual_instagram_share_status.sql",
-  "select 1;",
-].forEach((snippet) => assertIncludes("manual migration history restore", manualMigrationHistory, snippet));
-
-[
-  "add column if not exists instagram_opt_in boolean not null default false",
-  "add column if not exists instagram_opt_in_at timestamptz",
-  "add column if not exists instagram_opt_in_source text",
-  "add column if not exists instagram_opt_in_copy_version text",
-  "gallery_submissions_instagram_opt_in_source_check",
-  "gallery_submissions_instagram_opt_in_consistency",
-  "create table if not exists public.gallery_instagram_publish_jobs",
-  "create table if not exists public.gallery_instagram_publish_events",
-  "status in ('queued', 'ineligible', 'publishing', 'published', 'failed', 'canceled')",
-  "action in ('queued', 'ineligible', 'publishing', 'published', 'failed', 'retry', 'canceled')",
-  "grant all on table public.gallery_instagram_publish_jobs to service_role",
-  "grant all on table public.gallery_instagram_publish_events to service_role",
-].forEach((snippet) => assertIncludes("migration", migration, snippet));
-
-const manualMigration = read("supabase/migrations/20260608173000_add_manual_instagram_share_status.sql");
-[
-  "shared_manually",
-  "drop constraint if exists gallery_instagram_publish_jobs_status_check",
-  "drop constraint if exists gallery_instagram_publish_events_action_check",
-].forEach((snippet) => assertIncludes("manual share migration", manualMigration, snippet));
-
-assertMatches(
-  "migration",
-  migration,
-  /instagram_opt_in\s+(?:=|is)\s+false[\s\S]*instagram_opt_in_at is null[\s\S]*instagram_opt_in\s+(?:=|is)\s+true[\s\S]*instagram_opt_in_at is not null/,
-  "consent fields must be internally consistent and non-retroactive.",
+requireText(security, 'META_GRAPH_API_VERSION = "v26.0"', "Graph v26 pin");
+requireText(security, "accessToken}|${appsecretTime}", "timed proof payload");
+requireText(security, 'headers.set("Authorization"', "bearer transport");
+requireText(security, "AbortSignal.any", "non-bypassable timeout");
+requireText(
+  security,
+  "meta_token_debug_query_transport_not_approved",
+  "debugger blocker",
+);
+requireText(
+  publisher,
+  'Deno.env.get("INSTAGRAM_EXPECTED_ACCOUNT_ID")',
+  "account id pin",
+);
+requireText(
+  status,
+  "readInstagramPageLinkageOnce",
+  "Facebook Page to Instagram linkage read",
+);
+requireText(
+  status,
+  "pageConfig.expectedPageId",
+  "independently pinned Facebook Page linkage",
+);
+requireText(
+  diagnostic,
+  'fields: "id,instagram_business_account"',
+  "official Page linkage field",
+);
+requireText(
+  publisher,
+  'Deno.env.get("INSTAGRAM_PUBLISH_ENABLED")',
+  "activation flag",
+);
+requireText(
+  publisher,
+  "content_publishing_limit",
+  "dynamic quota query",
+);
+requireText(
+  publisher,
+  "normalizeInstagramContainerStatusCode",
+  "closed container-status normalizer",
+);
+requireText(
+  publisher,
+  'statusCode: "UNKNOWN"',
+  "unknown container-status redaction",
+);
+requireText(
+  publisher,
+  'action: "reconcile_required"',
+  "unknown container-status reconciliation",
+);
+requireText(
+  publisher,
+  'error: "container_in_progress"',
+  "in-progress container reconciliation",
+);
+requireText(
+  publisher,
+  "readContainerStatusOnce",
+  "single container-status read",
+);
+requireText(
+  copyPolicy,
+  "social_publication_url_reference_forbidden",
+  "destination-wide no-URL policy",
+);
+requireText(publisher, "/media_publish", "container publish endpoint");
+requireText(
+  publisher,
+  "id,owner,username,permalink,media_type",
+  "official media ownership readback",
+);
+requireText(
+  publishEndpoint,
+  "confirm_instagram_publish === true",
+  "correct Instagram wire flag",
+);
+requireText(
+  publishEndpoint,
+  "instagram_alt_text_required",
+  "required alt text",
+);
+requireText(publishEndpoint, "expected_updated_at", "revision binding");
+requireText(
+  publishEndpoint,
+  "confirmation_fingerprint",
+  "fingerprint request",
+);
+requireText(
+  publisher,
+  "p_confirmation_fingerprint",
+  "atomic RPC confirmation binding",
+);
+requireText(
+  reconcile,
+  "instagramMediaObjectEvidence",
+  "provider-owned reconciliation",
+);
+requireText(
+  diagnostic,
+  'businessAccountSubtypeVerification: values.provider === "instagram"',
+  "manual Business subtype prerequisite",
+);
+requireText(stub, "instagram_manual_share_disabled", "legacy 409 stub");
+requireText(
+  withdrawal,
+  "gallery_withdraw_social_publication_consent",
+  "withdrawal RPC",
+);
+requireText(docs, "v26.0", "documented API version");
+requireText(docs, "website field empty", "Instagram website policy");
+requireText(docs, "website/link field stays empty", "empty profile link");
+requireText(docs, "support@mochirii.com", "public support contact");
+requireText(runbook, "website consent v3", "current consent contract");
+requireText(runbook, "pinned to `v26.0`", "runbook API pin");
+requireText(
+  runbook,
+  "Both publishing flags remain `false`",
+  "runbook disabled-by-default posture",
+);
+requireText(
+  runbook,
+  "authenticated `409` compatibility stub",
+  "runbook legacy endpoint posture",
+);
+requireText(
+  runbook,
+  "public profile link fields remain empty",
+  "link-free Meta profiles",
 );
 
-[
-  "instagramOptIn",
-  "INSTAGRAM_OPT_IN_COPY_VERSION",
-  'instagram_opt_in_source: instagramOptIn ? "discord_slash_command" : null',
-  ".eq(\"discord_message_id\", messageId)",
-  ".eq(\"discord_attachment_id\", attachmentId)",
-].forEach((snippet) => assertIncludes("submit-discord-gallery-image", discordIngest, snippet));
-
-assertNotMatches(
-  "submit-discord-gallery-image",
-  discordIngest,
-  /update\(\{[\s\S]*instagram_opt_in/,
-  "duplicate Discord submissions must not update stored Instagram consent.",
-);
-
-[
-  "gallery_instagram_publish_jobs",
-  "gallery_instagram_publish_events",
-  'new Set(["image/jpeg"])',
-  "ineligible",
-  "buildInstagramCaption",
-  "buildInstagramAltText",
-].forEach((snippet) => assertIncludes("moderate-gallery-submission", moderation, snippet));
-
-[
-  "requireModeratorAccess(req)",
-  "gallery_instagram_publish_jobs",
-  "gallery_instagram_publish_events",
-  "createSignedUrl",
-  "signedPreviewUrl",
-  "instagramOptIn",
-].forEach((snippet) => assertIncludes("list-instagram-publish-queue", listQueue, snippet));
-
-[
-  "requireModeratorAccess(req)",
-  "INSTAGRAM_ACCOUNT_ID",
-  "INSTAGRAM_ACCESS_TOKEN",
-  "INSTAGRAM_API_VERSION",
-  "INSTAGRAM_API_BASE_URL",
-  "confirmPublish",
-  "createSignedUrl",
-  "/media",
-  "/media_publish",
-  "access_token: instagram.accessToken",
-  "signedData.signedUrl",
-  "status: \"published\"",
-].forEach((snippet) => assertIncludes("publish-instagram-gallery-submission", publish, snippet));
-
-[
-  "requireModeratorAccess(req)",
-  "INSTAGRAM_ACCOUNT_ID",
-  "INSTAGRAM_ACCESS_TOKEN",
-  "INSTAGRAM_API_VERSION",
-  "publishEnabled",
-  "accountReachable",
-  "Meta API publishing is not configured",
-].forEach((snippet) => assertIncludes("check-instagram-api-status", checkMeta, snippet));
-
-assertNotMatches(
-  "check-instagram-api-status",
-  checkMeta,
-  /\/media\b|\/media_publish\b|createSignedUrl|gallery_instagram_publish_jobs|gallery_instagram_publish_events/,
-  "Meta API diagnostic must not publish, create media containers, or mutate Instagram jobs.",
-);
-
-[
-  "requireModeratorAccess(req)",
-  "confirmManualShare",
-  "shared_manually",
-  "gallery_instagram_publish_jobs",
-  "gallery_instagram_publish_events",
-  "Only queued Instagram jobs can be marked shared manually.",
-].forEach((snippet) => assertIncludes("mark-instagram-gallery-submission-shared", markShared, snippet));
-
-assertNotMatches(
-  "mark-instagram-gallery-submission-shared",
-  markShared,
-  /INSTAGRAM_ACCOUNT_ID|INSTAGRAM_ACCESS_TOKEN|INSTAGRAM_API_VERSION|fetch\(/,
-  "manual sharing function must not call Meta or require Instagram credentials.",
-);
-
-assertNotMatches(
-  "publish-instagram-gallery-submission",
-  publish,
-  /console\.(log|error|warn)\([^)]*(accessToken|signedUrl|INSTAGRAM_ACCESS_TOKEN)/,
-  "publishing function must not log Instagram tokens or signed URLs.",
-);
-
-[
-  "DISCORD_GALLERY_CHANNEL_ID=1508077313965817856",
-  "DISCORD_GALLERY_INGEST_SECRET=",
-  "INSTAGRAM_ACCOUNT_ID=",
-  "INSTAGRAM_ACCESS_TOKEN=",
-  "INSTAGRAM_API_VERSION=",
-].forEach((snippet) => assertIncludes("supabase functions .env.example", envExample, snippet));
-
-[
-  "share_to_instagram",
-  "instagramOptIn",
-  "list-instagram-publish-queue",
-  "publish-instagram-gallery-submission",
-  "mark-instagram-gallery-submission-shared",
-  "Instagram credentials live only in Supabase secrets",
-  "no automatic Instagram publishing",
-  "manual sharing",
-].forEach((snippet) => assertIncludes("supabase README", supabaseReadme, snippet));
-
-[
-  "Instagram Queue",
-  "final confirmation",
-  "Mark shared manually",
-  "signed preview URLs",
-  "supabase secrets set",
-].forEach((snippet) => assertIncludes("moderation runbook", moderationRunbook, snippet));
-
-[
-  "Tracking PR: <https://github.com/Mochirii-Wushu/Mochirii-Website/pull/198>",
-  "/submit image:<file> [title:<title>] [subtitle:<subtitle>] [share_to_instagram:<true|false>]",
-  "No real Instagram post may be created without explicit action-time owner approval.",
-  "DISCORD_GALLERY_CHANNEL_ID",
-  "INSTAGRAM_ACCOUNT_ID",
-  "INSTAGRAM_ACCESS_TOKEN",
-  "supabase functions deploy list-instagram-publish-queue",
-  "supabase functions deploy publish-instagram-gallery-submission",
-  "supabase functions deploy mark-instagram-gallery-submission-shared",
-  "\"instagramOptIn\": true",
-  "shared_manually",
-  "wrong channel fail-closed",
-  "duplicate Discord message/attachment does not change stored consent",
-  "Rollback options",
-].forEach((snippet) => assertIncludes("Instagram deployment runbook", deploymentRunbook, snippet));
-
-[
-  "instagramOptIn",
-  "Allow Mōchirīī to share this image on our official Instagram if approved.",
-  "form-check",
-].forEach((snippet) => assertIncludes("Next upload form", nextSubmit, snippet));
-
-[
-  "Instagram Queue",
-  "publishInstagramGallerySubmission",
-  "markInstagramGallerySubmissionShared",
-  "Mark shared manually",
-  "Confirm manual share",
-  "Confirm Meta publish",
-  "Meta API Status",
-  "checkInstagramApiStatus",
-  "setInstagramJobMessages",
-  "Instagram caption",
-  "Instagram alt text",
-].forEach((snippet) => assertIncludes("Next leader dashboard", nextDashboard, snippet));
-
-assertNotMatches(
-  "Next leader dashboard",
-  nextDashboard,
-  /window\.confirm\("Mark this Instagram queue item|window\.confirm\("Publish this approved member image/,
-  "Instagram manual share and Meta publish actions must use visible in-card confirmation, not browser confirm prompts.",
-);
-
-[
-  "listInstagramPublishQueue",
-  "checkInstagramApiStatus",
-  "publishInstagramGallerySubmission",
-  "markInstagramGallerySubmissionShared",
-  "list-instagram-publish-queue",
-  "check-instagram-api-status",
-  "publish-instagram-gallery-submission",
-  "mark-instagram-gallery-submission-shared",
-].forEach((snippet) => assertIncludes("Next moderation helpers", nextHelpers, snippet));
-
-[
-  "INSTAGRAM_WEBSITE_OPT_IN_COPY_VERSION",
-  "instagram_opt_in_source",
-  "instagram_opt_in_copy_version",
-].forEach((snippet) => assertIncludes("Next upload helper", nextUploads, snippet));
-
-const browserFiles = walkFiles("apps/web").filter((file) => /\.(?:css|js|jsx|ts|tsx|html)$/i.test(file));
-
-for (const file of browserFiles) {
-  const source = readFileSync(path.join(root, file), "utf8");
-  assertNotMatches(
-    file,
-    source,
-    /INSTAGRAM_ACCESS_TOKEN|INSTAGRAM_ACCOUNT_ID|INSTAGRAM_API_BASE_URL|INSTAGRAM_API_VERSION/,
-    "Instagram server credentials must not appear in browser/Vercel code.",
-  );
+forbidText(production, "graph.instagram.com", "legacy Graph host");
+forbidText(production, "instagramAppSecretProof", "legacy untimed proof");
+forbidText(production, "v25.0", "old API version");
+forbidText(status, "debug_token", "token debugger call");
+forbidText(publisher, "account_type", "undocumented subtype query");
+forbidText(status, "account_type", "undocumented subtype diagnostic");
+forbidText(publisher, "CONTAINER_POLL_INTERVAL_MS", "rapid container polling");
+forbidText(publisher, "CONTAINER_POLL_ATTEMPTS", "container polling loop");
+forbidText(publisher, "sleepImpl", "in-request container polling sleep");
+forbidText(production, "console.error", "unsafe raw error logging");
+forbidText(production, "console.warn", "unsafe raw warning logging");
+forbidText(runbook, "v25.0", "stale runbook API version");
+forbidText(runbook, "shared_manually", "retired manual-completion state");
+if (/\b\d{8,}\b/u.test(runbook)) {
+  failures.push("Forbidden runbook numeric provider or platform identifier");
 }
 
 if (failures.length) {
   console.error("Instagram gallery publishing validation failed.");
   failures.forEach((failure) => console.error(`- ${failure}`));
-  process.exit(1);
+  process.exitCode = 1;
+} else {
+  console.log(
+    "Instagram gallery publishing validation passed (v26 pin, quota, confirmation, ownership reconciliation, withdrawal, and safe diagnostics).",
+  );
 }
-
-console.log("Instagram gallery publishing validation OK.");
