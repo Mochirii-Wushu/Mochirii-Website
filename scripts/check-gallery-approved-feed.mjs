@@ -637,6 +637,7 @@ assertNotIncludes(
   "safeGalleryModerationSubmission",
   "safeGalleryPublishJob",
   "safeInstagramPublishQueueItem",
+  "safeInstagramPublishResponse",
   "safeGalleryModerationConflict",
 ].forEach((snippet) =>
   assertIncludes("Gallery response allowlist", galleryResponseSafety, snippet)
@@ -645,6 +646,7 @@ assertNotIncludes(
   "strip private paths and source evidence",
   "strip provider identifiers, profile URLs, publication copy, and raw job fields",
   "Instagram queue response uses an exact browser-safe top-level shape",
+  "Instagram publish responses use exact caller-safe success and failure shapes",
   "conflicts expose only reviewed categories",
 ].forEach((snippet) =>
   assertIncludes("Gallery response allowlist tests", galleryResponseSafetyTests, snippet)

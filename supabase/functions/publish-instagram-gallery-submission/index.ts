@@ -14,6 +14,7 @@ import {
   requireModeratorAccess,
   safeString,
 } from "../_shared/gallery-moderation.ts";
+import { safeInstagramPublishResponse } from "../_shared/gallery-response-safety.ts";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -170,18 +171,7 @@ async function handleRequest(req: Request): Promise<Response> {
   });
 
   if (published.ok) {
-    return jsonResponse({
-      ok: true,
-      data: {
-        jobId,
-        status: published.status,
-        instagramContainerId: published.instagramContainerId,
-        instagramMediaId: published.instagramMediaId,
-        instagramPermalink: published.instagramPermalink,
-        publishedAt: published.publishedAt,
-      },
-      message: published.message,
-    });
+    return jsonResponse(safeInstagramPublishResponse(jobId, published));
   }
 
   const statusCode = published.error === "job_not_found"
@@ -196,19 +186,7 @@ async function handleRequest(req: Request): Promise<Response> {
     : 409;
 
   return jsonResponse(
-    {
-      ok: false,
-      error: published.error || "instagram_publish_failed",
-      data: {
-        jobId,
-        status: published.status,
-        attempted: published.attempted,
-        instagramContainerId: published.instagramContainerId,
-        instagramMediaId: published.instagramMediaId,
-        instagramPermalink: published.instagramPermalink,
-      },
-      message: published.message,
-    },
+    safeInstagramPublishResponse(jobId, published),
     statusCode,
   );
 }

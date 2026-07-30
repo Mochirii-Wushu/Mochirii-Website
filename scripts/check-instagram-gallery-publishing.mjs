@@ -177,9 +177,19 @@ requireText(
   "browser queue response allowlist",
 );
 requireText(
+  publishEndpoint,
+  "safeInstagramPublishResponse(jobId, published)",
+  "publish response allowlist",
+);
+requireText(
   responseSafety,
   "safeInstagramPublishQueueItem",
   "Instagram queue response projector",
+);
+requireText(
+  responseSafety,
+  "safeInstagramPublishResponse",
+  "Instagram publish response projector",
 );
 requireText(
   responseSafetyTests,
@@ -190,6 +200,16 @@ requireText(
   responseSafetyTests,
   "private transient provider state reached the Instagram queue DTO",
   "transient container-id rejection regression",
+);
+requireText(
+  responseSafetyTests,
+  "Instagram publish responses use exact caller-safe success and failure shapes",
+  "exact publish response-shape regression",
+);
+requireText(
+  responseSafetyTests,
+  "private transient provider state reached an Instagram publish response",
+  "publish response provider-state rejection regression",
 );
 requireText(
   publisher,
@@ -252,6 +272,11 @@ forbidText(
   queueEndpoint,
   "instagramContainerId",
   "private container id browser field",
+);
+forbidText(
+  publishEndpoint,
+  "instagramContainerId",
+  "private container id publish response field",
 );
 forbidText(production, "console.error", "unsafe raw error logging");
 forbidText(production, "console.warn", "unsafe raw warning logging");

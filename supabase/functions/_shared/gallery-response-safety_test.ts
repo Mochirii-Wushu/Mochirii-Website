@@ -4,6 +4,7 @@ import {
   safeGalleryModeratorProfile,
   safeGalleryPublishJob,
   safeInstagramPublishQueueItem,
+  safeInstagramPublishResponse,
 } from "./gallery-response-safety.ts";
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -119,6 +120,75 @@ Deno.test("Instagram queue response uses an exact browser-safe top-level shape",
       !encoded.includes("private-alias") &&
       !encoded.includes("private-provider-response"),
     "private transient provider state reached the Instagram queue DTO",
+  );
+});
+
+Deno.test("Instagram publish responses use exact caller-safe success and failure shapes", () => {
+  const success = safeInstagramPublishResponse("job-id", {
+    attempted: true,
+    ok: true,
+    status: "published",
+    instagramContainerId: "synthetic-private-container-id",
+    instagramMediaId: "synthetic-stable-media-id",
+    instagramPermalink: "https://www.instagram.com/p/synthetic/",
+    publishedAt: "2026-07-29T00:02:00Z",
+    error: null,
+    message: "Image published to @mochirii_guild.",
+    job: { instagram_container_id: "synthetic-private-db-container-id" },
+    details: { raw_provider_response: "synthetic-private-success-detail" },
+  });
+  const failure = safeInstagramPublishResponse("job-id", {
+    attempted: true,
+    ok: false,
+    status: "reconcile_required",
+    instagramContainerId: "synthetic-private-container-id",
+    instagramMediaId: "synthetic-stable-media-id",
+    instagramPermalink: null,
+    publishedAt: null,
+    error: "instagram_publish_reconcile_required",
+    message: "Inspect the official account before any retry.",
+    providerResponse: "synthetic-private-provider-response",
+    details: { raw_provider_response: "synthetic-private-failure-detail" },
+  });
+
+  const expectedSuccess = {
+    ok: true,
+    data: {
+      jobId: "job-id",
+      status: "published",
+      instagramMediaId: "synthetic-stable-media-id",
+      instagramPermalink: "https://www.instagram.com/p/synthetic/",
+      publishedAt: "2026-07-29T00:02:00Z",
+    },
+    message: "Image published to @mochirii_guild.",
+  };
+  const expectedFailure = {
+    ok: false,
+    error: "instagram_publish_reconcile_required",
+    data: {
+      jobId: "job-id",
+      status: "reconcile_required",
+      attempted: true,
+      instagramMediaId: "synthetic-stable-media-id",
+      instagramPermalink: null,
+    },
+    message: "Inspect the official account before any retry.",
+  };
+  assert(
+    JSON.stringify(success) === JSON.stringify(expectedSuccess),
+    "Instagram publish success response shape drifted",
+  );
+  assert(
+    JSON.stringify(failure) === JSON.stringify(expectedFailure),
+    "Instagram publish failure response shape drifted",
+  );
+  const encoded = JSON.stringify({ success, failure });
+  assert(
+    !encoded.includes("private-container") &&
+      !encoded.includes("private-provider") &&
+      !encoded.includes("private-success-detail") &&
+      !encoded.includes("private-failure-detail"),
+    "private transient provider state reached an Instagram publish response",
   );
 });
 

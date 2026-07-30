@@ -80,6 +80,39 @@ export function safeInstagramPublishQueueItem(
   };
 }
 
+export function safeInstagramPublishResponse(
+  jobId: unknown,
+  value: unknown,
+): GalleryJsonRecord {
+  const published = record(value);
+  if (published.ok === true) {
+    return {
+      ok: true,
+      data: {
+        jobId,
+        status: published.status,
+        instagramMediaId: published.instagramMediaId,
+        instagramPermalink: published.instagramPermalink,
+        publishedAt: published.publishedAt,
+      },
+      message: published.message,
+    };
+  }
+
+  return {
+    ok: false,
+    error: published.error || "instagram_publish_failed",
+    data: {
+      jobId,
+      status: published.status,
+      attempted: published.attempted,
+      instagramMediaId: published.instagramMediaId,
+      instagramPermalink: published.instagramPermalink,
+    },
+    message: published.message,
+  };
+}
+
 export function safeGalleryModerationSubmission(
   value: unknown,
 ): GalleryJsonRecord {
