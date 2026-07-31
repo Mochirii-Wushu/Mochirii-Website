@@ -155,6 +155,7 @@ jobs:
           tests/Feature/MochiriiSocialSyncServiceTest.php
           tests/Feature/OAuthTokenRevocationTest.php
           tests/Feature/PrivateSocialBoundaryTest.php
+          tests/Feature/PrivateMediaClientAddressTest.php
           tests/Feature/PrivateMediaGatewayTest.php
           tests/Feature/PrivateMediaSourceContractTest.php
 
