@@ -1,7 +1,7 @@
-@if(config('instance.restricted.enabled') == false)
-  <footer>
+<footer>
     <div class="container py-5">
         <p class="text-center text-uppercase font-weight-bold small text-justify">
+          @if(config('instance.restricted.enabled') == false)
           @auth
             <a href="{{route('site.about')}}" class="text-dark p-2">{{__('site.about')}}</a>
             <a href="{{route('site.help')}}" class="text-dark p-2">{{__('site.help')}}</a>
@@ -17,10 +17,11 @@
           @guest
             <a href="https://mochirii.com/" class="text-dark p-2">Mōchirīī</a>
           @endguest
+          @endif
+          <a href="{{route('site.opensource')}}" class="text-dark p-2">Open-source notices</a>
         </p>
         <p class="text-center text-muted small mb-0">
           <span class="text-muted">&copy; {{date('Y')}} Mōchirīī Social</span>
         </p>
     </div>
-  </footer>
-  @endif
+</footer>

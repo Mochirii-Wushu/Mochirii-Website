@@ -108,6 +108,16 @@ branch-protection continuity even though the job now validates the repository.
 - Keep ActivityPub federation disabled until its separate readiness packet is
   approved.
 
+## License Boundaries
+
+This repository does not use one root-level license for every source boundary.
+The upstream-derived Social application under `services/social` retains the
+GNU Affero General Public License version 3 in
+[`services/social/LICENSE`](services/social/LICENSE). Other repository paths
+retain only the licenses and notices present in their own files; the Social
+license must not be represented as a blanket license for unrelated Website,
+storefront, backend, mobile, or game source.
+
 `npm run check:repository-boundaries` enforces current-tree brand and secret
 hygiene, generated-archive rejection, reviewed file-size limits, and a locked
 historical-residue baseline without rewriting public Git history.

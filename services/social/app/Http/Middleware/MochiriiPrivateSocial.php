@@ -29,6 +29,7 @@ class MochiriiPrivateSocial
         'logout',
         'site/privacy',
         'site/terms',
+        'site/open-source',
         'site/legal-notice',
         'e/privacy',
         'e/terms',

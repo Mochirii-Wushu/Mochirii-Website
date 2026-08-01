@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Page;
 use App\Profile;
 use App\Services\FollowerService;
+use App\Services\MochiriiSourceRelease;
 use App\Services\StatusService;
 use App\User;
 use App\Util\ActivityPub\Helpers;
@@ -85,6 +86,13 @@ class SiteController extends Controller
     public function privacy(Request $request)
     {
         return View::make('site.privacy')->render();
+    }
+
+    public function openSource(Request $request)
+    {
+        return View::make('site.open-source', [
+            'sourceRelease' => MochiriiSourceRelease::current(),
+        ])->render();
     }
 
     public function terms(Request $request)

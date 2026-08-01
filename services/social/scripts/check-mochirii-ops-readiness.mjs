@@ -13,6 +13,7 @@ const requiredDocs = [
   "docs/fediverse-activation-runbook.md",
   "docs/online-hosted-runtime.md",
   "docs/online-backup-recovery.md",
+  "docs/open-source-release-readiness.md",
 ];
 
 const failures = [];
@@ -101,6 +102,7 @@ const publicDenyTokens = [
   "youtube.com/embed",
   "321493203255693312",
 ];
+const legalAttributionSurface = "resources/views/site/open-source.blade.php";
 
 function read(file) {
   const fullPath = path.join(root, file);
@@ -151,6 +153,8 @@ function walkFiles(relativeDir) {
 }
 
 function assertNoPublicResidue(file) {
+  if (file === legalAttributionSurface) return;
+
   const text = read(file);
   for (const token of publicDenyTokens) {
     if (text.includes(token)) {
@@ -201,6 +205,24 @@ for (const removedFile of ["funding.json", ".github/FUNDING.yml"]) {
 
 for (const file of [...publicSurfaceFiles, ...publicSurfaceDirs.flatMap(walkFiles)]) {
   assertNoPublicResidue(file);
+}
+
+const openSourceNotice = read(legalAttributionSurface);
+requireIncludes(legalAttributionSurface, openSourceNotice, [
+  "Open-source notices",
+  "modified Pixelfed software",
+  "GNU Affero General Public License, version 3",
+  "$sourceRelease->revision()",
+  "$sourceRelease->browseUrl()",
+  "$sourceRelease->archiveUrl()",
+  "$sourceRelease->commitUrl()",
+  "$sourceRelease->licenseUrl()",
+  "Exact source release information is temporarily unavailable.",
+]);
+for (const unrelatedProvider of ["Mastodon", "Fediverse", "ActivityPub", "Instagram"]) {
+  if (openSourceNotice.includes(unrelatedProvider)) {
+    failures.push(`${legalAttributionSurface} contains unrelated provider branding: ${unrelatedProvider}`);
+  }
 }
 
 for (const file of publicSurfaceDirs.flatMap(walkFiles)) {
@@ -384,6 +406,24 @@ requireIncludes("README.md", readme, [
   "Federation disabled",
   "Do not commit host `.env` files",
   "isolated temporary clone",
+  "GNU Affero General Public License version 3",
+  "not a blanket license for unrelated paths",
+]);
+
+const repositoryReadme = readRepository("README.md");
+requireIncludes("README.md", repositoryReadme, [
+  "## License Boundaries",
+  "services/social/LICENSE",
+  "does not use one root-level license for every source boundary",
+]);
+
+const sourceReadinessDoc = read("docs/open-source-release-readiness.md");
+requireIncludes("docs/open-source-release-readiness.md", sourceReadinessDoc, [
+  "does not provide a legal conclusion",
+  "Qualified counsel approval",
+  "`/site/open-source`",
+  "lowercase 40-character revision equals the checked-out commit",
+  "Do not deploy an image whose source page shows the unavailable state",
 ]);
 
 const staleReadmeMarketing = [
@@ -661,6 +701,9 @@ requireIncludes("Dockerfile", dockerfile, [
   "COPY --chmod=755 ./docker/entrypoint.d/ /etc/entrypoint.d/",
   "composer install --no-ansi --no-interaction --no-dev --optimize-autoloader",
   "php scripts/check-production-composer-dependencies.php",
+  "ARG MOCHIRII_SOURCE_REVISION",
+  "@MOCHIRII_SOURCE_REVISION@",
+  "MOCHIRII_SOURCE_REVISION must be a lowercase 40-character commit",
 ]);
 
 const productionImageBuild = read("scripts/build-production-image.sh");
@@ -671,6 +714,33 @@ requireIncludes("scripts/build-production-image.sh", productionImageBuild, [
   "docker buildx build",
   "BUILD_CACHE_FROM",
   "BUILD_CACHE_TO",
+  '--build-arg "MOCHIRII_SOURCE_REVISION=$revision"',
+  '[[ "$revision" != "$current_revision" ]]',
+  'git status --porcelain --untracked-files=all',
+  'source checkout must be clean before an exact release build',
+]);
+
+const sourceConfig = read("config/mochirii-source.php");
+requireIncludes("config/mochirii-source.php", sourceConfig, [
+  "'revision' => '@MOCHIRII_SOURCE_REVISION@'",
+  "'repository_url' => 'https://github.com/Mochirii-Wushu/Mochirii-Website'",
+  "'subdirectory' => 'services/social'",
+]);
+for (const runtimeSource of ["env(", "getenv(", "$_ENV", "$_SERVER"]) {
+  if (sourceConfig.includes(runtimeSource)) {
+    failures.push(`config/mochirii-source.php must not accept runtime source metadata: ${runtimeSource}`);
+  }
+}
+
+const sourceReleaseService = read("app/Services/MochiriiSourceRelease.php");
+requireIncludes("app/Services/MochiriiSourceRelease.php", sourceReleaseService, [
+  "final class MochiriiSourceRelease",
+  "preg_match('/\\A[0-9a-f]{40}\\z/D', $revision)",
+  "return null;",
+  "'/tree/'",
+  "'/archive/'",
+  "'/commit/'",
+  "'/blob/'",
 ]);
 
 const verifiedBuildTools = readRepository("scripts/install-verified-social-build-tools.sh");
@@ -698,6 +768,7 @@ requireIncludes(".github/workflows/validate-social.yml", validationWorkflow, [
   "Rebuild and verify committed Social assets",
   "tests/Feature/DisabledUpstreamServicesTest.php",
   "tests/Feature/MochiriiBrandingTest.php",
+  "tests/Feature/OpenSourceNoticeTest.php",
   "tests/Feature/ReadinessBoundarySourceContractTest.php",
   "tests/Feature/RetiredAccountCreationBoundaryTest.php",
   "tests/Feature/PassportSurfaceBoundaryTest.php",
@@ -812,6 +883,7 @@ requireIncludes("app/Http/Middleware/MochiriiPrivateSocial.php", privateSocialMi
   "$authGuard->logout()",
   "$request->session()->invalidate()",
   "$path === '/oauth/authorize'",
+  "'site/open-source'",
 ]);
 
 const localAccountPolicy = read("app/Services/MochiriiLocalAccountPolicy.php");
@@ -891,7 +963,17 @@ requireIncludes("routes/web.php", webRoutes, [
   "Route::get('labs', 'SettingsController@labs')->name('settings.labs')->middleware('admin.notfound')",
   "Route::group(['prefix' => 'import', 'middleware' => ['dangerzone', 'admin.notfound']]",
   "middleware('mochirii.federation-disabled')",
+  "Route::get('open-source', 'SiteController@openSource')->name('site.opensource')",
 ]);
+
+const sharedFooter = read("resources/views/layouts/partial/footer.blade.php");
+requireIncludes("resources/views/layouts/partial/footer.blade.php", sharedFooter, [
+  "route('site.opensource')",
+  "Open-source notices",
+]);
+if (sharedFooter.trimStart().startsWith("@if(config('instance.restricted.enabled') == false)")) {
+  failures.push("The restricted shell must retain the open-source notice footer link");
+}
 for (const retiredControllerRoute of [
   "SettingsController@applications",
   "SettingsController@developers",

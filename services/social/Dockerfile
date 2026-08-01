@@ -2,6 +2,8 @@ FROM serversideup/php:8.4-fpm-nginx@sha256:8eec7ce8d9d6a38bbc6f0f70ef439aab22796
 
 LABEL org.opencontainers.image.source="https://github.com/Mochirii-Wushu/Mochirii-Website"
 
+ARG MOCHIRII_SOURCE_REVISION
+
 # Set working directory
 WORKDIR /var/www/html
 
@@ -40,6 +42,15 @@ RUN install-php-extensions \
 
 # Copy application files
 COPY --chown=www-data:www-data . /var/www/html
+
+# Bind the public source offer to the immutable commit used for this image.
+# A direct or malformed build must fail instead of publishing a false claim.
+RUN case "$MOCHIRII_SOURCE_REVISION" in \
+      ''|*[!0-9a-f]*) echo "MOCHIRII_SOURCE_REVISION must be a lowercase 40-character commit" >&2; exit 1 ;; \
+    esac \
+    && [ "${#MOCHIRII_SOURCE_REVISION}" -eq 40 ] \
+    && sed -i "s/@MOCHIRII_SOURCE_REVISION@/$MOCHIRII_SOURCE_REVISION/" config/mochirii-source.php \
+    && ! grep -q '@MOCHIRII_SOURCE_REVISION@' config/mochirii-source.php
 
 # Install fast, idempotent startup guards before Laravel bootstraps.
 COPY --chmod=755 ./docker/entrypoint.d/ /etc/entrypoint.d/

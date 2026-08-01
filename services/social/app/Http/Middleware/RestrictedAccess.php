@@ -18,7 +18,7 @@ class RestrictedAccess
     {
         if (config('instance.restricted.enabled')) {
             if (! Auth::guard($guard)->check()) {
-                $p = ['login', 'password*', 'loginAs*'];
+                $p = ['login', 'password*', 'loginAs*', 'site/open-source'];
                 if (! $request->is($p)) {
                     return redirect('/login');
                 }

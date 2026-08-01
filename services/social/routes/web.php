@@ -311,7 +311,7 @@ Route::domain(config('pixelfed.domain.app'))->middleware(['validemail', 'twofact
         Route::view('help', 'site.help')->name('site.help');
         Route::redirect('developer-api', '/site/help')->name('site.developers');
         Route::redirect('fediverse', '/site/about')->name('site.fediverse');
-        Route::redirect('open-source', '/site/about')->name('site.opensource');
+        Route::get('open-source', 'SiteController@openSource')->name('site.opensource');
         Route::view('banned-instances', 'site.bannedinstances')->name('site.bannedinstances');
         Route::get('terms', 'SiteController@terms')->name('site.terms');
         Route::get('privacy', 'SiteController@privacy')->name('site.privacy');

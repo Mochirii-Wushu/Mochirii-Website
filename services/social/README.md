@@ -58,6 +58,7 @@ policy, sync documentation, media readiness notes, and federation gate docs.
 - [`docs/upstream-sync-policy.md`](docs/upstream-sync-policy.md)
 - [`docs/media-spaces-readiness.md`](docs/media-spaces-readiness.md)
 - [`docs/fediverse-activation-runbook.md`](docs/fediverse-activation-runbook.md)
+- [`docs/open-source-release-readiness.md`](docs/open-source-release-readiness.md)
 
 ## First-Admin Login Gate
 
@@ -72,6 +73,8 @@ First-admin login is complete only when:
 
 ## License
 
-This repository contains Mochirii operations work plus upstream application
-source under its original license. Preserve upstream license notices and keep
+The upstream-derived application source in this `services/social` subtree
+retains the GNU Affero General Public License version 3 in [`LICENSE`](LICENSE).
+That subtree license is not a blanket license for unrelated paths at the
+repository root. Preserve all upstream and third-party notices and keep
 Mochirii operational secrets out of Git.

@@ -140,6 +140,7 @@ jobs:
           tests/Feature/CsrfBootstrapContractTest.php
           tests/Feature/HealthCheckTest.php
           tests/Feature/MochiriiBrandingTest.php
+          tests/Feature/OpenSourceNoticeTest.php
           tests/Feature/PublicPrivacyContractTest.php
           tests/Feature/RequestIdSourceContractTest.php
           tests/Feature/ReadinessBoundarySourceContractTest.php
