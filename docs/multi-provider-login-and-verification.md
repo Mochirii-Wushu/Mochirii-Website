@@ -65,6 +65,16 @@ The six reviewed source labels are exact:
 - `Log in with Twitch`
 - `Log in with Spotify`
 
+On 2026-08-01, the release owner expressly approved a narrow public-name and
+mark exception for these six exact actions on Mōchirīī authentication-provider
+choosers. The exception covers only the exact action text above and each
+matching reviewed, unmodified local mark; it does not authorize provider names
+as general Mōchirīī branding, provider SDKs, remote artwork, additional OAuth
+paths, runtime enablement, a new identity-linking provider, or provider
+configuration. The existing Account identity-link controls remain governed by
+their independent allowlist and release gate; this exception does not change
+that surface or make a sign-in provider linkable automatically.
+
 Official local marks live under
 `apps/web/public/assets/auth-providers`. Their retrieval source, review date,
 and SHA-256 are recorded in that directory's `README.md`. The files are used
@@ -72,6 +82,13 @@ only to identify the matching authentication option, are excluded from the
 Mochirii project license, and must not be recolored, distorted, or reused as
 Mochirii branding. Loading the sign-in page must not fetch logo artwork from a
 provider at runtime.
+
+Each enabled sign-in control exposes only the provider's exact reviewed action
+label as its accessible name and visible button text. Membership-verification
+status is a separate description below the control, so Mōchirīī guidance does
+not alter or compete with the provider-branded action. The controls retain
+equal visual weight, a minimum 44 CSS-pixel target, keyboard focus visibility,
+and one-column reflow on compact screens.
 
 Facebook uses the unmodified login mark linked by Meta's Login Button
 documentation while Supabase continues to own the OAuth flow; do not add

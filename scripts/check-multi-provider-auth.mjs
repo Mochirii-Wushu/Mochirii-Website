@@ -110,7 +110,7 @@ assertIncludes("check-all", checkAll, '["test:member-access-refresh", ["deno", "
   "OFFICIAL_PROVIDER_ASSETS",
   "/assets/auth-providers/apple-logo.generated.svg",
   "/assets/auth-providers/facebook-login-mark.svg",
-  "/assets/auth-providers/google-sign-in-dark-square.generated.svg",
+  "/assets/auth-providers/google-g.generated.svg",
   "/assets/auth-providers/discord-symbol-white.svg",
   "/assets/auth-providers/twitch-glitch-white.svg",
   "/assets/auth-providers/spotify-primary-logo-green.svg",
@@ -177,7 +177,13 @@ assertIncludes("check-all", checkAll, '["test:member-access-refresh", ["deno", "
   "verifyPhoneOtp",
   "placeholderOAuthProviders",
   "Setup pending",
+  "provider-button--${provider.id} provider-button--placeholder",
+  "provider-button__label",
+  "provider-option__note",
+  "aria-describedby={noteId}",
 ].forEach((snippet) => assertIncludes("AuthPanel", authPanel, snippet));
+assertNotIncludes("AuthPanel provider prominence", authPanel, "provider-button--primary");
+assertNotIncludes("AuthPanel placeholder privacy", authPanel, "Setup pending. {provider.setupNote}");
 
 [
   "Identity Linking",
@@ -212,7 +218,7 @@ assertNotIncludes("AccountPanel link policy", accountPanel, "Setup pending");
   "production-disabled",
   "apple-logo.generated.svg",
   "facebook-login-mark.svg",
-  "google-sign-in-dark-square.generated.svg",
+  "google-g.generated.svg",
   "discord-symbol-white.svg",
   "twitch-glitch-white.svg",
   "spotify-primary-logo-green.svg",
@@ -253,6 +259,8 @@ assertNotIncludes("AccountPanel link policy", accountPanel, "Setup pending");
   ".provider-logo--google",
   ".provider-button--placeholder",
   ".provider-button__copy",
+  ".provider-button__label",
+  ".provider-option__note",
 ].forEach((snippet) => assertIncludes("Next auth CSS", nextCss, snippet));
 
 const mobileProviderGridRule = ".provider-grid,\n  .provider-grid--compact{\n    grid-template-columns:1fr;";

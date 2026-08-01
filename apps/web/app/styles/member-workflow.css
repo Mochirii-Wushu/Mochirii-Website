@@ -244,13 +244,20 @@ body[data-page="gallery-submit"] .muted{
   grid-template-columns:repeat(3, minmax(0, 1fr));
 }
 
+.provider-option{
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  gap:7px;
+}
+
 .provider-button{
   min-width:0;
   display:flex;
   gap:12px;
   align-items:center;
-  justify-content:space-between;
-  min-height:76px;
+  justify-content:flex-start;
+  min-height:56px;
   padding:12px;
   border-radius:16px;
   border:1px solid rgba(220,235,255,.16);
@@ -263,13 +270,6 @@ body[data-page="gallery-submit"] .muted{
   cursor:pointer;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.06);
   transition:border-color .16s ease, background .16s ease, transform .16s ease, box-shadow .16s ease;
-}
-
-.provider-button--primary{
-  border-color:rgba(48,178,143,.35);
-  background:
-    radial-gradient(circle at 0% 0%, rgba(48,178,143,.16), transparent 42%),
-    rgba(0,0,0,.18);
 }
 
 .provider-button:hover,
@@ -320,6 +320,35 @@ body[data-page="gallery-submit"] .muted{
   gap:5px;
 }
 
+.provider-button__label{
+  min-width:0;
+  color:var(--ink-0);
+  font-size:14px;
+  font-weight:800;
+  line-height:1.25;
+}
+
+.provider-option > .provider-button:not(.provider-button--apple):not(.provider-button--google){
+  gap:10px;
+  padding:10px;
+}
+
+.provider-option > .provider-button:not(.provider-button--apple):not(.provider-button--google) .provider-button__label{
+  font-size:13px;
+}
+
+.provider-option > .provider-button:not(.provider-button--apple):not(.provider-button--google) .provider-logo{
+  width:32px;
+  height:32px;
+}
+
+.provider-option__note{
+  color:var(--auth-muted);
+  font-size:12px;
+  line-height:1.35;
+  padding-inline:4px;
+}
+
 .provider-button__copy span{
   color:var(--ink-0);
   font-weight:800;
@@ -344,7 +373,13 @@ body[data-page="gallery-submit"] .muted{
   box-shadow:inset 0 1px 0 rgba(255,255,255,.12);
 }
 
-.provider-logo img,
+.provider-logo img{
+  display:block;
+  max-width:100%;
+  max-height:100%;
+  object-fit:contain;
+}
+
 .provider-logo svg{
   width:22px;
   height:22px;
@@ -354,12 +389,90 @@ body[data-page="gallery-submit"] .muted{
 .provider-logo--discord{ background:#5865f2; }
 .provider-logo--facebook{ background:transparent; box-shadow:none; }
 .provider-logo--google{ background:transparent; box-shadow:none; }
-.provider-logo--google img{ width:34px; height:34px; }
-.provider-logo--apple{ background:#000; }
+.provider-button--google .provider-logo--google{ width:20px; height:20px; }
+.provider-button--google .provider-logo--google img{ width:20px; height:20px; }
+.provider-logo--apple{ background:#fff; box-shadow:none; }
+.provider-button--apple .provider-logo--apple{
+  position:absolute;
+  inset-inline-start:0;
+  top:50%;
+  width:56px;
+  height:56px;
+  background:transparent;
+  box-shadow:none;
+  transform:translateY(-50%);
+}
+.provider-button--apple .provider-logo--apple img{ width:100%; height:100%; }
 .provider-logo--kakao{ background:#fee500; color:#000; }
 .provider-logo--twitch{ background:#9146ff; }
 .provider-logo--spotify{ background:#000; }
 .provider-logo--phone{ background:rgba(48,178,143,.22); color:var(--jade-2); }
+
+.provider-button--google{
+  gap:10px;
+  min-height:56px;
+  padding:0 12px;
+  border-color:#8e918f;
+  border-radius:28px;
+  background:#131314;
+  color:#e3e3e3;
+  font-family:Roboto, Arial, sans-serif;
+  font-size:14px;
+  font-weight:500;
+  letter-spacing:.25px;
+}
+
+.provider-button--google:hover,
+.provider-button--google:focus-visible{
+  border-color:#8e918f;
+  background:#131314;
+}
+
+.provider-button--google .provider-button__label{
+  color:#e3e3e3;
+  font-weight:500;
+  line-height:20px;
+}
+
+.provider-button--apple{
+  position:relative;
+  justify-content:center;
+  min-height:56px;
+  padding:12px 16px;
+  border-color:#000;
+  border-radius:15px;
+  background:#fff;
+  color:#000;
+  font-family:-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+}
+
+.provider-button--apple:hover,
+.provider-button--apple:focus-visible{
+  border-color:#000;
+  background:#fff;
+}
+
+.provider-button--apple .provider-button__label{
+  color:#000;
+  font-size:24px;
+  font-weight:500;
+  line-height:1;
+}
+
+@media (max-width:340px){
+  .provider-button--apple{
+    min-height:52px;
+  }
+
+  .provider-button--apple .provider-logo--apple{
+    width:52px;
+    height:52px;
+  }
+
+  .provider-button--apple .provider-button__label{
+    font-size:22px;
+  }
+}
 
 @media (max-width:720px){
   .provider-grid,

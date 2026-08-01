@@ -12,8 +12,8 @@ const OFFICIAL_PROVIDER_ASSETS: Partial<Record<AuthProviderId, {
 }>> = {
   apple: {
     src: "/assets/auth-providers/apple-logo.generated.svg",
-    width: 22,
-    height: 22,
+    width: 56,
+    height: 56,
   },
   facebook: {
     src: "/assets/auth-providers/facebook-login-mark.svg",
@@ -21,19 +21,19 @@ const OFFICIAL_PROVIDER_ASSETS: Partial<Record<AuthProviderId, {
     height: 22,
   },
   google: {
-    src: "/assets/auth-providers/google-sign-in-dark-square.generated.svg",
-    width: 34,
-    height: 34,
+    src: "/assets/auth-providers/google-g.generated.svg",
+    width: 20,
+    height: 20,
   },
   discord: {
     src: "/assets/auth-providers/discord-symbol-white.svg",
-    width: 24,
-    height: 19,
+    width: 29,
+    height: 22,
   },
   twitch: {
     src: "/assets/auth-providers/twitch-glitch-white.svg",
-    width: 21,
-    height: 24,
+    width: 24,
+    height: 28,
   },
   spotify: {
     src: "/assets/auth-providers/spotify-primary-logo-green.svg",

@@ -16,6 +16,7 @@
 *.yml text eol=lf
 *.yaml text eol=lf
 *.toml text eol=lf
+apps/web/public/assets/auth-providers/*.svg text eol=lf
 
 *.avif binary
 *.gif binary

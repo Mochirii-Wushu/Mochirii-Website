@@ -74,6 +74,7 @@ const checks = [
   ["test:supabase-service-role", ["deno", "test", "--lock=deno.lock", "--frozen=true", "supabase/functions/_shared/supabase-service-role_test.ts"]],
   ["check:multi-provider-auth", ["node", "scripts/check-multi-provider-auth.mjs"]],
   ["check:apple-auth-readiness", ["node", "scripts/check-apple-auth-readiness.mjs"]],
+  ["test:auth-provider-brand-asset-bytes", ["node", "--test", "scripts/lib/canonical-checkout-text.test.mjs"]],
   ["check:auth-provider-brand-assets", ["node", "scripts/check-auth-provider-brand-assets.mjs"]],
   ["test:auth-provider-policy", ["node", "--experimental-default-type=module", "--experimental-strip-types", "--test", "apps/web/lib/supabase/auth-provider-policy-core.test.mts"]],
   ["check:auth-provider-state-cleanup", ["node", "scripts/check-auth-provider-state-cleanup.mjs"]],

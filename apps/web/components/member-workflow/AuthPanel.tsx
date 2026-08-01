@@ -212,37 +212,45 @@ export function AuthPanel() {
       <div className="auth-actions" aria-label="Authentication actions">
         {!signedIn ? (
           <div className="provider-grid" role="list" aria-label="Available sign-in providers">
-            {oauthProviders.map((provider) => (
-              <button
-                className={`provider-button${provider.id === "discord" ? " provider-button--primary" : ""}`}
-                type="button"
-                onClick={() => login(provider.id)}
-                disabled={busy}
-                key={provider.id}
-              >
-                <ProviderLogo provider={provider.id} />
-                <span className="provider-button__copy">
-                  <span>{provider.signInLabel}</span>
-                  <small>{provider.automaticVerification ? "Automatic Discord role check" : "Moderator review required"}</small>
-                </span>
-              </button>
-            ))}
-            {placeholderProviders.map((provider) => (
-              <button
-                className="provider-button provider-button--placeholder"
-                type="button"
-                disabled
-                aria-label={`${provider.label} sign-in setup pending`}
-                title={provider.setupNote}
-                key={`placeholder-${provider.id}`}
-              >
-                <ProviderLogo provider={provider.id} />
-                <span className="provider-button__copy">
-                  <span>{provider.signInLabel}</span>
-                  <small>Setup pending</small>
-                </span>
-              </button>
-            ))}
+            {oauthProviders.map((provider) => {
+              const noteId = `provider-note-${provider.id}`;
+              return (
+                <div className="provider-option" role="listitem" key={provider.id}>
+                  <button
+                    className={`provider-button provider-button--${provider.id}`}
+                    type="button"
+                    onClick={() => login(provider.id)}
+                    disabled={busy}
+                    aria-describedby={noteId}
+                  >
+                    <ProviderLogo provider={provider.id} />
+                    <span className="provider-button__label">{provider.signInLabel}</span>
+                  </button>
+                  <small className="provider-option__note" id={noteId}>
+                    {provider.automaticVerification ? "Automatic Discord role check" : "Moderator review required"}
+                  </small>
+                </div>
+              );
+            })}
+            {placeholderProviders.map((provider) => {
+              const noteId = `provider-note-${provider.id}`;
+              return (
+                <div className="provider-option" role="listitem" key={`placeholder-${provider.id}`}>
+                  <button
+                    className={`provider-button provider-button--${provider.id} provider-button--placeholder`}
+                    type="button"
+                    disabled
+                    aria-describedby={noteId}
+                  >
+                    <ProviderLogo provider={provider.id} />
+                    <span className="provider-button__label">{provider.signInLabel}</span>
+                  </button>
+                  <small className="provider-option__note" id={noteId}>
+                    Setup pending.
+                  </small>
+                </div>
+              );
+            })}
           </div>
         ) : null}
         {signedIn ? (
