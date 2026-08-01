@@ -62,6 +62,8 @@ function assertMatches(label, text, pattern, message) {
 
 const packageJson = read("package.json");
 const checkAll = read("scripts/check-all.mjs");
+const webPackageJson = read("apps/web/package.json");
+const nextAppWorkflow = read(".github/workflows/validate-next-app.yml");
 const edgeTypeCheck = read("scripts/check-supabase-edge-types.mjs");
 const supabaseConfig = read("supabase/config.toml");
 const galleryRoute = readLaterReleaseLayer("apps/web/app/gallery/page.tsx");
@@ -197,8 +199,10 @@ if (safePreviewTests !== null) {
   assertIncludes("full repository check", checkAll, '"test:gallery-safe-preview"');
 }
 if (moderationPreviewServerCore !== null) {
-  assertIncludes("package scripts", packageJson, '"test:gallery-moderation-preview"');
-  assertIncludes("full repository check", checkAll, '"test:gallery-moderation-preview"');
+  assertNotIncludes("root package scripts", packageJson, '"test:gallery-moderation-preview"');
+  assertNotIncludes("full repository check", checkAll, '"test:gallery-moderation-preview"');
+  assertIncludes("Web package scripts", webPackageJson, '"test:gallery-moderation-preview"');
+  assertIncludes("Next app workflow", nextAppWorkflow, "npm run test:gallery-moderation-preview");
 }
 
 [

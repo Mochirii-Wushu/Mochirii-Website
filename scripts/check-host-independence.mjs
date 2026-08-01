@@ -154,6 +154,58 @@ const reviewedLoopbacks = new Map([
     ],
   ],
   [
+    "apps/web/lib/gallery/approved-feed.ts",
+    [
+      {
+        value: 'url.hostname === "localhost" || url.hostname === "127.0.0.1"',
+        count: 1,
+      },
+    ],
+  ],
+  [
+    "apps/web/lib/gallery/moderation-preview-route.ts",
+    [
+      {
+        value: 'hostname === "localhost" || hostname === "127.0.0.1"',
+        count: 1,
+      },
+    ],
+  ],
+  [
+    "apps/web/lib/gallery/moderation-preview-route_test.ts",
+    [
+      {
+        value: '"http://localhost:3000/api/gallery/moderation-preview"',
+        count: 2,
+      },
+      { value: '"http://localhost:3000"', count: 1 },
+      { value: '"http://127.0.0.1:54321"', count: 2 },
+      {
+        value: '"http://localhost.example.com:3000/api/gallery/moderation-preview"',
+        count: 1,
+      },
+    ],
+  ],
+  [
+    "apps/web/lib/gallery/moderation-preview-server-core.ts",
+    [
+      {
+        value:
+          'configured.hostname === "localhost" || configured.hostname === "127.0.0.1"',
+        count: 1,
+      },
+    ],
+  ],
+  [
+    "apps/web/lib/gallery/moderation-preview-server-core_test.ts",
+    [
+      { value: '"http://127.0.0.1.example.com"', count: 1 },
+      { value: '"ftp://localhost"', count: 1 },
+      { value: '"http://localhost:54321"', count: 1 },
+      { value: '"http://127.0.0.1:54321"', count: 1 },
+    ],
+  ],
+  [
     "supabase/functions/_shared/gallery-preview-attestation.ts",
     [
       {

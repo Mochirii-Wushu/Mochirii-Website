@@ -42,6 +42,9 @@ jobs:
       - name: Test private spinner media
         run: npm run test:spinner-private
 
+      - name: Test Gallery moderation preview
+        run: npm run test:gallery-moderation-preview
+
       - name: Build
         run: npm run build
 

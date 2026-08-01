@@ -1,4 +1,4 @@
-import { readFile, stat } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { enforceProductionGalleryMatrixGuard } from "./lib/live-gallery-media-smoke-guard.mjs";
 import { SITE_ORIGIN } from "./lib/public-urls.mjs";
 
@@ -6,6 +6,9 @@ const baseUrl = (process.env.SMOKE_BASE_URL || "http://127.0.0.1:8765").replace(
 enforceProductionGalleryMatrixGuard({ baseUrl, siteOrigin: SITE_ORIGIN });
 const galleryDataUrl = new URL("../apps/web/public/data/gallery.json", import.meta.url);
 const galleryData = JSON.parse(await readFile(galleryDataUrl, "utf8"));
+const publicUrls = JSON.parse(
+  await readFile(new URL("../apps/web/config/public-urls.json", import.meta.url), "utf8"),
+);
 const staticItems = (Array.isArray(galleryData?.albums) ? galleryData.albums : []).flatMap((album) =>
   Array.isArray(album?.items) ? album.items : [],
 );
@@ -107,70 +110,81 @@ const newestFirst = fullPath(orderItems(staticItems, "newest")[0]);
 const oldestFirst = fullPath(orderItems(staticItems, "oldest")[0]);
 
 const mockApprovedCount = galleryBatchSize;
-const mockFullSignedUrl = `${baseUrl}/assets/img/gallery/shot-24.webp?mockSignedUrl=approved-member-full-01`;
-const mockThumbnailSignedUrl = `${baseUrl}/assets/img/gallery/thumbs/shot-24.webp?mockSignedUrl=approved-member-thumbnail-01`;
-const mockThumbnailSizeBytes = (await stat(new URL("../apps/web/public/assets/img/gallery/thumbs/shot-24.webp", import.meta.url))).size;
+const mockGalleryMediaEndpoint = `https://${publicUrls.supabaseProjectRef}.supabase.co/functions/v1/list-approved-gallery-submissions`;
+const mockFullImageBytes = await readFile(
+  new URL("../apps/web/public/assets/img/gallery/shot-24.webp", import.meta.url),
+);
+const mockThumbnailImageBytes = await readFile(
+  new URL("../apps/web/public/assets/values/sweetness.webp", import.meta.url),
+);
+const mockGalleryMediaUrl = (asset, id) => {
+  const url = new URL(mockGalleryMediaEndpoint);
+  url.searchParams.set("asset", asset);
+  url.searchParams.set("id", id);
+  return url.toString();
+};
 const mockApprovedTitle = "Approved Smoke Submission";
 const mockApprovedCaption = "Shared from smoke automation";
-const mockUploader = "QA Member";
 const mockApprovedRows = Array.from({ length: mockApprovedCount }, (_, index) => {
   const sequence = String(index + 1).padStart(2, "0");
+  const id = `10000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`;
   return {
-    id: `approved-smoke-submission-${sequence}`,
-    status: "approved",
-    full_signed_url: `${baseUrl}/assets/img/gallery/shot-24.webp?mockSignedUrl=approved-member-full-${sequence}`,
-    thumbnail_signed_url: `${baseUrl}/assets/img/gallery/thumbs/shot-24.webp?mockSignedUrl=approved-member-thumbnail-${sequence}`,
-    thumbnail_size_bytes: mockThumbnailSizeBytes,
+    id,
     title: index === 0 ? mockApprovedTitle : `${mockApprovedTitle} ${sequence}`,
     caption: mockApprovedCaption,
     category: "portraits",
-    uploader_display_name: mockUploader,
+    categories: ["member-submissions", "portraits"],
+    mime_type: "image/webp",
+    size_bytes: mockFullImageBytes.byteLength,
     created_at: new Date(Date.UTC(2030, 0, 31 - index, 3, 4, 5)).toISOString(),
     reviewed_at: new Date(Date.UTC(2030, 0, 31 - index, 4, 4, 5)).toISOString(),
+    thumbnail_url: mockGalleryMediaUrl("thumbnail", id),
+    thumbnail_size_bytes: mockThumbnailImageBytes.byteLength,
+    thumbnail_width: 640,
+    thumbnail_height: 640,
   };
 });
-const mockFullSignedUrls = mockApprovedRows.map((submission) => submission.full_signed_url);
-const mockThumbnailSignedUrls = mockApprovedRows.map((submission) => submission.thumbnail_signed_url);
-const mockGalleryBackend = [
-  ...mockApprovedRows,
-  {
-    id: "pending-smoke-submission",
-    status: "pending",
-    full_signed_url: "pending-full-should-not-render",
-    thumbnail_signed_url: "pending-thumbnail-should-not-render",
-    thumbnail_size_bytes: 1,
-    title: "Pending Should Not Render",
-    caption: "Pending hidden caption",
-    category: "portraits",
-    created_at: "2030-01-03T03:04:05.000Z",
-  },
-  {
-    id: "rejected-smoke-submission",
-    status: "rejected",
-    full_signed_url: "rejected-full-should-not-render",
-    thumbnail_signed_url: "rejected-thumbnail-should-not-render",
-    thumbnail_size_bytes: 1,
-    title: "Rejected Should Not Render",
-    caption: "Rejected hidden caption",
-    category: "portraits",
-    created_at: "2030-01-04T03:04:05.000Z",
-  },
-];
-
-const approvedSubmissions = mockGalleryBackend
-  .filter((submission) => submission.status === "approved")
-  .map(({ status: _status, ...submission }) => submission);
+const mockApprovedIds = new Set(mockApprovedRows.map((submission) => submission.id));
+const mockFullMediaUrls = mockApprovedRows.map((submission) => mockGalleryMediaUrl("full", submission.id));
+const mockThumbnailMediaUrls = mockApprovedRows.map((submission) => submission.thumbnail_url);
+const mockFacets = {
+  "member-submissions": mockApprovedCount,
+  portraits: mockApprovedCount,
+  gatherings: 0,
+  action: 0,
+  scenery: 0,
+  companions: 0,
+};
+const approvedFeedPage = (items, facets = mockFacets) => ({
+  schemaVersion: 2,
+  items,
+  count: items.length,
+  totalEligible: items.length,
+  facets,
+  hasMore: false,
+  nextCursor: null,
+  partial: false,
+  complete: true,
+  deliveryFailures: 0,
+  delivery: "bounded-edge-media",
+  cacheSeconds: 15,
+});
 
 const feedFixtures = {
   empty: {
     ok: true,
-    data: { submissions: [] },
-    message: "Mock approved feed returned no submissions.",
+    data: approvedFeedPage([], {
+      "member-submissions": 0,
+      portraits: 0,
+      gatherings: 0,
+      action: 0,
+      scenery: 0,
+      companions: 0,
+    }),
   },
   success: {
     ok: true,
-    data: { submissions: approvedSubmissions },
-    message: "Mock approved feed returned approved submissions only.",
+    data: approvedFeedPage(mockApprovedRows),
   },
   fail: {
     ok: false,
@@ -185,9 +199,19 @@ const vercelAnalyticsScriptPaths = new Set([
 ]);
 const corsHeaders = {
   "access-control-allow-headers": "content-type",
-  "access-control-allow-methods": "POST, OPTIONS",
+  "access-control-allow-methods": "GET, POST, OPTIONS",
   "access-control-allow-origin": "*",
 };
+
+const approvedFeedRequestBody = ({ category = null, cursor = null, query = null, sort = "newest" } = {}) => ({
+  action: "list",
+  pageSize: galleryBatchSize,
+  cursor,
+  sort,
+  category,
+  query,
+});
+const defaultApprovedFeedRequestBody = approvedFeedRequestBody();
 
 function fail(message) {
   throw new Error(message);
@@ -209,8 +233,28 @@ async function stubVercelAnalyticsScripts(context) {
 async function stubApprovedGalleryFeedFixture(page, fixture, feedRequests, onHandled, waitForRelease) {
   await page.route(approvedFeedRoutePattern, async (route) => {
     const request = route.request();
+    const url = new URL(request.url());
     if (request.method() === "OPTIONS") {
       await route.fulfill({ status: 204, headers: corsHeaders, body: "" });
+      return;
+    }
+
+    const asset = url.searchParams.get("asset");
+    const id = url.searchParams.get("id");
+    if (request.method() === "GET" && (asset === "full" || asset === "thumbnail") && id && mockApprovedIds.has(id)) {
+      const body = asset === "full" ? mockFullImageBytes : mockThumbnailImageBytes;
+      await route.fulfill({
+        status: 200,
+        headers: {
+          ...corsHeaders,
+          "cache-control": "public, max-age=3600",
+          "content-encoding": "identity",
+          "content-length": String(body.byteLength),
+          "content-type": "image/webp",
+          "timing-allow-origin": "*",
+        },
+        body,
+      });
       return;
     }
 
@@ -285,7 +329,11 @@ async function newCheckedPage(context, feedMode = null, { holdFixture = false } 
   });
   page.on("request", (request) => {
     const url = new URL(request.url());
-    if (url.pathname.includes("/assets/img/gallery/")) galleryAssetRequests.push(request.url());
+    if (
+      url.pathname.includes("/assets/img/gallery/") ||
+      mockFullMediaUrls.includes(request.url()) ||
+      mockThumbnailMediaUrls.includes(request.url())
+    ) galleryAssetRequests.push(request.url());
   });
   page.on("response", (response) => {
     if (response.status() >= 400) {
@@ -293,7 +341,7 @@ async function newCheckedPage(context, feedMode = null, { holdFixture = false } 
     }
   });
 
-  const waitForFeedFixture = async (label) => {
+  const waitForFeedFixture = async (label, expectedBodies = [defaultApprovedFeedRequestBody]) => {
     assert(feedMode, `${label}: no approved-feed fixture was configured.`);
 
     let timeout;
@@ -308,7 +356,7 @@ async function newCheckedPage(context, feedMode = null, { holdFixture = false } 
       clearTimeout(timeout);
     }
 
-    assertFeedRequestContract(feedRequests, label);
+    assertFeedRequestContract(feedRequests, label, expectedBodies);
   };
 
   return {
@@ -356,14 +404,14 @@ async function assertRepresentativeMemberThumbnailBatch(page, galleryAssetReques
   }
 
   const requestedThumbnailUrls = new Set(
-    galleryAssetRequests.filter((url) => mockThumbnailSignedUrls.includes(url)),
+    galleryAssetRequests.filter((url) => mockThumbnailMediaUrls.includes(url)),
   );
   assert(
     requestedThumbnailUrls.size === mockApprovedCount,
     `Representative member batch requested ${requestedThumbnailUrls.size} of ${mockApprovedCount} thumbnails.`,
   );
   assert(
-    mockFullSignedUrls.every((url) => !galleryAssetRequests.includes(url)),
+    mockFullMediaUrls.every((url) => !galleryAssetRequests.includes(url)),
     "Representative member batch requested an original before viewer opening.",
   );
 
@@ -373,30 +421,41 @@ async function assertRepresentativeMemberThumbnailBatch(page, galleryAssetReques
       .getEntriesByType("resource")
       .filter((entry) => expected.has(entry.name))
       .reduce((total, entry) => total + Number(entry.transferSize || entry.encodedBodySize || 0), 0);
-  }, mockThumbnailSignedUrls);
+  }, mockThumbnailMediaUrls);
   assert(
     transferBytes < 2 * 1024 * 1024,
     `Representative 24-member thumbnail transfer ${transferBytes} bytes reached 2 MiB.`,
   );
 }
 
-function assertFeedRequestContract(feedRequests, label) {
-  assert(feedRequests.length === 1, `${label}: expected exactly one approved-feed POST, got ${feedRequests.length}.`);
-  const [request] = feedRequests;
-  assert(request.method === "POST", `${label}: expected approved-feed POST, got ${request.method}.`);
-  assert(
-    request.url.includes("/functions/v1/list-approved-gallery-submissions"),
-    `${label}: unexpected approved-feed URL ${request.url}.`,
-  );
+function canonicalJson(value) {
+  return JSON.stringify(value, Object.keys(value).sort());
+}
 
-  let body;
-  try {
-    body = JSON.parse(request.postData || "null");
-  } catch {
-    fail(`${label}: approved-feed request body was not valid JSON.`);
+function assertFeedRequestContract(feedRequests, label, expectedBodies = [defaultApprovedFeedRequestBody]) {
+  assert(feedRequests.length >= 1, `${label}: expected at least one approved-feed POST.`);
+  const expected = new Set(expectedBodies.map(canonicalJson));
+  const actual = [];
+
+  for (const request of feedRequests) {
+    assert(request.method === "POST", `${label}: expected approved-feed POST, got ${request.method}.`);
+    assert(request.url === mockGalleryMediaEndpoint, `${label}: unexpected approved-feed URL ${request.url}.`);
+
+    let body;
+    try {
+      body = JSON.parse(request.postData || "null");
+    } catch {
+      fail(`${label}: approved-feed request body was not valid JSON.`);
+    }
+    assert(body && typeof body === "object" && !Array.isArray(body), `${label}: approved-feed request body must be an object.`);
+    const serialized = canonicalJson(body);
+    assert(expected.has(serialized), `${label}: unexpected approved-feed request body ${serialized}.`);
+    actual.push(serialized);
   }
-  assert(body && typeof body === "object" && !Array.isArray(body), `${label}: approved-feed request body must be an object.`);
-  assert(Object.keys(body).length === 0, `${label}: approved-feed request body must remain empty.`);
+
+  for (const expectedBody of expected) {
+    assert(actual.includes(expectedBody), `${label}: missing approved-feed request body ${expectedBody}.`);
+  }
 }
 
 function normalizeAccessibleText(value) {
@@ -421,6 +480,7 @@ async function waitForGalleryState(
   {
     activeCategory,
     expectedFirstFull = "",
+    feedState = "",
     renderedCount,
     sortValue,
     totalCount,
@@ -434,6 +494,7 @@ async function waitForGalleryState(
       const allFilter = filters.find((filter) => filter.dataset.category === "all");
       const allCount = Number.parseInt(allFilter?.textContent?.match(/(\d+)(?:\s+images?)?\s*$/)?.[1] || "", 10);
       const firstFull = thumbs[0]?.getAttribute("data-full") || "";
+      const currentFeedState = document.querySelector(".gallery-feed-state")?.getAttribute("data-state") || "";
       const sort = document.querySelector("#gallerySort")?.value || "";
       const params = new URLSearchParams(window.location.search);
       const categoryParam = params.get("category") || "";
@@ -451,9 +512,10 @@ async function waitForGalleryState(
         && activeFilter?.dataset.category === expected.activeCategory
         && categoryUrlMatches
         && sortUrlMatches
+        && (!expected.feedState || currentFeedState === expected.feedState)
         && (!expected.expectedFirstFull || firstFull === expected.expectedFirstFull);
     },
-    { activeCategory, expectedFirstFull, renderedCount, sortValue, totalCount },
+    { activeCategory, expectedFirstFull, feedState, renderedCount, sortValue, totalCount },
   );
   await assertGalleryFilterAccessibleNames(page);
 }
@@ -487,7 +549,6 @@ async function visibleState(page) {
       count: thumbs.length,
       countText: document.querySelector("#galleryCount")?.textContent?.trim() || "",
       sortValue: document.querySelector("#gallerySort")?.value || "",
-      bodyText: document.body.innerText,
       fulls: thumbs.map((button) => button.getAttribute("data-full") || ""),
       captions: thumbs.map((button) => button.getAttribute("data-caption") || ""),
       imageSrcs: thumbs.map((button) => button.querySelector("img")?.getAttribute("src") || ""),
@@ -520,7 +581,7 @@ async function waitForLightboxOpen(page) {
         img.naturalWidth > 0 &&
         img.naturalHeight > 0 &&
         !root.classList.contains("hidden") &&
-        root.getAttribute("aria-hidden") === "false" &&
+        !root.hasAttribute("aria-hidden") &&
         rect?.width &&
         rect?.height &&
         document.activeElement === close,
@@ -539,6 +600,7 @@ try {
     await waitForFeedFixture("static Gallery");
     await waitForGalleryState(page, {
       activeCategory: "all",
+      feedState: "empty",
       renderedCount: initialStaticCount,
       sortValue: "random",
       totalCount: staticTotal,
@@ -565,6 +627,7 @@ try {
     await waitForGalleryState(page, {
       activeCategory: "all",
       expectedFirstFull: newestFirst,
+      feedState: "empty",
       renderedCount: initialStaticCount,
       sortValue: "newest",
       totalCount: staticTotal,
@@ -576,6 +639,7 @@ try {
     await waitForGalleryState(page, {
       activeCategory: "all",
       expectedFirstFull: oldestFirst,
+      feedState: "empty",
       renderedCount: initialStaticCount,
       sortValue: "oldest",
       totalCount: staticTotal,
@@ -587,6 +651,7 @@ try {
     await page.waitForURL(/category=portraits/);
     await waitForGalleryState(page, {
       activeCategory: "portraits",
+      feedState: "empty",
       renderedCount: initialPortraitsCount,
       sortValue: "oldest",
       totalCount: staticTotal,
@@ -604,7 +669,11 @@ try {
     assert(lightbox.src && !lightbox.src.includes("/thumbs/"), `Static lightbox should use full image path, got ${lightbox.src}.`);
     assert(lightbox.focusId === "lightboxClose", `Expected lightbox focus on close button, got ${lightbox.focusId}.`);
 
-    assertFeedRequestContract(feedRequests, "static Gallery");
+    assertFeedRequestContract(feedRequests, "static Gallery", [
+      approvedFeedRequestBody(),
+      approvedFeedRequestBody({ sort: "oldest" }),
+      approvedFeedRequestBody({ category: "portraits", sort: "oldest" }),
+    ]);
     await assertNoErrors(errors, "static Gallery");
     await page.close();
   }
@@ -614,10 +683,11 @@ try {
     await page.goto(`${baseUrl}/gallery?category=member-submissions&sort=newest`, {
       waitUntil: "domcontentloaded",
     });
-    await waitForFeedFixture("approved feed success");
+    const memberSubmissionsRequest = approvedFeedRequestBody({ category: "member-submissions" });
+    await waitForFeedFixture("approved feed success", [memberSubmissionsRequest]);
     await waitForGalleryState(page, {
       activeCategory: "member-submissions",
-      expectedFirstFull: mockFullSignedUrl,
+      feedState: "ready",
       renderedCount: mockApprovedCount,
       sortValue: "newest",
       totalCount: staticTotal + mockApprovedCount,
@@ -630,27 +700,22 @@ try {
     assert(new RegExp(`^Member Submissions\\s+\\D\\s+${mockApprovedCount}\\s+images$`).test(memberFilterText), `Member filter count was not rendered: ${memberFilterText}`);
     const allFilterText = state.filters.find((filter) => filter.slug === "all")?.text || "";
     assert(new RegExp(`^All\\s+\\D\\s+${staticTotal + mockApprovedCount}\\s+images$`).test(allFilterText), `All filter did not include the approved items: ${allFilterText}`);
-    assert(state.fulls[0] === mockFullSignedUrl, "Approved item did not use full_signed_url as data-full.");
-    assert(state.imageSrcs[0] === mockThumbnailSignedUrl, "Approved item did not use thumbnail_signed_url as image source.");
-    const renderedPairs = state.fulls.map((full, index) => `${full}|${state.imageSrcs[index] || ""}`);
-    const expectedPairs = approvedSubmissions.map((submission) => `${submission.full_signed_url}|${submission.thumbnail_signed_url}`);
-    assert(new Set(renderedPairs).size === mockApprovedCount, "Representative member batch rendered duplicate URL pairs.");
+    assert(state.fulls.every((full) => full === ""), "Approved items must not expose original URLs in data-full.");
+    assert(state.imageSrcs[0] === mockThumbnailMediaUrls[0], "Approved item did not use its bounded thumbnail URL.");
+    assert(new Set(state.imageSrcs).size === mockApprovedCount, "Representative member batch rendered duplicate thumbnail URLs.");
     assert(
-      renderedPairs.every((pair) => expectedPairs.includes(pair)),
-      "A representative member card did not bind its matching thumbnail and original URLs.",
+      state.imageSrcs.every((src) => mockThumbnailMediaUrls.includes(src)),
+      "A representative member card did not bind its matching bounded thumbnail URL.",
     );
     assert(
-      approvedSubmissions.reduce((total, submission) => total + Number(submission.thumbnail_size_bytes || 0), 0) < 2 * 1024 * 1024,
+      mockApprovedRows.reduce((total, submission) => total + Number(submission.thumbnail_size_bytes || 0), 0) < 2 * 1024 * 1024,
       "The representative 24-member thumbnail contract reached 2 MiB.",
     );
     assert(state.imageAlts[0] === mockApprovedTitle, "Approved item alt text did not use the submitted title.");
     assert(state.captions[0].includes(mockApprovedTitle), "Approved caption did not include submitted title.");
     assert(state.captions[0].includes(mockApprovedCaption), "Approved caption did not include submitted caption.");
-    assert(state.captions[0].includes(mockUploader), "Approved caption did not include uploader display name.");
-    assert(!state.bodyText.includes("Pending Should Not Render"), "Pending mock submission leaked into public Gallery text.");
-    assert(!state.bodyText.includes("Rejected Should Not Render"), "Rejected mock submission leaked into public Gallery text.");
     await assertRepresentativeMemberThumbnailBatch(page, galleryAssetRequests);
-    await assertGalleryPerformanceEnvelope(page, "approved feed success", mockThumbnailSignedUrls);
+    await assertGalleryPerformanceEnvelope(page, "approved feed success", mockThumbnailMediaUrls);
 
     await page.click("#galleryGrid .gallery-thumb");
     await waitForLightboxOpen(page);
@@ -658,17 +723,16 @@ try {
       src: document.querySelector("#lightboxImg")?.getAttribute("src") || "",
       caption: document.querySelector("#lightboxCaption")?.textContent?.trim() || "",
     }));
-    assert(lightbox.src === mockFullSignedUrl, "Approved lightbox did not use full_signed_url as image source.");
-    assert(galleryAssetRequests.includes(mockFullSignedUrl), "Approved original was not requested after the viewer opened.");
+    assert(lightbox.src.startsWith("blob:"), `Approved lightbox should use a bounded blob URL, got ${lightbox.src}.`);
+    assert(galleryAssetRequests.includes(mockFullMediaUrls[0]), "Approved original was not requested after the viewer opened.");
     assert(
-      new Set(galleryAssetRequests.filter((url) => mockFullSignedUrls.includes(url))).size === 1,
+      new Set(galleryAssetRequests.filter((url) => mockFullMediaUrls.includes(url))).size === 1,
       "Opening one approved item requested more than its selected original.",
     );
     assert(lightbox.caption.includes(mockApprovedTitle), "Approved lightbox caption missed title.");
     assert(lightbox.caption.includes(mockApprovedCaption), "Approved lightbox caption missed caption.");
-    assert(lightbox.caption.includes(mockUploader), "Approved lightbox caption missed uploader.");
 
-    assertFeedRequestContract(feedRequests, "approved feed success");
+    assertFeedRequestContract(feedRequests, "approved feed success", [memberSubmissionsRequest]);
     await assertNoErrors(errors, "approved feed success");
     await page.close();
   }
@@ -686,6 +750,7 @@ try {
     await page.goto(`${baseUrl}/gallery`, { waitUntil: "domcontentloaded" });
     await waitForGalleryState(page, {
       activeCategory: "all",
+      feedState: "loading",
       renderedCount: initialStaticCount,
       sortValue: "random",
       totalCount: staticTotal,
@@ -696,6 +761,7 @@ try {
     await waitForFeedFixture("delayed approved feed");
     await waitForGalleryState(page, {
       activeCategory: "all",
+      feedState: "ready",
       renderedCount: initialStaticCount,
       sortValue: "random",
       totalCount: staticTotal + mockApprovedCount,
@@ -707,7 +773,7 @@ try {
       "A delayed approved feed response reshuffled or displaced the existing first Gallery batch.",
     );
     assert(
-      mockFullSignedUrls.every((url) => !galleryAssetRequests.includes(url)),
+      mockFullMediaUrls.every((url) => !galleryAssetRequests.includes(url)),
       "Delayed feed requested an approved original before viewer opening.",
     );
     await assertGalleryPerformanceEnvelope(page, "delayed approved feed");
@@ -722,6 +788,7 @@ try {
     await waitForGalleryState(page, {
       activeCategory: "all",
       expectedFirstFull: newestFirst,
+      feedState: "error",
       renderedCount: initialStaticCount,
       sortValue: "newest",
       totalCount: staticTotal,
@@ -729,7 +796,11 @@ try {
 
     const state = await visibleState(page);
     assert(state.count === initialStaticCount, `Approved-feed failure should fall back to initial ${initialStaticCount} static items, got ${state.count}.`);
-    assert(state.filters.every((filter) => filter.slug !== "member-submissions"), "Member Submissions filter should not render when approved feed fails.");
+    const failedMemberFilterText = state.filters.find((filter) => filter.slug === "member-submissions")?.text || "";
+    assert(
+      new RegExp("^Member Submissions\\s+\\D\\s+0\\s+images$").test(failedMemberFilterText),
+      `Failed approved feed should retain a stable zero-count member filter: ${failedMemberFilterText}`,
+    );
     assert(state.fulls[0] === newestFirst, "Approved-feed failure should preserve static newest sort.");
 
     assertFeedRequestContract(feedRequests, "approved feed failure fallback");
@@ -757,7 +828,7 @@ try {
     assert(state.srcs.every((src) => src.includes("/thumbs/")), "Home Gallery Spotlight should use thumbnails.");
     assert(state.fulls.every((full) => full && !full.includes("/thumbs/")), "Home Gallery Spotlight should open full images.");
     assert(
-      state.fulls.every((full) => !mockFullSignedUrls.includes(full)),
+      state.fulls.every((full) => !mockFullMediaUrls.includes(full)),
       "Home Gallery Spotlight should remain static-data based.",
     );
     assert(feedRequests.length === 0, "Home Gallery Spotlight should not request the approved member feed.");

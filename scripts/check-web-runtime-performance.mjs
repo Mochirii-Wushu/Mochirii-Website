@@ -164,7 +164,7 @@ assertIncludes(
 assertIncludes(
   "Leader stale Social queue guard",
   leaderDashboard,
-  "loadInstagramQueue({ status: instagramActiveStatus, loadGeneration })",
+  'loadInstagramQueue({ status: "queued", loadGeneration })',
 );
 assertIncludes(
   "Leader stale provider-status guard",
