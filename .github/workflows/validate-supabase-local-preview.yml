@@ -1,0 +1,134 @@
+name: Validate Supabase locally
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: supabase-local-preview-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  supabase-local-preview:
+    name: supabase-local-preview
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      SUPABASE_TELEMETRY_DISABLED: 1
+      DO_NOT_TRACK: 1
+      SUPABASE_LOCAL_WORKDIR: ${{ runner.temp }}/mochirii-supabase-local-preview
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.EXPECTED_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify exact checkout
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          actual_sha="$(git rev-parse HEAD)"
+          test "$actual_sha" = "$EXPECTED_SHA"
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+
+      - name: Detect Supabase-owned changes
+        id: changes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: node scripts/detect-supabase-local-preview-changes.mjs --base "$BASE_SHA" --head "$HEAD_SHA"
+
+      - name: Validate local Preview contract
+        run: node scripts/check-supabase-local-preview.mjs
+
+      - name: Report no-op validation
+        if: steps.changes.outputs.changed != 'true'
+        run: echo "No Supabase-owned paths changed; hosted Preview resources are not required."
+
+      - name: Set up Deno
+        if: steps.changes.outputs.changed == 'true'
+        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+        with:
+          deno-version: 2.9.4
+
+      - name: Verify Deno release checksum
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          DENO_BINARY_SHA256: 1d97ecaf9e6bbb2a99e991caaf64ba9d62bf98759e8ef9938b9005855772b017
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          deno_path="$(command -v deno)"
+          printf '%s  %s\n' "$DENO_BINARY_SHA256" "$deno_path" | sha256sum --check --strict -
+          deno --version | grep -F 'deno 2.9.4'
+
+      - name: Install pinned dependencies
+        if: steps.changes.outputs.changed == 'true'
+        run: npm ci
+
+      - name: Verify pinned toolchain
+        if: steps.changes.outputs.changed == 'true'
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          node --version | grep -Fx 'v22.23.1'
+          npm --version | grep -Fx '10.9.8'
+          npm exec -- supabase --version | grep -Fx '2.109.1'
+
+      - name: Prepare isolated local database
+        if: steps.changes.outputs.changed == 'true'
+        run: >-
+          node scripts/prepare-supabase-local-preview-workdir.mjs
+          --destination "$SUPABASE_LOCAL_WORKDIR"
+          --project-id "mochirii-local-preview-${{ github.run_id }}-${{ github.run_attempt }}"
+          --port-base 58000
+
+      - name: Start local Postgres
+        if: steps.changes.outputs.changed == 'true'
+        run: npm exec -- supabase db start --workdir "$SUPABASE_LOCAL_WORKDIR"
+
+      - name: Reset and verify migration history
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          npm exec -- supabase db reset --local --no-seed --workdir "$SUPABASE_LOCAL_WORKDIR"
+          node scripts/verify-supabase-local-history.mjs --workdir "$SUPABASE_LOCAL_WORKDIR"
+
+      - name: Run every pgTAP test
+        if: steps.changes.outputs.changed == 'true'
+        run: npm run test:supabase-db
+
+      - name: Run local database lint
+        if: steps.changes.outputs.changed == 'true'
+        run: npm exec -- supabase db lint --local --level warning --fail-on warning --workdir "$SUPABASE_LOCAL_WORKDIR"
+
+      - name: Validate RLS, grants, indexes, config, and function inventory
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          npm run check:supabase-config
+          npm run check:supabase-security-performance
+          npm run check:supabase-edge-types
+
+      - name: Run every Supabase Edge test
+        if: steps.changes.outputs.changed == 'true'
+        run: npm run test:supabase-edge-local-preview
+
+      - name: Stop isolated local database
+        if: always() && steps.changes.outputs.changed == 'true'
+        continue-on-error: true
+        run: |
+          if [ -x node_modules/.bin/supabase ]; then
+            npm exec -- supabase stop --no-backup --workdir "$SUPABASE_LOCAL_WORKDIR"
+          fi

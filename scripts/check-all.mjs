@@ -74,6 +74,7 @@ const checks = [
   ["check:web-runtime-performance", ["node", "scripts/check-web-runtime-performance.mjs"]],
   ["test:web-runtime-performance", [...npmCommand, "--prefix", "apps/web", "run", "test:web-runtime-performance"]],
   ["test:supabase-migration-list", ["node", "scripts/test-supabase-migration-list.mjs"]],
+  ["test:supabase-local-preview-contract", ["node", "scripts/check-supabase-local-preview.mjs"]],
   ["check:full-stack-release-evidence", ["node", "scripts/check-full-stack-release-evidence.mjs"]],
   ["check:csp-inline-hardening", ["node", "scripts/check-csp-inline-hardening.mjs"]],
   ["check:accessibility-route-matrix", ["node", "scripts/check-accessibility-route-matrix.mjs"]],
