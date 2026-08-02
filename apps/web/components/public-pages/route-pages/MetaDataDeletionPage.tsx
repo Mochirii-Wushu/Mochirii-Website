@@ -14,8 +14,8 @@ export function MetaDataDeletionPage() {
       <PageHero
         page="meta-data-deletion"
         ariaLabel="Meta data deletion instructions hero"
-        image="/assets/img/gallery/hero.webp"
-        imageAlt="A martial artist viewing illuminated landscape paintings in a lantern-lit corridor"
+        image="/assets/img/data-deletion/hero.webp"
+        imageAlt="A Mōchirīī archivist releasing a paper record into a moonlit mountain stream"
         kicker="Data requests"
         title="Meta Data Deletion Instructions"
         center={false}

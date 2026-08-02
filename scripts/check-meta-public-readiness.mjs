@@ -1,5 +1,7 @@
-import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
+import { validateWebp } from "./lib/asset-format-validation.mjs";
 
 const root = process.cwd();
 const failures = [];
@@ -23,6 +25,71 @@ const deletion = read("apps/web/components/public-pages/route-pages/MetaDataDele
 const metadata = read("apps/web/components/public-pages/metadata.ts");
 const footer = read("apps/web/components/SiteFooter.tsx");
 const sitemap = read("apps/web/public/sitemap.xml");
+
+const LEGAL_HERO_MAX_BYTES = 300 * 1024;
+const legalHeroes = [
+  {
+    label: "privacy hero",
+    publicPath: "/assets/img/privacy/hero.webp",
+    relativePath: "apps/web/public/assets/img/privacy/hero.webp",
+    page: privacy,
+    metadataKey: "privacy",
+  },
+  {
+    label: "data deletion hero",
+    publicPath: "/assets/img/data-deletion/hero.webp",
+    relativePath: "apps/web/public/assets/img/data-deletion/hero.webp",
+    page: deletion,
+    metadataKey: "metaDataDeletion",
+  },
+];
+
+const legalHeroHashes = new Set();
+for (const hero of legalHeroes) {
+  requireText(hero.label, hero.page, `image="${hero.publicPath}"`);
+  const metadataEntry = metadata.slice(metadata.indexOf(`${hero.metadataKey}:`));
+  requireText(hero.label, metadataEntry, `image: "${hero.publicPath}"`);
+
+  const absolutePath = path.join(root, hero.relativePath);
+  const buffer = readFileSync(absolutePath);
+  const { width, height } = validateWebp(buffer);
+  if (width !== 1536 || height !== 1024) {
+    failures.push(`${hero.label}: expected 1536x1024, received ${width}x${height}`);
+  }
+  if (statSync(absolutePath).size > LEGAL_HERO_MAX_BYTES) {
+    failures.push(`${hero.label}: exceeds ${LEGAL_HERO_MAX_BYTES} bytes`);
+  }
+  legalHeroHashes.add(createHash("sha256").update(buffer).digest("hex"));
+}
+
+if (legalHeroHashes.size !== legalHeroes.length) {
+  failures.push("legal heroes: Privacy and Data Deletion must use distinct image bytes");
+}
+
+const heroRoot = path.join(root, "apps/web/public/assets/img");
+const existingHeroHashes = new Set();
+const legalHeroPaths = new Set(legalHeroes.map((hero) => path.join(root, hero.relativePath)));
+
+function collectExistingHeroHashes(directory) {
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const entryPath = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      collectExistingHeroHashes(entryPath);
+    } else if (entry.name === "hero.webp" && !legalHeroPaths.has(entryPath)) {
+      existingHeroHashes.add(createHash("sha256").update(readFileSync(entryPath)).digest("hex"));
+    }
+  }
+}
+
+collectExistingHeroHashes(heroRoot);
+
+for (const hash of legalHeroHashes) {
+  if (existingHeroHashes.has(hash)) failures.push("legal heroes: generated artwork must not duplicate an existing hero");
+}
+
+for (const source of [privacy, deletion]) {
+  forbidText("legal page hero", source, /\/assets\/img\/(?:gallery|hero)\/hero\.webp/u, "shared Gallery or Home hero");
+}
 
 for (const [label, source, key] of [
   ["privacy route", privacyRoute, "privacy"],

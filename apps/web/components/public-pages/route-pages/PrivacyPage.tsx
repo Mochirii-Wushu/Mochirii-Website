@@ -11,8 +11,8 @@ export function PrivacyPage() {
       <PageHero
         page="privacy"
         ariaLabel="Privacy notice hero"
-        image="/assets/img/gallery/hero.webp"
-        imageAlt="A martial artist viewing illuminated landscape paintings in a lantern-lit corridor"
+        image="/assets/img/privacy/hero.webp"
+        imageAlt="A Mōchirīī archivist safeguarding scrolls in a jade-lit mountain pavilion"
         kicker="Privacy"
         title="Mōchirīī Privacy Notice"
         center={false}

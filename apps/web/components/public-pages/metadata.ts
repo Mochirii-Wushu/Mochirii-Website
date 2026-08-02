@@ -124,14 +124,14 @@ const pageMeta: Record<
     description:
       "How Mōchirīī handles member accounts, Discord verification, Gallery uploads, moderation, and optional Facebook and Instagram publishing.",
     path: "/privacy",
-    image: "/assets/img/hero/hero.webp",
+    image: "/assets/img/privacy/hero.webp",
   },
   metaDataDeletion: {
     title: "Meta Data Deletion • Mōchirīī",
     description:
       "How to request deletion of data associated with Mōchirīī member accounts, Gallery submissions, and Facebook or Instagram publishing.",
     path: "/meta-data-deletion",
-    image: "/assets/img/hero/hero.webp",
+    image: "/assets/img/data-deletion/hero.webp",
   },
 };
 
