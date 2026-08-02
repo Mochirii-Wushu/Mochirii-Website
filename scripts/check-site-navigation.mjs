@@ -12,7 +12,6 @@ const expectedOfficialGuildProfileUrls = [
   "https://www.facebook.com/mochiriiguildpage",
   "https://www.instagram.com/mochirii_guild",
   "https://www.tiktok.com/@mochiriiguild",
-  "https://www.facebook.com/groups/mochiriiguild",
   "https://www.twitch.tv/mochiriiguild",
 ];
 
@@ -157,7 +156,7 @@ if (failures.length) {
 console.log("Site navigation OK.");
 console.log("- Header Social and the public Mochi Pets page live in the Guild dropdown.");
 console.log("- Footer Social and Mochi Pets links are public.");
-console.log("- Official profile surfaces pin the approved Facebook Page, Facebook Group, Instagram, TikTok, and Twitch URLs.");
+console.log("- Official profile surfaces pin one Facebook Page plus the approved Instagram, TikTok, and Twitch URLs.");
 console.log("- Visible website text is exactly mochirii.com; no Instagram profile website link is configured.");
 console.log("- Watch Spinner appears only after exact active verified viewer authorization.");
 console.log("- /social redirects signed-in members and keeps signed-out help.");

@@ -3,6 +3,7 @@
   "siteDisplayName": "mochirii.com",
   "socialHost": "https://social.mochirii.com",
   "discordInviteUrl": "https://discord.com/invite/dPafqMwWPK",
+  "facebookGroupUrl": "https://www.facebook.com/groups/mochiriiguild",
   "supabaseProjectRef": "deyvmtncimmcinldjyqe",
   "officialGuildProfiles": [
     {
@@ -31,15 +32,6 @@
       "surfaces": ["header", "footer"],
       "organizationIdentity": true,
       "markAsset": null
-    },
-    {
-      "id": "facebook-group",
-      "label": "Facebook Group",
-      "accountLabel": "Mōchirīī Guild",
-      "href": "https://www.facebook.com/groups/mochiriiguild",
-      "surfaces": ["footer"],
-      "organizationIdentity": false,
-      "markAsset": "/assets/social-profiles/facebook-logo-secondary.png"
     },
     {
       "id": "twitch",

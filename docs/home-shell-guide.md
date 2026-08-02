@@ -104,7 +104,7 @@ Current footer content:
 - Discord Join CTA with `target="_blank"` and `rel="noopener noreferrer"`.
 - Recruitment Tips link.
 - Guild, Culture, and Updates navigation columns.
-- Official profiles render from the shared canonical profile collection. Facebook, Instagram, and TikTok appear in both header and footer; the Facebook Group and Twitch remain footer-only destinations.
+- Official profiles render from the shared canonical profile collection. One Facebook Page, Instagram, and TikTok appear in both header and footer; Twitch remains footer-only. The Facebook Group link is reserved for the moderator-only published-Page handoff and does not appear in public navigation.
 - Copyright year rendered by the Footer component.
 - Footer metadata line with the game name.
 
@@ -149,7 +149,7 @@ Current conventions:
 - Open Graph tags for type, locale `en_SG`, site name, title, description, URL, and image.
 - Twitter summary-large-image tags for title, description, and image.
 - A home-only JSON-LD graph containing `WebSite` and `Organization`, with canonical IDs, `en-SG`, Asia Pacific service area, and only verified identity links.
-- The `Organization.sameAs` list is derived from the same canonical official-profile collection; community-only destinations such as the Facebook Group are excluded.
+- The `Organization.sameAs` list is derived from the same canonical official-profile collection. The moderator-only Facebook Group handoff is configured separately and excluded.
 - Favicon and Apple touch icon references.
 - Home hero preload.
 

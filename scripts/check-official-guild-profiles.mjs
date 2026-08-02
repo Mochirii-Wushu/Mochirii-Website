@@ -39,14 +39,6 @@ const expected = [
     organizationIdentity: true,
   },
   {
-    id: "facebook-group",
-    label: "Facebook Group",
-    accountLabel: "Mōchirīī Guild",
-    href: "https://www.facebook.com/groups/mochiriiguild",
-    surfaces: ["footer"],
-    organizationIdentity: false,
-  },
-  {
     id: "twitch",
     label: "Twitch",
     accountLabel: "@mochiriiguild",
@@ -60,7 +52,6 @@ const expectedMarkAssets = new Map([
   ["facebook-page", "/assets/social-profiles/facebook-logo-secondary.png"],
   ["instagram", "/assets/social-profiles/instagram-glyph-white.svg"],
   ["tiktok", null],
-  ["facebook-group", "/assets/social-profiles/facebook-logo-secondary.png"],
   ["twitch", null],
 ]);
 
@@ -112,7 +103,7 @@ for (const profile of OFFICIAL_GUILD_PROFILES) {
 }
 
 assertIds("header", HEADER_GUILD_PROFILES, ["facebook-page", "instagram", "tiktok"]);
-assertIds("footer", FOOTER_GUILD_PROFILES, ["facebook-page", "instagram", "tiktok", "facebook-group", "twitch"]);
+assertIds("footer", FOOTER_GUILD_PROFILES, ["facebook-page", "instagram", "tiktok", "twitch"]);
 assertIds(
   "organization identity",
   ORGANIZATION_PROFILE_URLS.map((href) => OFFICIAL_GUILD_PROFILES.find((profile) => profile.href === href)),

@@ -42,11 +42,6 @@ const headerProfiles = [
 const footerProfiles = [
   ...headerProfiles,
   {
-    id: "facebook-group",
-    name: "Facebook Group Mōchirīī Guild external profile",
-    href: "https://www.facebook.com/groups/mochiriiguild",
-  },
-  {
     id: "twitch",
     name: "Twitch @mochiriiguild external profile",
     href: "https://www.twitch.tv/mochiriiguild",

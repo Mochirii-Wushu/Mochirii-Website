@@ -25,7 +25,7 @@ export const ORGANIZATION_PROFILE_URLS = OFFICIAL_GUILD_PROFILES
   .filter((profile) => profile.organizationIdentity === true)
   .map((profile) => profile.href);
 export const FACEBOOK_PAGE_URL = profileHref("facebook-page");
-export const FACEBOOK_GROUP_URL = profileHref("facebook-group");
+export const FACEBOOK_GROUP_URL = publicUrls.facebookGroupUrl;
 export const INSTAGRAM_URL = profileHref("instagram");
 export const TIKTOK_URL = profileHref("tiktok");
 export const TWITCH_URL = profileHref("twitch");
