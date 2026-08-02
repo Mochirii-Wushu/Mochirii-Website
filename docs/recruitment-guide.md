@@ -55,6 +55,8 @@ The protected Recruitment fields are:
 
 These fields are protected. Do not alter wording, punctuation, paragraph breaks, apostrophes, capitalization, diacritics, or structure. Future edits may revise other non-body fields only if needed, supported by `recruitment.js`, and intentionally scoped. Any body or conclusion change requires explicit user approval.
 
+The body and conclusion are also exempt from later general editorial-lint rules. Existing wording or rhythms that a newer style guide would avoid must remain unchanged unless the user explicitly approves a dedicated protected-copy revision.
+
 ## 4. Non-Body Recruitment Fields
 
 The following current fields are non-body fields rendered by `recruitment.js` and may be revised in future scoped work when needed:

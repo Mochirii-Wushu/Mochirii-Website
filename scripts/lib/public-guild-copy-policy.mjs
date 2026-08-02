@@ -26,6 +26,17 @@ export const TARGETED_PUBLIC_PAGE_SHELL_FILES = Object.freeze([
   "apps/web/components/public-pages/route-pages/GalleryPage.tsx",
 ]);
 
+export const PROTECTED_EDITORIAL_FIELDS = Object.freeze(new Set([
+  "apps/web/public/data/recruitment.json:$.content.paragraphs[0]",
+  "apps/web/public/data/recruitment.json:$.content.paragraphs[1]",
+  "apps/web/public/data/recruitment.json:$.content.paragraphs[2]",
+  "apps/web/public/data/recruitment.json:$.content.paragraphs[3]",
+  "apps/web/public/data/recruitment.json:$.content.paragraphs[4]",
+  "apps/web/public/data/recruitment.json:$.content.paragraphs[5]",
+  "apps/web/public/data/recruitment.json:$.content.paragraphs[6]",
+  "apps/web/public/data/recruitment.json:$.content.conclusion[0]",
+]));
+
 export const EDITORIAL_RULES = Object.freeze([
   {
     category: "mood-filler-wording",
@@ -110,6 +121,7 @@ export function scanJsonExactGameName(relative, value) {
 }
 
 export function scanEditorialText(relative, location, value) {
+  if (PROTECTED_EDITORIAL_FIELDS.has(`${relative}:${location}`)) return [];
   return EDITORIAL_RULES
     .filter(({ pattern }) => pattern.test(value))
     .map(({ category }) => ({ path: relative, location, category }));

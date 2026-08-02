@@ -73,27 +73,31 @@ The restoration source of truth is [`reports/audio-original-restore.md`](../repo
 - For Twills/Profile-specific protected body text, contact detail, image, tone, and accessibility conventions, see [`docs/twills-guide.md`](twills-guide.md).
 - For Recruitment-specific protected body/conclusion, audio, tone, and accessibility conventions, see [`docs/recruitment-guide.md`](recruitment-guide.md).
 - For Announcements, Raffles, Spotify, and Spotlight data, embed, link, tone, accessibility, and smoke-test conventions, see [`docs/side-pages-guide.md`](side-pages-guide.md).
-- Tone should stay cozy, clear, wuxia-inspired, and welcoming.
+- Tone should stay clear, wuxia-inspired, and recognizably Mōchirīī.
 - New visitors should understand the guild, the game, and the join path quickly.
 - Keep the Cupcake identity readable rather than cryptic.
 - Do not claim official affiliation with Where Winds Meet unless that is verified and intentionally approved.
 - Avoid generic MMO boilerplate; write like Mōchirīī has a real home and rhythm.
 - Prefer nouns and verbs over adjective stacks; remove descriptors that repeat, decorate, or slow the line.
-- Favor concrete guild images: shared runs, small greetings, warm halls, gentle cheer, and a little Cupcake sweetness.
+- Favor concrete guild images: scheduled runs, first greetings, hall details, event preparation, and an occasional cupcake motif.
 - Use rhyme, repeated sounds, and soft cadence only when they feel natural. Do not turn public guidance into verse.
-- Use Cupcake warmth sparingly; do not make every section dessert-themed or unclear.
+- Use cupcake motifs sparingly; do not make every section dessert-themed or unclear.
 - Keep functional labels plain, such as Join Discord, Read the Tome, View Events, Upcoming, Past, and All.
-- Avoid generic AI-like phrasing, corporate language, forced rhyme, and direct references from source poems.
+- Do not change public-facing copy without explicit approval for the exact surface and wording.
+- Avoid antithetical contrast pairs, formulaic parallelism or juxtaposition, generic AI-like phrasing, corporate language, forced rhyme, and direct references from source poems.
+- Avoid mood-filler vocabulary such as `kind`, `patience`, `presence`, and close generic substitutes in newly approved copy. Prefer concrete actions, roles, events, places, or outcomes.
+- Use `pretty`, `wonderful`, `cupcake`/`cupcakes`, and `Wushu land` only as sparse house accents where the page context supports them.
 - Do not alter the protected long-form recruitment body or the guild seal poem.
 
 ## 8. Xianxia House Style, Page Purpose, and Vocabulary
 
-- Mōchirīī copy should feel like a warm xianxia guild hall: clear, kind, lightly rhythmic, and rooted in shared effort.
+- Mōchirīī copy should read like a lived-in xianxia guild hall: clear, lightly rhythmic, and rooted in specific shared activity.
 - Each page should have a distinct job. Home invites, Join orients, Events schedules, Gallery remembers, Ranks explains progression, Leaders directs contact, Tome defines conduct, Recruitment preserves philosophy, and side pages keep their own focus.
 - Use cultivation, path, hall, lantern, jade, lotus, bamboo, moon, frost, and qi imagery sparingly. Clear meaning comes first.
-- Keep Cupcake warmth as a playful thread, not a repeated motif.
+- Keep cupcake references as a playful thread, not a repeated motif.
 - The exact phrase “Where Winds Meet” may remain in the approved Home subtitle `Asia Pacific • Where Winds Meet Guild`, titles, metadata, JSON-LD, validation scripts, docs, reports, header, and footer. Avoid it elsewhere in regular visible body copy when a clear phrase like the game, the Jianghu, the guild road, or the path works better.
 - Do not imitate named authors, copy poem/article phrases, force rhyme, blur functional labels, or repeat the same vocabulary across pages without purpose.
+- The protected Recruitment body/conclusion and guild seal poem remain exact historical exceptions to newer editorial preferences. Do not rewrite them to satisfy a later tone rule.
 
 ## 9. Validation Before PR
 

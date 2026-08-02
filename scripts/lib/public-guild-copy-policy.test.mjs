@@ -5,6 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import {
   APPROVED_HOME_SUBTITLE,
+  PROTECTED_EDITORIAL_FIELDS,
   TARGETED_PUBLIC_PAGE_SHELL_FILES,
   discoverPublicJsonFiles,
   formatPolicyIssue,
@@ -76,4 +77,32 @@ test("editorial rules cover Gallery shell copy while ignoring styling tokens", (
     "apps/web/components/public-pages/route-pages/GalleryPage.tsx",
   ]);
   assert.equal(TARGETED_PUBLIC_PAGE_SHELL_FILES.some((file) => file.endsWith("SpotifyPage.tsx")), false);
+});
+
+test("later editorial preferences never rewrite protected Recruitment copy", () => {
+  assert.equal(PROTECTED_EDITORIAL_FIELDS.size, 8);
+  assert.deepEqual(
+    scanEditorialText(
+      "apps/web/public/data/recruitment.json",
+      "$.content.paragraphs[0]",
+      "This protected historical sentence may feel at home.",
+    ),
+    [],
+  );
+  assert.deepEqual(
+    scanEditorialText(
+      "apps/web/public/data/recruitment.json",
+      "$.content.conclusion[0]",
+      "This protected conclusion remains warm.",
+    ),
+    [],
+  );
+  assert.deepEqual(
+    scanEditorialText("apps/web/public/data/recruitment.json", "$.meta.intro", "A warm supporting line."),
+    [{
+      path: "apps/web/public/data/recruitment.json",
+      location: "$.meta.intro",
+      category: "mood-filler-wording",
+    }],
+  );
 });
