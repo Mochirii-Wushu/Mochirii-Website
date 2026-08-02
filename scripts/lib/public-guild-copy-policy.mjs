@@ -35,6 +35,10 @@ export const PROTECTED_EDITORIAL_FIELDS = Object.freeze(new Set([
   "apps/web/public/data/recruitment.json:$.content.paragraphs[5]",
   "apps/web/public/data/recruitment.json:$.content.paragraphs[6]",
   "apps/web/public/data/recruitment.json:$.content.conclusion[0]",
+  "apps/web/public/data/twills.json:$.profile.bio[0]",
+  "apps/web/public/data/twills.json:$.profile.bio[1]",
+  "apps/web/public/data/twills.json:$.profile.bio[2]",
+  "apps/web/public/data/twills.json:$.profile.bio[3]",
 ]));
 
 export const EDITORIAL_RULES = Object.freeze([

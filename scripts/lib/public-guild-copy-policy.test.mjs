@@ -80,7 +80,7 @@ test("editorial rules cover Gallery shell copy while ignoring styling tokens", (
 });
 
 test("later editorial preferences never rewrite protected Recruitment copy", () => {
-  assert.equal(PROTECTED_EDITORIAL_FIELDS.size, 8);
+  assert.equal(PROTECTED_EDITORIAL_FIELDS.size, 12);
   assert.deepEqual(
     scanEditorialText(
       "apps/web/public/data/recruitment.json",
@@ -102,6 +102,25 @@ test("later editorial preferences never rewrite protected Recruitment copy", () 
     [{
       path: "apps/web/public/data/recruitment.json",
       location: "$.meta.intro",
+      category: "mood-filler-wording",
+    }],
+  );
+});
+
+test("later editorial preferences never rewrite protected Twills copy", () => {
+  assert.deepEqual(
+    scanEditorialText(
+      "apps/web/public/data/twills.json",
+      "$.profile.bio[2]",
+      "My protected profile door stays warm & open wide.",
+    ),
+    [],
+  );
+  assert.deepEqual(
+    scanEditorialText("apps/web/public/data/twills.json", "$.profile.cardTitle", "A warm supporting title."),
+    [{
+      path: "apps/web/public/data/twills.json",
+      location: "$.profile.cardTitle",
       category: "mood-filler-wording",
     }],
   );

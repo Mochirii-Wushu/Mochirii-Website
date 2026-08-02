@@ -50,6 +50,8 @@ The protected Twills body text lives at:
 
 The Twills body text is protected. Do not alter wording, punctuation, paragraph breaks, capitalization, diacritics, or structure. Future edits may revise other non-body fields only if needed and intentionally scoped. Any body-text change requires explicit user approval.
 
+The body is also exempt from later general editorial-lint rules. Existing wording or rhythms that a newer style guide would avoid must remain unchanged unless the user explicitly approves a dedicated protected-copy revision.
+
 ## 4. Profile Copy Rules
 
 - Profile copy should sound personal, clear, and steady.
