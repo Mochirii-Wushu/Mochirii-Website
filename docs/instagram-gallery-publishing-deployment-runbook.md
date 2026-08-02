@@ -65,11 +65,16 @@ Validate the migration artifact before any database action:
 npm run check:meta-gallery-release-manifest
 ```
 
-The manifest contains exactly 13 ordered migrations within an authoritative
-50-migration repository history. Never use `--include-all`, migration-history
-repair, or a broad production push to conceal an ordering mismatch. If hosted
-history does not end at the expected base migration, stop and reconcile the
-release branch without modifying hosted history. The database-first order is a
+The Meta manifest contains exactly 13 ordered Gallery and destination
+migrations and records the 50-migration repository history at which that
+focused packet was sealed. In the reviewed integrated release, it remains an
+immutable subset receipt rather than the complete deployment allowlist. The
+integrated candidate contains 53 migrations in total and 19 migrations newer
+than the current 34-migration hosted baseline; production approval must name
+all 19 in timestamp order. Never use `--include-all`, migration-history repair,
+or a broad production push to conceal an ordering mismatch. If hosted history
+does not end at the expected base migration, stop and reconcile the release
+branch without modifying hosted history. The database-first order is a
 compatibility boundary: cached older clients may remain Gallery-capable, but
 their earlier consent evidence stays historical and API-ineligible rather than
 being silently upgraded.
@@ -211,11 +216,13 @@ Begin a temporary moderator mutation freeze before backend cutover. Do not appro
 
 ### 3. Apply the database allowlist
 
-One coordinated Supabase operator applies only the manifest-listed migrations
-from the final exact reviewed union commit. Confirm all 50 repository migrations
-are present exactly once and in timestamp order, and that the 13 manifest
-migrations are the only new hosted changes. Read back aggregate invariants and
-explicit RLS/grants; do not inspect production member content as validation.
+One coordinated Supabase operator applies only the complete 19-migration
+allowlist from the final exact reviewed union commit. Confirm all 53 repository
+migrations are present exactly once and in timestamp order, that the 13-entry
+Meta manifest remains an exact ordered subset, and that only the 19 approved
+union migrations are new to hosted production. Read back aggregate invariants
+and explicit RLS/grants; do not inspect production member content as
+validation.
 
 Database migrations are forward-only. Correct a defect with a reviewed forward-fix migration rather than history repair or rollback SQL.
 
