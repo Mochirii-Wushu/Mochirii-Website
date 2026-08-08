@@ -1,7 +1,7 @@
 services:
 ## MariaDB and Redis (optional)
   db:
-    image: mariadb:11.4@sha256:a794d9eb009e20de605858a11f32f63b4075cbd197c650436f0e3b457e4caed7
+    image: mariadb:11.4@sha256:67873d30a17f6a9c331f06363b2fa15f38abca415529966d67c84f87f82439fe
     container_name: pixelfed-db
     restart: unless-stopped
     env_file:
