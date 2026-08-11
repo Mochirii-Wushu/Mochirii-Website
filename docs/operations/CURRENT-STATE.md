@@ -8,7 +8,7 @@ provider exports, customer data, signed URLs, or mutable access details here.
 
 ## Canonical Sources
 
-- Repository: `Mochirii-Wushu/Mochirii`.
+- Repository: `Mochirii-Wushu/Mochirii-Website`.
 - Local checkout: `C:\Github Repo's\Mochirii Website\Website`.
 - Resolve current production source with `git fetch --prune origin` and
   `git rev-parse origin/main`; do not rely on an undated copied SHA.

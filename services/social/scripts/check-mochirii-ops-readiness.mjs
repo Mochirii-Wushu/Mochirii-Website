@@ -173,7 +173,43 @@ function gitRemote(args) {
 }
 
 function isCanonicalRemote(remote) {
-  return /github\.com[:/]Mochirii-Wushu\/Mochirii(?:\.git)?\/?$/i.test(remote);
+  // This embedded Social check runs inside the Website worktree, so Git
+  // resolves the parent repository rather than the extracted Social remote.
+  const normalized = remote.trim();
+  return [
+    /^https:\/\/github\.com\/Mochirii-Wushu\/Mochirii-Website(?:\.git)?\/?$/i,
+    /^git@github\.com:Mochirii-Wushu\/Mochirii-Website(?:\.git)?$/i,
+    /^ssh:\/\/git@github\.com\/Mochirii-Wushu\/Mochirii-Website(?:\.git)?\/?$/i,
+  ].some((pattern) => pattern.test(normalized));
+}
+
+for (const remote of [
+  "https://github.com/Mochirii-Wushu/Mochirii-Website.git",
+  "git@github.com:Mochirii-Wushu/Mochirii-Website.git",
+  "ssh://git@github.com/Mochirii-Wushu/Mochirii-Website.git",
+  "  https://github.com/Mochirii-Wushu/Mochirii-Website.git  ",
+]) {
+  if (!isCanonicalRemote(remote)) {
+    failures.push(`canonical Website remote canary was rejected: ${remote}`);
+  }
+}
+for (const remote of [
+  "https://github.com/Mochirii-Wushu/Mochirii.git",
+  "https://github.com/Mochirii-Wushu/Mochirii-Social.git",
+  "https://github.com/Mochirii-Wushu/Mochirii-Website-extra.git",
+  "https://evilgithub.com/Mochirii-Wushu/Mochirii-Website.git",
+  "https://example.invalid/github.com/Mochirii-Wushu/Mochirii-Website.git",
+  "git://github.com/Mochirii-Wushu/Mochirii-Website.git",
+  "file:///tmp/github.com/Mochirii-Wushu/Mochirii-Website.git",
+  "ext::ssh github.com/Mochirii-Wushu/Mochirii-Website.git",
+  "ssh://github.com/Mochirii-Wushu/Mochirii-Website.git",
+  "https://github.com/Mochirii-Wushu/Mochirii-Website.git/extra",
+  "https://github.com/Mochirii-Wushu/Mochirii-Website.git?ref=main",
+  "https://github.com/Mochirii-Wushu/Mochirii-Website.git#main",
+]) {
+  if (isCanonicalRemote(remote)) {
+    failures.push(`noncanonical repository remote canary was accepted: ${remote}`);
+  }
 }
 
 for (const doc of requiredDocs) {

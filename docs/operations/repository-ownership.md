@@ -5,11 +5,11 @@ credentials, and operational evidence.
 
 | Capability | Source owner | Hosted owner | Notes |
 | --- | --- | --- | --- |
-| Public website and routes | `Mochirii-Wushu/Mochirii` `apps/web` | Vercel | `apps/web/public` is the only tracked website asset/data source. |
-| Storefront theme | `Mochirii-Wushu/Mochirii` `apps/shopify-theme` | Shopify | Theme publication and shared store-record writes remain separately gated. |
-| Shared backend | `Mochirii-Wushu/Mochirii` `supabase` | Supabase | Secrets remain runtime-only; schema changes are migration based. |
-| Guild social | `Mochirii-Wushu/Mochirii` `services/social` | DigitalOcean and Spaces | Federation remains disabled. Runtime state is never committed. |
-| Mochi Pets concept and tester doorway | `Mochirii-Wushu/Mochirii` `apps/web` | Vercel | Owns the public `/games/mochi-pets` concept page and its protected member-plus-passcode doorway. The member-bound Website cookie never authorizes a game runtime; the disconnected connection contract stays internal. |
+| Public website and routes | `Mochirii-Wushu/Mochirii-Website` `apps/web` | Vercel | `apps/web/public` is the only tracked website asset/data source. |
+| Storefront theme | `Mochirii-Wushu/Mochirii-Website` `apps/shopify-theme` | Shopify | Theme publication and shared store-record writes remain separately gated. |
+| Shared backend | `Mochirii-Wushu/Mochirii-Website` `supabase` | Supabase | Secrets remain runtime-only; schema changes are migration based. |
+| Guild social | `Mochirii-Wushu/Mochirii-Website` `services/social` | DigitalOcean and Spaces | The Website tree remains the production incumbent until the separately reviewed Social cutover is approved and verified. Federation remains disabled. Runtime state is never committed. |
+| Mochi Pets concept and tester doorway | `Mochirii-Wushu/Mochirii-Website` `apps/web` | Vercel | Owns the public `/games/mochi-pets` concept page and its protected member-plus-passcode doorway. The member-bound Website cookie never authorizes a game runtime; the disconnected connection contract stays internal. |
 | Mochi Pets game source | `Mochirii-Wushu/Mochirii-Pets` | None; source only | Fresh Unity owner for future Web and iOS artifacts. No prototype history, runtime, backend, or playable build is connected. |
 | Mochi Pets mobile host and chat | `Mochirii-Wushu/Mochirii-Social-Mobile` | Future iOS app | Owns Social OAuth, native chat, navigation, and the future full-screen Unity host; consumes an immutable iOS export rather than Unity source. |
 | Local credentials and supplier evidence | No Git repository | `Mochi Creds` and protected provider secret stores | Never committed, logged, copied into artifacts, or exposed to browser code. |

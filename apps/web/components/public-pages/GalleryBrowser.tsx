@@ -10,6 +10,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { LightboxImage } from "@/components/LightboxImage";
+import { ResponsiveGalleryMedia } from "@/components/ResponsiveGalleryMedia";
 import { useBodyPortalRoot, useBodyScrollLock } from "@/components/useLightboxOverlay";
 import {
   listApprovedGallerySubmissions,
@@ -573,7 +574,7 @@ export function GalleryBrowser({
       <div id="galleryGrid" className="gallery-grid" aria-live="polite" hidden={visibleItems.length === 0}>
         {renderedItems.map((item) => (
           <button
-            className="gallery-thumb"
+            className="gallery-thumb responsive-gallery-frame"
             type="button"
             data-full={item.full}
             data-caption={item.caption}
@@ -581,7 +582,7 @@ export function GalleryBrowser({
             key={item.stableKey}
             onClick={(event) => openModal(item, event.currentTarget)}
           >
-            <img src={item.thumb} alt={item.alt} width={16} height={10} loading="lazy" decoding="async" />
+            <ResponsiveGalleryMedia src={item.thumb} alt={item.alt} />
           </button>
         ))}
       </div>

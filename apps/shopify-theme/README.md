@@ -4,7 +4,7 @@ This directory contains the public, deployable Online Store 2.0 theme source
 for Mochirii Cosmetics. It intentionally contains storefront runtime files, a
 nondeployable versioned customer-copy contract, and pure generic validation
 tooling only. All Mochirii website and storefront work belongs in
-`Mochirii-Wushu/Mochirii`; none belongs in another brand repository.
+`Mochirii-Wushu/Mochirii-Website`; none belongs in another brand repository.
 
 Private supplier records, costs, source identifiers, samples, legal reviews,
 operator checklists, credentials, admin exports, and launch ledgers are not
