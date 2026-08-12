@@ -2,5 +2,47 @@
   "siteOrigin": "https://mochirii.com",
   "socialHost": "https://social.mochirii.com",
   "discordInviteUrl": "https://discord.com/invite/dPafqMwWPK",
-  "supabaseProjectRef": "deyvmtncimmcinldjyqe"
+  "supabaseProjectRef": "deyvmtncimmcinldjyqe",
+  "officialGuildProfiles": [
+    {
+      "id": "facebook-page",
+      "label": "Facebook",
+      "accountLabel": "mochiriiguild",
+      "href": "https://www.facebook.com/mochiriiguild/",
+      "surfaces": ["header", "footer"],
+      "markAsset": null
+    },
+    {
+      "id": "instagram",
+      "label": "Instagram",
+      "accountLabel": "@mochirii_guild",
+      "href": "https://www.instagram.com/mochirii_guild/",
+      "surfaces": ["header", "footer"],
+      "markAsset": null
+    },
+    {
+      "id": "tiktok",
+      "label": "TikTok",
+      "accountLabel": "@mochiriiguild",
+      "href": "https://www.tiktok.com/@mochiriiguild",
+      "surfaces": ["header", "footer"],
+      "markAsset": null
+    },
+    {
+      "id": "twitch",
+      "label": "Twitch",
+      "accountLabel": "mochiriiguild",
+      "href": "https://www.twitch.tv/mochiriiguild",
+      "surfaces": ["header", "footer"],
+      "markAsset": null
+    },
+    {
+      "id": "youtube",
+      "label": "YouTube",
+      "accountLabel": "@MochiriiGuild",
+      "href": "https://www.youtube.com/@MochiriiGuild",
+      "surfaces": ["header", "footer"],
+      "markAsset": null
+    }
+  ]
 }

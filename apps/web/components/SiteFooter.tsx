@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { OfficialGuildProfiles } from "@/components/OfficialGuildProfiles";
 import type { HeaderAuthState } from "@/components/site-header/header-navigation";
 import { SpinnerViewerNavLink } from "@/components/site-header/spinner-viewer-nav-link";
 import { DISCORD_INVITE_URL, SOCIAL_HOST } from "@/lib/public-urls";
@@ -129,6 +130,7 @@ export function SiteFooter({
                 />
               ) : null}
             </FooterColumn>
+            <OfficialGuildProfiles placement="footer" />
           </div>
         </div>
 

@@ -24,6 +24,7 @@ const globalStyles = [
   "shell-header-nav.css",
   "shell-mobile-menu.css",
   "shell-footer.css",
+  "shell-official-guild-profiles.css",
 ];
 const routeStyles = [
   "public-join.css",

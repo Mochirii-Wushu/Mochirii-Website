@@ -10,6 +10,7 @@ import "./styles/shared-ui.css";
 import "./styles/shell-header-nav.css";
 import "./styles/shell-mobile-menu.css";
 import "./styles/shell-footer.css";
+import "./styles/shell-official-guild-profiles.css";
 
 const displayFont = localFont({
   src: "./fonts/zhi-mang-xing-latin.woff2",
