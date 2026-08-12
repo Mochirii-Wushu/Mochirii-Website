@@ -14,8 +14,8 @@
         "production": "mix --production && node scripts/bust-public-js-cache.mjs && npm run check:public-js-syntax"
     },
     "devDependencies": {
-        "acorn": "^8.17.0",
-        "axios": ">=1.18.1",
+        "acorn": "^8.18.0",
+        "axios": ">=1.19.0",
         "bootstrap": "^4.5.2",
         "cross-env": "^5.2.1",
         "esbuild": "^0.28.1",
@@ -26,7 +26,7 @@
         "popper.js": "^1.16.1",
         "pusher-js": "^7.1.1-beta",
         "resolve-url-loader": "^5.0.0",
-        "postcss": "8.5.23",
+        "postcss": "8.5.25",
         "sass": "^1.102.0",
         "sass-loader": "^12.3.0",
         "vue": "^2.6.14",
