@@ -1,4 +1,4 @@
-FROM serversideup/php:8.4-fpm-nginx@sha256:8eec7ce8d9d6a38bbc6f0f70ef439aab2279646bc01d74cbe538dbeada4da828
+FROM serversideup/php:8.4-fpm-nginx@sha256:8e0864511c48a943b59c59c2845eb8de1dc402b6d549a3b2e0e45018f1b99567
 
 LABEL org.opencontainers.image.source="https://github.com/Mochirii-Wushu/Mochirii"
 
