@@ -33,6 +33,9 @@ const supabaseConfig = read("supabase/config.toml");
 const migration = read("supabase/migrations/20260615041842_add_multi_provider_member_verification.sql");
 const verifyMemberAccess = read("supabase/functions/verify-member-access/index.ts");
 const oauthDecisionRoute = read("apps/web/app/api/oauth/decision/route.ts");
+const socialServiceEntitlement = read("supabase/functions/_shared/social-service-entitlement.ts");
+const socialServiceEntitlementClient = read("apps/web/lib/supabase/social-service-entitlement.ts");
+const pixelfedSocialSync = read("supabase/functions/sync-pixelfed-social-account/index.ts");
 const verifyDiscordMember = read("supabase/functions/verify-discord-member/index.ts");
 const memberVerificationIdentity = read("supabase/functions/_shared/member-verification-identity.ts");
 const memberVerificationIdentityTest = read("supabase/functions/_shared/member-verification-identity_test.ts");
@@ -257,6 +260,40 @@ assertIncludes(
   oauthDecisionRoute,
   'body: { refreshDiscord: true }',
 );
+
+[
+  "SOCIAL_SERVICE_ENTITLEMENT_CONTRACT",
+  '"mochirii.social-service-entitlement"',
+  "buildSocialServiceEntitlement",
+  'normalizedMemberStatus === "active"',
+  "exactDiscordVerified && verification.current",
+].forEach((snippet) => assertIncludes("strict Social entitlement producer", socialServiceEntitlement, snippet));
+
+[
+  "socialServiceEntitlementEnvelopeDecision(accessResult.data)",
+  'body: { refreshDiscord: true }',
+].forEach((snippet) => assertIncludes("strict Social OAuth decision", oauthDecisionRoute, snippet));
+
+[
+  "socialServiceEntitlementDecision",
+  "socialServiceEntitlementEnvelopeDecision",
+  "SOCIAL_SERVICE_ENTITLEMENT_RESPONSE_MAX_AGE_MS",
+].forEach((snippet) => assertIncludes("strict Social entitlement consumer", socialServiceEntitlementClient, snippet));
+
+[
+  "buildSocialServiceEntitlement",
+  "if (!socialEntitlement.allowed)",
+  "verification: null",
+].forEach((snippet) => assertIncludes("strict Pixelfed Social sync", pixelfedSocialSync, snippet));
+
+for (const [label, source] of [
+  ["Social OAuth decision", oauthDecisionRoute],
+  ["Pixelfed Social sync", pixelfedSocialSync],
+]) {
+  for (const forbidden of ["access.eligible", "galleryEligible === true", "memberAccessIsActive("]) {
+    assertNotIncludes(label, source, forbidden);
+  }
+}
 
 [
   "profileMatchesTrustedDiscordIdentity(",

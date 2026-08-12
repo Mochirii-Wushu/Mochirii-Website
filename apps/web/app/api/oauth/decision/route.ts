@@ -3,23 +3,11 @@ import { NextResponse } from "next/server";
 import { runSocialAuthorizationDecision } from "@/lib/oauth/authorization-decision-core";
 import { approvedSocialOAuthRedirect } from "@/lib/oauth/approved-social-redirect";
 import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "@/lib/supabase/config";
+import { socialServiceEntitlementEnvelopeDecision } from "@/lib/supabase/social-service-entitlement";
 
 type DecisionBody = {
   authorization_id?: unknown;
   decision?: unknown;
-};
-
-type MemberAccessPayload = {
-  ok?: boolean;
-  data?: MemberAccessPayload;
-  galleryEligible?: boolean;
-  discordVerified?: boolean;
-  profile?: {
-    member_status?: string | null;
-    has_required_discord_roles?: boolean | null;
-    discord_verified_at?: string | null;
-  } | null;
-  message?: string | null;
 };
 
 const NO_STORE_HEADERS = { "Cache-Control": "private, no-store" };
@@ -60,20 +48,6 @@ function json(payload: Record<string, unknown>, init: ResponseInit = {}) {
 
 function bearerToken(request: Request) {
   return (request.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();
-}
-
-function memberAccessPayload(value: unknown): MemberAccessPayload {
-  if (!value || typeof value !== "object") return {};
-  const payload = value as MemberAccessPayload;
-  return payload.data && typeof payload.data === "object" ? payload.data : payload;
-}
-
-function memberAccessIsActive(access: MemberAccessPayload) {
-  const profile = access.profile || null;
-  return Boolean(
-    profile?.member_status === "active" &&
-      (access.galleryEligible === true || access.discordVerified === true),
-  );
 }
 
 async function submitAuthorizationDecision({
@@ -159,8 +133,9 @@ export async function POST(request: Request) {
       });
       if (accessResult.error) return "unavailable";
 
-      const access = memberAccessPayload(accessResult.data);
-      return memberAccessIsActive(access) ? "active" : "inactive";
+      const entitlement = socialServiceEntitlementEnvelopeDecision(accessResult.data);
+      if (entitlement === "unavailable") return "unavailable";
+      return entitlement === "allowed" ? "active" : "inactive";
     },
     submitDecision: () => submitAuthorizationDecision({ authorizationId, decision: decision as "approve" | "deny", token }),
   });

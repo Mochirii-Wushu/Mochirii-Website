@@ -8,6 +8,7 @@ import {
 } from "../_shared/pixelfed-social-sync.ts";
 import { getServiceRoleKey } from "../_shared/supabase-service-role.ts";
 import { currentMemberAccess } from "../_shared/member-access-policy.ts";
+import { buildSocialServiceEntitlement } from "../_shared/social-service-entitlement.ts";
 import {
   asRecord,
   resolveDiscordIdentity,
@@ -71,18 +72,12 @@ Deno.serve(async (req: Request) => {
   const [
     { data: userData, error: userError },
     { data: profileData, error: profileError },
-    { data: verificationData, error: verificationError },
   ] = await Promise.all([
     adminClient.auth.admin.getUserById(payload.sub),
     adminClient
       .from("member_profiles")
       .select("id,member_status,discord_user_id,has_required_discord_roles,discord_verified_at")
       .eq("id", payload.sub)
-      .maybeSingle(),
-    adminClient
-      .from("member_verifications")
-      .select("gallery_access_status,gallery_access_verified_at,gallery_access_expires_at")
-      .eq("user_id", payload.sub)
       .maybeSingle(),
   ]);
 
@@ -101,23 +96,23 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ ok: false, error: "profile_lookup_failed" }, 500);
   }
 
-  if (verificationError) {
-    console.error("sync-pixelfed-social-account verification lookup failed", {
-      code: verificationError.code,
-      message: verificationError.message,
-    });
-    return jsonResponse({ ok: false, error: "verification_lookup_failed" }, 500);
-  }
-
   const now = new Date().toISOString();
+  const entitlementEvaluatedAtMs = Date.now();
   const user = asRecord(userData.user);
   const access = currentMemberAccess({
     profile: profileData ? asRecord(profileData) : null,
-    verification: verificationData ? asRecord(verificationData) : null,
+    verification: null,
     trustedDiscordUserId: resolveDiscordIdentity(user),
+    nowMs: entitlementEvaluatedAtMs,
+  });
+  const socialEntitlement = buildSocialServiceEntitlement({
+    memberStatus: profileData?.member_status,
+    discordVerified: access.discordVerified,
+    discordVerifiedAt: profileData?.discord_verified_at,
+    evaluatedAtMs: entitlementEvaluatedAtMs,
   });
 
-  if (!access.eligible) {
+  if (!socialEntitlement.allowed) {
     const { error: revokeError } = await adminClient
       .from("social_accounts")
       .update({

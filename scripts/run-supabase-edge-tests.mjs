@@ -8,7 +8,7 @@ const suites = [
   ["reaper interactions", ["--allow-env", "--node-modules-dir=auto", "--import-map=supabase/functions/reaper-discord-interactions/deno.json", "supabase/functions/_shared/discord-interaction-helpers_test.ts", "supabase/functions/_shared/discord-signature_test.ts", "supabase/functions/_shared/photo-day-polls_test.ts", "supabase/functions/_shared/reaper-discord-events_test.ts"]],
   ["gallery cleanup", ["--allow-env", "--node-modules-dir=auto", "--import-map=supabase/functions/delete-rejected-gallery-submission/deno.json", "supabase/functions/_shared/gallery-cleanup_test.ts"]],
   ["gallery thumbnail", ["supabase/functions/_shared/gallery-thumbnail_test.ts"]],
-  ["member access", ["--allow-env", "--node-modules-dir=auto", "--import-map=supabase/functions/sync-pixelfed-social-account/deno.json", "supabase/functions/_shared/member-access-policy_test.ts", "supabase/functions/_shared/pixelfed-social-sync_test.ts"]],
+  ["member access", ["--allow-env", "--node-modules-dir=auto", "--import-map=supabase/functions/sync-pixelfed-social-account/deno.json", "supabase/functions/_shared/member-access-policy_test.ts", "supabase/functions/_shared/pixelfed-social-sync_test.ts", "supabase/functions/_shared/social-service-entitlement_test.ts"]],
   ["member verification identity", ["supabase/functions/_shared/member-verification-identity_test.ts"]],
   ["Mochi Pets", ["--allow-env", "--node-modules-dir=auto", "--import-map=supabase/functions/mochi-pets-unity-auth/deno.json", "supabase/functions/_shared/mochi-pets-alpha_test.ts"]],
   ["modmail audit", ["supabase/functions/_shared/modmail-audit_test.ts"]],

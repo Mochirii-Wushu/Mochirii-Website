@@ -17,6 +17,7 @@ const stagingReady = process.env.PIXELFED_FIRST_LOGIN_STAGING_READY === "1";
 const requiredFiles = [
   "docs/pixelfed-guild-social-adr.md",
   "docs/pixelfed-first-login-testing.md",
+  "docs/integrations/social-service-entitlement.v1.md",
   "apps/web/app/social/page.tsx",
   "apps/web/app/oauth/consent/page.tsx",
   "apps/web/app/api/oauth/decision/route.ts",
@@ -30,6 +31,8 @@ const requiredFiles = [
   "apps/web/lib/oauth/prior-consent-redirect.ts",
   "apps/web/lib/oauth/prior-consent-redirect.test.mts",
   "apps/web/lib/supabase/client.ts",
+  "apps/web/lib/supabase/social-service-entitlement.ts",
+  "apps/web/lib/supabase/social-service-entitlement.test.mts",
   "apps/web/lib/supabase/social.ts",
   "supabase/migrations/20260702080720_add_pixelfed_social_accounts.sql",
   "supabase/functions/sync-pixelfed-social-account/index.ts",
@@ -37,6 +40,8 @@ const requiredFiles = [
   "supabase/functions/_shared/pixelfed-social-sync_test.ts",
   "supabase/functions/_shared/member-access-policy.ts",
   "supabase/functions/_shared/member-access-policy_test.ts",
+  "supabase/functions/_shared/social-service-entitlement.ts",
+  "supabase/functions/_shared/social-service-entitlement_test.ts",
 ];
 
 const snippetChecks = [
@@ -71,14 +76,15 @@ const snippetChecks = [
     snippets: [
       "getAuthorizationDetails",
       "authorization_id",
-      "verifyMemberAccess",
-      "profileIsActive",
+      "verifyMemberAccess({ refreshDiscord: true })",
+      "socialServiceEntitlementDecision",
       "activeMember",
       "createAuthorizationLoadQueue",
       "classifyAuthorizationDetailsFailure",
       "oauthConsentLoginHref",
       "priorConsentRedirect",
-      "isApprovedSocialOAuthReturnDestination",
+      "hasPendingAuthorizationShape",
+      "pendingAuthorizationDetailsAreApproved",
       "const SOCIAL_CLIENT_DISPLAY_NAME = \"Mōchirīī Social\"",
       "Guild Social Access",
       "Return destination",
@@ -129,8 +135,7 @@ const snippetChecks = [
     file: "apps/web/app/api/oauth/decision/route.ts",
     snippets: [
       "verify-member-access",
-      "galleryEligible",
-      "member_status",
+      "socialServiceEntitlementEnvelopeDecision",
       "submitAuthorizationDecision",
       "/oauth/authorizations/",
       "Authorization: `Bearer ${token}`",
@@ -181,6 +186,19 @@ const snippetChecks = [
       ".from(\"social_accounts\")",
       "provider: \"pixelfed\"",
       "federation_enabled: false",
+      "buildSocialServiceEntitlement",
+      "socialEntitlement.allowed",
+    ],
+  },
+  {
+    label: "Social service entitlement contract",
+    file: "docs/integrations/social-service-entitlement.v1.md",
+    snippets: [
+      "mochirii.social-service-entitlement",
+      "active && discordVerified",
+      "manual Gallery approval never grants Social access",
+      "does not secure every OAuth token issuance path",
+      "provider activation remains blocked",
     ],
   },
   {
@@ -516,21 +534,66 @@ if (consentPanel.includes("detailsError?.message")) {
 if (consentPanel.includes("text(details.redirect_uri")) {
   failures.push("OAuth consent must not render a raw redirect URI to members.");
 }
-if (consentPanel.indexOf("isApprovedSocialOAuthReturnDestination(nextDetails.redirect_uri)") > consentPanel.indexOf("setDetails(nextDetails)")) {
-  failures.push("OAuth consent must validate the registered return destination before rendering request details.");
-}
 for (const forbiddenConsentCopy of ["OAuth Consent", "Redirect URI", "client request", "client_name", "clientName"]) {
   if (consentPanel.includes(forbiddenConsentCopy)) {
     failures.push(`OAuth consent must use first-party member language rather than: ${forbiddenConsentCopy}.`);
   }
 }
-if (consentPanel.indexOf("await verifyMemberAccess()") > consentPanel.indexOf("priorConsentRedirect(nextDetails")) {
-  failures.push("Prior OAuth consent redirects must follow the current member access check.");
+const freshMemberAccessIndex = consentPanel.indexOf(
+  "await verifyMemberAccess({ refreshDiscord: true })",
+);
+const pendingAuthorizationCheckIndex = consentPanel.indexOf(
+  "pendingAuthorizationDetailsAreApproved(nextDetails, authorizationId)",
+);
+const priorConsentRedirectIndex = consentPanel.indexOf(
+  "priorConsentRedirect(nextDetails",
+);
+const renderDetailsIndex = consentPanel.indexOf("setDetails(nextDetails)");
+if (
+  freshMemberAccessIndex < 0 ||
+  pendingAuthorizationCheckIndex < 0 ||
+  priorConsentRedirectIndex < 0 ||
+  renderDetailsIndex < 0 ||
+  pendingAuthorizationCheckIndex > freshMemberAccessIndex ||
+  freshMemberAccessIndex > priorConsentRedirectIndex ||
+  priorConsentRedirectIndex > renderDetailsIndex
+) {
+  failures.push("OAuth pending and prior-consent paths must validate in the required request, membership, redirect, and render order.");
+}
+
+const syncFunction = read("supabase/functions/sync-pixelfed-social-account/index.ts");
+const strictSocialSources = [
+  ["OAuth consent", consentPanel],
+  ["OAuth decision", oauthDecisionRoute],
+  ["Pixelfed sync", syncFunction],
+];
+for (const [label, source] of strictSocialSources) {
+  for (const forbidden of [
+    "profileIsActive(",
+    "galleryEligible === true",
+    "access.eligible",
+    "memberAccessIsActive(",
+    "memberAccessPayload(",
+  ]) {
+    if (source.includes(forbidden)) {
+      failures.push(`${label}: strict Social authorization must not use legacy broad predicate: ${forbidden}`);
+    }
+  }
+}
+if (!consentPanel.includes("verifyMemberAccess({ refreshDiscord: true })")) {
+  failures.push("OAuth consent must request a fresh Discord verification before rendering or redirecting.");
+}
+if (!oauthDecisionRoute.includes("socialServiceEntitlementEnvelopeDecision(accessResult.data)")) {
+  failures.push("OAuth decision must require the exact successful v1 entitlement envelope.");
+}
+if (!syncFunction.includes("if (!socialEntitlement.allowed)")) {
+  failures.push("Pixelfed sync must require the exact strict Social entitlement result.");
 }
 
 [
   "docs/pixelfed-guild-social-adr.md",
   "docs/pixelfed-first-login-testing.md",
+  "docs/integrations/social-service-entitlement.v1.md",
   "apps/web/app/api/oauth/decision/route.ts",
   "apps/web/components/member-workflow/OAuthConsentPanel.tsx",
   "apps/web/lib/oauth/authorization-details-error.ts",
@@ -539,10 +602,13 @@ if (consentPanel.indexOf("await verifyMemberAccess()") > consentPanel.indexOf("p
   "apps/web/lib/oauth/prior-consent-redirect.ts",
   "apps/web/lib/oauth/prior-consent-redirect.test.mts",
   "apps/web/lib/supabase/client.ts",
+  "apps/web/lib/supabase/social-service-entitlement.ts",
   "supabase/functions/sync-pixelfed-social-account/index.ts",
   "supabase/functions/_shared/pixelfed-social-sync.ts",
   "supabase/functions/_shared/member-access-policy.ts",
   "supabase/functions/_shared/member-access-policy_test.ts",
+  "supabase/functions/_shared/social-service-entitlement.ts",
+  "supabase/functions/_shared/social-service-entitlement_test.ts",
   "scripts/check-pixelfed-first-login-readiness.mjs",
 ].forEach((file) => scanNoSecrets(file, read(file)));
 

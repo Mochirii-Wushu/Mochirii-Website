@@ -13,6 +13,14 @@ OAuth settings.
 
 ## Current Repo Gate
 
+The strict source boundary is versioned in
+[`integrations/social-service-entitlement.v1.md`](integrations/social-service-entitlement.v1.md).
+It requires exact `active && discordVerified` and never treats manual Gallery
+approval as Social access. This foundation does not secure prior-consent or
+refresh-token issuance by itself, so provider activation remains blocked until
+an independently accepted server-side token policy and revocation design are
+implemented and verified.
+
 First login testing may start only after these website and database-facing
 pieces are live through the protected branch flow:
 
@@ -73,7 +81,7 @@ Approved sync flow:
    Pixelfed local user id, username, `https://social.mochirii.com/...` profile
    URL, event, timestamp, and the shared sync secret header.
 3. The Edge Function verifies the secret, timestamp freshness, Member user ID,
-   username shape, and profile URL boundary.
+   username shape, profile URL boundary, and the strict v1 Social entitlement.
 4. The Edge Function upserts `public.social_accounts` with
    `provider = 'pixelfed'`, `status = 'active'`, and
    `federation_enabled = false`.
@@ -112,6 +120,9 @@ Supabase OAuth Server must be configured according to the current Supabase OAuth
   Do not replace this with a sessionless server `supabase.auth.oauth.*` helper:
   those helpers require an auth-js session and will return `Auth session
   missing!` in a stateless route handler.
+- The custom consent surface is defense in depth. It does not cover every
+  prior-consent or refresh-token issuance path; do not activate Social login
+  until the separately reviewed server-side all-token-issuance policy is live.
 
 If ID token generation fails because JWT signing keys are still symmetric,
 pause and prepare a JWT signing-key decision packet before continuing.
@@ -227,6 +238,8 @@ Before declaring first-login ready, verify:
 - Invalid or stale `authorization_id` fails safely.
 - Signed-out user is sent to `/auth` with the consent redirect preserved.
 - Non-member approval is denied.
+- A manually approved Gallery member without current trusted Discord evidence
+  is denied by the consent display, decision route, and sync bridge.
 - Suspended member approval is denied.
 - Deny action redirects safely without creating a Pixelfed account.
 - Duplicate username or duplicate email produces a documented decision packet.
