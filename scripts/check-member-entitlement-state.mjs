@@ -309,13 +309,15 @@ for (const hostileAppend of [
 }
 
 for (const marker of [
-  "Status: local source candidate only.",
+  "Status: source candidate; hosted Preview only.",
   "every runtime capability remains disabled",
   "These rows are not delivery acknowledgements",
   "intentionally has no cascading `auth.users` foreign key",
   "There is no source caller",
   "do not drop or rewrite the ledger",
-  "constitutes hosted migration",
+  "result_event_id` to `null`",
+  "existing Supabase Git integration makes that merge the production database deployment",
+  "That Preview does not constitute a production migration",
 ]) {
   assert.ok(
     documentationCompact.toLowerCase().includes(marker.toLowerCase()),
@@ -361,6 +363,7 @@ for (const marker of [
   "a stale non-adjacent replay cannot overwrite newer state",
   "failed replay preserves the newer snapshot and its exact event-target state",
   "an exact replay creates no event",
+  "an exact replay returns no new event identifier",
   "the exact due instant denies once",
   "every event has exactly the complete bounded consumer target set",
   "current state is byte-semantic equal to its immutable event snapshot",

@@ -1,5 +1,5 @@
 begin;
-select plan(76);
+select plan(77);
 
 select has_table('private', 'member_entitlement_runtime_control', 'runtime controls exist');
 select has_table('private', 'member_entitlement_subject_locks', 'subject locks exist');
@@ -623,6 +623,20 @@ select lives_ok(
     '11111111-1111-4111-8111-111111111111', 1, true, false, null, null
   )$$,
   'an exact replay succeeds idempotently'
+);
+
+reset role;
+
+set local role service_role;
+select set_config('request.jwt.claims', '{"role":"service_role"}', true);
+
+select is(
+  (select result_event_id
+   from public.commit_member_entitlement_snapshot_core_v1(
+     '11111111-1111-4111-8111-111111111111', 1, true, false, null, null
+   )),
+  null::uuid,
+  'an exact replay returns no new event identifier'
 );
 
 reset role;
