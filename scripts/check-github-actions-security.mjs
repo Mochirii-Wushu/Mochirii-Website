@@ -14,6 +14,7 @@ const cosignInstallerRef = "6f9f17788090df1f26f669e9d70d6ae9567deba6";
 const denoLinuxAmd64Sha256 = "1d97ecaf9e6bbb2a99e991caaf64ba9d62bf98759e8ef9938b9005855772b017";
 const verifiedToolInstaller = "bash scripts/install-verified-social-build-tools.sh";
 const alwaysReportingWorkflows = new Map([
+  ["validate-supabase-local-preview.yml", "supabase-local-preview"],
   ["validate-shopify-theme.yml", "validate-theme"],
   ["validate-social.yml", "validate-social"],
 ]);
@@ -145,9 +146,12 @@ for (const name of workflowFiles) {
     if (!new RegExp(`^  ${requiredContext}:\\n    name: ${requiredContext}$`, "m").test(text)) {
       failures.push(`${file}: must report the stable ${requiredContext} job name.`);
     }
+    const ownsDedicatedDetector = name === "validate-supabase-local-preview.yml"
+      ? text.includes("node scripts/detect-supabase-local-preview-changes.mjs")
+      : text.includes("git diff --quiet");
     if (!/^\s+id:\s*changes\s*$/m.test(text) ||
         !text.includes("github.event.pull_request.base.sha || github.event.before") ||
-        !text.includes("git diff --quiet") ||
+        !ownsDedicatedDetector ||
         !text.includes("steps.changes.outputs.changed == 'true'")) {
       failures.push(`${file}: must detect owned-path changes inside an always-reporting job.`);
     }

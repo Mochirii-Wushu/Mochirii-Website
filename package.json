@@ -50,6 +50,8 @@
     "check:next-route-delivery": "node scripts/check-next-route-delivery.mjs",
     "check:full-stack-release-evidence": "node scripts/check-full-stack-release-evidence.mjs",
     "test:supabase-migration-list": "node scripts/test-supabase-migration-list.mjs",
+    "test:supabase-local-preview-contract": "node scripts/check-supabase-local-preview.mjs",
+    "test:supabase-edge-local-preview": "node scripts/run-supabase-edge-tests.mjs",
     "check:guild-schedule": "node scripts/check-guild-schedule.mjs",
     "check:host-independence": "node scripts/check-host-independence.mjs",
     "gate:host-independence": "node scripts/check-host-independence.mjs --require-complete",
