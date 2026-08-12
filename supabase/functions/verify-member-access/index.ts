@@ -16,6 +16,7 @@ import {
   currentMemberAccess,
   discordVerificationNeedsRefresh,
 } from "../_shared/member-access-policy.ts";
+import { buildSocialServiceEntitlement } from "../_shared/social-service-entitlement.ts";
 
 type SyncedIdentity = {
   provider: string;
@@ -580,13 +581,21 @@ async function handleRequest(req: Request): Promise<Response> {
     user,
     (Array.isArray(identityRows) ? identityRows : []) as SyncedIdentity[],
   );
+  const entitlementEvaluatedAtMs = Date.now();
   const access = currentMemberAccess({
     profile: latestProfile,
     verification,
     trustedDiscordUserId,
+    nowMs: entitlementEvaluatedAtMs,
   });
   const { discordVerified, manualApproved } = access;
   const galleryEligible = access.eligible;
+  const socialEntitlement = buildSocialServiceEntitlement({
+    memberStatus,
+    discordVerified,
+    discordVerifiedAt: latestProfile?.discord_verified_at,
+    evaluatedAtMs: entitlementEvaluatedAtMs,
+  });
   const method = discordVerified
     ? "discord"
     : manualApproved
@@ -617,6 +626,7 @@ async function handleRequest(req: Request): Promise<Response> {
       manualApproved,
       identities: (Array.isArray(identityRows) ? identityRows : []).map((identity) => publicIdentity(identity as JsonRecord)),
       verification: publicVerification(verification),
+      socialEntitlement,
       profile: latestProfile,
       message,
       next,

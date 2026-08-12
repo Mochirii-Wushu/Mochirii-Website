@@ -10,27 +10,25 @@ import {
 } from "@/lib/oauth/authorization-details-error";
 import {
   approvedSocialOAuthRedirect,
-  isApprovedSocialOAuthReturnDestination,
 } from "@/lib/oauth/approved-social-redirect";
 import {
   createAuthorizationLoadQueue,
   type AuthorizationLoadQueue,
 } from "@/lib/oauth/authorization-load-queue";
 import { oauthConsentLoginHref } from "@/lib/oauth/consent-login-url";
-import { priorConsentRedirect } from "@/lib/oauth/prior-consent-redirect";
+import {
+  hasPendingAuthorizationShape,
+  pendingAuthorizationDetailsAreApproved,
+  priorConsentRedirect,
+  type OAuthAuthorizationDetails,
+} from "@/lib/oauth/prior-consent-redirect";
 import { SOCIAL_HOST } from "@/lib/public-urls";
 import { getCurrentSession, onAuthStateChange } from "@/lib/supabase/auth";
 import { requireBrowserSupabaseClient } from "@/lib/supabase/client";
-import { profileIsActive, verifyMemberAccess } from "@/lib/supabase/profile";
+import { verifyMemberAccess } from "@/lib/supabase/profile";
+import { socialServiceEntitlementDecision } from "@/lib/supabase/social-service-entitlement";
 import { text, type MemberAccessResponse } from "@/lib/supabase/types";
 import { WorkflowNotice } from "./WorkflowState";
-
-type AuthorizationDetails = {
-  authorization_id?: string;
-  redirect_url?: string;
-  redirect_uri?: string;
-  scope?: string;
-};
 
 const SOCIAL_CLIENT_DISPLAY_NAME = "Mōchirīī Social";
 const SOCIAL_SCOPE_LABELS: Readonly<Record<string, string>> = {
@@ -56,7 +54,7 @@ export function OAuthConsentPanel() {
   const loginHref = useMemo(() => oauthConsentLoginHref(authorizationId), [authorizationId]);
   const [busy, setBusy] = useState(true);
   const [signedIn, setSignedIn] = useState(false);
-  const [details, setDetails] = useState<AuthorizationDetails | null>(null);
+  const [details, setDetails] = useState<OAuthAuthorizationDetails | null>(null);
   const [memberAccess, setMemberAccess] = useState<MemberAccessResponse | null>(null);
   const [status, setStatus] = useState("Checking guild social access.");
   const [error, setError] = useState("");
@@ -105,15 +103,19 @@ export function OAuthConsentPanel() {
         return;
       }
 
-      const nextDetails = data as AuthorizationDetails;
-      if (!isApprovedSocialOAuthReturnDestination(nextDetails.redirect_uri)) {
+      const nextDetails = data as OAuthAuthorizationDetails;
+      const pendingAuthorization = hasPendingAuthorizationShape(nextDetails);
+      if (
+        pendingAuthorization &&
+        !pendingAuthorizationDetailsAreApproved(nextDetails, authorizationId)
+      ) {
         setStatus("");
         setError("This guild social request could not be verified. Return to Mōchirīī Social and start again.");
         setErrorKind("expired");
         return;
       }
 
-      const access = await verifyMemberAccess();
+      const access = await verifyMemberAccess({ refreshDiscord: true });
       if (!access.ok || !access.data) {
         setStatus("");
         setError("We couldn't verify guild membership. Try again.");
@@ -122,10 +124,23 @@ export function OAuthConsentPanel() {
       }
 
       const nextAccess = access.data;
-      const nextActiveMember = profileIsActive(nextAccess.profile, nextAccess);
+      const entitlement = socialServiceEntitlementDecision(nextAccess);
+      if (entitlement === "unavailable") {
+        setStatus("");
+        setError("We couldn't verify guild membership. Try again.");
+        setErrorKind("temporary");
+        return;
+      }
+      const nextActiveMember = entitlement === "allowed";
       const redirectUrl = priorConsentRedirect(nextDetails, nextActiveMember);
       if (redirectUrl) {
         window.location.assign(redirectUrl);
+        return;
+      }
+      if (!pendingAuthorization) {
+        setStatus("");
+        setError("This guild social request could not be verified. Return to Mōchirīī Social and start again.");
+        setErrorKind("expired");
         return;
       }
 
@@ -206,7 +221,7 @@ export function OAuthConsentPanel() {
   }
 
   const requestedAccess = scopeLabels(details?.scope);
-  const activeMember = profileIsActive(memberAccess?.profile, memberAccess);
+  const activeMember = socialServiceEntitlementDecision(memberAccess) === "allowed";
 
   return (
     <section className="glass-card glass-card--primary glass-pad auth-panel" aria-busy={busy} aria-live="polite">

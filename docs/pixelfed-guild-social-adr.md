@@ -31,6 +31,15 @@ Pixelfed code, infrastructure secrets, media storage credentials, DB passwords, 
 
 ## SSO Gate
 
+Website source defines the additive v1 Social entitlement in
+[`integrations/social-service-entitlement.v1.md`](integrations/social-service-entitlement.v1.md).
+It grants only exact active members with current trusted Discord verification;
+manual Gallery approval remains Gallery-only. The consent UI and Website
+decision route are defense-in-depth gates, not complete token-issuance
+enforcement. Production remains blocked until a separately reviewed
+server-side policy covers initial and refresh token issuance for the exact
+Social client.
+
 Do not provision production Pixelfed until staging proves Supabase OAuth 2.1 and Pixelfed OIDC compatibility:
 
 1. Supabase OAuth Server is enabled for an approved non-production or production-staging path.
@@ -52,9 +61,15 @@ the trusted sync bridge:
    username, `https://social.mochirii.com/...` profile URL, event, timestamp,
    and the shared sync secret.
 3. Supabase verifies the secret, timestamp freshness, user id, username shape,
-   and profile URL boundary, then upserts `public.social_accounts` as
+   profile URL boundary, and the strict v1 Social entitlement, then upserts
+   `public.social_accounts` as
    `provider = 'pixelfed'`, `status = 'active'`, and
    `federation_enabled = false`.
+
+The current sync source uses bounded stored Discord evidence. Launch remains
+blocked until an accepted design provides live refresh plus durable service
+revocation, or the release owner explicitly accepts the documented staleness
+window. Manual verification must never satisfy this bridge.
 
 Do not store the Supabase service-role key on the Pixelfed host. Deploying the
 Edge Function, setting `PIXELFED_SOCIAL_SYNC_SECRET`, and setting Pixelfed host

@@ -162,6 +162,23 @@ export type MemberAccessVerification = {
   reason?: string | null;
 };
 
+export type SocialServiceEntitlementV1 = {
+  contract: "mochirii.social-service-entitlement";
+  version: 1;
+  service: "social";
+  allowed: boolean;
+  memberStatus: string | null;
+  discordVerified: boolean;
+  reason:
+    | "allowed"
+    | "inactive_member"
+    | "discord_verification_required"
+    | "discord_verification_invalid"
+    | "discord_verification_stale";
+  evaluatedAt: string;
+  validUntil: string | null;
+};
+
 export type MemberAccessResponse = {
   galleryEligible?: boolean;
   method?: "discord" | "manual_review" | string | null;
@@ -170,6 +187,7 @@ export type MemberAccessResponse = {
   manualApproved?: boolean;
   identities?: MemberAccessIdentity[];
   verification?: MemberAccessVerification | null;
+  socialEntitlement?: SocialServiceEntitlementV1;
   profile?: MemberProfile | null;
   message?: string;
   next?: string;
