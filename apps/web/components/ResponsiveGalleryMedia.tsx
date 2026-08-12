@@ -52,7 +52,7 @@ export function ResponsiveGalleryMedia({
     : undefined;
 
   return (
-    <span className="responsive-gallery-media" data-image-state={status} aria-busy={status === "loading"}>
+    <span className="responsive-gallery-media" data-image-state={status}>
       <img
         ref={reconcileCompleteImage}
         className="responsive-gallery-media__image"

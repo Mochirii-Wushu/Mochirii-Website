@@ -191,6 +191,10 @@ assert(
   !responsiveGalleryMedia.includes("Image unavailable"),
   "shared Gallery media fallback must not introduce unapproved visible copy.",
 );
+assert(
+  !responsiveGalleryMedia.includes("aria-busy"),
+  "shared Gallery thumbnail media must not depend on hydration to clear server-rendered busy semantics.",
+);
 [
   ".responsive-gallery-frame{",
   "aspect-ratio:16 / 10;",

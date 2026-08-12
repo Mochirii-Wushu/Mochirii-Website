@@ -830,6 +830,7 @@ try {
       const triggerRect = element.closest(".gallery-thumb")?.getBoundingClientRect();
       return {
         naturalWidth: element.naturalWidth,
+        ariaBusy: element.closest(".responsive-gallery-media")?.getAttribute("aria-busy") ?? null,
         opacity: getComputedStyle(element).opacity,
         objectFit: getComputedStyle(element).objectFit,
         imageWidth: imageRect.width,
@@ -839,6 +840,7 @@ try {
       };
     });
     assert(state.naturalWidth > 0, "JavaScript-disabled Gallery did not load its static thumbnail.");
+    assert(state.ariaBusy === null, "JavaScript-disabled Gallery left its loaded thumbnail permanently busy.");
     assert(state.opacity === "1", "JavaScript-disabled Gallery kept its loaded thumbnail transparent.");
     assert(state.objectFit === "cover", "JavaScript-disabled Gallery lost the shared cover contract.");
     assert(
