@@ -22,7 +22,6 @@ jobs:
       EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       SUPABASE_TELEMETRY_DISABLED: 1
       DO_NOT_TRACK: 1
-      SUPABASE_LOCAL_WORKDIR: ${{ runner.temp }}/mochirii-supabase-local-preview
 
     steps:
       - name: Check out repository
@@ -38,6 +37,12 @@ jobs:
           set -Eeuo pipefail
           actual_sha="$(git rev-parse HEAD)"
           test "$actual_sha" = "$EXPECTED_SHA"
+
+      - name: Configure isolated local workdir
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          printf 'SUPABASE_LOCAL_WORKDIR=%s\n' "$RUNNER_TEMP/mochirii-supabase-local-preview" >> "$GITHUB_ENV"
 
       - name: Set up Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0

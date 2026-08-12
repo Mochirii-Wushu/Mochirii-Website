@@ -90,6 +90,7 @@ const requiredWorkflowSnippets = [
   "ref: ${{ env.EXPECTED_SHA }}",
   "actual_sha=\"$(git rev-parse HEAD)\"",
   "test \"$actual_sha\" = \"$EXPECTED_SHA\"",
+  "printf 'SUPABASE_LOCAL_WORKDIR=%s\\n' \"$RUNNER_TEMP/mochirii-supabase-local-preview\" >> \"$GITHUB_ENV\"",
   "persist-credentials: false",
   "fetch-depth: 0",
   "node-version-file: .node-version",
@@ -121,6 +122,7 @@ for (const forbidden of [
   "cache:",
   "paths:",
   "paths-ignore:",
+  "${{ runner.temp }}",
 ]) {
   assert.ok(!workflow.includes(forbidden), `Supabase local Preview workflow contains forbidden text: ${forbidden}`);
 }
