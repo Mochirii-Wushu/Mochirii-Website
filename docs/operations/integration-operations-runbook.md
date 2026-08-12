@@ -32,7 +32,7 @@ Run the smallest gate that matches the change, then broaden when provider or use
 - Next app: `cd apps/web && npm run toolchain:check && npm run lint && npm run build && npm audit --audit-level=moderate`.
 - Production-sensitive work: `npm run check:production` and `npm run smoke:dns-cutover-post -- --base-url=https://mochirii.com --www-mode=redirect`.
 - Provider evidence: `npm run check:full-stack-release-evidence -- --providers --strict-provider`; add `--write` only after strict mode passes.
-- Supabase work: `npm run check:supabase-security-performance`, `npm run check:supabase-edge-types`, relevant Deno tests, migration list, linked advisors, and Supabase Preview evidence for PRs with `supabase/` changes.
+- Supabase work: `npm run check:supabase-security-performance`, `npm run check:supabase-edge-types`, relevant Deno tests, migration list, linked advisors, and exact-head `supabase-local-preview` evidence. The provider transition from hosted Preview branches remains approval-gated under `docs/operations/supabase-local-preview-ci.md`.
 - Browser/accessibility/performance work: route matrix, accessibility route matrix, Lighthouse Home/Recruitment/Gallery, and focused Playwright smokes for authenticated or media flows.
 - CSP work: `npm run check:csp-inline-hardening -- --live --write`; do not remove inline allowances until Preview browser evidence covers Supabase, Spotify, and Vercel telemetry.
 
@@ -48,7 +48,7 @@ Run the smallest gate that matches the change, then broaden when provider or use
 - Pixelfed guild social: planned as a separate `social.mochirii.com` runtime on the DigitalOcean Droplet plus DigitalOcean Spaces. The website repo owns only the member doorway, Supabase OAuth consent surface, `social_accounts` mapping, the trusted sync Edge Function, and no-secret runbooks; do not add Pixelfed application code, host secrets, media credentials, or infrastructure state to this repo. See `docs/pixelfed-guild-social-adr.md`.
 - Pixelfed staging: `social.mochirii.com` exists as an admin-first staging target outside Vercel. Federation and broad member upload testing remain disabled until separate gates pass. First-admin login is not complete until the Pixelfed OIDC callback writes one active `social_accounts` row through the sync bridge.
 - GitHub Pages: no repository Pages configuration is active. Website rollback uses a prior ready Vercel deployment; restoring the archived static release would require a separate provider packet.
-- Supabase Preview: acceptable as skipped on PRs without `supabase/` changes; schema/function PRs must either produce green Supabase Preview evidence or document the integration blocker.
+- Supabase pull-request validation: the source-owned `supabase-local-preview` context always reports and runs the full local database/Edge suite for owned paths. Hosted `Supabase Preview` remains authoritative until the separately approved GitHub/Supabase transition in `docs/operations/supabase-local-preview-ci.md` is completed; do not change either provider setting from source work alone.
 - GitHub security alerts: code scanning, Dependabot, and secret scanning should remain at zero before release-sensitive merges.
 - Audio: `apps/web/public/assets/audio/mochiriiiiii.mp3` remains an accepted large-asset warning unless the owner explicitly approves optimization.
 

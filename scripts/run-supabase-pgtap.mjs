@@ -1,8 +1,11 @@
-import { readdirSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 
 const root = process.cwd();
+const localPreviewWorkdir = process.env.SUPABASE_LOCAL_WORKDIR
+  ? resolve(process.env.SUPABASE_LOCAL_WORKDIR)
+  : "";
 const testDirectory = resolve(root, "supabase/tests");
 const tests = readdirSync(testDirectory, { withFileTypes: true })
   .filter((entry) => entry.isFile() && entry.name.endsWith("_test.sql"))
@@ -13,15 +16,22 @@ if (tests.length === 0) {
   throw new Error("No top-level Supabase pgTAP test files were found.");
 }
 
-const npmCli = process.env.npm_execpath;
-if (!npmCli) {
-  throw new Error("npm_execpath is required for the Supabase pgTAP suite.");
+const supabaseCli = resolve(root, "node_modules", "supabase", "dist", "supabase.js");
+if (!existsSync(supabaseCli)) {
+  throw new Error("The repository-pinned Supabase CLI could not be located. Run npm ci first.");
 }
 
 const result = spawnSync(
   process.execPath,
-  [npmCli, "exec", "--", "supabase", "test", "db", "--local", ...tests],
-  { cwd: root, stdio: "inherit" },
+  [
+    supabaseCli,
+    "test",
+    "db",
+    "--local",
+    ...(localPreviewWorkdir ? ["--workdir", localPreviewWorkdir] : []),
+    ...tests,
+  ],
+  { cwd: localPreviewWorkdir || root, stdio: "inherit" },
 );
 
 if (result.error) throw result.error;

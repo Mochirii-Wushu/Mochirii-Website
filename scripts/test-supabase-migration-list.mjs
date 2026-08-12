@@ -29,6 +29,21 @@ const tableResult = parseSupabaseMigrationList(`
 
 assert.deepEqual(tableResult.versions, ["20260607094500", "20260608093407"]);
 assert.equal(tableResult.totalRows, 3);
+const currentCliTableResult = parseSupabaseMigrationList(`
+\u001b[31mConnecting to local database...\u001b[0m
+   Local            | Remote           | Time (UTC)
+  ------------------|------------------|-----------------------
+   \`20260727211442\` | \`20260727211442\` | \`2026-07-27 21:14:42\`
+   \`20260727212838\` | \`20260727212838\` | \`2026-07-27 21:28:38\`
+`);
+assert.deepEqual(currentCliTableResult, {
+  totalRows: 2,
+  versions: ["20260727211442", "20260727212838"],
+  rows: [
+    { local: "20260727211442", remote: "20260727211442" },
+    { local: "20260727212838", remote: "20260727212838" },
+  ],
+});
 assert.deepEqual(parseSupabaseMigrationList("not migration output"), {
   totalRows: 0,
   versions: [],
