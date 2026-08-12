@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { OfficialGuildProfiles } from "@/components/OfficialGuildProfiles";
 import { DISCORD_INVITE_URL } from "@/lib/public-urls";
 import { accountWorkflowLinks, navGroups, publicUtilityLinks } from "@/lib/site-navigation";
 import {
@@ -172,6 +173,12 @@ export function SiteHeader({
                       onClick={() => setOpenGroup(null)}
                     />
                   ))}
+                  {group.id === "guild" ? (
+                    <OfficialGuildProfiles
+                      placement="header"
+                      onNavigate={() => setOpenGroup(null)}
+                    />
+                  ) : null}
                 </div>
               </div>
             );
@@ -366,6 +373,14 @@ export function SiteHeader({
                 ))}
               </div>
             ))}
+
+            <div className="mobile-group">
+              <div className="mobile-group-title">Official profiles</div>
+              <OfficialGuildProfiles
+                placement="mobile"
+                onNavigate={() => closeMobile()}
+              />
+            </div>
 
             <div className="mobile-group">
               <div className="mobile-group-title">Visit</div>
