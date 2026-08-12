@@ -28,6 +28,8 @@ assert.equal(classifySupabaseChanges(["docs/README.md"]).changed, false);
 assert.equal(classifySupabaseChanges(["supabase/migrations/20260101000000_example.sql"]).changed, true);
 assert.equal(classifySupabaseChanges(["package-lock.json"]).changed, true);
 assert.equal(classifySupabaseChanges(["scripts/check-supabase-edge-types.mjs"]).changed, true);
+assert.equal(classifySupabaseChanges(["scripts/test-supabase-member-entitlement-concurrency.mjs"]).changed, true);
+assert.equal(classifySupabaseChanges(["scripts/test-member-entitlement-concurrency.mjs"]).changed, false);
 assert.equal(classifySupabaseChanges([".github/workflows/validate-supabase-local-preview.yml"]).changed, true);
 
 const migrationCanary = mkdtempSync(path.join(os.tmpdir(), "mochirii-migration-canary-"));
@@ -103,6 +105,7 @@ const requiredWorkflowSnippets = [
   "npm exec -- supabase db start",
   "npm exec -- supabase db reset --local --no-seed",
   "npm run test:supabase-db",
+  "npm run test:member-entitlement-concurrency",
   "npm exec -- supabase db lint --local --level warning --fail-on warning",
   "npm run check:supabase-edge-types",
   "npm run test:supabase-edge-local-preview",
@@ -130,6 +133,7 @@ for (const forbidden of [
 for (const script of [
   "test:supabase-local-preview-contract",
   "test:supabase-edge-local-preview",
+  "test:member-entitlement-concurrency",
 ]) {
   assert.ok(packageJson.includes(`"${script}"`), `package.json is missing ${script}.`);
 }
