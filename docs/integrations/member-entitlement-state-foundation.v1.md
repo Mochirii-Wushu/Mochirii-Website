@@ -1,7 +1,9 @@
 # Member Entitlement State Foundation v1
 
-Status: local source candidate only. The migration has not been applied to a
-hosted database, and every runtime capability remains disabled.
+Status: source candidate; hosted Preview only. The pull request's Supabase Git
+integration has applied the migration to its isolated hosted Preview branch.
+It has not been applied to production, and every runtime capability remains
+disabled.
 
 Base Website source: `d5e55abfb5e5d6fbecaf7da1cec762ba9bc9cdab`.
 
@@ -66,7 +68,10 @@ function:
    evidence is still current, and reading current state;
 3. requires the caller's exact expected revision, with zero reserved for the
    absent state;
-4. returns an identical current snapshot without creating an event;
+4. returns the identical current state without creating an event; an
+   idempotent replay sets `result_changed` to `false` and
+   `result_event_id` to `null` so callers cannot mistake the existing event
+   for a newly appended event;
 5. otherwise increments once, appends one immutable event, updates current
    state, creates both delivery obligations, and updates or removes due work in
    one transaction; and
@@ -125,15 +130,24 @@ foundation.
 
 The safe source and deployment order is:
 
-1. merge the reviewed inert foundation;
-2. apply its migration only under a separately approved production database
-   packet and verify the exact catalog with every flag still false;
-3. deploy accepted producers, consumer receivers, and recovery behavior while
+1. approve an exact protected-`main` release packet covering this production
+   migration, the full Edge Function inventory declared in `config.toml`, and
+   the normal Website deployment;
+2. merge the reviewed inert foundation through the protected branch; the
+   existing Supabase Git integration makes that merge the production database
+   deployment by applying new migrations and redeploying every declared Edge
+   Function, so do not run a separate manual database push;
+3. read back the exact production migration, catalog, function inventory, and
+   Website revision with every entitlement flag still false;
+4. deploy accepted producers, consumer receivers, and recovery behavior while
    activation remains false;
-4. prove clean-host, workstation-off, authorization, expiry, retry, revocation,
+5. prove clean-host, workstation-off, authorization, expiry, retry, revocation,
    and rollback behavior; and
-5. enable each capability only through a reviewed forward migration in the
+6. enable each capability only through a reviewed forward migration in the
    accepted order.
+
+Until step 1 is explicitly approved, the pull request must remain unmerged.
+Changing its draft state or merging it is not a source-only action.
 
 Before activation and before any rows exist, an approved database rollback may
 remove the isolated objects. Once any event exists, do not drop or rewrite the
@@ -141,7 +155,7 @@ ledger to roll back application code. Disable the relevant capability, preserve
 the evidence, and use a reviewed forward-fix migration. Reverting an application
 deployment does not reverse this database migration.
 
-## Local Evidence Required Before Source Acceptance
+## Validation Evidence Required Before Source Acceptance
 
 - a clean isolated Supabase reset through every repository migration;
 - the complete root pgTAP suite, including exact catalog and behavioral checks;
@@ -151,5 +165,9 @@ deployment does not reverse this database migration.
 - the root repository baseline and `git diff --check`; and
 - a fresh independent review bound to the exact staged tree.
 
-None of those local results constitutes hosted migration, provider activation,
-live member verification, Social/Forums launch, or deployment evidence.
+Those local results alone do not constitute hosted migration. The pull
+request's successful hosted Preview is separate evidence that the migration,
+configuration, APIs, and declared functions deploy in an isolated Preview
+branch. That Preview does not constitute a production migration, provider
+activation, live member verification, Social/Forums launch, or production
+deployment evidence.
