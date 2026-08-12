@@ -23,6 +23,15 @@ Functions, and schema changes migration-based. Do not commit real secrets or
 - Do not deploy Edge Functions unless a future task explicitly approves deployment.
 - Protected page text must not be changed for auth/gallery-upload work.
 
+## Inert Member Entitlement State
+
+The source-only durable entitlement substrate is documented in
+[`../docs/integrations/member-entitlement-state-foundation.v1.md`](../docs/integrations/member-entitlement-state-foundation.v1.md).
+It adds private revision, snapshot, delivery-obligation, and expiry state with
+all runtime flags false. It creates no producer, dispatcher, scheduler,
+consumer protocol, provider binding, or live login behavior. Applying the
+migration or enabling any capability requires a separate reviewed approval.
+
 ## Edge Function Dependencies
 
 Every deployed function owns a local `deno.json` with exact direct dependency
