@@ -323,6 +323,65 @@ async function waitForStableTriggers(page, surface) {
   throw new Error(`${surface.label}: trigger sources did not settle after hydration.`);
 }
 
+async function assertResponsiveThumbnailGeometry(page, surface, engineLabel, viewport) {
+  const measurements = await page.locator(surface.trigger).evaluateAll((triggers) =>
+    triggers.slice(0, 24).map((trigger) => {
+      const media = trigger.querySelector(".responsive-gallery-media");
+      const image = trigger.querySelector(".responsive-gallery-media__image");
+      if (!(media instanceof HTMLElement) || !(image instanceof HTMLImageElement)) return null;
+
+      const triggerRect = trigger.getBoundingClientRect();
+      const mediaRect = media.getBoundingClientRect();
+      const imageRect = image.getBoundingClientRect();
+      const triggerStyle = getComputedStyle(trigger);
+      const imageStyle = getComputedStyle(image);
+
+      return {
+        trigger: { width: triggerRect.width, height: triggerRect.height },
+        border: {
+          horizontal: (Number.parseFloat(triggerStyle.borderLeftWidth) || 0)
+            + (Number.parseFloat(triggerStyle.borderRightWidth) || 0),
+          vertical: (Number.parseFloat(triggerStyle.borderTopWidth) || 0)
+            + (Number.parseFloat(triggerStyle.borderBottomWidth) || 0),
+        },
+        media: { width: mediaRect.width, height: mediaRect.height },
+        image: { width: imageRect.width, height: imageRect.height },
+        objectFit: imageStyle.objectFit,
+      };
+    }),
+  );
+
+  const context = `${engineLabel} ${surface.label} thumbnail grid at ${viewport.width}x${viewport.height}`;
+  assert(measurements.length > 0, `${context}: no thumbnails were measured.`);
+  assert(measurements.every(Boolean), `${context}: a trigger bypassed the shared responsive media component.`);
+
+  for (const [index, measurement] of measurements.entries()) {
+    const usableWidth = measurement.trigger.width - measurement.border.horizontal;
+    const usableHeight = measurement.trigger.height - measurement.border.vertical;
+    assert(measurement.trigger.width > 16 && measurement.trigger.height > 10, `${context}: trigger ${index + 1} collapsed.`);
+    assert(
+      Math.abs((measurement.trigger.width / measurement.trigger.height) - 1.6) <= 0.03,
+      `${context}: trigger ${index + 1} did not preserve the 16:10 card ratio.`,
+    );
+    assert(
+      Math.abs(measurement.media.width - usableWidth) <= geometryTolerance
+        && Math.abs(measurement.media.height - usableHeight) <= geometryTolerance,
+      `${context}: media ${index + 1} did not fill its trigger.`,
+    );
+    assert(
+      measurement.image.width >= usableWidth - geometryTolerance
+        && measurement.image.height >= usableHeight - geometryTolerance
+        && measurement.image.width <= (usableWidth * 1.05) + geometryTolerance
+        && measurement.image.height <= (usableHeight * 1.05) + geometryTolerance,
+      `${context}: image ${index + 1} did not fill its trigger.`,
+    );
+    assert(measurement.objectFit === "cover", `${context}: image ${index + 1} does not use object-fit cover.`);
+  }
+
+  const pageOverflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  assert(pageOverflow <= geometryTolerance, `${context}: page has horizontal overflow.`);
+}
+
 async function selectLandscapeTriggerIndex(page, surface) {
   const triggers = page.locator(surface.trigger);
   const count = await triggers.count();
@@ -1467,6 +1526,7 @@ async function verifyEngine(engine) {
 
       for (const entry of prepared) {
         const { page, surface, triggerIndex } = entry;
+        await assertResponsiveThumbnailGeometry(page, surface, engine.label, viewport);
         const interactionViewport = interactionViewportLabels.has(viewport.label);
         if (interactionViewport) {
           await positionTriggerAtNonzeroScroll(page, surface, triggerIndex);

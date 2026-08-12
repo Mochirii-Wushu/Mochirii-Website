@@ -4,6 +4,7 @@ import "./styles/public-home-media.css";
 import "./styles/public-home-bulletins.css";
 import "./styles/public-home-doors.css";
 import "./styles/public-home-visual.css";
+import "./styles/shell-gallery-media.css";
 import "./styles/shell-lightbox.css";
 import { Fragment } from "react";
 import Link from "next/link";

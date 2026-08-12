@@ -7,7 +7,7 @@ canonical Mochirii repository and hosted production surfaces.
 
 ```text
 C:\Github Repo's\Mochirii Website\
-  Website\      GitHub: Mochirii-Wushu/Mochirii
+  Website\      GitHub: Mochirii-Wushu/Mochirii-Website
   Mochirii-Social-Mobile\  GitHub: Mochirii-Wushu/Mochirii-Social-Mobile
   Mochirii-Pets\  GitHub: Mochirii-Wushu/Mochirii-Pets; fresh Unity source
   Mochi Creds\  Private credential and recovery boundary, never Git tracked

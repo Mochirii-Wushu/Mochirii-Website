@@ -1,6 +1,6 @@
 # Repository Guidance
 
-- `Mochirii-Wushu/Mochirii` is the exclusive repository for all Mochirii website and storefront work. Never place Mochirii code, content, assets, configuration, deployments, or operational identifiers in another brand repository; never import another brand's material here.
+- `Mochirii-Wushu/Mochirii-Website` is the exclusive repository for all Mochirii website and storefront work. Never place Mochirii code, content, assets, configuration, deployments, or operational identifiers in another brand repository; never import another brand's material here.
 - This repository owns four production source boundaries: `apps/web` for the Vercel/Next.js website, `apps/shopify-theme` for the Shopify storefront theme, `services/social` for the DigitalOcean-hosted guild social application, and `supabase` for migrations and Edge Functions. Do not add another production source tree.
 - `apps/web/public/assets` and `apps/web/public/data` are the only editable website asset and data sources. The retired root static surface is preserved in release `legacy-static-final-2026-07-18`; do not recreate root mirrors or reverse-sync content.
 - Keep provider names in dependencies, internal code, CI, required attribution, or `docs/integrations` and `docs/operations`. Customer and leader surfaces use Mochirii/product language. Preserve required upstream framework names and licenses.

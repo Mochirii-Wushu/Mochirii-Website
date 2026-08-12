@@ -46,6 +46,19 @@ const runbook = read("docs/vote-reminder-runbook.md");
   "[...items, ...approvedItems]",
 ].forEach((snippet) => assertIncludes("GalleryBrowser approved feed", galleryBrowser, snippet));
 
+[
+  "Loading member-submitted images",
+  "Member-submitted images are temporarily unavailable",
+  "Member-submitted images loaded",
+  "No member-submitted images are available yet",
+  "currently available",
+  "gallery-feed-retry",
+].forEach((candidateOnlyCopy) => {
+  if (galleryBrowser.includes(candidateOnlyCopy)) {
+    failures.push(`GalleryBrowser approved feed: unapproved candidate-only public copy remains: ${candidateOnlyCopy}.`);
+  }
+});
+
 if (galleryBrowser.includes("setRandomSeed") || galleryBrowser.includes("createRandomSeed")) {
   failures.push("GalleryBrowser approved feed: random order must be stable before first paint.");
 }

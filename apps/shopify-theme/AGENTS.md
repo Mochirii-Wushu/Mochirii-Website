@@ -1,6 +1,6 @@
 # Shopify Theme Guidance
 
-- Keep every Mochirii storefront artifact in `Mochirii-Wushu/Mochirii`. Never copy it into another brand repository or reuse another brand's assets, identifiers, deployment configuration, or operational data.
+- Keep every Mochirii storefront artifact in `Mochirii-Wushu/Mochirii-Website`. Never copy it into another brand repository or reuse another brand's assets, identifiers, deployment configuration, or operational data.
 - This public directory owns only the Mochirii Cosmetics storefront theme.
 - Keep runtime theme code under `assets`, `blocks`, `config`, `layout`,
   `locales`, `sections`, `snippets`, and `templates`.

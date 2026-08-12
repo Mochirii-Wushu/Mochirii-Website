@@ -337,6 +337,45 @@ async function assertGalleryPerformanceEnvelope(page, label, expectedAssetUrls =
   assert(metrics.imageTransferBytes < 2 * 1024 * 1024, `${label}: initial Gallery image transfer ${metrics.imageTransferBytes} bytes reached 2 MiB.`);
 }
 
+async function assertSharedThumbnailLifecycle(page, label) {
+  const trigger = page.locator("#galleryGrid .gallery-thumb").first();
+  const media = trigger.locator(".responsive-gallery-media");
+  const image = media.locator(".responsive-gallery-media__image");
+
+  await page.waitForFunction(
+    (selector) => document.querySelector(selector)?.getAttribute("data-image-state") === "ready",
+    "#galleryGrid .gallery-thumb:first-child .responsive-gallery-media",
+  );
+  const before = await trigger.boundingBox();
+  assert(before && before.width > 16 && before.height > 10, `${label}: shared thumbnail trigger collapsed before the error fixture.`);
+
+  await image.evaluate((element) => {
+    element.src = "data:image/webp;base64,AAAA";
+  });
+  await page.waitForFunction(
+    (selector) => document.querySelector(selector)?.getAttribute("data-image-state") === "error",
+    "#galleryGrid .gallery-thumb:first-child .responsive-gallery-media",
+  );
+
+  const errorState = await media.evaluate((element) => {
+    const imageElement = element.querySelector(".responsive-gallery-media__image");
+    const fallbackElement = element.querySelector(".responsive-gallery-media__fallback");
+    return {
+      fallbackDisplay: fallbackElement ? getComputedStyle(fallbackElement).display : "",
+      imageOpacity: imageElement ? getComputedStyle(imageElement).opacity : "",
+      alt: imageElement?.getAttribute("alt") || "",
+    };
+  });
+  const after = await trigger.boundingBox();
+  assert(errorState.fallbackDisplay === "grid", `${label}: failed thumbnail did not expose its fallback.`);
+  assert(errorState.imageOpacity === "0", `${label}: failed thumbnail remained visibly broken.`);
+  assert(Boolean(errorState.alt), `${label}: failed thumbnail lost its accessible text.`);
+  assert(
+    before && after && Math.abs(before.width - after.width) <= 1 && Math.abs(before.height - after.height) <= 1,
+    `${label}: failed thumbnail changed the stable card geometry.`,
+  );
+}
+
 async function assertRepresentativeMemberThumbnailBatch(page, galleryAssetRequests) {
   const images = page.locator("#galleryGrid .gallery-thumb img");
   assert(await images.count() === mockApprovedCount, `Representative member batch expected ${mockApprovedCount} images.`);
@@ -554,6 +593,7 @@ try {
       "Static Gallery requested a full image before the viewer opened.",
     );
     await assertGalleryPerformanceEnvelope(page, "static Gallery");
+    await assertSharedThumbnailLifecycle(page, "static Gallery");
 
     await page.click("#galleryLoadMore");
     await page.waitForFunction(
@@ -731,7 +771,6 @@ try {
     assert(state.count === initialStaticCount, `Approved-feed failure should fall back to initial ${initialStaticCount} static items, got ${state.count}.`);
     assert(state.filters.every((filter) => filter.slug !== "member-submissions"), "Member Submissions filter should not render when approved feed fails.");
     assert(state.fulls[0] === newestFirst, "Approved-feed failure should preserve static newest sort.");
-
     assertFeedRequestContract(feedRequests, "approved feed failure fallback");
     await assertNoErrors(errors, "approved feed failure fallback");
     await page.close();
@@ -767,6 +806,51 @@ try {
   }
 
   await context.close();
+
+  const noJavaScriptContext = await browser.newContext({
+    javaScriptEnabled: false,
+    viewport: { width: 390, height: 844 },
+  });
+  try {
+    const page = await noJavaScriptContext.newPage();
+    await page.goto(`${baseUrl}/gallery`, { waitUntil: "load" });
+    const trigger = page.locator("#galleryGrid .gallery-thumb").first();
+    await trigger.scrollIntoViewIfNeeded();
+    const image = trigger.locator(".responsive-gallery-media__image");
+    await image.evaluate((element) => new Promise((resolve) => {
+      if (element.complete) {
+        resolve();
+        return;
+      }
+      element.addEventListener("load", resolve, { once: true });
+      element.addEventListener("error", resolve, { once: true });
+    }));
+    const state = await image.evaluate((element) => {
+      const imageRect = element.getBoundingClientRect();
+      const triggerRect = element.closest(".gallery-thumb")?.getBoundingClientRect();
+      return {
+        naturalWidth: element.naturalWidth,
+        ariaBusy: element.closest(".responsive-gallery-media")?.getAttribute("aria-busy") ?? null,
+        opacity: getComputedStyle(element).opacity,
+        objectFit: getComputedStyle(element).objectFit,
+        imageWidth: imageRect.width,
+        imageHeight: imageRect.height,
+        triggerWidth: triggerRect?.width || 0,
+        triggerHeight: triggerRect?.height || 0,
+      };
+    });
+    assert(state.naturalWidth > 0, "JavaScript-disabled Gallery did not load its static thumbnail.");
+    assert(state.ariaBusy === null, "JavaScript-disabled Gallery left its loaded thumbnail permanently busy.");
+    assert(state.opacity === "1", "JavaScript-disabled Gallery kept its loaded thumbnail transparent.");
+    assert(state.objectFit === "cover", "JavaScript-disabled Gallery lost the shared cover contract.");
+    assert(
+      state.imageWidth >= state.triggerWidth - 3 && state.imageHeight >= state.triggerHeight - 3,
+      "JavaScript-disabled Gallery thumbnail did not fill its stable card.",
+    );
+  } finally {
+    await noJavaScriptContext.close();
+  }
+
   console.log("Gallery approved feed smoke OK.");
 } finally {
   await browser.close();
