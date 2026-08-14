@@ -6,7 +6,7 @@ import {
 import type { ForumsMemberResult } from "./discourse-connect-member.ts";
 
 const MAX_REQUEST_BODY_BYTES = 12 * 1_024;
-const SECRET_PATTERN = /^[0-9a-f]{64}$/;
+const HMAC_KEY_PATTERN = /^[0-9a-f]{64}$/;
 const BEARER_PATTERN = /^[A-Za-z0-9._~-]{1,8192}$/;
 
 const PRIVATE_HEADERS = Object.freeze({
@@ -110,7 +110,7 @@ export async function handleForumsDiscourseConnect(
   config: DiscourseConnectHandlerConfig,
   dependencies: DiscourseConnectHandlerDependencies,
 ) {
-  if (!config.enabled || !SECRET_PATTERN.test(config.secret)) {
+  if (!config.enabled || !HMAC_KEY_PATTERN.test(config.secret)) {
     return errorResponse(503, "unavailable");
   }
 
