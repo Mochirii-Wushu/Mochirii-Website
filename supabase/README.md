@@ -37,11 +37,33 @@ freezing the deployed transitive graph.
 
 ## Pixelfed Guild Social Mapping
 
-Pixelfed is planned as a separate `social.mochirii.com` runtime, not as code inside this website repo. Supabase remains the identity and membership authority for the doorway and OAuth consent flow. The staging runtime exists outside Vercel; first authenticated testing is admin-only until the source-control, OIDC, media, backup, and moderation gates pass.
+Mochirii Social is live at `social.mochirii.com` as an external runtime owned,
+built, deployed, verified, and recovered exclusively from
+`Mochirii-Wushu/Mochirii-Social`; it is not application source in this Website
+repository. Supabase remains the identity and membership authority, and Website
+retains only the doorway, OAuth consent, account mapping, and related shared
+authorization contracts.
 
-`social_accounts` maps a signed-in website member to a future Pixelfed account. Trusted server/operator workflows own Pixelfed identity fields such as `provider_subject`, `provider_user_id`, `username`, `profile_url`, `status`, and sync timestamps. Authenticated members may read only their own rows and may update only `profile_link_visible`; that field is retained for backend compatibility while website member profile publishing is retired.
+`social_accounts` maps a signed-in website member to their current Mochirii
+Social account. Trusted server/operator workflows own Social identity fields
+such as `provider_subject`, `provider_user_id`, `username`, `profile_url`,
+`status`, and sync timestamps. Authenticated members may read only their own
+rows and may update only `profile_link_visible`; that field is retained for
+backend compatibility while Website member profile publishing is retired.
 
-The table intentionally does not grant direct insert/delete access to `authenticated`. The trusted write path is the `sync-pixelfed-social-account` Edge Function, which keeps the service-role key inside Supabase and accepts only a narrow Pixelfed host sync secret. Production SSO, federation enablement, broad member uploads, Spaces media migration, and any remote database/Auth/Function setting changes remain approval-gated provider work. See [`../docs/pixelfed-guild-social-adr.md`](../docs/pixelfed-guild-social-adr.md), [`../docs/pixelfed-first-login-testing.md`](../docs/pixelfed-first-login-testing.md), and [`../docs/pixelfed-staging-ops.md`](../docs/pixelfed-staging-ops.md).
+The table intentionally does not grant direct insert/delete access to
+`authenticated`. The trusted write path is the
+`sync-pixelfed-social-account` Edge Function, which keeps the service-role key
+inside Supabase and accepts only a narrow Social runtime sync secret.
+Federation remains disabled. Any future Social feature, federation, storage,
+or remote database/Auth/Function provider change remains approval-gated.
+Historical integration records are retained in
+[`../docs/pixelfed-guild-social-adr.md`](../docs/pixelfed-guild-social-adr.md),
+[`../docs/pixelfed-first-login-testing.md`](../docs/pixelfed-first-login-testing.md),
+and
+[`../docs/pixelfed-staging-ops.md`](../docs/pixelfed-staging-ops.md); they are
+not current runbooks. Current Social operations are owned exclusively by
+`Mochirii-Wushu/Mochirii-Social`.
 
 ## Member-Owned Profile Links
 

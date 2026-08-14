@@ -89,14 +89,11 @@ policy records require a pre-write rollback export and one authenticated writer.
 
 ## Mochirii Social
 
-`services/social` builds the private immutable production image. A release must
-record the reviewed commit, exact GHCR digest, SBOM, successful clean migrations,
-and workflow run. The protected manual deployment workflow accepts an exact
-digest and typed confirmation; it must not build on the Droplet.
-
-Rollback deploys the previous known-good digest when no migration was applied.
-Migration releases require the verified database backup and migration-specific
-recovery path. ActivityPub remains disabled.
+`Mochirii-Wushu/Mochirii-Social` exclusively owns application source, immutable
+image publication, deployment, hosted verification, backup validation, and
+recovery. Website has no Social operational workflow or deployable source.
+Its inert ownership marker records the former Website commit and predecessor
+digest for traceability only. ActivityPub remains disabled.
 
 ## Security Hardening
 

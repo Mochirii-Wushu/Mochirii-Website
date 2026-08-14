@@ -1,6 +1,6 @@
 # Current Mochirii State
 
-Updated: 2026-07-27 PDT
+Updated: 2026-08-14 PDT
 
 This no-secret file records the current hosted and repository state. Update it
 after a completed release or ownership change; do not place credentials,
@@ -14,7 +14,8 @@ provider exports, customer data, signed URLs, or mutable access details here.
   `git rev-parse origin/main`; do not rely on an undated copied SHA.
 - `apps/web` is the Vercel/Next.js website source.
 - `apps/shopify-theme` is the Shopify theme source.
-- `services/social` is the DigitalOcean-hosted Mochirii Social source.
+- `Mochirii-Wushu/Mochirii-Social` is the exclusive Mochirii Social application,
+  image, deployment, verification, backup-validation, and recovery source.
 - `supabase` contains migrations and Edge Functions for the hosted backend.
 - `/games/mochi-pets` is a public, indexable Website-owned concept page with an
   optional protected inner tester doorway and no game browser bridge or backend
@@ -53,12 +54,11 @@ asset and data sources.
 - PR #478 completed the consolidation closeout documentation and made
   `validate-theme` an always-reporting path-aware check; it merged as
   `b0c117e855375a2b1a1a7ff2110c2d60f6733015`.
-The superseded Shopify and Social repositories were exported as mirror clones,
-verified `--all` bundles, and no-secret provider metadata. Their encrypted
-archives and manifests are pinned and synchronized under the approved private
-recovery boundary. GitHub then confirmed both superseded repositories deleted,
-while the private GHCR package remained linked to the canonical repository.
-Generated local evidence now lives only under ignored `.artifacts/operations`.
+The consolidation bullets above are historical evidence and do not establish
+current Social ownership. The completed Social cutover makes
+`Mochirii-Wushu/Mochirii-Social` canonical; Website retains only its exact
+former source commit and predecessor image digest as inert rollback evidence.
+Generated local evidence lives only under ignored `.artifacts/operations`.
 
 ## Hosted Services
 
@@ -127,45 +127,20 @@ earlier closeout.
 
 ## Social Release
 
-- The canonical private GHCR package is
-  `ghcr.io/mochirii-wushu/mochirii-pixelfed-ops`.
-- The deployed canonical image digest is
+- Canonical repository commit:
+  `Mochirii-Wushu/Mochirii-Social@c42373b513b61171e8eb5b6800ee4ab4c8c6a23f`.
+- Exact upstream revision:
+  `c8bed78bee3d796c5efb57393dafafbba3706f38`.
+- Deployed immutable image digest:
+  `sha256:c2101909ae44a0653a742a782edbb3859600e52c4d2987440450fce91bad37aa`.
+- Website's inert ownership marker retains only predecessor source commit
+  `ef5675575aeea6cb41def256d0a889f60f963ff8` and predecessor image digest
   `sha256:1fd27c8f76595595912e6f12f1677c7f108aa50f64b38a85089006b47ad395f1`.
-- Social hardening replacement PR #535 is based on the current protected-main
-  baseline. It contains no database migration or `supabase/config.toml` change,
-  but it changes reviewed source consumed by existing declared functions. Its
-  Supabase Preview must therefore remain non-skipped. A protected-main merge
-  requires separate exact authorization to redeploy the same 33 functions while
-  preserving 20/13 JWT parity; any inventory or parity drift is a stop
-  condition. It also refreshes expired Discord role evidence on demand so an
-  otherwise valid member cannot become stranded at Social consent when the
-  bounded verification window expires.
-- The approved Packet E write set only the server-side
-  `MOCHIRII_SOCIAL_OAUTH_CLIENT_ID` binding as Sensitive for Vercel Preview and
-  Production. The exact registered first-party identifier, callback, and S256
-  PKCE request were reconciled without printing or recording the identifier.
-  No public variable, client secret, OAuth registration, callback, or other
-  provider setting changed, and the existing Production deployment remained
-  bound to protected `main` without a deployment solely for this setting.
-- PR #535 has been pushed and reviewed through exact-head GitHub, Vercel, and
-  non-skipped Supabase Preview gates. Protected Preview checks reached the
-  application authorization boundary, preserved private/no-store rejection,
-  and found no identifier in rendered HTML or client assets. The replacement
-  has not been merged, published to GHCR, or deployed to DigitalOcean; those
-  effects remain separately exact-gated. The private-media runtime remains
-  blocked until anonymous object/CDN denial and one authorized
-  application-media read are proven in the separately approved cutover packet.
-- Image workflow run `29664477462`, protected deployment run `29664673632`,
-  and hosted verification run `29664734313` completed successfully.
-- Caddy, Pixelfed, MariaDB, Redis, Horizon, scheduler, Spaces access, public
-  boundaries, and federation-disabled posture passed the hosted verification.
-- Post-deletion online verification run `29665954934` passed the same runtime,
-  Spaces, website, Supabase, Reaper, and Discord boundaries.
-- Final current-`main` online verification run `29666572246` passed after the
-  consolidation closeout and ruleset update.
-- Residual transitive Vue 2 advisory findings are tracked in issue #475 and are
-  accepted only as a temporary compatibility risk. No open Dependabot alert is
-  left without that explicit disposition.
+- Website has no Social application source or deploy, recovery, hosted
+  verification, image-publication, or package-write workflow. Its stable
+  `validate-social` status checks only this retired ownership boundary.
+- Existing runtime, storage, user data, authentication, closed registration,
+  and federation-disabled behavior remain unchanged by the authority cutover.
 
 ## Workspace
 
@@ -173,7 +148,7 @@ The supported local workspace contains:
 
 ```text
 C:\Github Repo's\Mochirii Website\
-  Website\      Canonical website, theme, Social, and Supabase repository
+  Website\      Canonical website, theme, and Supabase repository
   Mochirii-Social-Mobile\  First-party mobile client repository
   Mochirii-Pets\  Fresh Unity source repository; no playable artifact connected
   Mochi Creds\  Private synchronized credential and recovery boundary

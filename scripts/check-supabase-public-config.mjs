@@ -7,9 +7,6 @@ const root = process.cwd();
 const allowedEnvFiles = new Set([
   ".env.example",
   "apps/web/.env.example",
-  "services/social/.env.docker.example",
-  "services/social/.env.example",
-  "services/social/.env.testing",
   "supabase/functions/.env.example",
 ]);
 const expectedProjectRef = SUPABASE_PROJECT_REF;

@@ -12,8 +12,6 @@ const scanRoots = [
   "apps/shopify-theme/sections",
   "apps/shopify-theme/snippets",
   "apps/shopify-theme/templates",
-  "services/social/resources/lang",
-  "services/social/resources/views",
 ];
 
 const textExtensions = new Set([".css", ".html", ".js", ".json", ".liquid", ".php", ".tsx", ".ts"]);

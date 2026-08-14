@@ -1,5 +1,9 @@
 # Pixelfed Staging Ops Runbook
 
+> **Historical and superseded - do not execute.** This document is retained
+> only as migration history. Current Social operations are owned exclusively by
+> `Mochirii-Wushu/Mochirii-Social`.
+
 Status: staging operations packet. Provider mutations remain approval-gated.
 
 This runbook captures the no-secret operational shape for `social.mochirii.com`

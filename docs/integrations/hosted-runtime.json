@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "updated_date": "2026-07-25",
+  "updated_date": "2026-08-14",
   "scope": "No-secret hosted runtime ownership for the Mochirii customer and guild surfaces.",
   "workstation": {
     "role": "development_and_administration_only",
@@ -38,7 +38,7 @@
     {
       "id": "social",
       "provider": "DigitalOcean, Cloudflare, Spaces, and GHCR",
-      "source": "services/social",
+      "source": "Mochirii-Wushu/Mochirii-Social",
       "public_origins": ["https://social.mochirii.com"],
       "continuity": "droplet_supervised_containers",
       "workstation_requirement": "none"

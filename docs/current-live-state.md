@@ -80,26 +80,29 @@ This is the short source-of-truth index for the current Mochirii production post
 
 ## Mochirii Social / Pixelfed
 
-- Staging target: `https://social.mochirii.com`.
-- Hosting boundary: DigitalOcean staging runtime outside Vercel; Vercel remains the website host only.
+- Production target: `https://social.mochirii.com`.
+- Hosting boundary: the dedicated Social runtime remains outside Vercel; Vercel remains the website host only.
 - Identity boundary: Supabase OAuth Server and `/oauth/consent` remain the website consent doorway; Discord remains guild verification, not the social identity authority.
 - Website boundary: header dropdown/footer Social is the direct guild social handoff to `https://social.mochirii.com`; `/social` is only a noindex handoff route that redirects signed-in members and gives signed-out visitors login/help options.
 - Launch posture: admin-first testing, closed registration, SSO-only, federation disabled, public discovery minimized.
-- Source control: `services/social` in `Mochirii-Wushu/Mochirii` is the sole
-  Social application source. Do not commit host `.env`, DB/Redis state, media,
-  backups, cache files, host IPs, or host-private evidence.
-- PR #461 imported the reviewed sanitized current tree and established
-  path-aware Social validation, private immutable GHCR delivery, SBOM,
-  protected deployment, recovery, and hosted verification workflows.
-- The deployed canonical image digest is
-  `sha256:1fd27c8f76595595912e6f12f1677c7f108aa50f64b38a85089006b47ad395f1`.
-  Protected deploy run `29664673632` and online verification run `29664734313`
-  passed for the existing Droplet and Spaces-backed runtime.
+- Source control: `Mochirii-Wushu/Mochirii-Social` is the sole Social
+  application, image, deployment, verification, backup-validation, and
+  recovery authority. The cutover release is Social commit
+  `c42373b513b61171e8eb5b6800ee4ab4c8c6a23f`, upstream revision
+  `c8bed78bee3d796c5efb57393dafafbba3706f38`, and immutable image digest
+  `sha256:c2101909ae44a0653a742a782edbb3859600e52c4d2987440450fce91bad37aa`.
+  Website retains only an inert ownership marker with the predecessor Website
+  commit and digest. Do not commit host `.env`, DB/Redis state, media, backups,
+  cache files, host IPs, or host-private evidence.
 - Account sync gate completed for admin-first testing on 2026-07-05: the linked admin lands in the Mochirii Social app, Pixelfed has one local admin user, and Supabase `public.social_accounts` has exactly one active `provider = 'pixelfed'` row with `federation_enabled = false` and a profile URL under `https://social.mochirii.com`.
 - Avatar upload gate completed for admin-first testing on 2026-07-05: the live profile image flow accepts JPEG/JPG/PNG/WebP avatars up to 100 MB, advertises Mochirii automatic optimization, generates 640px primary and 320px thumbnail derivatives, uses Spaces-backed URLs, and no longer shows the old 2 MB avatar limit. Owner browser validation confirmed a profile image upload succeeded after PR #13 deployed.
 - Remaining media gap: DigitalOcean Spaces is configured as the primary S3-compatible media disk and a Laravel storage write/read/delete smoke passed on 2026-07-05. Broad member upload testing is still blocked until signed-in post-image upload validation proves downscale, thumbnail, EXIF/GPS stripping, oversized rejection, MIME/signature spoof rejection, delete cleanup, queue retry visibility, and local original/temp cleanup. The staged post upload policy remains large friendly uploads with hard caps, optimized derivatives, and no long-term original retention.
 - Federation gap: ActivityPub federation remains disabled/internal-only until a separate fediverse hub activation packet passes moderation, privacy, blocklist, remote-delivery, and rollback tests.
-- Runbooks: `docs/pixelfed-guild-social-adr.md`, `docs/pixelfed-oidc-spike.md`, `docs/pixelfed-first-login-testing.md`, and `docs/pixelfed-staging-ops.md`.
+- Historical Website integration records: `docs/pixelfed-guild-social-adr.md`,
+  `docs/pixelfed-oidc-spike.md`, and `docs/pixelfed-first-login-testing.md`.
+  `docs/pixelfed-staging-ops.md` is an obsolete staging procedure retained only
+  as history, not a current runbook. Current application operations belong in
+  `Mochirii-Wushu/Mochirii-Social`.
 
 ## Discord And Reaper
 
@@ -121,11 +124,10 @@ This is the short source-of-truth index for the current Mochirii production post
 - Release workflows use reviewed full-SHA action references, read-only minimum
   permissions, checkout with credential persistence disabled, the maintained
   `ubuntu-24.04` runner family, Node `22.23.1`, and Deno `2.9.4` with an explicit
-  official-release binary checksum. Social image jobs verify the exact Docker
-  Buildx `v0.35.0` binary and Sigstore bundle before setup, retain digest-pinned
-  BuildKit `v0.31.2`, and verify Syft `v1.49.0` through Anchore's signed release
-  checksums before SBOM generation. Repository-level full-SHA action pinning is
-  enabled; changes to that setting remain separately approval-gated.
+  official-release binary checksum. The stable `validate-social` status is an
+  inert ownership-boundary check only; it cannot build, publish, deploy, verify,
+  or recover Social. Repository-level full-SHA action pinning is enabled;
+  changes to that setting remain separately approval-gated.
 - Keep provider dashboard mutations separate from ordinary docs/content/theme work unless a packet explicitly calls for them.
 - Current public-repo release posture: `Mochirii-Wushu/Mochirii` is public. Do not change repository visibility without explicit approval. Stale Vercel failures that point at the old private-organization plan limitation must be rerun or refreshed before merge decisions; do not treat them as current evidence after the public visibility change.
 - ESLint 10 and TypeScript 7 remain intentionally deferred in issue #443.
