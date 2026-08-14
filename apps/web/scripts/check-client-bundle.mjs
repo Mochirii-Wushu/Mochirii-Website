@@ -9,6 +9,7 @@ const layoutLimit = 63 * 1024;
 const homeIncrementalLimit = 5 * 1024;
 const publicRouteLimit = 225 * 1024;
 const forbiddenRuntimeMarkers = ["GoTrueClient", "PostgrestError", "RealtimeClient"];
+const forbiddenSecretMarkers = ["MOCHIRII_FORUMS_DISCOURSE_CONNECT_SECRET"];
 const galleryMarker = "Approved gallery feed could not be loaded.";
 const publicRoutes = [
   "/",
@@ -33,6 +34,7 @@ const nonPublicRoutes = [
   "/account",
   "/auth",
   "/gallery-submit",
+  "/forums/connect",
   "/leader-dashboard",
   "/oauth/consent",
   "/raffle-render-fixtures-internal/[scenario]",
@@ -160,6 +162,10 @@ const staticChunks = readdirSync(staticChunkDirectory, { withFileTypes: true })
 function chunksContaining(marker) {
   const encoded = Buffer.from(marker);
   return staticChunks.filter((chunk) => chunk.buffer.includes(encoded)).map((chunk) => chunk.file);
+}
+for (const marker of forbiddenSecretMarkers) {
+  const offenders = chunksContaining(marker);
+  if (offenders.length) failures.push(`client chunks contain server-only marker ${marker}: ${offenders.join(", ")}`);
 }
 const controllerChunks = chunksContaining("Bulk paste");
 const viewerChunks = chunksContaining("raffle-app--viewer");

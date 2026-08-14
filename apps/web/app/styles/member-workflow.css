@@ -5,6 +5,7 @@ body[data-page="auth"],
 body[data-page="account"],
 body[data-page="social"],
 body[data-page="oauth-consent"],
+body[data-page="forums-connect"],
 body[data-page="leader-dashboard"],
 body[data-page="gallery-submit"]{
   --auth-moon:rgba(220,235,255,.58);
@@ -19,6 +20,7 @@ body[data-page="auth"] .page-hero,
 body[data-page="account"] .page-hero,
 body[data-page="social"] .page-hero,
 body[data-page="oauth-consent"] .page-hero,
+body[data-page="forums-connect"] .page-hero,
 body[data-page="leader-dashboard"] .page-hero,
 body[data-page="gallery-submit"] .page-hero{
   border:1px solid transparent;
@@ -35,12 +37,14 @@ body[data-page="auth"] .hero-intro,
 body[data-page="account"] .hero-intro,
 body[data-page="social"] .hero-intro,
 body[data-page="oauth-consent"] .hero-intro,
+body[data-page="forums-connect"] .hero-intro,
 body[data-page="leader-dashboard"] .hero-intro,
 body[data-page="gallery-submit"] .hero-intro,
 body[data-page="auth"] .page-main .glass-card,
 body[data-page="account"] .page-main .glass-card,
 body[data-page="social"] .page-main .glass-card,
 body[data-page="oauth-consent"] .page-main .glass-card,
+body[data-page="forums-connect"] .page-main .glass-card,
 body[data-page="leader-dashboard"] .page-main .glass-card,
 body[data-page="gallery-submit"] .page-main .glass-card{
   position:relative;
@@ -63,12 +67,14 @@ body[data-page="auth"] .hero-intro::before,
 body[data-page="account"] .hero-intro::before,
 body[data-page="social"] .hero-intro::before,
 body[data-page="oauth-consent"] .hero-intro::before,
+body[data-page="forums-connect"] .hero-intro::before,
 body[data-page="leader-dashboard"] .hero-intro::before,
 body[data-page="gallery-submit"] .hero-intro::before,
 body[data-page="auth"] .page-main .glass-card::before,
 body[data-page="account"] .page-main .glass-card::before,
 body[data-page="social"] .page-main .glass-card::before,
 body[data-page="oauth-consent"] .page-main .glass-card::before,
+body[data-page="forums-connect"] .page-main .glass-card::before,
 body[data-page="leader-dashboard"] .page-main .glass-card::before,
 body[data-page="gallery-submit"] .page-main .glass-card::before{
   content:"";
@@ -86,6 +92,7 @@ body[data-page="auth"] .muted,
 body[data-page="account"] .muted,
 body[data-page="social"] .muted,
 body[data-page="oauth-consent"] .muted,
+body[data-page="forums-connect"] .muted,
 body[data-page="leader-dashboard"] .muted,
 body[data-page="gallery-submit"] .muted{
   color:var(--auth-muted);

@@ -117,6 +117,17 @@ NEXT_PUBLIC_SITE_URL
 
 Do not print or commit secret values. Do not add service-role keys, Discord bot tokens, Instagram access tokens, OAuth client secrets, or other privileged credentials to browser code. Privileged verification, moderation, Instagram publishing, signed preview URLs, and audit behavior stay inside Supabase Edge Functions.
 
+The Mōchirīī Forums handoff additionally uses two server-only values. They must
+never use a `NEXT_PUBLIC_` prefix and remain absent or disabled until the
+separately gated Forums activation:
+
+```text
+MOCHIRII_FORUMS_DISCOURSE_CONNECT_ENABLED
+MOCHIRII_FORUMS_DISCOURSE_CONNECT_SECRET
+```
+
+See [`../../docs/integrations/mochirii-forums-discourse-connect.md`](../../docs/integrations/mochirii-forums-discourse-connect.md).
+
 ## Migrated Routes
 
 Current Next routes:
@@ -139,6 +150,7 @@ Current Next routes:
 - `/account`
 - `/social`
 - `/oauth/consent`
+- `/forums/connect`
 - `/gallery-submit`
 - `/leader-dashboard`
 - `/games/mochi-pets`
