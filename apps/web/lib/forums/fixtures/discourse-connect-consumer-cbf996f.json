@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "revision": "cbf996f65aae3da1843224aa624bcd9a225931ac",
+  "repository": "https://github.com/discourse/discourse",
+  "sourceFiles": [
+    {
+      "path": "lib/discourse_connect_base.rb",
+      "sha256": "7aeafcf920bfa5646ee0864c1ecbe3ad24615a89505122ea88037142ad95e638"
+    },
+    {
+      "path": "app/models/discourse_connect.rb",
+      "sha256": "1d6c02b7dde6940394ea6b5016ea470c8a19c0e3e4953fcfebfde46b08c3de85"
+    },
+    {
+      "path": "app/controllers/session_controller.rb",
+      "sha256": "022627791f2a237c4bfb789d9523b077f995c8a649d91a01a7006898ecc256e2"
+    },
+    {
+      "path": "config/site_settings.yml",
+      "sha256": "b50499a89a4ac5bb368670617ca75513bb458750aeaced2e0c48291e5da9653c"
+    },
+    {
+      "path": "spec/models/discourse_connect_spec.rb",
+      "sha256": "95e10aaaa4e91b1122bb077df6d439cde32893378eecb57ae56901234ef58686"
+    },
+    {
+      "path": "spec/requests/session_controller_spec.rb",
+      "sha256": "201e0963fc4d0b4b78726757169aa1beabf02d40b0b2910e9cc08d23f146bb92"
+    }
+  ],
+  "consumerContract": {
+    "nonceEncoding": "32-character lowercase hexadecimal",
+    "nonceLifetimeSeconds": 1800,
+    "usedNonceLifetimeSeconds": 86400,
+    "invalidNonceHttpStatus": 419,
+    "csrfProtectionDefault": true,
+    "nonceBoundToServerSession": true,
+    "invalidNonceRejectedBeforeIdentityLookup": true,
+    "acceptedNonceExpiredBeforeIdentityLookup": true
+  },
+  "scenarios": [
+    {
+      "name": "fresh",
+      "nonceAgeSeconds": 1,
+      "previouslyUsed": false,
+      "accepted": true,
+      "identityLookupReached": true
+    },
+    {
+      "name": "stale",
+      "nonceAgeSeconds": 1801,
+      "previouslyUsed": false,
+      "accepted": false,
+      "httpStatus": 419,
+      "identityLookupReached": false
+    },
+    {
+      "name": "reused",
+      "nonceAgeSeconds": 2,
+      "previouslyUsed": true,
+      "accepted": false,
+      "httpStatus": 419,
+      "identityLookupReached": false
+    }
+  ]
+}

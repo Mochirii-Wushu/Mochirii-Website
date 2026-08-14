@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { forumsConnectPrivateHeaders } from "./config/forums-connect-private-headers";
 import publicUrls from "./config/public-urls.json";
 
 const appRoot = dirname(fileURLToPath(import.meta.url));
@@ -117,6 +118,10 @@ const nextConfig: NextConfig = {
       {
         source: "/(.*)",
         headers: [...securityHeaders],
+      },
+      {
+        source: "/forums/connect",
+        headers: [...forumsConnectPrivateHeaders],
       },
       {
         source: "/spinner/:path*",

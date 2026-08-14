@@ -49,6 +49,7 @@ const checks = [
   ["check:auth-provider-state-cleanup", ["node", "scripts/check-auth-provider-state-cleanup.mjs"]],
   ["check:mochi-pets-tester-doorway", ["node", "scripts/check-mochi-pets-tester-doorway.mjs"]],
   ["test:mochi-pets-member-verification", ["node", "--experimental-default-type=module", "--experimental-strip-types", "apps/web/lib/mochi-pets/member-verification-core.test.mts"]],
+  ["test:forums-discourse-connect", ["node", "--experimental-default-type=module", "--experimental-strip-types", "--test", "apps/web/lib/forums/discourse-connect-browser-request.test.mts", "apps/web/lib/forums/discourse-connect-consumer-contract.test.mts", "apps/web/lib/forums/discourse-connect-core.test.mts", "apps/web/lib/forums/discourse-connect-handler.test.mts", "apps/web/lib/forums/discourse-connect-member.test.mts", "apps/web/lib/forums/forums-connect-page-headers.test.mts"]],
   ["test:mochi-pets-tester-access-policy", ["node", "--experimental-default-type=module", "--experimental-strip-types", "apps/web/lib/mochi-pets/tester-access-policy-core.test.mts"]],
   ["test:mochi-pets-tester-rate-limit", ["node", "--experimental-default-type=module", "--experimental-strip-types", "apps/web/lib/mochi-pets/tester-rate-limit.test.mts"]],
   ["test:mochi-pets-tester-session", ["node", "--experimental-default-type=module", "--experimental-strip-types", "apps/web/lib/mochi-pets/tester-session-core.test.mts"]],
