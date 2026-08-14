@@ -1,5 +1,9 @@
 # Pixelfed Guild Social ADR
 
+> **Historical and superseded - do not execute.** This document is retained
+> only as integration history. Current Social operations are owned exclusively
+> by `Mochirii-Wushu/Mochirii-Social`.
+
 Date: 2026-07-02
 
 Status: staging integration in progress; provider mutations and production runtime are approval-gated.

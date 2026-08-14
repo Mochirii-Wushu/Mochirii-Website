@@ -1,5 +1,9 @@
 # Pixelfed First Login Testing Runbook
 
+> **Historical and superseded - do not execute.** This document is retained
+> only as integration history. Current Social operations are owned exclusively
+> by `Mochirii-Wushu/Mochirii-Social`.
+
 Status: admin-first staging readiness packet. Provider mutations remain approval-gated.
 
 This runbook prepares the first Pixelfed login test without committing Pixelfed

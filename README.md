@@ -1,7 +1,7 @@
 # Mochirii
 
 Canonical source repository for the Mochirii website, cosmetics storefront
-theme, hosted guild-social application, and shared backend.
+theme, shared identity and authorization contracts, and hosted backend.
 
 ## Production Surfaces
 
@@ -9,7 +9,6 @@ theme, hosted guild-social application, and shared backend.
 | --- | --- | --- |
 | `apps/web` | `mochirii.com` Next.js website | Vercel |
 | `apps/shopify-theme` | `shop.mochirii.com` storefront theme | Shopify |
-| `services/social` | `social.mochirii.com` application and image | DigitalOcean and Spaces |
 | `supabase` | Auth, database migrations, RLS, and Edge Functions | Supabase |
 
 GitHub is the source, review, CI, package, and delivery control plane. Production
@@ -77,9 +76,10 @@ npm run check
 npm run theme:package
 ```
 
-Social has its own PHP, Composer, Node, Docker, migration, worker, and image
-validation under `services/social`. Follow its local `AGENTS.md` and production
-runbook; never run a host deployment from an unreviewed checkout.
+Mochirii Social application source, image publication, deployment, and recovery
+belong exclusively to `Mochirii-Wushu/Mochirii-Social`. This repository retains
+only the Website-side doorway, OAuth, shared identity, and authorization
+contracts.
 
 ## Delivery
 
@@ -88,7 +88,7 @@ runbook; never run a host deployment from an unreviewed checkout.
 - Supabase integration applies only reviewed backend changes from `main`.
 - Storefront source merges do not publish a theme automatically.
 - Social production accepts only an approved immutable image digest through the
-  protected manual workflow.
+  canonical Social repository; Website has no Social release workflow.
 - Provider settings, secrets, theme publication, database migrations, and live
   runtime changes remain scoped approval actions.
 

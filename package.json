@@ -7,7 +7,7 @@
     "node": "22.x",
     "npm": ">=10 <11"
   },
-  "description": "Canonical Mochirii website, storefront, social, and backend repository.",
+  "description": "Canonical Mochirii website, storefront, and backend repository.",
   "scripts": {
     "toolchain:check": "node scripts/check-local-toolchain.mjs",
     "check": "node scripts/check-all.mjs",
@@ -16,7 +16,6 @@
     "check:brand-boundaries": "node scripts/check-brand-boundaries.mjs",
     "check:repository-boundaries": "node scripts/check-repository-boundaries.mjs",
     "check:shopify-release-safety": "node apps/shopify-theme/scripts/check-release-safety.mjs",
-    "check:social": "npm --prefix services/social run check:mochirii-ops",
     "check:browser-route-matrix": "node scripts/check-browser-route-matrix.mjs",
     "check:assets": "node scripts/check-assets.mjs",
     "check:apple-auth-readiness": "node scripts/check-apple-auth-readiness.mjs",

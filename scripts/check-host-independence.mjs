@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { basename, dirname, extname, relative, resolve } from "node:path";
+import { dirname, extname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -64,9 +64,6 @@ const runtimePrefixes = [
   "apps/web/config/",
   "apps/web/lib/",
   "apps/web/public/data/",
-  "services/social/caddy/",
-  "services/social/docker/",
-  "services/social/systemd/",
   "supabase/functions/",
   "supabase/migrations/",
 ];
@@ -74,9 +71,6 @@ const runtimeExactFiles = new Set([
   "apps/web/next.config.ts",
   "apps/web/public/manifest.json",
   "apps/web/vercel.json",
-  "services/social/.dockerignore",
-  "services/social/Dockerfile",
-  "services/social/docker-compose.production.yml",
 ]);
 const runtimeTextExtensions = new Set([
   ".cjs",
@@ -102,42 +96,6 @@ const reviewedLoopbacks = new Map([
   [
     "apps/web/lib/member-social-links/profile-links-core.ts",
     [{ value: "localhost", count: 2 }],
-  ],
-  [
-    "services/social/caddy/Caddyfile",
-    [{ value: "reverse_proxy 127.0.0.1:8080", count: 1 }],
-  ],
-  [
-    "services/social/docker-compose.production.yml",
-    [
-      { value: "mariadb-admin ping -h 127.0.0.1", count: 1 },
-      { value: "127.0.0.1:8080:8080", count: 1 },
-      { value: "http://127.0.0.1:8080/api/service/readiness-check", count: 1 },
-    ],
-  ],
-  [
-    "services/social/scripts/check-production-runtime.mjs",
-    [
-      { value: "127.0.0.1:8080:8080", count: 1 },
-      { value: "http://127.0.0.1:8080/api/service/readiness-check", count: 2 },
-      { value: "reverse_proxy 127.0.0.1:8080", count: 2 },
-      { value: "['127.0.0.1', '::1']", count: 1 },
-    ],
-  ],
-  [
-    "services/social/scripts/install-production-caddy.sh",
-    [
-      { value: "http://127.0.0.1:8080/", count: 2 },
-      { value: "http://127.0.0.1:8080/api/service/readiness-check", count: 1 },
-      { value: "social.mochirii.com:443:127.0.0.1", count: 1 },
-    ],
-  ],
-  [
-    "services/social/scripts/production-runtime-lib.sh",
-    [
-      { value: "http://127.0.0.1:8080/", count: 2 },
-      { value: "http://127.0.0.1:8080/api/service/readiness-check", count: 1 },
-    ],
   ],
   [
     "supabase/functions/_shared/cors.ts",
@@ -411,9 +369,6 @@ function countOccurrences(content, value) {
 
 function isRuntimeSurface(path) {
   if (runtimeExactFiles.has(path)) return true;
-  if (path.startsWith("services/social/scripts/")) {
-    return /(?:production|backup|restore)/i.test(basename(path)) && runtimeTextExtensions.has(extname(path).toLowerCase());
-  }
   return runtimePrefixes.some((prefix) => path.startsWith(prefix))
     && (runtimeTextExtensions.has(extname(path).toLowerCase()) || path.endsWith("/Caddyfile"));
 }

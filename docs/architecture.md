@@ -1,9 +1,10 @@
 # Mochirii System Architecture
 
-`Mochirii-Wushu/Mochirii` is the source repository for the public website,
-storefront theme, hosted guild-social application, and shared backend. Production
-systems deploy from reviewed commits; the workstation is never a serving or job
-processing dependency.
+`Mochirii-Wushu/Mochirii-Website` is the source repository for the public
+website, storefront theme, Website-side identity and authorization contracts,
+and shared backend. The hosted guild-social application is sourced exclusively
+from `Mochirii-Wushu/Mochirii-Social`. Production systems deploy from reviewed
+commits; the workstation is never a serving or job-processing dependency.
 
 ## Repository Layout
 
@@ -11,7 +12,6 @@ processing dependency.
 | --- | --- | --- |
 | `apps/web` | Public website and hosted game doorways | Vercel |
 | `apps/shopify-theme` | Customer storefront theme | Shopify |
-| `services/social` | Guild-social application and production image | DigitalOcean Droplet and Spaces |
 | `supabase` | Database migrations and Edge Functions | Supabase |
 | `docs/integrations` | No-secret provider contracts and architecture notes | GitHub |
 | `docs/operations` | No-secret runbooks and dated release evidence | GitHub |
@@ -37,9 +37,10 @@ known set and CI rejects every new occurrence.
 - Shopify hosts `shop.mochirii.com`; `apps/shopify-theme` is its reviewed theme
   source. Store records remain provider-managed and require a rollback export
   before mutation.
-- The DigitalOcean runtime pulls an immutable image built from
-  `services/social`; database, cache, queues, schedules, media, and backups run
-  online without workstation processes.
+- The Social runtime pulls an immutable image built exclusively from
+  `Mochirii-Wushu/Mochirii-Social`; database, cache, queues, schedules, media,
+  and backups run online without workstation processes. Website owns only the
+  doorway, OAuth, shared identity, and authorization contracts it exposes.
 - Cloudflare remains an edge and DNS boundary. Provider configuration changes
   require exact, scoped approval.
 - Discord/Reaper runs through hosted Edge Functions. No local bot process is a

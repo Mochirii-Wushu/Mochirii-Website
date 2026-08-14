@@ -16,8 +16,6 @@ node_modules/
 .env
 .env.*
 !.env.example
-!services/social/.env.docker.example
-!services/social/.env.testing
 
 # Local Supabase CLI/runtime state. Keep config and migrations trackable.
 supabase/.branches/

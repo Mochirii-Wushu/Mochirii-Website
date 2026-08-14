@@ -1,5 +1,9 @@
 # Pixelfed OIDC Spike Packet
 
+> **Historical and superseded - do not execute.** This document is retained
+> only as integration history. Current Social operations are owned exclusively
+> by `Mochirii-Wushu/Mochirii-Social`.
+
 Status: staging OIDC packet. Provider mutations remain approval-gated.
 
 This packet defines the smallest credible staging proof before Mochirii commits

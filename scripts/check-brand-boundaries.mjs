@@ -48,10 +48,7 @@ const forbiddenFilePatterns = [
   /(^|\/)(?:credentials?|secrets?)(?:\.[^/]+)?$/i,
   /\.(?:key|p12|pfx|pem)$/i,
 ];
-const allowedCredentialExamples = new Set([
-  "services/social/.env.docker.example",
-  "services/social/.env.testing",
-]);
+const allowedCredentialExamples = new Set();
 const textExtensions = new Set([
   ".css",
   ".html",
@@ -84,9 +81,7 @@ const extensionlessTextFiles = new Set([
   "Dockerfile",
   "LICENSE",
 ]);
-const reviewedLargeTextBudgets = new Map([
-  ["services/social/storage/app/cities.json", 13 * 1024 * 1024],
-]);
+const reviewedLargeTextBudgets = new Map();
 const failures = [];
 
 function relative(filePath) {

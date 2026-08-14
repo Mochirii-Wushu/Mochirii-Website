@@ -15,7 +15,6 @@ const repositoryBudget = 900 * mib;
 const reviewedFileBudgets = new Map([
   ["apps/web/server-assets/spinner-fonts/NotoColorEmoji-Regular.ttf", 26 * mib],
   ["apps/web/server-assets/spinner-fonts/NotoSerifSC-Variable.ttf", 26 * mib],
-  ["services/social/storage/app/cities.json", 15 * mib],
 ]);
 const formerTokens = [
   { label: "former company brand", value: ["vele", "sari"].join("") },
@@ -50,9 +49,6 @@ const allowedEnvFiles = new Set([
   ".env.example",
   "apps/web/.env.example",
   "supabase/functions/.env.example",
-  "services/social/.env.example",
-  "services/social/.env.docker.example",
-  "services/social/.env.testing",
 ]);
 const textExtensions = new Set([
   ".css", ".html", ".js", ".json", ".jsx", ".liquid", ".md", ".mjs",
@@ -72,8 +68,6 @@ const renderedRoots = [
   "apps/shopify-theme/sections/",
   "apps/shopify-theme/snippets/",
   "apps/shopify-theme/templates/",
-  "services/social/resources/lang/",
-  "services/social/resources/views/",
 ];
 const failures = [];
 

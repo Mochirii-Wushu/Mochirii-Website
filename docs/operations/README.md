@@ -14,9 +14,11 @@ C:\Github Repo's\Mochirii Website\
   AGENTS.md      Umbrella workspace guidance
 ```
 
-Within `Website`, the public website, storefront theme, Social application, and
-Supabase backend live under `apps/web`, `apps/shopify-theme`, `services/social`,
-and `supabase`. The former Mochi Pets prototype and repository are deleted.
+Within `Website`, the public website, storefront theme, and Supabase backend
+live under `apps/web`, `apps/shopify-theme`, and `supabase`. Social application,
+image, deployment, and recovery ownership belongs exclusively to
+`Mochirii-Wushu/Mochirii-Social`. The former Mochi Pets prototype and
+repository are deleted.
 `Mochirii-Wushu/Mochirii-Pets` is the fresh Unity source owner, while Website
 owns the server-only tester doorway and disconnected waiting room. No playable
 Web or iOS artifact is connected.
