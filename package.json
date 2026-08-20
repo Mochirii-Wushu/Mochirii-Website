@@ -152,6 +152,7 @@
     "check:shop-brand": "node scripts/check-shop-brand-guardrails.mjs",
     "check:public-guild-brand": "node scripts/check-public-guild-brand.mjs",
     "check:public-guild-copy": "node scripts/check-public-guild-copy.mjs",
+    "check:public-disclosure-policy": "node scripts/check-public-disclosure-policy.mjs",
     "test:public-guild-copy-policy": "node --test scripts/lib/public-guild-copy-policy.test.mjs",
     "check:supabase-security-performance": "node scripts/check-supabase-security-performance.mjs",
     "check:spotlight-poll": "node scripts/check-spotlight-poll.mjs",

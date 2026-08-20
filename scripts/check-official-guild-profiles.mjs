@@ -135,6 +135,7 @@ assertNotIncludes("profile component", component, "<section");
 assertIncludes("profile component", component, 'className="sr-only"> external profile');
 assertIncludes("profile component", component, '<span className="sr-only">{profile.label}</span>');
 assertIncludes("profile component", component, 'data-official-profile={profile.id}');
+assertIncludes("profile component", component, 'referrerPolicy="no-referrer"');
 assertNotIncludes("profile component", component, "target=");
 assertNotIncludes("profile component", component, "rel=");
 assertNotIncludes("profile component", component, "https://");

@@ -32,6 +32,7 @@ function OfficialGuildProfileLink({
       className="official-profile-link"
       href={profile.href}
       onClick={onNavigate}
+      referrerPolicy="no-referrer"
       data-official-profile={profile.id}
       data-has-mark={profile.markAsset ? "true" : "false"}
     >

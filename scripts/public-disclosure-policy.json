@@ -1,0 +1,224 @@
+{
+  "schemaVersion": 2,
+  "classifications": [
+    "REQUIRED_PROTOCOL",
+    "REQUIRED_ACCESSIBILITY",
+    "REQUIRED_LEGAL_OR_LICENSE",
+    "APPROVED_DISCOVERABILITY",
+    "APPROVED_OPERATIONAL",
+    "REMOVE"
+  ],
+  "disclosures": [
+    {
+      "id": "canonical-discovery-metadata",
+      "classification": "REQUIRED_PROTOCOL",
+      "field": "canonical URLs, robots directives, sitemap entries, and security.txt fields",
+      "owner": "Mochirii-Wushu/Mochirii-Website",
+      "surfaces": ["public HTML", "robots.txt", "sitemap.xml", "security.txt"],
+      "sourcePaths": ["apps/web/components/public-pages/metadata.ts", "apps/web/public/robots.txt", "apps/web/public/sitemap.xml", "apps/web/public/.well-known/security.txt"],
+      "purpose": "Give browsers, search engines, and security researchers the minimum authoritative routing metadata.",
+      "exposure": "Public and intentionally cacheable according to the route contract.",
+      "retention": "Retained while the corresponding public route or security contact remains active.",
+      "verification": [
+        { "workspace": "root", "script": "check:observability-metadata-smoke" },
+        { "workspace": "root", "script": "check:next-route-delivery" }
+      ]
+    },
+    {
+      "id": "next-build-identity",
+      "classification": "APPROVED_OPERATIONAL",
+      "field": "framework-generated Next.js build identifiers and asset hashes",
+      "owner": "Mochirii-Wushu/Mochirii-Website",
+      "surfaces": ["generated HTML", "static asset URLs"],
+      "sourcePaths": ["apps/web/next.config.ts"],
+      "purpose": "Bind generated HTML to immutable framework assets and support cache-safe deployment routing.",
+      "exposure": "Public opaque identifiers; never include repository paths, account names, secrets, or commit messages.",
+      "retention": "Retained only for the lifetime of the deployment and its rollback window.",
+      "verification": [
+        { "workspace": "web", "script": "check:client-bundle" },
+        { "workspace": "root", "script": "check:security-hardening" }
+      ]
+    },
+    {
+      "id": "supabase-public-endpoint",
+      "classification": "APPROVED_OPERATIONAL",
+      "field": "public Supabase project endpoint and publishable client configuration",
+      "owner": "Mochirii-Wushu/Mochirii-Website",
+      "surfaces": ["browser bundle", "same-origin server requests"],
+      "sourcePaths": ["apps/web/config/public-urls.json", "scripts/lib/public-urls.mjs"],
+      "purpose": "Route public and authenticated browser requests to the intended shared backend.",
+      "exposure": "Public configuration only; service-role credentials and provider secrets are prohibited.",
+      "retention": "Retained while the production project remains the authoritative shared backend.",
+      "verification": [
+        { "workspace": "root", "script": "check:supabase-config" },
+        { "workspace": "root", "script": "check:security-hardening" }
+      ]
+    },
+    {
+      "id": "provider-network-origins",
+      "classification": "APPROVED_OPERATIONAL",
+      "field": "allowlisted CSP and image/network origins",
+      "owner": "Mochirii-Wushu/Mochirii-Website",
+      "surfaces": ["HTTP response headers", "Next.js image configuration"],
+      "sourcePaths": ["apps/web/next.config.ts", "scripts/check-csp-inline-hardening.mjs"],
+      "purpose": "Permit only the reviewed integrations and media delivery paths required by active features.",
+      "exposure": "Public hostnames without credentials, tokens, signed URLs, or private infrastructure identifiers.",
+      "retention": "Removed when the owning integration is retired or its origin changes through review.",
+      "verification": [
+        { "workspace": "root", "script": "check:csp-inline-hardening" },
+        { "workspace": "root", "script": "check:security-hardening" }
+      ]
+    },
+    {
+      "id": "official-profile-identities",
+      "classification": "APPROVED_DISCOVERABILITY",
+      "field": "official guild profile URLs, provider labels, local marks, and Organization sameAs values",
+      "owner": "Mochirii-Wushu/Mochirii-Website",
+      "surfaces": ["header", "mobile menu", "footer", "Organization JSON-LD"],
+      "sourcePaths": ["apps/web/config/public-urls.json", "apps/web/components/OfficialGuildProfiles.tsx", "apps/web/app/page.tsx"],
+      "purpose": "Let visitors distinguish and intentionally open the reviewed official guild profiles.",
+      "exposure": "Public exact destinations and approved local branding assets; no widgets, embeds, tracking queries, or preconnects.",
+      "retention": "Retained only while each profile remains verified and organization-owned.",
+      "verification": [
+        { "workspace": "root", "script": "check:official-guild-profiles" },
+        { "workspace": "root", "script": "check:site-navigation" }
+      ]
+    },
+    {
+      "id": "authentication-provider-presentation",
+      "classification": "APPROVED_DISCOVERABILITY",
+      "field": "approved sign-in provider labels and official local assets",
+      "owner": "Mochirii-Wushu/Mochirii-Website",
+      "surfaces": ["authentication selection UI"],
+      "sourcePaths": [
+        "apps/web/components/member-workflow/AuthPanel.tsx",
+        "apps/web/components/member-workflow/ProviderLogo.tsx",
+        "apps/web/lib/supabase/auth-providers.ts",
+        "apps/web/public/assets/auth-providers/README.md",
+        "apps/web/public/assets/auth-providers/apple-logo.generated.png",
+        "apps/web/public/assets/auth-providers/discord-symbol-white.svg",
+        "apps/web/public/assets/auth-providers/facebook-login-mark.svg",
+        "apps/web/public/assets/auth-providers/google-g.generated.svg",
+        "apps/web/public/assets/auth-providers/spotify-primary-logo-green.svg",
+        "apps/web/public/assets/auth-providers/twitch-glitch-white.svg"
+      ],
+      "purpose": "Identify each explicitly approved authentication choice using the provider's required presentation.",
+      "exposure": "Public labels and reviewed local assets only; client identifiers, secrets, and provider tokens are prohibited.",
+      "retention": "Retained only while the provider is source-approved; disabled providers remain unavailable at runtime.",
+      "verification": [
+        { "workspace": "root", "script": "check:auth-provider-brand-assets" },
+        { "workspace": "root", "script": "check:multi-provider-auth" }
+      ]
+    },
+    {
+      "id": "discord-schedule-identifiers",
+      "classification": "APPROVED_OPERATIONAL",
+      "field": "reviewed public event keys and Discord scheduled-event identifiers",
+      "owner": "Mochirii-Wushu/Mochirii-Website",
+      "surfaces": ["public guild schedule JSON"],
+      "sourcePaths": ["apps/web/public/data/guild-schedule.json"],
+      "purpose": "Keep the public Website schedule deterministic and reconcile duplicate or replaced guild events.",
+      "exposure": "Public opaque event identifiers only; guild tokens, private channels, and member data are prohibited.",
+      "retention": "Historical identifiers remain only where required for deterministic reconciliation and duplicate suppression.",
+      "verification": [
+        { "workspace": "root", "script": "check:guild-schedule" },
+        { "workspace": "root", "script": "check:events-page-schedule-sync" }
+      ]
+    },
+    {
+      "id": "event-social-contract-identifiers",
+      "classification": "APPROVED_OPERATIONAL",
+      "field": "event publication template keys, asset paths, content hashes, and schedule contract version",
+      "owner": "Mochirii-Wushu/Mochirii-Website",
+      "surfaces": ["public event-social JSON contracts"],
+      "sourcePaths": ["apps/web/public/data/event-social-content.json", "apps/web/public/data/event-social-assets.json"],
+      "purpose": "Bind reusable reviewed event content and derivatives to the server-authoritative publication schedule.",
+      "exposure": "Public immutable keys and asset paths; provider account identifiers, tokens, and unpublished mutation state are prohibited.",
+      "retention": "Retained with the reviewed reusable content version and its audit history.",
+      "verification": [
+        { "workspace": "root", "script": "check:event-social-content" },
+        { "workspace": "root", "script": "check:event-social-assets" }
+      ]
+    },
+    {
+      "id": "vercel-observability",
+      "classification": "APPROVED_OPERATIONAL",
+      "field": "Vercel Web Analytics and Speed Insights browser telemetry",
+      "owner": "Mochirii-Wushu/Mochirii-Website",
+      "surfaces": ["ordinary public Website routes"],
+      "sourcePaths": ["apps/web/components/OrdinarySiteShell.tsx", "scripts/check-observability-metadata-smoke.mjs"],
+      "purpose": "Measure aggregate route reliability and performance without loading telemetry on isolated private raffle or spinner surfaces.",
+      "exposure": "Provider-defined minimal browser telemetry; no Mōchirīī provider secrets or private route content.",
+      "retention": "Controlled by the current Vercel plan and removed when the observability integration is disabled.",
+      "verification": [
+        { "workspace": "root", "script": "check:observability-metadata-smoke" },
+        { "workspace": "root", "script": "check:web-runtime-performance" }
+      ]
+    },
+    {
+      "id": "social-upstream-attribution",
+      "classification": "REQUIRED_LEGAL_OR_LICENSE",
+      "field": "upstream Social source attribution and corresponding-source notice",
+      "owner": "Mochirii-Wushu/Mochirii-Website",
+      "surfaces": ["dedicated Social open-source notice"],
+      "sourcePaths": ["services/social/resources/views/site/open-source.blade.php", "services/social/tests/Feature/OpenSourceNoticeTest.php"],
+      "purpose": "Preserve the applicable upstream license and corresponding-source obligations in the dedicated legal location.",
+      "exposure": "Public only on the dedicated notice; ordinary Mōchirīī Social product surfaces remain Mōchirīī branded.",
+      "retention": "Retained for every distributed or network-served derivative release requiring the notice.",
+      "verification": [
+        { "workspace": "root", "script": "check:social" },
+        { "workspace": "root", "script": "check:public-guild-copy" }
+      ]
+    },
+    {
+      "id": "accessible-names-and-alt-text",
+      "classification": "REQUIRED_ACCESSIBILITY",
+      "field": "accessible names, alternative text, roles, and state descriptions",
+      "owner": "Mochirii-Wushu/Mochirii-Website",
+      "surfaces": ["public and authenticated rendered UI"],
+      "sourcePaths": ["scripts/check-accessibility-route-matrix.mjs", "apps/web/components/OfficialGuildProfiles.tsx"],
+      "purpose": "Expose equivalent meaning, state, and operation to assistive technologies.",
+      "exposure": "Public rendered accessibility text with the same disclosure limits as visible copy.",
+      "retention": "Retained with the user-facing control or content that it describes.",
+      "verification": [
+        { "workspace": "root", "script": "check:accessibility-route-matrix" },
+        { "workspace": "root", "script": "check:official-guild-profiles" }
+      ]
+    }
+  ],
+  "externalNameExceptions": [
+    {
+      "id": "approved-authentication-providers",
+      "names": ["Apple", "Facebook", "Google", "Discord", "Twitch", "Spotify"],
+      "surfaces": ["authentication selection UI"],
+      "sourcePaths": [
+        "apps/web/components/member-workflow/AuthPanel.tsx",
+        "apps/web/components/member-workflow/ProviderLogo.tsx",
+        "apps/web/lib/supabase/auth-providers.ts",
+        "docs/multi-provider-login-and-verification.md"
+      ],
+      "approval": "Release-owner approval recorded 2026-08-01; presentation only and independently runtime-gated."
+    },
+    {
+      "id": "approved-official-guild-profiles",
+      "names": ["Facebook", "Instagram", "TikTok", "Twitch"],
+      "surfaces": ["header", "mobile menu", "footer", "Organization JSON-LD"],
+      "sourcePaths": ["apps/web/config/public-urls.json", "docs/integrations/official-guild-profile-assets.md"],
+      "approval": "Release-owner approval recorded 2026-08-01 for exact reviewed destinations and permitted assets."
+    },
+    {
+      "id": "required-social-license-notice",
+      "names": ["Pixelfed"],
+      "surfaces": ["dedicated Social open-source notice"],
+      "sourcePaths": ["services/social/resources/views/site/open-source.blade.php"],
+      "approval": "Required legal and license disclosure confined to the dedicated open-source notice."
+    },
+    {
+      "id": "approved-game-and-community-identifiers",
+      "names": ["Where Winds Meet", "Discord"],
+      "surfaces": ["approved guild metadata and navigation", "guild event and account guidance"],
+      "sourcePaths": ["apps/web/components/public-pages/metadata.ts", "apps/web/components/SiteHeader.tsx", "apps/web/components/SiteFooter.tsx"],
+      "approval": "Existing reviewed guild identity and community-integration exception."
+    }
+  ]
+}

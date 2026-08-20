@@ -274,6 +274,7 @@ async function verifyProfileSection(section, expectedProfiles, label) {
     assert(await link.count() === 1, `${label} is missing the exact accessible link: ${profile.name}`);
     assert(await link.getAttribute("data-official-profile") === profile.id, `${label} ${profile.name} has the wrong stable ID`);
     assert(await link.getAttribute("href") === profile.href, `${label} ${profile.name} has the wrong destination`);
+    assert(await link.getAttribute("referrerpolicy") === "no-referrer", `${label} ${profile.name} must suppress the originating page URL`);
     assert(await link.getAttribute("target") === null, `${label} ${profile.name} unexpectedly opens a new browsing context`);
 
     await link.scrollIntoViewIfNeeded();

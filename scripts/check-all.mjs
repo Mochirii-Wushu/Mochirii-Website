@@ -140,6 +140,7 @@ const checks = [
   ["check:shop-brand", ["node", "scripts/check-shop-brand-guardrails.mjs"]],
   ["check:public-guild-brand", ["node", "scripts/check-public-guild-brand.mjs"]],
   ["check:public-guild-copy", ["node", "scripts/check-public-guild-copy.mjs"]],
+  ["check:public-disclosure-policy", ["node", "scripts/check-public-disclosure-policy.mjs"]],
   ["test:public-guild-copy-policy", ["node", "--test", "scripts/lib/public-guild-copy-policy.test.mjs"]],
   ["check:site-navigation", ["node", "scripts/check-site-navigation.mjs"]],
   ["check:official-guild-profiles", ["node", "scripts/check-official-guild-profiles.mjs", "--require-meta-marks"]],

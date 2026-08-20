@@ -132,10 +132,17 @@ recovery path. ActivityPub remains disabled.
   `apps/web/public/.well-known/security.txt` and the Social-host-specific
   `services/social/public/.well-known/security.txt`; both remain source checked
   and require separate hosted readback after an approved release.
-- GitHub Actions use full-SHA-pinned actions, minimum permissions, and disabled
-  persisted checkout credentials.
+- GitHub Actions use full-SHA-pinned actions, minimum permissions, disabled
+  persisted checkout credentials, and no `pull_request_target` workflows.
+  Mutable pull-request, event, ref, and actor values must enter shell steps only
+  through quoted environment variables; never interpolate those contexts
+  directly into `run` scripts.
 - Credentials live only in protected hosted secret stores or the private
   `Mochi Creds` boundary.
+- `scripts/public-disclosure-policy.json` records each retained public metadata
+  class, accountable repository owner, purpose, exposure, retention, exact
+  source files, and executable verification. The repository check rejects
+  untracked or repository-escaping sources and nonexistent package scripts.
 
 ## Evidence
 

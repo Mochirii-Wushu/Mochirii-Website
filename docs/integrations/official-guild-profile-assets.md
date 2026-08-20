@@ -39,4 +39,4 @@ Before a mark is added:
 4. Store only the reviewed extracted asset under `apps/web/public/assets/social-profiles`. Keep archives and screenshots in the ignored operations-artifact boundary.
 5. Run `npm run check:official-guild-profiles`; the contract rejects missing or unregistered files, path escapes, scripts, event handlers, active or external references, embedded raster data, and hash drift.
 
-The Mōchirīī shell may style the surrounding link, but never the provider mark itself. All links remain ordinary, same-tab HTTPS links so users retain normal browser navigation and no new provider request occurs before activation.
+The Mōchirīī shell may style the surrounding link, but never the provider mark itself. All links remain ordinary, same-tab HTTPS links so users retain normal browser navigation and no new provider request occurs before activation. Each link uses a `no-referrer` request policy so the destination does not receive the originating Mōchirīī page URL.
