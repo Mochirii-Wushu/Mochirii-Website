@@ -9,6 +9,24 @@ const formerRepositoryOwner = ["anthy", "phera"].join("");
 const formerManufacturingPartner = ["self", "named"].join("");
 const formerManufacturerBrand = ["ma", "dara"].join("");
 const personalAccountIdentity = ["xart", "aiusx"].join("");
+const canonicalRepositoryIdentity = "Mochirii-Wushu/Mochirii-Website";
+const retiredRepositoryIdentityPattern = /Mochirii-Wushu\/Mochirii(?![A-Za-z0-9-])/iu;
+const retiredRepositoryIdentityOccurrences = /Mochirii-Wushu\/Mochirii(?![A-Za-z0-9-])/giu;
+const historicalRepositoryIdentityPaths = new Set([
+  "apps/shopify-theme/MIGRATION-MANIFEST.json",
+  "apps/shopify-theme/content/approved-customer-copy.json",
+  "apps/shopify-theme/scripts/check-approved-customer-copy.mjs",
+]);
+const canonicalRepositoryIdentityPaths = new Set([
+  "apps/shopify-theme/AGENTS.md",
+  "apps/shopify-theme/README.md",
+  "apps/shopify-theme/scripts/lib/prepayment-evidence-gate.mjs",
+]);
+const retiredRepositoryIdentityAllowlist = new Map([
+  ["apps/shopify-theme/MIGRATION-MANIFEST.json", 1],
+  ["apps/shopify-theme/content/approved-customer-copy.json", 2],
+  ["apps/shopify-theme/scripts/check-approved-customer-copy.mjs", 2],
+]);
 const forbiddenTokens = [
   { label: "former company brand", value: formerCompanyBrand },
   { label: "former repository owner", value: formerRepositoryOwner },
@@ -23,6 +41,7 @@ const forbiddenContentPatterns = [
   { label: "private supplier-side catalog evidence", pattern: /\bsupplier[- ]side product (?:set|list|entries)\b/i },
 ];
 const separationMetadataPaths = new Set([
+  "apps/shopify-theme/ACTIVE-SOURCE-MANIFEST.v1.json",
   "apps/shopify-theme/MIGRATION-MANIFEST.json",
   "apps/shopify-theme/README.md",
   "docs/shopify-theme-migration-2026-07-16.md",
@@ -88,6 +107,7 @@ const reviewedLargeTextBudgets = new Map([
   ["services/social/storage/app/cities.json", 13 * 1024 * 1024],
 ]);
 const failures = [];
+const retiredRepositoryIdentityCounts = new Map();
 
 function relative(filePath) {
   return path.relative(repoRoot, filePath).split(path.sep).join("/");
@@ -133,6 +153,7 @@ const extensionlessGovernanceCanary = {
   path: ".github/CODEOWNERS",
   content: `* @${["xart", "aiusx"].join("")}`,
 };
+const retiredRepositoryIdentityCanary = "Mochirii-Wushu/Mochirii";
 if (separationMetadataFailures(sourceReferenceCanary).length < 2 ||
     separationMetadataFailures(providerIdentifierCanary).length !== 1) {
   console.error("Brand boundary check failed: separation-metadata canary did not trigger.");
@@ -143,6 +164,11 @@ if (
   || !forbiddenTokens.some((rule) => normalized(extensionlessGovernanceCanary.content).includes(rule.value))
 ) {
   console.error("Brand boundary check failed: extensionless governance canary was not scanned.");
+  process.exit(1);
+}
+if (!retiredRepositoryIdentityPattern.test(retiredRepositoryIdentityCanary) ||
+    retiredRepositoryIdentityPattern.test(canonicalRepositoryIdentity)) {
+  console.error("Brand boundary check failed: repository-identity canary did not distinguish retired and canonical names.");
   process.exit(1);
 }
 
@@ -193,12 +219,36 @@ for (const relativePath of trackedFiles) {
         failures.push(`${relativePath}:${index + 1}: contains ${rule.label}`);
       }
     }
+    if (relativePath.startsWith("apps/shopify-theme/") &&
+        retiredRepositoryIdentityPattern.test(line)) {
+      if (!historicalRepositoryIdentityPaths.has(relativePath)) {
+        failures.push(`${relativePath}:${index + 1}: contains retired repository identity`);
+      } else {
+        retiredRepositoryIdentityCounts.set(
+          relativePath,
+          (retiredRepositoryIdentityCounts.get(relativePath) ?? 0) +
+            (line.match(retiredRepositoryIdentityOccurrences)?.length ?? 0),
+        );
+      }
+    }
     if (separationMetadataPaths.has(relativePath)) {
       for (const label of separationMetadataFailures(lowerLine)) {
         failures.push(`${relativePath}:${index + 1}: contains ${label}`);
       }
     }
   });
+}
+
+for (const relativePath of canonicalRepositoryIdentityPaths) {
+  const absolutePath = path.join(repoRoot, relativePath);
+  if (!existsSync(absolutePath) || !readFileSync(absolutePath, "utf8").includes(canonicalRepositoryIdentity)) {
+    failures.push(`${relativePath}: canonical repository identity is missing`);
+  }
+}
+for (const [relativePath, expectedCount] of retiredRepositoryIdentityAllowlist) {
+  if (retiredRepositoryIdentityCounts.get(relativePath) !== expectedCount) {
+    failures.push(`${relativePath}: historical repository identity count must remain exactly ${expectedCount}`);
+  }
 }
 
 if (failures.length) {

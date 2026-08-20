@@ -66,8 +66,10 @@ Generated local evidence now lives only under ignored `.artifacts/operations`.
   protected `main` with Root Directory `apps/web`.
 - Supabase project `deyvmtncimmcinldjyqe` remains the hosted Auth, Postgres, RLS,
   and Edge Function backend.
-- `shop.mochirii.com` remains password-protected. Payments and checkout remain
-  disabled. Theme `141514408011` remains unpublished.
+- The 2026-07-18 Shopify readback recorded `shop.mochirii.com` as
+  password-protected and theme `141514408011` as unpublished. Those provider
+  states are unverified as current. This source keeps only its theme cart CTA
+  disabled and does not prove Shopify checkout or payments are disabled.
 - `social.mochirii.com` remains on the single Singapore DigitalOcean Droplet
   with Spaces-backed media. Registration is closed and ActivityPub is disabled.
 - Core customer serving, authentication, media, releases, Social queues, and
@@ -186,6 +188,12 @@ generated archives belong only in ignored `.artifacts/operations`.
 
 ## Shopify Opening Readiness
 
+This subsection received a source-only reconciliation on 2026-08-13 PDT. No
+authenticated Shopify readback, storefront browser session, upload,
+publication, checkout, payment, order, or provider mutation was performed. All
+provider facts dated July 2026 below are historical and unverified as current;
+they cannot make a gate Ready.
+
 - [`SHOPIFY-LAUNCH-READINESS.md`](./SHOPIFY-LAUNCH-READINESS.md) is the
   canonical no-secret decision ledger for the United States-only storefront
   opening and its 72-hour low-promotion soft launch.
@@ -248,19 +256,22 @@ generated archives belong only in ignored `.artifacts/operations`.
   bodies/media/memberships, five policies, three notifications and sender
   authentication remain Pending; no provider state was changed.
 - The ledger contains exactly the twenty products in approved customer-copy
-  contract `2026-07-18-v2` and the 2026-07-18 authenticated read-only Shopify
-  readback. All twenty are Active with USD prices, but inventory is not tracked
-  and each says Shop location is its single fulfilling location. Nonblank SKUs
-  and physical weights were confirmed, while that baseline rendered a generic
-  warning fallback on fifteen PDPs. The local source has since removed generic
+  contract `2026-07-18-v2`. The 2026-07-18 authenticated read-only Shopify
+  readback historically recorded all twenty as Active with USD prices,
+  inventory not tracked, and Shop location as each record's single fulfilling
+  location. It also recorded nonblank SKUs and physical weights and rendered a
+  generic warning fallback on fifteen PDPs. Every provider fact in that
+  sentence is unverified as current. The local source has since removed generic
   fact, INCI and warning fallbacks, but has not been uploaded. These facts do
   not clear product evidence, labels, formula/INCI, warnings, safety, MoCRA,
   claims, variants, fulfillment, privacy, tax, or launch operations.
-- Non-payment provider blockers include the Basic development-store state,
-  United States tax set to Not collecting, untracked inventory, unresolved
-  physical-weight correctness and fulfillment locations, EUR-denominated US
-  shipping-profile tiers in admin, and an unbranded notification sender. No
-  provider setting was changed.
+- The July readback recorded non-payment provider blockers including the Basic
+  development-store state, United States tax set to Not collecting, untracked
+  inventory, unresolved physical-weight correctness and fulfillment locations,
+  EUR-denominated US shipping-profile tiers in admin, and an unbranded
+  notification sender. Those provider values are unverified as current; the
+  gates remain blocked regardless. No provider setting was changed in this
+  source-only reconciliation.
 - All twenty release dispositions remain blocked until their evidence and
   provider fields are reviewed. Unknown private or external facts are recorded
   as Pending rather than inferred.
@@ -280,12 +291,15 @@ generated archives belong only in ignored `.artifacts/operations`.
   authorized before candidate staging. Theme publication, password removal,
   checkout, payment, product/provider writes, and downstream launch operations
   remain unreleased.
-- The revised plan authorizes a single reversible upload of the exact
-  human-reviewed, merged-main package to unpublished candidate theme
-  `141514408011` while `checkout_enabled` stays false. The required rollback
-  capture, merged source/package binding, upload and post-write readback are
-  still Pending. This boundary does not authorize a repeat upload, shared
-  record changes, theme publication, checkout, password removal or commerce.
+- The July revised plan recorded a single reversible staging boundary for an
+  exact human-reviewed, merged-main package to candidate theme `141514408011`
+  while `checkout_cta_enabled` stays false. That setting controls only the
+  theme cart CTA and does not disable Shopify checkout. Candidate identity and
+  Draft status are unverified as current, and the required rollback capture,
+  source/package binding, upload and post-write readback remain Pending. This
+  source-only reconciliation neither exercises nor renews provider-write
+  authority and does not authorize a repeat upload, shared-record changes,
+  theme publication, checkout, password removal or commerce.
 - Prepayment acceptance now covers configuration and candidate-storefront
   evidence only. End-to-end checkout quotations, payments, order creation,
   inventory decrement, notifications, cancellation, refunds, fulfillment and
@@ -294,9 +308,11 @@ generated archives belong only in ignored `.artifacts/operations`.
 - Payment setup and payment/order-lifecycle testing are intentionally the final
   readiness phase. They do not begin until every non-payment gate is Ready and
   the owner gives exact approval for that provider action.
-- Storefront password protection and disabled checkout remain in effect, and
-  theme `141514408011` remains unpublished. Publication, password removal,
-  purchases, real orders, and public launch remain separately approval-gated.
+- The July readback recorded storefront password protection enabled and theme
+  `141514408011` unpublished. Both provider states are unverified as current.
+  The source keeps only its theme cart CTA disabled; it does not prove Shopify
+  checkout is disabled. Publication, password removal, purchases, real orders,
+  and public launch remain separately approval-gated and blocked.
 
 ## Deferred
 

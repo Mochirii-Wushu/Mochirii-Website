@@ -12,11 +12,16 @@
 - Versioned customer-copy contracts may live under `content`, but they must
   remain excluded from the packaged theme and may not imply shared-record
   mutation, theme publication, or commerce approval.
+- `MIGRATION-MANIFEST.json` is byte-sealed migration-history evidence. Never
+  regenerate or edit it. Current runtime, generic-tooling, and public-contract
+  hashes belong only in `ACTIVE-SOURCE-MANIFEST.v1.json`; refresh that file with
+  `npm run generate:active-source-manifest` after an approved source change.
 - Keep the twenty customer-approved products visible and keep
-  `checkout_enabled` false. Never add a public internal-metadata control or
-  restore the obsolete `product_publication_approved` gate. Password removal,
-  checkout or payment activation, orders, shared product/page/policy mutations,
-  domains, and paid resources require separate explicit approval and must not
-  be automated by CI.
+  `checkout_cta_enabled` false. This setting controls only the theme cart CTA;
+  it does not disable Shopify checkout or replace provider readback. Never add
+  a public internal-metadata control or restore the obsolete
+  `product_publication_approved` gate. Password removal, checkout or payment
+  activation, orders, shared product/page/policy mutations, domains, and paid
+  resources require separate explicit approval and must not be automated by CI.
 - Run `npm ci`, `npm run check`, `npm run theme:package`, and
   `git diff --check` before handoff.

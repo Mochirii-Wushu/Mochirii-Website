@@ -1,6 +1,6 @@
 # Shopify Opening Readiness
 
-Updated: 2026-07-19 PDT
+Updated: 2026-08-13 PDT
 
 Status: **BLOCKED — the launch foundation and independently reviewed local
 source hardening are reconciled and locally revalidated; accountable human
@@ -12,6 +12,13 @@ shop.mochirii.com. It turns the approved opening-readiness plan into explicit,
 fail-closed gates without placing supplier, formula, counsel, customer,
 credential, or provider-export material in Git.
 
+The 2026-08-13 reconciliation was source-only. It performed no authenticated
+Shopify readback, storefront browser session, upload, publication, checkout,
+payment, order, or other provider action. Every provider and storefront fact
+below that came from July 2026 is historical and unverified as current unless a
+later dated readback is explicitly recorded. No launch gate changes disposition
+because of this source reconciliation.
+
 Current release boundary:
 
 - initial market: United States only;
@@ -22,14 +29,22 @@ Current release boundary:
   its consumed provider-write approval and verified 2026-07-18 readback are
   recorded separately in
   apps/shopify-theme/content/customer-facing-copy-approval-packet.md;
-- candidate theme: unpublished theme 141514408011;
-- checkout_enabled remains false;
-- storefront password protection remains enabled;
-- the revised launch plan authorizes one reversible, checkout-disabled upload
-  of the exact reviewed package built from merged source to unpublished
-  candidate theme 141514408011 after the rollback capture and stop conditions
-  below are satisfied; this is prepayment staging, not publication or commerce
-  approval;
+- historically identified candidate theme: `141514408011`, recorded as
+  unpublished on 2026-07-18 but unverified as current;
+- `checkout_cta_enabled` remains false, which controls only whether this theme
+  renders its cart-page checkout CTA and does not disable Shopify checkout;
+- the 2026-07-18 readback recorded storefront password protection as enabled;
+  that state is unverified as current and a fresh authenticated readback is
+  still required;
+- prepayment containment requires all three controls to be freshly proved: the
+  exact candidate is unpublished, storefront password protection is enabled,
+  and provider readback matches the source-bound package with its theme checkout
+  CTA absent;
+- the July revised launch plan recorded one reversible,
+  theme-checkout-CTA-disabled candidate-staging class. This source
+  reconciliation neither exercises nor renews that provider-write authority;
+  any future upload still requires a fresh exact approval after the rollback
+  capture and stop conditions below are satisfied;
 - payment setup and payment testing are intentionally the final readiness
   phase and are not authorized by this document; and
 - theme publication, password removal, real orders, purchases, and provider
@@ -129,7 +144,7 @@ No role may approve its own evidence where qualified independent review is
 required. The store owner must confirm the named accountable humans privately
 before any SKU or launch gate becomes Ready.
 
-## Fresh Provider And Storefront Readback
+## Historical Provider And Storefront Baseline
 
 An authenticated Shopify admin readback and storefront smoke were completed on
 2026-07-18 PDT. No provider setting, product, location, menu, policy, app,
@@ -137,7 +152,12 @@ pixel, theme, domain, payment record, order, or credential was changed. The
 only storefront mutation was an ephemeral cart add/update/remove sequence, and
 that browser-session cart was cleared. No payment page was opened.
 
-Confirmed current facts:
+This is a dated historical baseline, not current provider proof. It does not
+satisfy a gate that requires a fresh readback or evidence captured within the
+gate's freshness window.
+
+Facts recorded by that baseline follow. Every state and provider identity in
+this subsection is historical and unverified as current.
 
 - Shopify reports a Basic development store. The store currency is USD, the
   United States market is Active, and the Canada market is Draft.
@@ -158,10 +178,12 @@ Confirmed current facts:
   warning text: Sensitive Skin Oil-to-Milk Cleanser, BiPhasic Make-up Remover,
   AHA Exfoliating Concentrate, All-in-One Facial Oil, and Hydrating Toner. None
   of those warning dispositions is cleared without label/formula review.
-- Current live theme `141422395467` is **Mochirii Cosmetics Launch QA** version
-  0.4.0. Candidate theme `141514408011` is **Mochirii Customer Copy QA
-  2026-07-18 v2** version 0.5.0 and remains Draft. Storefront password
-  protection remains enabled.
+- The readback identified theme `141422395467` as the then-live **Mochirii
+  Cosmetics Launch QA** version 0.4.0. It identified candidate theme
+  `141514408011` as **Mochirii Customer Copy QA 2026-07-18 v2** version 0.5.0,
+  Draft, with storefront password protection enabled at that time. Those
+  identities and states have not been re-read in this successor and are
+  unverified as current.
 - The supplier delivery profile contains all twenty products, one fulfillment
   location, and thirty zones. Its United States weight tiers were displayed in
   euros in admin and have not been proven through checkout. The location list
@@ -191,13 +213,15 @@ Confirmed current facts:
 - One organization owner is Active, but provider enforcement says a secure
   sign-in method is not required. Individual two-step-authentication status was
   not verified and remains a private owner check before payment activation.
-- The current draft passed read-only smokes for five collections, a routine
+- The then-current draft passed read-only smokes for five collections, a routine
   filter, ingredient and zero-result search, add/update/remove cart behavior,
-  disabled checkout, contact required-field focus, public policy and privacy
-  routes, branded 404, and 360x800, 390x844, 768x1024, and 1440x900 layouts with
-  no horizontal overflow or broken main-content images. The new branch has not
-  been uploaded to Shopify, so these are baseline provider smokes rather than
-  acceptance of the source changes in this branch.
+  an absent theme checkout CTA, contact required-field focus, public policy and
+  privacy routes, branded 404, and 360x800, 390x844, 768x1024, and 1440x900
+  layouts with no horizontal overflow or broken main-content images. The new
+  branch has not been uploaded to Shopify, so these are baseline provider
+  smokes rather than acceptance of the source changes in this branch. The
+  absent theme CTA did not prove that Shopify checkout or direct provider
+  routes were disabled.
 - A prior authenticated preview audit intermittently reached Shopify loading
   error pages that recovered after refresh. The behavior remains unclassified
   until controlled candidate-theme and post-password customer-route smokes pass.
@@ -210,12 +234,13 @@ product/variant-to-evidence mapping and release disposition remain pending.
 Provider identifiers must not be invented or copied from private evidence into
 this file.
 
-Each provider-readback cell below records only sanitized rendered/admin facts.
-It does not clear SKU/variant identity, inventory policy, physical-unit parity,
+Each provider-readback cell below records only sanitized rendered/admin facts
+from 2026-07-18. Every cell is historical and unverified as current. It does not
+clear SKU/variant identity, inventory policy, physical-unit parity,
 formula/label provenance, claims, warnings, fulfillment, or regulatory
 readiness.
 
-| # | Product identity | Physical sample | Label/formula | INCI | Directions | Warnings decision | Origin/certs | Responsible person | Safety substantiation | MoCRA registration/listing/exemption | Claims/counsel | Provider readback | Release disposition |
+| # | Product identity | Physical sample | Label/formula | INCI | Directions | Warnings decision | Origin/certs | Responsible person | Safety substantiation | MoCRA registration/listing/exemption | Claims/counsel | Historical provider readback (2026-07-18; unverified-current) | Release disposition |
 | ---: | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | Peptide Smoothing Serum (peptide-smoothing-serum) | Pending | Pending | Pending | Pending | Pending | Pending | Pending | Pending | Pending | Pending | Active; $48.99 USD; inventory untracked; generic warning fallback; representative package mark differs from canonical emblem | Blocked |
 | 2 | Natural Retinol Alternative Oil Serum (natural-retinol-alternative-oil-serum) | Pending | Pending | Pending | Pending | Pending | Pending | Pending | Pending | Pending | Pending | Active; $50.99 USD; inventory untracked; generic warning fallback | Blocked |
@@ -246,8 +271,9 @@ The release is fail-closed: all twenty SKU rows must be Ready.
 ## Prepayment And Payment-Dependent Acceptance
 
 Prepayment acceptance proves configuration and customer presentation without
-enabling checkout, configuring a payment provider, creating an order, or
-incurring a charge. It includes:
+enabling the theme checkout CTA, configuring a payment provider, creating an
+order, or incurring a charge. It does not claim server-side checkout is
+disabled. It includes:
 
 - exact twenty-SKU facts, media, variant mapping, channel, weight, inventory
   source, location, and fulfillment-route readbacks;
@@ -258,7 +284,7 @@ incurring a charge. It includes:
   without treating a platform estimate as legal advice;
 - privacy, consent, apps, domains, account security, notification-template,
   sender-domain, support, policy, and operational review; and
-- the source-bound unpublished candidate-theme route, cart-disabled,
+- the source-bound unpublished candidate-theme route, absent cart checkout CTA,
   accessibility, performance, metadata, search, filter, error, and rollback
   acceptance defined below.
 
@@ -277,8 +303,10 @@ The aggregate prepayment gate is intentionally stricter than a checklist. It
 requires a clean `main` checkout at the evidenced merge commit and tree,
 required checks on that merge commit (with `Supabase Preview` permitted to be
 `Skipped` only when the repository runbook permits it), and a candidate ZIP
-whose complete runtime file set and digests match the source manifest. Product
-review evidence is tied to the exact v3 contract and per-SKU facts, formula,
+whose complete runtime file set and digests match the versioned active-source
+manifest. The sealed migration manifest is historical evidence and is not the
+current package hash authority. Product review evidence is tied to the exact v3
+contract and per-SKU facts, formula,
 variant, emblem, wordmark and role-keyed media identities. A deterministic
 Shopify Admin GraphQL 2026-07 projection additionally requires exact title,
 serialized description, SEO, all controlled metafields, collections, ordered
@@ -334,21 +362,21 @@ All items in this section must be Ready before payment setup begins.
 
 | ID | Required decision | Accountable role | Status |
 | --- | --- | --- | --- |
-| CF-01 | Read back exactly twenty intended active products and their provider SKU/variant identifiers, prices, USD currency, inventory and channel status | Shopify operator | Blocked — 20 Active products, USD prices, nonblank SKUs and weights were confirmed; inventory remains untracked and final variant release disposition is Pending |
-| CF-02 | Verify inventory source of truth, location assignment, oversell policy, package weights and fulfillment workflow | Fulfillment owner | Blocked — all 20 have weights but report inventory untracked and Shop location fulfillment; supplier routing, oversell behavior and placeholder/test locations require review |
-| CF-03 | Verify the prepayment USD shipping configuration, contiguous-US eligibility, weight tiers, processing and transit promises against representative supported and unsupported addresses without creating a checkout or order; reserve end-to-end checkout quotation for Gate F | Shopify operator plus fulfillment owner | Blocked — US profile tiers were visible in EUR; prepayment configuration parity and the later Gate F checkout test are both unproven |
-| CF-04 | Document reviewed US tax registrations, nexus and collection configuration; do not treat Shopify estimates as legal advice | Store owner plus tax professional | Blocked — Shopify reports United States Not collecting |
+| CF-01 | Read back exactly twenty intended active products and their provider SKU/variant identifiers, prices, USD currency, inventory and channel status | Shopify operator | Blocked — the 2026-07-18 baseline recorded 20 Active products, USD prices, nonblank SKUs and weights, with inventory untracked; every provider value is unverified as current and final variant release disposition is Pending |
+| CF-02 | Verify inventory source of truth, location assignment, oversell policy, package weights and fulfillment workflow | Fulfillment owner | Blocked — the 2026-07-18 baseline recorded weights for all 20, inventory untracked and Shop location fulfillment; every provider value is unverified as current, and supplier routing, oversell behavior and placeholder/test locations require review |
+| CF-03 | Verify the prepayment USD shipping configuration, contiguous-US eligibility, weight tiers, processing and transit promises against representative supported and unsupported addresses without creating a checkout or order; reserve end-to-end checkout quotation for Gate F | Shopify operator plus fulfillment owner | Blocked — the 2026-07-18 baseline displayed US profile tiers in EUR; that provider value is unverified as current, and prepayment configuration parity plus the later Gate F checkout test are both unproven |
+| CF-04 | Document reviewed US tax registrations, nexus and collection configuration; do not treat Shopify estimates as legal advice | Store owner plus tax professional | Blocked — the 2026-07-18 baseline recorded United States tax as Not collecting; that provider value is unverified as current |
 | CF-05 | Reconcile shipping, return, cancellation, damaged, incorrect, incomplete and carrier-lost promises to the real operating process | Fulfillment owner plus counsel | Pending |
-| CF-06 | Verify customer-facing support routes, coverage, response ownership and order-number handling without exposing personal contacts | Support owner | Blocked — contact route works, but branded sender, coverage ownership and escalation evidence remain Pending |
-| CF-07 | Disposition every connected commerce/account domain and verify secure owner access before payment activation | Store owner plus Shopify operator | Blocked — an older superseded storefront domain remains connected; provider enforcement says a secure sign-in method is not required, and individual two-step authentication was not verified |
+| CF-06 | Verify customer-facing support routes, coverage, response ownership and order-number handling without exposing personal contacts | Support owner | Blocked — the 2026-07-18 baseline rendered the contact route, but that route observation is unverified as current; branded sender, coverage ownership and escalation evidence remain Pending |
+| CF-07 | Disposition every connected commerce/account domain and verify secure owner access before payment activation | Store owner plus Shopify operator | Blocked — the 2026-07-18 baseline recorded an older superseded storefront domain connected and provider enforcement not requiring a secure sign-in method; those provider values are unverified as current, and individual two-step authentication was not verified |
 
 ### Privacy And Customer Safety
 
 | ID | Required decision | Accountable role | Status |
 | --- | --- | --- | --- |
-| PS-01 | Inventory all installed apps, pixels, analytics, data recipients and Shopify privacy features | Privacy owner plus Shopify operator | Blocked — six apps, no pixels and Network Intelligence enabled were read back; data-recipient and owner review remain Pending |
-| PS-02 | Review the automated privacy policy against actual settings and the US-only launch; the 2026-07-18 readback proves enablement, not legal sufficiency | Privacy owner or counsel | Blocked — automated policy is enabled and rendered, but admin/public update dates differed and legal review remains Pending |
-| PS-03 | Verify applicable consent banner, opt-out page, Global Privacy Control behavior, marketing consent and privacy-request procedure | Privacy owner | Blocked — provider opt-out route and automated regions were verified; GPC and request operations remain Pending, while US checkout email marketing is preselected and abandoned-checkout email is enabled at ten hours for anyone pending review |
+| PS-01 | Inventory all installed apps, pixels, analytics, data recipients and Shopify privacy features | Privacy owner plus Shopify operator | Blocked — the 2026-07-18 baseline recorded six apps, no pixels and Network Intelligence enabled; those provider values are unverified as current, and data-recipient and owner review remain Pending |
+| PS-02 | Review the automated privacy policy against actual settings and the US-only launch; the 2026-07-18 readback recorded enablement, not legal sufficiency | Privacy owner or counsel | Blocked — the historical baseline rendered an enabled automated policy with differing admin/public update dates; those provider values are unverified as current and legal review remains Pending |
+| PS-03 | Verify applicable consent banner, opt-out page, Global Privacy Control behavior, marketing consent and privacy-request procedure | Privacy owner | Blocked — the 2026-07-18 baseline rendered the provider opt-out route and recorded automated regions, preselected US checkout email marketing and abandoned-checkout email at ten hours for anyone; those provider values are unverified as current, while GPC and request operations remain Pending |
 | PS-04 | Establish complaint, product-quality and serious adverse-event intake, retention, escalation and reporting workflow | Compliance reviewer plus support owner | Pending |
 | PS-05 | Prepare approved customer-notification and escalation language for safety, fulfillment, privacy and payment incidents | Store owner plus accountable owner | Pending |
 
@@ -361,10 +389,10 @@ All items in this section must be Ready before payment setup begins.
 | QA-03 | Verify five collections, filters, ingredient search, misspellings, sold-out state, cart, contact form, policies, privacy choices and branded 404 | Theme engineer | Blocked — the source now pins reviewed expected sets for `moisturizer`, `moisturiser`, `niacinimide`, `hyaluronic`, `retinol` and `cleanser`, plus a zero-result fixture; candidate readbacks, configured Privacy Choices parity, sold-out and server-error observations remain Pending because the branch is not on the candidate theme |
 | QA-04 | Pass keyboard, screen-reader announcements, 200 percent zoom, focus order, error handling, contrast and touch navigation at 360x800, 390x844, 768x1024 and 1440x900 | Theme engineer | Blocked — viewport, overflow, broken-image and code-level contrast checks passed; assistive-technology and 200 percent zoom acceptance remain Pending |
 | QA-05 | Run authenticated-preview Lighthouse checks for home, collection, PDP and cart; resolve confirmed LCP-priority and unnecessary-script problems | Theme engineer | Blocked — branch removes unnecessary eager/high product-card images; authenticated Lighthouse evidence remains Pending |
-| QA-06 | Verify canonical URLs, metadata, Product and Breadcrumb structured data, social cards, sitemap and password-safe robots behavior | Theme engineer plus Shopify operator | Blocked — all 20 PDP canonicals and JSON-LD parsed, and representative home, collection and PDP metadata and social cards passed; sitemap, password-safe robots and branch-candidate acceptance remain Pending |
-| QA-07 | Capture fresh provider readbacks and a restorable export of the current live theme plus the existing candidate theme before the checkout-disabled candidate upload; capture scoped shared records/settings separately when their own mutation packet is approved | Shopify operator | Blocked — live/candidate theme IDs and sanitized settings were read back, but no approved rollback export packet was created |
+| QA-06 | Verify canonical URLs, metadata, Product and Breadcrumb structured data, social cards, sitemap and password-safe robots behavior | Theme engineer plus Shopify operator | Blocked — the 2026-07-18 baseline parsed all 20 PDP canonicals and JSON-LD plus representative metadata and social cards; those rendered/provider observations are unverified as current, while sitemap, password-safe robots and successor-candidate acceptance remain Pending |
+| QA-07 | Capture fresh provider readbacks and a restorable export of the current live theme plus the existing candidate theme before the theme-checkout-CTA-disabled candidate upload; capture scoped shared records/settings separately when their own mutation packet is approved | Shopify operator | Blocked — historical live/candidate theme identities and sanitized settings were recorded, but they are unverified as current and no approved rollback export packet was created |
 | QA-08 | Record exact candidate theme 141514408011, human-reviewed merged commit, source tree, package artifact and rollback theme in the private release packet | Shopify operator plus theme engineer | Blocked — PR #480 is merged as `d8a4b578cdf3619e886de415ee403fda220d9a60`; candidate 141514408011, rollback theme 141422395467 and provisional local package Mochirii Cosmetics-0.6.0.zip (SHA-256 DBB772F5AA07ADED833E27F9CE435DE8DB0CA60A087D6ABFC54E6EE939C9806F; 75,251 bytes) are recorded. GitHub records no formal PR review, and the provisional package remains explicitly non-final, unuploaded and not bound to the eventual approved release commit. |
-| QA-09 | Upload only the exact merged-source package to unpublished candidate theme 141514408011 with checkout_enabled false, preserve Draft status, and verify the source binding, route matrix, disabled checkout and no out-of-scope shared-record changes | Shopify operator plus theme engineer | Blocked — the staging boundary is authorized, but the reviewed merged package, rollback capture, upload and post-write readback remain Pending |
+| QA-09 | Upload only the exact merged-source package to unpublished candidate theme 141514408011 with `checkout_cta_enabled` false, preserve Draft status, and verify the source binding, route matrix, absent theme checkout CTA and no out-of-scope shared-record changes without claiming Shopify checkout is server-disabled | Shopify operator plus theme engineer | Blocked — the historical plan recorded a candidate-staging boundary, but this source reconciliation grants no current provider-write authority; a reviewed merged package, rollback capture, fresh exact approval, upload and post-write readback all remain Pending |
 
 ## Approval Gates
 
@@ -383,14 +411,13 @@ authorization. Every provider mutation packet must name the exact store,
 record or setting, intended value, writer, rollback capture, verification, and
 stop condition.
 
-## Checkout-Disabled Candidate Staging Boundary
+## Theme-Checkout-CTA-Disabled Candidate Staging Boundary
 
-The revised launch plan authorizes exactly one prepayment staging class: upload
-the reviewed package built from merged `main` to existing unpublished candidate
-theme `141514408011` for `shop.mochirii.com`. The upload may occur before the
-product and operational gates become Ready so candidate QA can proceed, but it
-cannot make any launch gate Ready by itself. QA-09 may therefore be performed
-early only under the entry conditions below; Gate E still cannot become Ready
+The July revised launch plan recorded exactly one prepayment candidate-staging
+class for a reviewed package built from merged `main`. This source
+reconciliation grants no current provider-write authority. A future upload may
+occur only after a fresh exact approval and every entry condition below; it
+cannot make a launch gate Ready by itself. Gate E still cannot become Ready
 until Gate D is Ready and QA-07 through QA-09 all pass.
 
 - **Entry:** PR #480 satisfied the protected source-merge portion on 2026-07-24,
@@ -400,18 +427,21 @@ until Gate D is Ready and QA-07 through QA-09 all pass.
   merged source with its commit, tree and SHA-256 recorded privately.
 - **Before state:** theme `141514408011` is Draft; the current candidate and
   live-theme exports are restorable; storefront password protection is on;
-  `checkout_enabled` is false; and the current live theme is identified without
-  changing it.
+  `checkout_cta_enabled` is false; the current live theme is identified without
+  changing it; and fresh authenticated provider evidence supports each fact.
 - **Allowed write:** one authenticated Shopify operator replaces only the code
   and bundled settings of theme `141514408011` with the exact package. No
   product, variant, price, inventory, location, market, shipping, tax, policy,
   menu, app, notification, domain, payment, password, order, or live-theme
   record is in scope.
 - **Required after state:** theme `141514408011` remains Draft,
-  `checkout_enabled` remains false, password protection and the live theme are
-  unchanged, and the candidate readback matches the source-bound package.
+  `checkout_cta_enabled` remains false, password protection and the live theme
+  are unchanged, and a fresh candidate readback proves Draft/unpublished state
+  and matches the source-bound package. The theme setting alone is not checkout
+  containment.
 - **Verification:** record sanitized theme identity/status and source binding;
-  verify disabled checkout and run the candidate route, search/filter, cart,
+  verify the theme checkout CTA is absent without reporting Shopify checkout as
+  server-disabled, and run the candidate route, search/filter, cart,
   accessibility, performance, metadata, structured-data, error and responsive
   matrices. Evidence remains private or under ignored `.artifacts/operations`.
 - **Rollback:** restore the captured pre-write candidate export to theme
@@ -419,14 +449,16 @@ until Gate D is Ready and QA-07 through QA-09 all pass.
   provider records as rollback.
 - **Stop conditions:** stop before writing if review, merge, required checks,
   source/package binding, exports, target identity, Draft status, or
-  checkout-disabled proof is missing; stop on an unexpected permission or
-  broader-write prompt; roll back if the target becomes publishable/live,
-  checkout is exposed, source parity fails, or an out-of-scope record changes.
+  theme-checkout-CTA-disabled proof is missing; stop on an unexpected
+  permission or broader-write prompt; roll back if the target becomes
+  publishable/live, the theme checkout CTA is exposed, source parity fails, or
+  an out-of-scope record changes.
 
-This staging authorization does not cover a repeat upload after a failed or
-superseded package. A new exact packet is required for another write. It also
-does not authorize human review, merge approval, shared-record mutation,
-publication, checkout, payment setup, orders, password removal, or launch.
+The historical staging packet does not supply current provider authority and
+does not cover a repeat upload after a failed or superseded package. A new exact
+packet is required for any future write. It also does not authorize human
+review, merge approval, shared-record mutation, publication, checkout, payment
+setup, orders, password removal, or launch.
 
 ## Final Payment Phase Boundary
 
@@ -443,8 +475,10 @@ phase uses this separate payment-dependent checklist:
 | PF-05 | Disable test mode and record a sanitized provider readback proving the final non-test configuration | Intentionally deferred |
 | PF-06 | Perform a low-value real capture, payout or refund only after a separate approval that names the purchase and maximum cost | Intentionally deferred — separate cost approval required |
 
-Theme checkout remains disabled until the final payment phase is verified and
-an approved source change sets checkout_enabled to true.
+The theme checkout CTA remains disabled until the final payment phase is
+verified and an approved source change sets `checkout_cta_enabled` to true.
+Shopify checkout availability remains provider-controlled and requires its own
+fresh readback and payment-dependent evidence.
 
 ## Release, Rollback And 72-Hour Soft Launch
 
@@ -462,7 +496,7 @@ an approved source change sets checkout_enabled to true.
 
 ### Controlled release
 
-1. Merge the focused checkout-enabled source change only after Gate F passes.
+1. Merge the focused checkout-CTA-enabled source change only after Gate F passes.
 2. Push that exact package only to candidate theme 141514408011.
 3. Repeat the route, accessibility, SEO, cart and order-lifecycle smokes.
 4. Under exact approval, publish candidate theme 141514408011.

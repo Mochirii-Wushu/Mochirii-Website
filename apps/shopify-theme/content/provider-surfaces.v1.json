@@ -408,7 +408,7 @@
   },
   "settings": {
     "expected": {
-      "checkout_enabled": false,
+      "checkout_cta_enabled": false,
       "gift_cards_enabled": false,
       "gift_cards_listed": false,
       "gift_card_route": "/products/gift-card",
@@ -441,7 +441,7 @@
       "shop_name": "Mochirii Cosmetics",
       "currency": "USD"
     },
-    "expected_sha256": "f0d796c0b0eeb35306017466b7b4cba11c15a13d19826b62bf9532d4380d4c88"
+    "expected_sha256": "5f947c1382dad0d09889a2367127a4772d8c40936a7684c985105f4557c9d2d6"
   },
   "notifications": {
     "sender_presentation": {

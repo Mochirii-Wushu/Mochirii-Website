@@ -96,7 +96,7 @@ export const EXPECTED_POLICIES = Object.freeze([
 ]);
 
 export const EXPECTED_SETTINGS = Object.freeze({
-  checkout_enabled: false,
+  checkout_cta_enabled: false,
   gift_cards_enabled: false,
   gift_cards_listed: false,
   gift_card_route: "/products/gift-card",
@@ -870,15 +870,15 @@ export function validateProviderSurfaceSourceBindings(contract, sources) {
   } catch {
     add(issues, "settings", "source.json");
   }
-  if (settingsData?.current?.checkout_enabled !== false) add(issues, "settings", "source.checkout-enabled");
-  const checkoutDefinition = settingsSchema?.flatMap((group) => group.settings ?? [])
-    .find((setting) => setting.id === "checkout_enabled");
-  if (checkoutDefinition?.type !== "checkbox" || checkoutDefinition?.default !== false) {
-    add(issues, "settings", "source.checkout-default");
+  if (settingsData?.current?.checkout_cta_enabled !== false) add(issues, "settings", "source.checkout-cta-enabled");
+  const checkoutCtaDefinition = settingsSchema?.flatMap((group) => group.settings ?? [])
+    .find((setting) => setting.id === "checkout_cta_enabled");
+  if (checkoutCtaDefinition?.type !== "checkbox" || checkoutCtaDefinition?.default !== false) {
+    add(issues, "settings", "source.checkout-cta-default");
   }
   for (const field of [
     "background_color", "text_color", "accent_color", "default_meta_description", "storefront_mode_text",
-    "empty_catalog_heading", "empty_catalog_body", "footer_summary", "checkout_enabled",
+    "empty_catalog_heading", "empty_catalog_body", "footer_summary", "checkout_cta_enabled",
   ]) {
     if (settingsData?.current?.[field] !== contract?.settings?.expected?.[field]) add(issues, "settings", `source.${field}`);
   }

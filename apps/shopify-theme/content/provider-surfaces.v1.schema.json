@@ -425,7 +425,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "checkout_enabled",
+        "checkout_cta_enabled",
         "gift_cards_enabled",
         "gift_cards_listed",
         "gift_card_route",
@@ -459,7 +459,7 @@
         "currency"
       ],
       "properties": {
-        "checkout_enabled": { "const": false },
+        "checkout_cta_enabled": { "const": false },
         "gift_cards_enabled": { "const": false },
         "gift_cards_listed": { "const": false },
         "gift_card_route": { "const": "/products/gift-card" },
