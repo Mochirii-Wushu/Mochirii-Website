@@ -63,6 +63,7 @@ The header and footer brand blocks match: the prominent `Mōchirīī` guild name
 Current desktop navigation:
 
 - Guild: Home, Spotlight, Gallery, Social, Mochi Pets.
+- The Guild dropdown's source candidate contains three profile links from `apps/web/config/public-urls.json`: Facebook, Instagram, and TikTok. Publication still requires the exact public-name approval recorded in the profile provenance contract.
 - Culture: Join, Ranks, Leaders, Tome, Playlists.
 - Updates: Announcements, Events, Raffle.
 - Recruitment as a top-level link.
@@ -76,6 +77,7 @@ Current mobile navigation:
 - Close button, scrim click, and mobile link click close the menu.
 - Closing by Escape or close button returns focus to the trigger.
 - Tab is trapped inside the open menu.
+- The dedicated Official profiles group reuses the same source-candidate Facebook, Instagram, and TikTok data as desktop.
 
 Current dropdown behavior:
 
@@ -102,10 +104,13 @@ Current footer content:
 - Discord Join CTA with `target="_blank"` and `rel="noopener noreferrer"`.
 - Recruitment Tips link.
 - Guild, Culture, and Updates navigation columns.
+- Official profiles render from the shared canonical profile collection. Facebook, Instagram, and TikTok appear in both header and footer.
 - Copyright year rendered by the Footer component.
 - Footer metadata line with the game name.
 
 Keep the footer compact. It should remain a shared navigation and identity surface, not a full mission statement or duplicate Recruitment/Join content.
+
+Official profiles are direct HTTPS links, not embeds. Keep provider URLs out of components, never add social widgets or SDKs, and do not load provider assets or requests before a visitor activates a link. General-purpose provider marks belong only under `apps/web/public/assets/social-profiles` and must satisfy that directory's provenance and permission contract; authentication-provider marks are not reusable.
 
 ## 6. App Router Ownership
 
@@ -217,6 +222,8 @@ Run these checks before opening or merging Home/Shell work:
 
 ```sh
 npm run check
+npm run check:official-guild-profiles
+npm run smoke:official-guild-profiles
 git diff --check
 node scripts/check-json.mjs
 node scripts/check-js.mjs
@@ -227,6 +234,11 @@ npm run setup:playwright
 npm --prefix apps/web run build
 npm run smoke:gallery
 ```
+
+Before publication, record the exact public-name decision in
+`docs/integrations/official-guild-profile-assets.md` and require
+`npm run gate:official-guild-profile-public-names` to pass. Mark gates are
+separate and remain intentionally red while these links are text-only.
 
 The Playwright setup command is a one-time local browser-runtime step. After the
 Web build completes, run `npm run smoke:gallery:serve` in a separate terminal.
@@ -249,6 +261,7 @@ responsive contract on that production-mode Next app at `127.0.0.1:8765`.
 - The lightbox passes mobile portrait/landscape, tablet, desktop, reflow, long-caption, keyboard, and touch checks without horizontal overflow.
 - Seal poem renders unchanged.
 - Key links resolve.
+- The exact Facebook, Instagram, and TikTok profiles appear in the desktop Guild dropdown, mobile Official profiles group, and footer without provider requests before activation.
 - Mobile widths `360px`, `390px`, and `768px` have no horizontal overflow.
 - No console-breaking errors occur.
 - Supabase page shell does not cause signed-out runtime errors.

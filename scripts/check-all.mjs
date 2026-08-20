@@ -83,6 +83,7 @@ const checks = [
   ["check:shop-brand", ["node", "scripts/check-shop-brand-guardrails.mjs"]],
   ["check:public-guild-brand", ["node", "scripts/check-public-guild-brand.mjs"]],
   ["check:site-navigation", ["node", "scripts/check-site-navigation.mjs"]],
+  ["check:official-guild-profiles", ["node", "scripts/check-official-guild-profiles.mjs"]],
   ["check:supabase-security-performance", ["node", "scripts/check-supabase-security-performance.mjs"]],
   ["check:security-hardening", ["node", "scripts/check-security-hardening.mjs"]],
   ["check:spotlight-poll", ["node", "scripts/check-spotlight-poll.mjs"]],

@@ -28,6 +28,7 @@ export const appCssFiles = [
   "apps/web/app/styles/shell-header-nav.css",
   "apps/web/app/styles/shell-mobile-menu.css",
   "apps/web/app/styles/shell-footer.css",
+  "apps/web/app/styles/shell-official-guild-profiles.css",
   "apps/web/app/styles/mochi-pets.css",
 ];
 
