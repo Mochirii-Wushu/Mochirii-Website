@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 
+import { canonicalizeCheckoutTextBytes } from "./lib/canonical-checkout-text.mjs";
+
 const assets = new Map([
   ["apple-logo.generated.svg", "7D3C135C938C999A57D258CD4D12F55F34D3575FE79F95A83DA023A0BAEA62A2"],
   ["discord-symbol-white.svg", "2123B8A552A13349F8139EA81FA96FE10B84CC6C9B2A1545A62EC1F7B476AE76"],
@@ -21,7 +23,14 @@ function text(path) {
 
 for (const [filename, expectedHash] of assets) {
   const path = `apps/web/public/assets/auth-providers/${filename}`;
-  const actualHash = createHash("sha256").update(read(path)).digest("hex").toUpperCase();
+  let canonicalBytes;
+  try {
+    canonicalBytes = canonicalizeCheckoutTextBytes(read(path));
+  } catch (error) {
+    failures.push(`${filename}: ${error instanceof Error ? error.message : "invalid checkout bytes"}`);
+    continue;
+  }
+  const actualHash = createHash("sha256").update(canonicalBytes).digest("hex").toUpperCase();
   if (actualHash !== expectedHash) {
     failures.push(`${filename}: expected SHA-256 ${expectedHash}, received ${actualHash}`);
   }

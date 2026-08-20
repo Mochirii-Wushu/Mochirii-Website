@@ -13,6 +13,13 @@ text serialization changes do not change their rendered geometry.
 
 Retrieved and reviewed 2026-07-30:
 
+Vendored SHA-256 values cover the canonical Git blob bytes with LF line
+endings. The repository keeps this asset directory on LF for new checkouts;
+validation also accepts an existing Windows CRLF checkout by converting only
+CRLF pairs back to LF before hashing. Bare carriage returns, markup changes,
+whitespace changes, missing trailing newlines, and every other byte change
+remain hash failures.
+
 | Provider | Official source | Source SHA-256 | Vendored file | Vendored SHA-256 |
 | --- | --- | --- | --- | --- |
 | Apple | `https://appleid.cdn-apple.com/appleid/button/logo?color=white&border=false&size=44&scale=2` | `542CBB6D7BF323587152B07F46AB8DA54A76362248B93F019C609DC2E61C333B` | `apple-logo.generated.svg` | `7D3C135C938C999A57D258CD4D12F55F34D3575FE79F95A83DA023A0BAEA62A2` |

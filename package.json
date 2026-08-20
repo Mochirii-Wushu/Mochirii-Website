@@ -23,6 +23,7 @@
     "check:assets": "node scripts/check-assets.mjs",
     "check:apple-auth-readiness": "node scripts/check-apple-auth-readiness.mjs",
     "check:auth-provider-brand-assets": "node scripts/check-auth-provider-brand-assets.mjs",
+    "test:auth-provider-brand-asset-bytes": "node --test scripts/lib/canonical-checkout-text.test.mjs",
     "check:auth-provider-state-cleanup": "node scripts/check-auth-provider-state-cleanup.mjs",
     "test:auth-provider-policy": "node --experimental-default-type=module --experimental-strip-types --test apps/web/lib/supabase/auth-provider-policy-core.test.mts",
     "check:phone-auth-abuse-controls": "node scripts/check-phone-auth-abuse-controls.mjs",
