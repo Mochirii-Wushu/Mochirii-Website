@@ -12,6 +12,7 @@ import {
   parseGalleryMediaReservation,
   parseGalleryPublicRequest,
   safeGalleryText,
+  serializeGalleryPublicListResponse,
   toLegacyGalleryItem,
   toPublicGalleryItem,
 } from "../_shared/gallery-public-feed.ts";
@@ -47,7 +48,15 @@ function jsonResponse(
   status = 200,
   extraHeaders: Record<string, string> = {},
 ): Response {
-  return new Response(JSON.stringify(body), {
+  return serializedJsonResponse(JSON.stringify(body), status, extraHeaders);
+}
+
+function serializedJsonResponse(
+  body: string,
+  status = 200,
+  extraHeaders: Record<string, string> = {},
+): Response {
+  return new Response(body, {
     status,
     headers: {
       ...CORS_HEADERS,
@@ -562,7 +571,7 @@ async function handleRequest(req: Request): Promise<Response> {
     }, 503);
   }
 
-  return jsonResponse({
+  const responseBody = {
     ok: true,
     data: {
       schemaVersion: GALLERY_PUBLIC_SCHEMA_VERSION,
@@ -581,7 +590,20 @@ async function handleRequest(req: Request): Promise<Response> {
     message: items.length
       ? "Member-submitted images loaded."
       : "No member-submitted images are available yet.",
-  });
+  };
+  const serializedResponse = serializeGalleryPublicListResponse(responseBody);
+  if (!serializedResponse) {
+    console.error("list-approved-gallery-submissions page delivery failed", {
+      code: "list_response_budget_exceeded",
+      itemCount: items.length,
+    });
+    return jsonResponse({
+      ok: false,
+      error: "approved_submission_page_unavailable",
+      message: "Member-submitted images are temporarily unavailable.",
+    }, 503);
+  }
+  return serializedJsonResponse(serializedResponse);
 }
 
 Deno.serve(async (req: Request) => {

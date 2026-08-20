@@ -2,6 +2,17 @@ name: Manual Lighthouse audit
 
 on:
   workflow_dispatch:
+    inputs:
+      gallery_origin:
+        description: Reviewed Vercel Preview or exact local Gallery origin
+        required: true
+        default: http://127.0.0.1:8765
+        type: string
+      allow_live_gallery_media_smoke_once:
+        description: One approved production Gallery audit only
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -25,7 +36,28 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Validate Gallery audit target
+        id: gallery-target
+        env:
+          GALLERY_AUDIT_ORIGIN: ${{ inputs.gallery_origin }}
+          MOCHIRII_ALLOW_LIVE_GALLERY_MEDIA_SMOKE_ONCE: ${{ inputs.allow_live_gallery_media_smoke_once }}
+        run: |
+          set -euo pipefail
+          gallery_url="$(node scripts/resolve-gallery-lighthouse-url.mjs "$GALLERY_AUDIT_ORIGIN")"
+          echo "url=$gallery_url" >> "$GITHUB_OUTPUT"
+          if [[ "$GALLERY_AUDIT_ORIGIN" == "http://127.0.0.1:8765" ]]; then
+            echo "local=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "local=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build exact local Gallery audit target
+        if: steps.gallery-target.outputs.local == 'true'
+        run: npm --prefix apps/web run build
+
       - name: Run Lighthouse audits
+        env:
+          GALLERY_AUDIT_URL: ${{ steps.gallery-target.outputs.url }}
         run: |
           set -euo pipefail
           mkdir -p reports/lighthouse
@@ -40,7 +72,24 @@ jobs:
             --output-path=reports/lighthouse/recruitment \
             --chrome-flags="--headless --no-sandbox"
 
-          npx lighthouse "https://mochirii.com/gallery" \
+          local_server_pid=""
+          if [[ "${{ steps.gallery-target.outputs.local }}" == "true" ]]; then
+            npm --prefix apps/web run start -- --hostname 127.0.0.1 --port 8765 >reports/lighthouse/local-next.log 2>&1 &
+            local_server_pid="$!"
+            trap 'if [[ -n "$local_server_pid" ]]; then kill "$local_server_pid" 2>/dev/null || true; fi' EXIT
+            for attempt in {1..60}; do
+              if curl --fail --silent --show-error --output /dev/null "$GALLERY_AUDIT_URL"; then
+                break
+              fi
+              if [[ "$attempt" == "60" ]]; then
+                echo "Local Gallery audit target did not become ready." >&2
+                exit 1
+              fi
+              sleep 1
+            done
+          fi
+
+          npx lighthouse "$GALLERY_AUDIT_URL" \
             --output=html --output=json \
             --output-path=reports/lighthouse/gallery \
             --chrome-flags="--headless --no-sandbox"

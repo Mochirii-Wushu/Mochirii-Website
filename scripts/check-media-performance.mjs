@@ -231,7 +231,9 @@ const publicResponseItemMatch = publicFeedShared.match(
 assert(Boolean(publicResponseItemMatch), "Gallery feed v2 public item serializer was not found.");
 if (publicResponseItemMatch) {
   const responseItem = publicResponseItemMatch[0];
-  assertIncludes("Gallery feed v2 public item", responseItem, "thumbnail_url: thumbnailUrl,");
+  assertIncludes("Gallery feed v2 public item", responseItem, "new TextEncoder().encode(safeThumbnailUrl).byteLength >");
+  assertIncludes("Gallery feed v2 public item", responseItem, "GALLERY_PUBLIC_MEDIA_URL_MAX_BYTES");
+  assertIncludes("Gallery feed v2 public item", responseItem, "thumbnail_url: safeThumbnailUrl,");
   assertIncludes("Gallery feed v2 public item", responseItem, "thumbnail_size_bytes: thumbnailSizeBytes,");
   assertIncludes("Gallery feed v2 public item", responseItem, "thumbnail_width: thumbnailWidth,");
   assertIncludes("Gallery feed v2 public item", responseItem, "thumbnail_height: thumbnailHeight,");

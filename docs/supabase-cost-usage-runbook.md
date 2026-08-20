@@ -1,6 +1,6 @@
 # Supabase Cost Usage Runbook
 
-Date checked: 2026-07-28
+Date checked: 2026-07-31
 
 This runbook gives leaders a safe way to monitor Supabase usage for the member Gallery, Discord verification, approved Gallery feed, and moderation workflows. It is operational guidance, not a billing quote. Before making billing or quota decisions, check the current Supabase dashboard and the live Supabase pricing/docs pages.
 
@@ -54,7 +54,7 @@ Supabase usage comes from the member workflows:
 - Database: `member_profiles`, `gallery_submissions`, `gallery_moderation_events`, `discord_resources`, and `discord_sync_log`.
 - Storage: private `member-gallery` image objects for pending, approved, rejected, and archived submissions.
 - Edge Functions: `verify-discord-member`, `list-gallery-review-queue`, `moderate-gallery-submission`, `list-approved-gallery-submissions`, `submit-discord-gallery-image`, `list-instagram-publish-queue`, `mark-instagram-gallery-submission-shared`, and `publish-instagram-gallery-submission`.
-- Egress: Auth/API responses, Edge Function responses, and Storage signed URL image delivery.
+- Egress: Auth/API responses plus bounded Edge media responses that retrieve private Storage objects.
 - Logs: function logs, moderation troubleshooting, and dashboard observability.
 
 Expected normal use is small, human-paced, and tied to guild activity. Runaway use usually looks like sudden public approved-feed traffic, repeated verification attempts, automated upload attempts, Instagram queue retries, unexpected Storage growth, or repeated function errors.
@@ -70,9 +70,21 @@ an original is requested:
 - the browser does not request an approved original until a visitor opens its
   viewer;
 - pending, rejected, and archived objects remain outside the public feed;
-- the private bucket and short-lived signed URL model remain unchanged; and
+- list JSON is server-serialized against the same `65,536`-byte ceiling that
+  each request reserves and the browser enforces;
+- the private bucket remains unchanged while stable, credential-free Edge URLs
+  keep Storage paths and signed capabilities out of the list response; and
 - local and Preview gallery/browser matrices intercept the approved feed with
   deterministic fixtures.
+
+The database-backed public-delivery window is a shared `64 MiB` source budget
+for list, thumbnail, and display reservations. Each list request conservatively
+reserves `64 KiB`, so list traffic alone has an effective ceiling of `1,024`
+requests per UTC day. Thumbnail and display reservations consume the same
+window and can make the actual list ceiling lower. This is a fail-closed
+application budget, not a promise that Supabase bills every reservation as
+exactly that many bytes; provider egress is measured from bytes actually sent
+by Supabase services.
 
 Broad gallery and browser matrices now refuse the canonical production Website
 origin by default. A deliberately approved bounded production canary requires
@@ -108,7 +120,7 @@ Check these at least monthly, and immediately after high-traffic guild events:
 - Edge Function metrics: invocations, errors, latency, and unusually noisy routes.
 - Auth usage: Monthly Active Users and OAuth sign-in volume.
 - Database size: table growth for member and moderation tables.
-- Logs: repeated `401`, `403`, `429`, `5xx`, or signed URL failures.
+- Logs: repeated `401`, `403`, `429`, `5xx`, or bounded media-delivery failures.
 
 Safe dashboard actions:
 
@@ -153,7 +165,7 @@ Watch:
 - `list-approved-gallery-submissions` invocations jump after public sharing.
 - `publish-instagram-gallery-submission` retries repeat after a Meta or credential failure.
 - `verify-discord-member` calls spike without a matching guild event.
-- Function `429`, `5xx`, or signed URL errors repeat.
+- Function `429`, `5xx`, or bounded media-delivery errors repeat.
 - Egress rises without a matching public traffic explanation.
 - Billing dashboard shows quota or overage warnings.
 - Current-cycle egress reaches `2.5 GB`, projected cycle use reaches `3.75 GB`,
@@ -179,7 +191,7 @@ unreviewed containment shortcut.
 
 ## Cleanup Implications
 
-Storage cleanup must be planned carefully because database rows, private objects, moderation events, and public signed URL behavior are linked.
+Storage cleanup must be planned carefully because database rows, private objects, moderation events, and bounded public media delivery are linked.
 
 - Deleting a `gallery_submissions` row alone does not prove the Storage object was removed.
 - Deleting a Storage object alone can leave a row whose preview or approved feed no longer works.
@@ -205,7 +217,7 @@ After a guild event or traffic spike:
 
 1. Check `list-approved-gallery-submissions` invocation volume.
 2. Check egress and public Gallery traffic timing.
-3. Check function error logs for repeated signed URL failures.
+3. Check function error logs for repeated bounded media-delivery failures.
 4. Check whether new uploads match known member activity.
 5. If growth is abnormal, stop and open a scoped QA/admin branch.
 

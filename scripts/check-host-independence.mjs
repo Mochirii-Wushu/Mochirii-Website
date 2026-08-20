@@ -100,6 +100,13 @@ const runtimeTextExtensions = new Set([
 ]);
 const reviewedLoopbacks = new Map([
   [
+    ".github/workflows/manual-lighthouse.yml",
+    [
+      { value: "http://127.0.0.1:8765", count: 2 },
+      { value: "--hostname 127.0.0.1", count: 1 },
+    ],
+  ],
+  [
     "apps/web/lib/member-social-links/profile-links-core.ts",
     [{ value: "localhost", count: 2 }],
   ],

@@ -447,7 +447,7 @@ assertMatches(
   "the exact legacy request must receive only mapped, quota-enforced Edge media URLs.",
 );
 
-const finalListResponseStart = approvedFeedFunction.lastIndexOf("return jsonResponse({\n    ok: true,");
+const finalListResponseStart = approvedFeedFunction.lastIndexOf("const responseBody = {\n    ok: true,");
 const finalListResponse = finalListResponseStart >= 0
   ? approvedFeedFunction.slice(finalListResponseStart)
   : "";
@@ -457,6 +457,8 @@ assert(finalListResponseStart >= 0, "Approved Gallery list response: final respo
   "nextCursor,",
   'delivery: "bounded-edge-media"',
   "cacheSeconds: 15",
+  "serializeGalleryPublicListResponse(responseBody)",
+  'code: "list_response_budget_exceeded"',
 ].forEach((snippet) => assertIncludes("approved Gallery final list response", finalListResponse, snippet));
 [
   "full_url",
@@ -470,6 +472,8 @@ assert(finalListResponseStart >= 0, "Approved Gallery list response: final respo
 [
   "GALLERY_PUBLIC_SCHEMA_VERSION = 2",
   "GALLERY_PUBLIC_PAGE_SIZE = 24",
+  "GALLERY_PUBLIC_LIST_RESERVED_BYTES = 64 * 1024",
+  "GALLERY_PUBLIC_MEDIA_URL_MAX_BYTES = 512",
   "GALLERY_PUBLIC_MAX_QUERY_LENGTH = 80",
   "GALLERY_PUBLIC_EVIDENCE_CACHE_TTL_MS = 15 * 1000",
   "GALLERY_PUBLIC_EVIDENCE_CACHE_MAX_ENTRIES = 32",
@@ -484,6 +488,7 @@ assert(finalListResponseStart >= 0, "Approved Gallery list response: final respo
   "parseGalleryDeliveryReservation",
   "isLegacyGalleryListRequest",
   "toLegacyGalleryItem",
+  "serializeGalleryPublicListResponse",
   'action: "list"',
   'action: "full"',
   'action: "thumbnail"',
@@ -511,6 +516,8 @@ assert(finalListResponseStart >= 0, "Approved Gallery list response: final respo
   "atomic media reservations require exact bounded media evidence",
   "recognizes only the exact legacy empty-object request shape",
   "public Gallery items omit service-only references and originals",
+  "maximum legal schema-v2 list response fits its exact 64 KiB reservation",
+  "list serialization and public media URLs fail closed above their byte bounds",
   "legacy Gallery items use metered Edge URLs without identity or paths",
   'assert(!serialized.includes("StoragePath"), "raw Storage path leaked")',
   'serialized.includes("private-original")',

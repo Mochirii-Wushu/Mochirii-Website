@@ -301,7 +301,9 @@ const unauthenticatedFunctionGuardSpecs = {
       '"gallery_public_feed_page_v2"',
       '"gallery_reserve_public_media_v2"',
       "containsBearerCapability(page)",
-      "thumbnail_url: thumbnailUrl",
+      "new TextEncoder().encode(safeThumbnailUrl).byteLength >",
+      "GALLERY_PUBLIC_MEDIA_URL_MAX_BYTES",
+      "thumbnail_url: safeThumbnailUrl",
       "full_signed_url: safeFullUrl",
     ],
   },
@@ -598,7 +600,7 @@ assertMatches(
 assertMatches(
   "list-approved-gallery-submissions v2 DTO",
   approvedFeedShared,
-  /export function toPublicGalleryItem\([\s\S]*?return \{(?:(?!storagePath|storageBucket|userId|full_signed_url|thumbnail_signed_url)[\s\S])*thumbnail_url: thumbnailUrl,[\s\S]*?^\}/m,
+  /export function toPublicGalleryItem\([\s\S]*?return \{(?:(?!storagePath|storageBucket|userId|full_signed_url|thumbnail_signed_url)[\s\S])*thumbnail_url: safeThumbnailUrl,[\s\S]*?^\}/m,
   "Gallery feed v2 must expose a bounded Edge thumbnail URL without private storage, member, or signed-token fields.",
 );
 

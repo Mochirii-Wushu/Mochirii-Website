@@ -238,9 +238,12 @@ assertRegex("profile client", profileClient, /\.update\(\s*clean\s*\)/, "Profile
 
 [
   "export const GALLERY_PUBLIC_SCHEMA_VERSION = 2;",
+  "GALLERY_PUBLIC_MEDIA_URL_MAX_BYTES = 512",
   "containsBearerCapability",
   "parseGalleryDatabasePage",
-  "thumbnail_url: thumbnailUrl",
+  "new TextEncoder().encode(safeThumbnailUrl).byteLength >",
+  "GALLERY_PUBLIC_MEDIA_URL_MAX_BYTES",
+  "thumbnail_url: safeThumbnailUrl",
   "full_signed_url: safeFullUrl",
   "uploader_display_name: null",
 ].forEach((snippet) => assertIncludes("approved gallery feed shared contract", approvedFeedShared, snippet));
@@ -249,7 +252,7 @@ assertNotIncludes("approved gallery feed", approvedFeed, "createSignedUrls");
 assertRegex(
   "approved Gallery v2 public item",
   approvedFeedShared,
-  /export function toPublicGalleryItem\([\s\S]*?return \{(?:(?!storagePath|storageBucket|userId|full_signed_url|thumbnail_signed_url)[\s\S])*thumbnail_url: thumbnailUrl,[\s\S]*?^\}/m,
+  /export function toPublicGalleryItem\([\s\S]*?return \{(?:(?!storagePath|storageBucket|userId|full_signed_url|thumbnail_signed_url)[\s\S])*thumbnail_url: safeThumbnailUrl,[\s\S]*?^\}/m,
   "Gallery feed v2 must expose a bounded Edge thumbnail URL without private storage or member fields.",
 );
 assertRegex(

@@ -1,5 +1,7 @@
 import {
   encodeGalleryCursor,
+  GALLERY_PUBLIC_LIST_RESERVED_BYTES,
+  GALLERY_PUBLIC_MEDIA_URL_MAX_BYTES,
   GALLERY_PUBLIC_PAGE_SIZE,
   GalleryEvidenceNotCacheableError,
   GalleryIsolateCircuitBreaker,
@@ -12,6 +14,7 @@ import {
   parseGalleryDeliveryReservation,
   parseGalleryMediaReservation,
   parseGalleryPublicRequest,
+  serializeGalleryPublicListResponse,
   toLegacyGalleryItem,
   toPublicGalleryItem,
 } from "./gallery-public-feed.ts";
@@ -342,7 +345,7 @@ Deno.test("public Gallery items omit service-only references and originals", () 
   const item = toPublicGalleryItem({
     id: cursorValue.id,
     title: "Guild view",
-    caption: "A shared horizon",
+    caption: "A shared horizon\nSecond line\twith detail\rThird line",
     category: "scenery",
     categories: ["member-submissions", "scenery"],
     mimeType: "image/webp",
@@ -370,8 +373,143 @@ Deno.test("public Gallery items omit service-only references and originals", () 
     "bounded thumbnail was not preserved",
   );
   assert(
+    item.caption === "A shared horizon\nSecond line\twith detail\rThird line",
+    "ordinary multiline caption whitespace was not preserved",
+  );
+  assert(
     !serialized.includes("Mōchī Member") && !("uploader_display_name" in item),
     "member identity leaked into the anonymous Gallery item",
+  );
+});
+
+Deno.test("public Gallery text rejects unsafe controls without dropping ordinary multiline captions", () => {
+  const item = toPublicGalleryItem({
+    id: cursorValue.id,
+    title: "Unsafe\u0000title",
+    caption: "First line\nSecond line\twith detail\rThird line",
+    category: "scenery",
+    categories: ["member-submissions", "scenery"],
+    mimeType: "image/webp",
+    sizeBytes: 1000,
+    createdAt: cursorValue.createdAt,
+    reviewedAt: cursorValue.reviewedAt,
+    thumbnailSizeBytes: 100,
+    thumbnailWidth: 640,
+    thumbnailHeight: 400,
+  }, "https://example.invalid/bounded-thumbnail");
+
+  assert(item, "expected a valid public item");
+  assert(item.title === null, "unsafe title controls were retained");
+  assert(
+    item.caption === "First line\nSecond line\twith detail\rThird line",
+    "ordinary multiline caption whitespace was dropped",
+  );
+});
+
+Deno.test("maximum legal schema-v2 list response fits its exact 64 KiB reservation", () => {
+  const maximumText = "\u0800";
+  const title = maximumText.repeat(80);
+  const caption = maximumText.repeat(300);
+  const maximumDate = `${new Date(Date.now() - 60_000).toUTCString()} (${
+    "a".repeat(48)
+  })`;
+  assert(maximumDate.length === 80, "maximum legal date did not reach its field bound");
+  const items = Array.from({ length: GALLERY_PUBLIC_PAGE_SIZE }, (_, index) => {
+    const id = `11111111-1111-4111-8111-${String(index + 1).padStart(12, "0")}`;
+    const prefix = `https://gallery.example.test/${id}/`;
+    const thumbnailUrl = prefix + "a".repeat(
+      GALLERY_PUBLIC_MEDIA_URL_MAX_BYTES - prefix.length,
+    );
+    const item = toPublicGalleryItem({
+      id,
+      title,
+      caption,
+      category: "gatherings",
+      categories: [
+        "member-submissions",
+        "portraits",
+        "gatherings",
+        "action",
+        "scenery",
+        "companions",
+      ],
+      mimeType: "image/webp",
+      sizeBytes: 2 * 1024 * 1024,
+      createdAt: maximumDate,
+      reviewedAt: maximumDate,
+      thumbnailSizeBytes: 80 * 1024,
+      thumbnailWidth: 720,
+      thumbnailHeight: 720,
+    }, thumbnailUrl);
+    assert(item, "maximum legal Gallery item was rejected");
+    return item;
+  });
+  const nextCursor = encodeGalleryCursor({
+    snapshotAt: maximumDate,
+    reviewedAt: maximumDate,
+    createdAt: maximumDate,
+    id: items.at(-1)?.id,
+    sort: "newest",
+    category: "gatherings",
+    query: maximumText.repeat(80),
+  });
+  assert(nextCursor, "maximum legal Gallery cursor was rejected");
+
+  const body = {
+    ok: true,
+    data: {
+      schemaVersion: 2,
+      items,
+      count: GALLERY_PUBLIC_PAGE_SIZE,
+      totalEligible: Number.MAX_SAFE_INTEGER,
+      facets: {
+        "member-submissions": Number.MAX_SAFE_INTEGER,
+        portraits: Number.MAX_SAFE_INTEGER,
+        gatherings: Number.MAX_SAFE_INTEGER,
+        action: Number.MAX_SAFE_INTEGER,
+        scenery: Number.MAX_SAFE_INTEGER,
+        companions: Number.MAX_SAFE_INTEGER,
+      },
+      hasMore: true,
+      nextCursor,
+      partial: false,
+      complete: false,
+      deliveryFailures: 0,
+      delivery: "bounded-edge-media",
+      cacheSeconds: 15,
+    },
+    message: "Member-submitted images loaded.",
+  };
+  const serialized = serializeGalleryPublicListResponse(body);
+  assert(serialized, "maximum legal Gallery response exceeded its reservation");
+  assert(
+    new TextEncoder().encode(serialized).byteLength <=
+      GALLERY_PUBLIC_LIST_RESERVED_BYTES,
+    "maximum legal Gallery response exceeded 65,536 bytes",
+  );
+});
+
+Deno.test("list serialization and public media URLs fail closed above their byte bounds", () => {
+  assert(
+    serializeGalleryPublicListResponse({
+      data: "a".repeat(GALLERY_PUBLIC_LIST_RESERVED_BYTES),
+    }) === null,
+    "oversized Gallery response was serialized",
+  );
+  assert(
+    toPublicGalleryItem({
+      id: cursorValue.id,
+      category: "scenery",
+      categories: ["member-submissions", "scenery"],
+      mimeType: "image/webp",
+      sizeBytes: 1000,
+      createdAt: cursorValue.createdAt,
+      reviewedAt: cursorValue.reviewedAt,
+      thumbnailSizeBytes: 100,
+      thumbnailWidth: 640,
+      thumbnailHeight: 400,
+    }, `https://example.invalid/${"a".repeat(GALLERY_PUBLIC_MEDIA_URL_MAX_BYTES)}`) === null,
+    "oversized Gallery media URL was accepted",
   );
 });
 
