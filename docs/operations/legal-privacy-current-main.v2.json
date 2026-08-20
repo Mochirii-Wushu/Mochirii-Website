@@ -1,0 +1,2801 @@
+{
+  "schemaVersion": 2,
+  "record": {
+    "id": "legal-privacy-current-main-2026-08-13",
+    "repository": "Mochirii-Wushu/Mochirii-Website",
+    "status": "SOURCE_ONLY_INCOMPLETE",
+    "completeness": false,
+    "activationEffect": "none",
+    "activationAuthorized": false,
+    "publicLegalCopyAuthorized": false,
+    "providerReadbackPerformed": false,
+    "counselReviewed": false,
+    "inspectedAt": "2026-08-13T06:22:03-07:00",
+    "sourceAnchor": {
+      "commit": "d5e55abfb5e5d6fbecaf7da1cec762ba9bc9cdab",
+      "tree": "7112abe8872b255e5c8231728ebda893b0064fed",
+      "committedAt": "2026-08-11T21:12:04-07:00"
+    },
+    "inheritedPacket": {
+      "commit": "c4b1da6e3d40879f6b0ba590b6f87fd93404aa9c",
+      "tree": "3670d0b420323323c48b6fbb06867f3840d70b38",
+      "inventoryPath": "docs/operations/legal-privacy-readiness.v1.json",
+      "inventoryBlob": "2647651dd38e4eb4a71aa115a8c80ee9a1d52ff6",
+      "decisionPacketPath": "docs/operations/LEGAL-PRIVACY-READINESS-2026-07-29.md",
+      "decisionPacketBlob": "196bbb4478a25b7acf715014e725909845fc2507"
+    },
+    "operatorRequirementIds": [
+      "P5A-SOURCE-001",
+      "P5A-FACT-001",
+      "P5A-FACT-002",
+      "P5A-FACT-003",
+      "P5A-FACT-004",
+      "P5A-FACT-005",
+      "P5A-FACT-006",
+      "P5A-FACT-007",
+      "P5A-PRIV-001",
+      "P5A-PRIV-002",
+      "P5A-PRIV-003",
+      "P5A-ASSENT-001",
+      "P5A-BRAND-001",
+      "P5A-COUNSEL-001",
+      "P16-ARCH-001",
+      "P16-LEGAL-001"
+    ],
+    "scopeNote": "Current-main source facts only. This inventory is not legal advice, provider or production proof, a public-copy draft, an approval receipt, or deployment authority."
+  },
+  "statusDefinitions": {
+    "SOURCE_OBSERVED": "The exact anchored source contains the stated fact; no runtime, provider, contractual, or legal conclusion follows.",
+    "SOURCE_ABSENT_BLOCKER": "An expected source route, notice, contract, or control is absent at the exact anchor and blocks broader claims.",
+    "RUNTIME_READBACK_REQUIRED": "Current hosted behavior or configuration needs separately authorized, sanitized runtime evidence.",
+    "BLOCKED_APPROVAL": "An accountable owner or qualified reviewer must decide and approve the fact, scope, or wording.",
+    "BLOCKED_EXTERNAL": "Current professional, contractual, provider, platform, or other external evidence is required.",
+    "DEFERRED_BY_EXPLICIT_POLICY": "The capability remains intentionally inactive and no activation follows from this inventory.",
+    "NOT_APPLICABLE_REVIEWED": "An accountable review found the item inapplicable and retained a public-safe rationale."
+  },
+  "deltaSummary": {
+    "total": 36,
+    "same": 17,
+    "changed": 9,
+    "absent": 10
+  },
+  "inheritedSourceRefs": [
+    {
+      "id": "repository-guidance",
+      "path": "AGENTS.md",
+      "inheritedBlob": "d1efc93bba0c3da2c78dc9e03bf2215750a3bbd1",
+      "currentBlob": "d1efc93bba0c3da2c78dc9e03bf2215750a3bbd1",
+      "deltaState": "same",
+      "currentDisposition": "SAME_BYTES_REVIEWED"
+    },
+    {
+      "id": "root-security-policy",
+      "path": "SECURITY.md",
+      "inheritedBlob": "87a69a31a8b3acfafac27f61acf1c7407dd9f8ec",
+      "currentBlob": "1eb4ace5d987aca7fee4f528b7564c32714d154c",
+      "deltaState": "changed",
+      "currentDisposition": "CHANGED_BYTES_REVIEWED"
+    },
+    {
+      "id": "website-security-txt",
+      "path": "apps/web/public/.well-known/security.txt",
+      "inheritedBlob": "5f9f3862c351d40cdad79e043461a8c169aa944d",
+      "currentBlob": "7a0fd4b5dc6c3999c331214b2973a166b910a2a8",
+      "deltaState": "changed",
+      "currentDisposition": "CHANGED_BYTES_REVIEWED"
+    },
+    {
+      "id": "social-security-txt",
+      "path": "services/social/public/.well-known/security.txt",
+      "inheritedBlob": "247db0dbdade4c861f25020bee236cb06014d311",
+      "currentBlob": null,
+      "deltaState": "absent",
+      "currentDisposition": "ABSENT_AT_ANCHOR"
+    },
+    {
+      "id": "website-privacy-page",
+      "path": "apps/web/components/public-pages/route-pages/PrivacyPage.tsx",
+      "inheritedBlob": "92df38a1726c57df2de769b1087f7ea2c6a0422a",
+      "currentBlob": null,
+      "deltaState": "absent",
+      "currentDisposition": "ABSENT_AT_ANCHOR"
+    },
+    {
+      "id": "meta-deletion-page",
+      "path": "apps/web/components/public-pages/route-pages/MetaDataDeletionPage.tsx",
+      "inheritedBlob": "cc2028b784a10614d53c69413d66fa1468d8f691",
+      "currentBlob": null,
+      "deltaState": "absent",
+      "currentDisposition": "ABSENT_AT_ANCHOR"
+    },
+    {
+      "id": "website-footer",
+      "path": "apps/web/components/SiteFooter.tsx",
+      "inheritedBlob": "2b0fd0b0659316cd75312d122d1cf124db38b43c",
+      "currentBlob": "c782c466910d390cf26fc952d1745ffd43a17297",
+      "deltaState": "changed",
+      "currentDisposition": "CHANGED_BYTES_REVIEWED"
+    },
+    {
+      "id": "integration-catalog",
+      "path": "docs/integrations/integration-exposure-catalog.v1.json",
+      "inheritedBlob": "f5fc493b668cb09f410a77267756d340e99ee13e",
+      "currentBlob": null,
+      "deltaState": "absent",
+      "currentDisposition": "ABSENT_AT_ANCHOR"
+    },
+    {
+      "id": "architecture",
+      "path": "docs/architecture.md",
+      "inheritedBlob": "4de740e0671bff94f2c0f67aae9f43837cb52b26",
+      "currentBlob": "f745cff4f97453f372f0d0840907d4b49389a627",
+      "deltaState": "changed",
+      "currentDisposition": "CHANGED_BYTES_REVIEWED"
+    },
+    {
+      "id": "operations-readme",
+      "path": "docs/operations/README.md",
+      "inheritedBlob": "673f10270c191cf7a34cf76a9cf155341ef993b5",
+      "currentBlob": "cf156b4b785adaa9b73cee32009087449fb9abf1",
+      "deltaState": "changed",
+      "currentDisposition": "CHANGED_BYTES_REVIEWED"
+    },
+    {
+      "id": "current-state",
+      "path": "docs/operations/CURRENT-STATE.md",
+      "inheritedBlob": "6cd58b2ac5113ef1dfb03d3cec47dbc62a1b30a3",
+      "currentBlob": "2dca3a4e4910fdb09a7a6a71a05e02d4d7ded956",
+      "deltaState": "changed",
+      "currentDisposition": "CHANGED_BYTES_REVIEWED"
+    },
+    {
+      "id": "social-privacy-contract",
+      "path": "services/social/resources/views/site/partial/privacy-contract.blade.php",
+      "inheritedBlob": "7e45a030be9d79af5444b4c907deea1597a19c36",
+      "currentBlob": "7e45a030be9d79af5444b4c907deea1597a19c36",
+      "deltaState": "same",
+      "currentDisposition": "SAME_BYTES_REVIEWED"
+    },
+    {
+      "id": "social-site-terms",
+      "path": "services/social/resources/views/site/terms.blade.php",
+      "inheritedBlob": "08625c06bb56c1cc7744c7797563a290b139944b",
+      "currentBlob": "08625c06bb56c1cc7744c7797563a290b139944b",
+      "deltaState": "same",
+      "currentDisposition": "SAME_BYTES_REVIEWED"
+    },
+    {
+      "id": "social-mobile-terms",
+      "path": "services/social/resources/views/mobile/terms.blade.php",
+      "inheritedBlob": "6931bb5dc3fcc60fc048aa589fb58e1b4c07a1fe",
+      "currentBlob": "6931bb5dc3fcc60fc048aa589fb58e1b4c07a1fe",
+      "deltaState": "same",
+      "currentDisposition": "SAME_BYTES_REVIEWED"
+    },
+    {
+      "id": "social-legal-notice",
+      "path": "services/social/resources/views/site/legal-notice.blade.php",
+      "inheritedBlob": "18e7d92cdba3cc95b5095d3af69d89b7588b953e",
+      "currentBlob": "18e7d92cdba3cc95b5095d3af69d89b7588b953e",
+      "deltaState": "same",
+      "currentDisposition": "SAME_BYTES_REVIEWED"
+    },
+    {
+      "id": "social-site-controller",
+      "path": "services/social/app/Http/Controllers/SiteController.php",
+      "inheritedBlob": "b1a5ec3db0df07d37391a4ab2a6e0664d1b5e44e",
+      "currentBlob": "b1a5ec3db0df07d37391a4ab2a6e0664d1b5e44e",
+      "deltaState": "same",
+      "currentDisposition": "SAME_BYTES_REVIEWED"
+    },
+    {
+      "id": "social-community-guidelines",
+      "path": "services/social/resources/views/site/help/community-guidelines.blade.php",
+      "inheritedBlob": "e7875e1f94efdfc1dd8a0357e60030bb37c6f4b6",
+      "currentBlob": "e7875e1f94efdfc1dd8a0357e60030bb37c6f4b6",
+      "deltaState": "same",
+      "currentDisposition": "SAME_BYTES_REVIEWED"
+    },
+    {
+      "id": "social-data-policy",
+      "path": "services/social/resources/views/site/help/data-policy.blade.php",
+      "inheritedBlob": "ab4740c016e29bd6c39987f0b6ff7bfee02dc793",
+      "currentBlob": "ab4740c016e29bd6c39987f0b6ff7bfee02dc793",
+      "deltaState": "same",
+      "currentDisposition": "SAME_BYTES_REVIEWED"
+    },
+    {
+      "id": "social-platform-page",
+      "path": "services/social/resources/views/site/platform.blade.php",
+      "inheritedBlob": "1972f83e203bdce22e4a14f41972a40882136226",
+      "currentBlob": "1972f83e203bdce22e4a14f41972a40882136226",
+      "deltaState": "same",
+      "currentDisposition": "SAME_BYTES_REVIEWED"
+    },
+    {
+      "id": "social-branding-config",
+      "path": "services/social/config/mochirii-branding.php",
+      "inheritedBlob": "c3a406df0ffbf495427659c27a901e184877be42",
+      "currentBlob": "c3a406df0ffbf495427659c27a901e184877be42",
+      "deltaState": "same",
+      "currentDisposition": "SAME_BYTES_REVIEWED"
+    },
+    {
+      "id": "social-app-config",
+      "path": "services/social/config/app.php",
+      "inheritedBlob": "b6ccef97d28d3edf2f06f66f7f0a1925fed63f33",
+      "currentBlob": "b6ccef97d28d3edf2f06f66f7f0a1925fed63f33",
+      "deltaState": "same",
+      "currentDisposition": "SAME_BYTES_REVIEWED"
+    },
+    {
+      "id": "social-instance-config",
+      "path": "services/social/config/instance.php",
+      "inheritedBlob": "2db3afcaa69889e946a076b268e8c120c494c3c8",
+      "currentBlob": "2db3afcaa69889e946a076b268e8c120c494c3c8",
+      "deltaState": "same",
+      "currentDisposition": "SAME_BYTES_REVIEWED"
+    },
+    {
+      "id": "social-manifest",
+      "path": "services/social/public/manifest.json",
+      "inheritedBlob": "7b27ae2039db6cdfb1e294055dd5759c2385de57",
+      "currentBlob": "7b27ae2039db6cdfb1e294055dd5759c2385de57",
+      "deltaState": "same",
+      "currentDisposition": "SAME_BYTES_REVIEWED"
+    },
+    {
+      "id": "social-deletion-help",
+      "path": "services/social/resources/views/site/help/your-profile.blade.php",
+      "inheritedBlob": "39103957901dd443ea5e88836175aa2aad6cdd45",
+      "currentBlob": "39103957901dd443ea5e88836175aa2aad6cdd45",
+      "deltaState": "same",
+      "currentDisposition": "SAME_BYTES_REVIEWED"
+    },
+    {
+      "id": "social-pixelfed-config",
+      "path": "services/social/config/pixelfed.php",
+      "inheritedBlob": "3a508cb4b446d00d7b15ddf687ff45b9e9b1ed8e",
+      "currentBlob": "3a508cb4b446d00d7b15ddf687ff45b9e9b1ed8e",
+      "deltaState": "same",
+      "currentDisposition": "SAME_BYTES_REVIEWED"
+    },
+    {
+      "id": "social-parental-controls",
+      "path": "services/social/resources/views/site/help/parental-controls.blade.php",
+      "inheritedBlob": "d7b9710dd99b09a7079369f7933220d677be8bc4",
+      "currentBlob": "d7b9710dd99b09a7079369f7933220d677be8bc4",
+      "deltaState": "same",
+      "currentDisposition": "SAME_BYTES_REVIEWED"
+    },
+    {
+      "id": "gallery-media-delivery",
+      "path": "docs/integrations/gallery-public-media-delivery.md",
+      "inheritedBlob": "a53c0c82cd071dbc33fae5e4249f453cc82496ea",
+      "currentBlob": null,
+      "deltaState": "absent",
+      "currentDisposition": "ABSENT_AT_ANCHOR"
+    },
+    {
+      "id": "gallery-thumbnail-rollout",
+      "path": "docs/operations/GALLERY-THUMBNAIL-ROLLOUT.md",
+      "inheritedBlob": "6fa2f06840d33abba9e882414efc7195491d8434",
+      "currentBlob": "bede5251fbdc7eb7fcf647eb2df146bbe5a463e0",
+      "deltaState": "changed",
+      "currentDisposition": "CHANGED_BYTES_REVIEWED"
+    },
+    {
+      "id": "facebook-publishing-contract",
+      "path": "docs/integrations/facebook-page-gallery-publishing.md",
+      "inheritedBlob": "60b4defac190c9a9093bfe03d8ee5da4fd04ddf4",
+      "currentBlob": null,
+      "deltaState": "absent",
+      "currentDisposition": "ABSENT_AT_ANCHOR"
+    },
+    {
+      "id": "instagram-publishing-contract",
+      "path": "docs/integrations/instagram-gallery-publishing.md",
+      "inheritedBlob": "4592173afb654ae5449254e0f69d8e9946031ba3",
+      "currentBlob": null,
+      "deltaState": "absent",
+      "currentDisposition": "ABSENT_AT_ANCHOR"
+    },
+    {
+      "id": "raffle-leaderboard",
+      "path": "docs/operations/MONTHLY-RAFFLE-LEADERBOARD.md",
+      "inheritedBlob": "bac8ded2e0134417e0e2f0ddbbd0a41359b1f180",
+      "currentBlob": null,
+      "deltaState": "absent",
+      "currentDisposition": "ABSENT_AT_ANCHOR"
+    },
+    {
+      "id": "reward-relay",
+      "path": "docs/integrations/reward-relay.md",
+      "inheritedBlob": "0f562723fca541e5af261b977bc00392cc65c87c",
+      "currentBlob": null,
+      "deltaState": "absent",
+      "currentDisposition": "ABSENT_AT_ANCHOR"
+    },
+    {
+      "id": "spinner-publication",
+      "path": "docs/operations/SPINNER-RAFFLE-WINNER-PUBLICATION.md",
+      "inheritedBlob": "1a22259094b4bec4347e421b4621f042862b338e",
+      "currentBlob": "6281ecf2a7d8d09dc499dc576495950f1da4e394",
+      "deltaState": "changed",
+      "currentDisposition": "CHANGED_BYTES_REVIEWED"
+    },
+    {
+      "id": "shopify-readiness",
+      "path": "docs/operations/SHOPIFY-LAUNCH-READINESS.md",
+      "inheritedBlob": "bfce083b84b963af8c323dce8b5b01a8285ad8bf",
+      "currentBlob": "25597206d23a7e3da3efd43c0a3a981c3d4c7b94",
+      "deltaState": "changed",
+      "currentDisposition": "CHANGED_BYTES_REVIEWED"
+    },
+    {
+      "id": "storefront-lifecycle",
+      "path": "docs/operations/STOREFRONT-SURFACE-LIFECYCLE-2026-07-29.md",
+      "inheritedBlob": "fcea5ac8af2bf49502bff481c365c0cf9ef28f23",
+      "currentBlob": null,
+      "deltaState": "absent",
+      "currentDisposition": "ABSENT_AT_ANCHOR"
+    },
+    {
+      "id": "mochi-pets-contract",
+      "path": "docs/integrations/mochi-pets-website-contract.md",
+      "inheritedBlob": "c9518a2b78022722afda8015e6cb7151e120744e",
+      "currentBlob": "c9518a2b78022722afda8015e6cb7151e120744e",
+      "deltaState": "same",
+      "currentDisposition": "SAME_BYTES_REVIEWED"
+    }
+  ],
+  "currentSourceRefs": [
+    {
+      "id": "repository-guidance",
+      "path": "AGENTS.md",
+      "blob": "d1efc93bba0c3da2c78dc9e03bf2215750a3bbd1",
+      "kind": "source-policy",
+      "description": "Repository ownership, approval, secret, and validation boundaries."
+    },
+    {
+      "id": "root-security-policy",
+      "path": "SECURITY.md",
+      "blob": "1eb4ace5d987aca7fee4f528b7564c32714d154c",
+      "kind": "security-policy",
+      "description": "Current repository vulnerability-reporting source."
+    },
+    {
+      "id": "website-security-txt",
+      "path": "apps/web/public/.well-known/security.txt",
+      "blob": "7a0fd4b5dc6c3999c331214b2973a166b910a2a8",
+      "kind": "public-security-metadata",
+      "description": "Current Website security metadata source."
+    },
+    {
+      "id": "website-footer",
+      "path": "apps/web/components/SiteFooter.tsx",
+      "blob": "c782c466910d390cf26fc952d1745ffd43a17297",
+      "kind": "public-navigation-source",
+      "description": "Current Website global footer."
+    },
+    {
+      "id": "website-route-matrix",
+      "path": "scripts/check-accessibility-route-matrix.mjs",
+      "blob": "28e2b36bd2a25c2d52b175a1c01f4ad10b7d9914",
+      "kind": "route-inventory-source",
+      "description": "Current source-declared Website route and audience matrix."
+    },
+    {
+      "id": "website-shell-observability",
+      "path": "apps/web/components/SiteRouteShell.tsx",
+      "blob": "e57ae7243559648674ad489a55f8b1f0528e2e83",
+      "kind": "runtime-source",
+      "description": "Website shell analytics and performance-observability components."
+    },
+    {
+      "id": "website-csp",
+      "path": "apps/web/next.config.ts",
+      "blob": "49e1945db46f349b509d273ef1f4f317602e1b14",
+      "kind": "runtime-policy-source",
+      "description": "Website browser destination allowlist and response-header source."
+    },
+    {
+      "id": "website-public-destinations",
+      "path": "apps/web/config/public-urls.json",
+      "blob": "b109cb494f268a0d359f690d5c910cf4513d0196",
+      "kind": "public-destination-source",
+      "description": "Website public origins, guild-profile links, and external destinations."
+    },
+    {
+      "id": "website-auth-config",
+      "path": "apps/web/lib/supabase/config.ts",
+      "blob": "b6bf6adc6fcb41a23addf8da89d07df96f45e450",
+      "kind": "authentication-source",
+      "description": "Browser-visible authentication, membership, and upload defaults."
+    },
+    {
+      "id": "website-auth-client",
+      "path": "apps/web/lib/supabase/auth.ts",
+      "blob": "45e963cf9bda316862e8c6857422a9291a94ba7e",
+      "kind": "authentication-source",
+      "description": "Website OAuth, phone, session, and sign-out client flows."
+    },
+    {
+      "id": "website-oauth-decision",
+      "path": "apps/web/app/api/oauth/decision/route.ts",
+      "blob": "26e677d37e4cfef193404033fa242debce18d40a",
+      "kind": "authorization-source",
+      "description": "Server-side Social OAuth consent decision path."
+    },
+    {
+      "id": "website-account-panel",
+      "path": "apps/web/components/member-workflow/AccountPanel.tsx",
+      "blob": "d82632fcd9657147eb16db3780bd6be28ad23edd",
+      "kind": "member-workflow-source",
+      "description": "Current member account and profile workflow source."
+    },
+    {
+      "id": "website-gallery-submit",
+      "path": "apps/web/components/member-workflow/GallerySubmitForm.tsx",
+      "blob": "f7d3e194d325549f5b06a8c837738a8ae2a4af8f",
+      "kind": "member-workflow-source",
+      "description": "Gallery submission, moderation notice, and optional publication choice source."
+    },
+    {
+      "id": "website-gallery-client",
+      "path": "apps/web/lib/supabase/gallery-submissions.ts",
+      "blob": "7c2667b3a7066a7b53e4782cfe87e7b14879604d",
+      "kind": "data-flow-source",
+      "description": "Browser Gallery Storage and database write/read source."
+    },
+    {
+      "id": "website-gallery-feed",
+      "path": "apps/web/lib/gallery/approved-feed.ts",
+      "blob": "0c3928408b2fad2d09e78072d1427e824dc514d5",
+      "kind": "public-data-flow-source",
+      "description": "Website approved Gallery Edge Function consumer and response shape."
+    },
+    {
+      "id": "gallery-feed-function",
+      "path": "supabase/functions/list-approved-gallery-submissions/index.ts",
+      "blob": "2625e83d44208502572f91a6fc42472fa8498cbc",
+      "kind": "public-data-flow-source",
+      "description": "Approved Gallery public feed and bounded signed-media response source."
+    },
+    {
+      "id": "gallery-delete-function",
+      "path": "supabase/functions/delete-rejected-gallery-submission/index.ts",
+      "blob": "00f444e0798255c727ebf80ee9cff03533bef058",
+      "kind": "deletion-source",
+      "description": "Moderator-confirmed rejected-submission cleanup sequence."
+    },
+    {
+      "id": "gallery-schema",
+      "path": "supabase/migrations/20260513081523_create_discord_role_gated_gallery_uploads.sql",
+      "blob": "ab57d00230cbd407a16ba9cd5065635fa265c638",
+      "kind": "database-source",
+      "description": "Gallery, profile, moderation, and account-cascade source."
+    },
+    {
+      "id": "gallery-instagram-consent",
+      "path": "supabase/migrations/20260607125027_add_instagram_gallery_publishing.sql",
+      "blob": "a95a17d81955fff4233e2442003bb04c317e1a98",
+      "kind": "consent-source",
+      "description": "Optional Instagram publication choice and evidence columns."
+    },
+    {
+      "id": "gallery-discord-ingress",
+      "path": "supabase/functions/submit-discord-gallery-image/index.ts",
+      "blob": "2247d99a948ab635aeefce1f3a46d709001343d0",
+      "kind": "data-flow-source",
+      "description": "Discord Gallery ingress, attachment retrieval, member binding, Storage upload, and metadata insertion source."
+    },
+    {
+      "id": "gallery-discord-schema",
+      "path": "supabase/migrations/20260524114802_add_discord_gallery_submission_source.sql",
+      "blob": "b1781b1f43accfa55528681e88a585584c879df5",
+      "kind": "database-source",
+      "description": "Persisted Discord Gallery source and guild, channel, message, attachment, and user identifier fields."
+    },
+    {
+      "id": "spinner-retention",
+      "path": "supabase/migrations/20260726180052_add_private_live_spinner.sql",
+      "blob": "578c896329c127c7158b9d5d3beaa761473ad956",
+      "kind": "retention-source",
+      "description": "Private spinner evidence, cleanup, and source retention rules."
+    },
+    {
+      "id": "spinner-media-retention",
+      "path": "supabase/migrations/20260727033342_add_spinner_media_jobs.sql",
+      "blob": "9f125b63af15104a401e7f4f6f97814f61e4d0e5",
+      "kind": "retention-source",
+      "description": "Spinner media-job retention source."
+    },
+    {
+      "id": "spinner-page-auth",
+      "path": "apps/web/app/spinner/page.tsx",
+      "blob": "f360cfca8ac2bd4036fffb80c26038b2e7f328b4",
+      "kind": "authorization-source",
+      "description": "Private spinner page access check and fail-closed route source."
+    },
+    {
+      "id": "spinner-session-route",
+      "path": "apps/web/app/spinner/session/route.ts",
+      "blob": "07888d45fc4aeb5e6139d250580586478187b609",
+      "kind": "authorization-source",
+      "description": "Spinner session establishment and authorization route source."
+    },
+    {
+      "id": "spinner-live-route",
+      "path": "apps/web/app/spinner/live/route.ts",
+      "blob": "25fd90d1c3102e4bab793317d9d97b05f0c6a757",
+      "kind": "authorization-source",
+      "description": "Spinner live session and controller-mode authorization route source."
+    },
+    {
+      "id": "spinner-media-route",
+      "path": "apps/web/app/spinner/media/render/route.ts",
+      "blob": "3167800c6e86a9b50798068fe91aef5087b803e2",
+      "kind": "authorization-source",
+      "description": "Spinner media capability authorization and fail-closed response source."
+    },
+    {
+      "id": "spinner-session-policy",
+      "path": "apps/web/lib/spinner/session-policy.ts",
+      "blob": "d596ee4786c932476a1438d320982749b7897b79",
+      "kind": "authorization-source",
+      "description": "Spinner verified-member and moderator session policy source."
+    },
+    {
+      "id": "social-routes",
+      "path": "services/social/routes/web.php",
+      "blob": "685c5b6e1277ddd169106fc26b1473e2dc063c2e",
+      "kind": "route-source",
+      "description": "Social legal, privacy, help, settings, and mobile route source."
+    },
+    {
+      "id": "social-site-controller",
+      "path": "services/social/app/Http/Controllers/SiteController.php",
+      "blob": "b1a5ec3db0df07d37391a4ab2a6e0664d1b5e44e",
+      "kind": "runtime-source",
+      "description": "Social database-page and fallback rendering behavior."
+    },
+    {
+      "id": "social-mobile-controller",
+      "path": "services/social/app/Http/Controllers/MobileController.php",
+      "blob": "fa9b812d66219601bf031325911b49e49656c988",
+      "kind": "runtime-source",
+      "description": "Social mobile privacy and database-backed terms rendering."
+    },
+    {
+      "id": "social-privacy-contract",
+      "path": "services/social/resources/views/site/partial/privacy-contract.blade.php",
+      "blob": "7e45a030be9d79af5444b4c907deea1597a19c36",
+      "kind": "public-notice-source",
+      "description": "Shared desktop and mobile Social privacy source."
+    },
+    {
+      "id": "social-site-terms",
+      "path": "services/social/resources/views/site/terms.blade.php",
+      "blob": "08625c06bb56c1cc7744c7797563a290b139944b",
+      "kind": "public-terms-source",
+      "description": "Social desktop terms fallback and database override."
+    },
+    {
+      "id": "social-mobile-terms",
+      "path": "services/social/resources/views/mobile/terms.blade.php",
+      "blob": "6931bb5dc3fcc60fc048aa589fb58e1b4c07a1fe",
+      "kind": "public-terms-source",
+      "description": "Social mobile terms fallback and database override."
+    },
+    {
+      "id": "social-legal-notice",
+      "path": "services/social/resources/views/site/legal-notice.blade.php",
+      "blob": "18e7d92cdba3cc95b5095d3af69d89b7588b953e",
+      "kind": "public-legal-source",
+      "description": "Database-only Social legal-notice view."
+    },
+    {
+      "id": "social-community-guidelines",
+      "path": "services/social/resources/views/site/help/community-guidelines.blade.php",
+      "blob": "e7875e1f94efdfc1dd8a0357e60030bb37c6f4b6",
+      "kind": "public-community-source",
+      "description": "Social community-guideline fallback and database override."
+    },
+    {
+      "id": "social-data-policy",
+      "path": "services/social/resources/views/site/help/data-policy.blade.php",
+      "blob": "ab4740c016e29bd6c39987f0b6ff7bfee02dc793",
+      "kind": "public-help-source",
+      "description": "Incomplete Social data-policy source."
+    },
+    {
+      "id": "social-platform-page",
+      "path": "services/social/resources/views/site/platform.blade.php",
+      "blob": "1972f83e203bdce22e4a14f41972a40882136226",
+      "kind": "public-terms-source",
+      "description": "Empty Social platform and API terms source."
+    },
+    {
+      "id": "social-deletion-help",
+      "path": "services/social/resources/views/site/help/your-profile.blade.php",
+      "blob": "39103957901dd443ea5e88836175aa2aad6cdd45",
+      "kind": "public-help-source",
+      "description": "Social profile, disable, and deletion help source."
+    },
+    {
+      "id": "social-pixelfed-config",
+      "path": "services/social/config/pixelfed.php",
+      "blob": "3a508cb4b446d00d7b15ddf687ff45b9e9b1ed8e",
+      "kind": "runtime-default-source",
+      "description": "Social account-deletion defaults and related feature source."
+    },
+    {
+      "id": "social-instance-config",
+      "path": "services/social/config/instance.php",
+      "blob": "2db3afcaa69889e946a076b268e8c120c494c3c8",
+      "kind": "runtime-default-source",
+      "description": "Social instance and parental-control defaults."
+    },
+    {
+      "id": "social-parental-controls",
+      "path": "services/social/resources/views/site/help/parental-controls.blade.php",
+      "blob": "d7b9710dd99b09a7079369f7933220d677be8bc4",
+      "kind": "public-help-source",
+      "description": "Social child-account and parental-control help source."
+    },
+    {
+      "id": "hosted-runtime-source",
+      "path": "docs/integrations/hosted-runtime.json",
+      "blob": "09a52e56532d477dd78fa14d4fb4fb6465f7e331",
+      "kind": "dated-source-declaration",
+      "description": "Dated source declaration of hosted ownership; not current provider proof."
+    },
+    {
+      "id": "social-delivery-contract",
+      "path": "docs/integrations/mochirii-social-delivery.md",
+      "blob": "61582ca3f7ff381648ab040c12ea10af439660a9",
+      "kind": "integration-contract",
+      "description": "Source-declared Social image, host, storage, and recovery boundaries."
+    },
+    {
+      "id": "social-entitlement-contract",
+      "path": "docs/integrations/social-service-entitlement.v1.md",
+      "blob": "2af9e43ffc47ab4bfda2358365a999d2cc7c6e64",
+      "kind": "identity-contract",
+      "description": "Current Website-to-Social membership entitlement contract."
+    },
+    {
+      "id": "shopify-readiness",
+      "path": "docs/operations/SHOPIFY-LAUNCH-READINESS.md",
+      "blob": "25597206d23a7e3da3efd43c0a3a981c3d4c7b94",
+      "kind": "readiness-ledger",
+      "description": "Current source ledger for storefront policy, privacy, product, tax, and launch gates."
+    },
+    {
+      "id": "mochi-pets-contract",
+      "path": "docs/integrations/mochi-pets-website-contract.md",
+      "blob": "c9518a2b78022722afda8015e6cb7151e120744e",
+      "kind": "integration-contract",
+      "description": "Deferred Website-to-game source and activation boundary."
+    },
+    {
+      "id": "website-spotify-embed",
+      "path": "apps/web/components/public-pages/SpotifyBrowser.tsx",
+      "blob": "76d7d2068ca6a64b191d88874118fb80cb59e5cc",
+      "kind": "external-embed-source",
+      "description": "User-activated Spotify embed source."
+    },
+    {
+      "id": "website-discord-embed",
+      "path": "apps/web/components/public-pages/DiscordServerPreview.tsx",
+      "blob": "409e6ebf46c3cc3a034abf075486a78318c957d9",
+      "kind": "external-embed-source",
+      "description": "User-activated Discord preview and direct-link source."
+    },
+    {
+      "id": "raffle-source",
+      "path": "apps/web/public/data/raffles.json",
+      "blob": "2d5d7aaaff11a77a4a549745d37cf979fcc520db",
+      "kind": "public-program-source",
+      "description": "Current inactive raffle presentation, standing terms, and eligibility source."
+    },
+    {
+      "id": "website-current-state",
+      "path": "docs/operations/CURRENT-STATE.md",
+      "blob": "2dca3a4e4910fdb09a7a6a71a05e02d4d7ded956",
+      "kind": "dated-state-source",
+      "description": "Dated mutable state summary; provider claims require fresh readback."
+    },
+    {
+      "id": "website-architecture",
+      "path": "docs/architecture.md",
+      "blob": "f745cff4f97453f372f0d0840907d4b49389a627",
+      "kind": "architecture-source",
+      "description": "Current source ownership and high-level data-flow declaration."
+    }
+  ],
+  "routeFindings": [
+    {
+      "id": "website-privacy-route-absent",
+      "surface": "website",
+      "route": "/privacy",
+      "sourceState": "absent-at-anchor",
+      "observedFact": "No Website App Router privacy page exists at the exact anchor.",
+      "status": "SOURCE_ABSENT_BLOCKER",
+      "value": null,
+      "owner": "privacy-owner",
+      "question": "Which counsel-approved notice architecture and exact route should cover Website processing?",
+      "evidenceNeeded": [
+        "Approved operator, jurisdiction, processing, and provider facts",
+        "Qualified-counsel review and exact public-copy approval"
+      ],
+      "sourceRefs": [
+        "website-route-matrix",
+        "website-footer"
+      ]
+    },
+    {
+      "id": "website-contact-route-absent",
+      "surface": "website",
+      "route": "/contact",
+      "sourceState": "absent-at-anchor",
+      "observedFact": "No Website App Router contact page exists although the Social privacy source links to it.",
+      "status": "SOURCE_ABSENT_BLOCKER",
+      "value": null,
+      "owner": "support-owner",
+      "question": "What monitored privacy, safety, support, and security intake route is approved?",
+      "evidenceNeeded": [
+        "Approved intake ownership and response workflow",
+        "Source, rendered-route, and monitoring readback evidence"
+      ],
+      "sourceRefs": [
+        "website-route-matrix",
+        "social-privacy-contract"
+      ]
+    },
+    {
+      "id": "website-data-deletion-route-absent",
+      "surface": "website",
+      "route": "/data-deletion",
+      "sourceState": "absent-at-anchor",
+      "observedFact": "No Website App Router data-deletion page exists at the exact anchor.",
+      "status": "SOURCE_ABSENT_BLOCKER",
+      "value": null,
+      "owner": "privacy-owner",
+      "question": "What scoped rights and deletion workflow should be implemented after jurisdiction and product decisions?",
+      "evidenceNeeded": [
+        "Approved rights architecture",
+        "End-to-end deletion and provider-propagation evidence"
+      ],
+      "sourceRefs": [
+        "website-route-matrix",
+        "website-footer"
+      ]
+    },
+    {
+      "id": "website-footer-legal-links-absent",
+      "surface": "website",
+      "route": "global-footer",
+      "sourceState": "present-without-legal-links",
+      "observedFact": "The exact footer contains guild, culture, update, account-dependent spinner, and official-profile links but no privacy, terms, contact, or deletion link.",
+      "status": "SOURCE_ABSENT_BLOCKER",
+      "value": null,
+      "owner": "privacy-owner",
+      "question": "Which approved notices and intake routes must be globally discoverable?",
+      "evidenceNeeded": [
+        "Approved notice architecture",
+        "Rendered footer and route regression evidence"
+      ],
+      "sourceRefs": [
+        "website-footer"
+      ]
+    },
+    {
+      "id": "website-gallery-routes",
+      "surface": "website-gallery",
+      "route": "/gallery and /gallery-submit",
+      "sourceState": "present",
+      "observedFact": "The public Gallery consumes approved submissions; the noindex member submission route collects an image, metadata, and an optional Instagram publication choice after authentication and membership checks.",
+      "status": "SOURCE_OBSERVED",
+      "value": "public-feed-plus-protected-submission",
+      "owner": null,
+      "question": null,
+      "evidenceNeeded": [],
+      "sourceRefs": [
+        "website-route-matrix",
+        "website-gallery-submit",
+        "website-gallery-client",
+        "website-gallery-feed"
+      ]
+    },
+    {
+      "id": "website-account-auth-consent-routes",
+      "surface": "website-members",
+      "route": "/auth, /account, and /oauth/consent",
+      "sourceState": "present",
+      "observedFact": "The source classifies authentication entry, member account, and OAuth consent routes as protected-entry or member workflows and marks them noindex where applicable.",
+      "status": "SOURCE_OBSERVED",
+      "value": "protected-member-workflows",
+      "owner": null,
+      "question": null,
+      "evidenceNeeded": [],
+      "sourceRefs": [
+        "website-route-matrix",
+        "website-auth-client",
+        "website-oauth-decision",
+        "website-account-panel"
+      ]
+    },
+    {
+      "id": "website-social-route",
+      "surface": "website-members",
+      "route": "/social",
+      "sourceState": "present",
+      "observedFact": "The Website source classifies the Social doorway as a noindex member workflow.",
+      "status": "SOURCE_OBSERVED",
+      "value": "member-handoff",
+      "owner": null,
+      "question": null,
+      "evidenceNeeded": [],
+      "sourceRefs": [
+        "website-route-matrix",
+        "social-entitlement-contract"
+      ]
+    },
+    {
+      "id": "website-raffle-routes",
+      "surface": "raffle",
+      "route": "/raffle and /raffle/rules",
+      "sourceState": "present-inactive-source",
+      "observedFact": "Public raffle and rules routes exist, while the current source declares no active raffle, closed entries, no current rules version, and no public reward.",
+      "status": "SOURCE_OBSERVED",
+      "value": "inactive",
+      "owner": null,
+      "question": null,
+      "evidenceNeeded": [],
+      "sourceRefs": [
+        "website-route-matrix",
+        "raffle-source"
+      ]
+    },
+    {
+      "id": "website-spinner-route",
+      "surface": "spinner",
+      "route": "/spinner",
+      "sourceState": "present-protected",
+      "observedFact": "The spinner route and session, live, and media endpoints are private source surfaces with member or moderator authorization boundaries.",
+      "status": "SOURCE_OBSERVED",
+      "value": "protected",
+      "owner": null,
+      "question": null,
+      "evidenceNeeded": [],
+      "sourceRefs": [
+        "spinner-page-auth",
+        "spinner-session-route",
+        "spinner-live-route",
+        "spinner-media-route",
+        "spinner-session-policy",
+        "spinner-retention",
+        "spinner-media-retention"
+      ]
+    },
+    {
+      "id": "website-mochi-pets-route",
+      "surface": "mochi-pets",
+      "route": "/games/mochi-pets",
+      "sourceState": "present-public-concept-with-gated-dormant-tester",
+      "observedFact": "The source defines a public concept route and an optional protected tester doorway but no connected playable artifact.",
+      "status": "DEFERRED_BY_EXPLICIT_POLICY",
+      "value": null,
+      "owner": "game-owner",
+      "question": "Which reviewed immutable artifact and platform/privacy design would authorize a future tester or game runtime?",
+      "evidenceNeeded": [
+        "Approved game and identity architecture",
+        "Artifact, privacy, platform, and runtime verification"
+      ],
+      "sourceRefs": [
+        "website-route-matrix",
+        "mochi-pets-contract"
+      ]
+    },
+    {
+      "id": "website-external-embed-routes",
+      "surface": "website-public",
+      "route": "/join and /spotify",
+      "sourceState": "present-user-activated-external-content",
+      "observedFact": "Source exposes user-activated Discord preview and Spotify embed components and allows those frame destinations in CSP.",
+      "status": "RUNTIME_READBACK_REQUIRED",
+      "value": null,
+      "owner": "privacy-owner",
+      "question": "What cookies, telemetry, device signals, and transfer disclosures apply when each external component is activated?",
+      "evidenceNeeded": [
+        "Fresh browser network and storage inventory",
+        "Current provider documentation and qualified disclosure review"
+      ],
+      "sourceRefs": [
+        "website-discord-embed",
+        "website-spotify-embed",
+        "website-csp"
+      ]
+    },
+    {
+      "id": "social-privacy-routes",
+      "surface": "social",
+      "route": "/site/privacy and /e/privacy",
+      "sourceState": "present-shared-source",
+      "observedFact": "Desktop and mobile Social privacy views render one shared source partial.",
+      "status": "SOURCE_OBSERVED",
+      "value": "shared-source-partial",
+      "owner": null,
+      "question": null,
+      "evidenceNeeded": [],
+      "sourceRefs": [
+        "social-routes",
+        "social-site-controller",
+        "social-mobile-controller",
+        "social-privacy-contract"
+      ]
+    },
+    {
+      "id": "social-terms-routes",
+      "surface": "social",
+      "route": "/site/terms and /e/terms",
+      "sourceState": "present-database-overridable-divergent-fallbacks",
+      "observedFact": "Desktop and mobile terms routes can render the same database page but retain divergent source fallbacks.",
+      "status": "RUNTIME_READBACK_REQUIRED",
+      "value": null,
+      "owner": "privacy-owner",
+      "question": "What exact terms content is live and what versioned source and assent architecture is approved?",
+      "evidenceNeeded": [
+        "Sanitized live terms readback",
+        "Qualified-counsel review and exact assent design"
+      ],
+      "sourceRefs": [
+        "social-routes",
+        "social-site-controller",
+        "social-mobile-controller",
+        "social-site-terms",
+        "social-mobile-terms"
+      ]
+    },
+    {
+      "id": "social-legal-notice-route",
+      "surface": "social",
+      "route": "/site/legal-notice",
+      "sourceState": "present-database-only",
+      "observedFact": "The legal-notice route returns not-found without an active database page and has no repository content fallback.",
+      "status": "RUNTIME_READBACK_REQUIRED",
+      "value": null,
+      "owner": "privacy-owner",
+      "question": "What operator facts and exact legal notice, if any, are live?",
+      "evidenceNeeded": [
+        "Sanitized live page readback",
+        "Approved operator facts and qualified-counsel review"
+      ],
+      "sourceRefs": [
+        "social-routes",
+        "social-site-controller",
+        "social-legal-notice"
+      ]
+    },
+    {
+      "id": "social-help-legal-routes",
+      "surface": "social",
+      "route": "/site/kb/community-guidelines, /site/kb/data-policy, /site/platform, and /site/kb/your-profile",
+      "sourceState": "present-with-conflicts",
+      "observedFact": "The source retains dated or incomplete guidelines, data-policy, platform-terms, and deletion-help surfaces.",
+      "status": "BLOCKED_APPROVAL",
+      "value": null,
+      "owner": "privacy-owner",
+      "question": "Which routes should be retired, redirected, or replaced after facts and counsel review?",
+      "evidenceNeeded": [
+        "Current live-page inventory",
+        "Exact route disposition and public-copy approval"
+      ],
+      "sourceRefs": [
+        "social-routes",
+        "social-community-guidelines",
+        "social-data-policy",
+        "social-platform-page",
+        "social-deletion-help"
+      ]
+    },
+    {
+      "id": "storefront-policy-routes",
+      "surface": "storefront",
+      "route": "provider-hosted policy, terms, privacy-choice, and complaint routes",
+      "sourceState": "source-gated-provider-state-unverified",
+      "observedFact": "The repository readiness ledger requires policy and privacy-choice routes but does not prove their current rendered provider state.",
+      "status": "RUNTIME_READBACK_REQUIRED",
+      "value": null,
+      "owner": "commerce-owner",
+      "question": "What exact provider routes, rendered bodies, consent controls, and privacy-choice behavior are current?",
+      "evidenceNeeded": [
+        "Sanitized authenticated storefront readback",
+        "Qualified commerce and privacy review"
+      ],
+      "sourceRefs": [
+        "shopify-readiness"
+      ]
+    }
+  ],
+  "integrationFindings": [
+    {
+      "id": "website-hosting-observability",
+      "sourceState": "present",
+      "observedFact": "The Website shell includes Vercel Analytics and Speed Insights, and CSP permits the performance endpoint.",
+      "status": "RUNTIME_READBACK_REQUIRED",
+      "value": null,
+      "owner": "privacy-owner",
+      "question": "Which observability features are enabled, what signals are processed, and what retention and regional terms apply?",
+      "evidenceNeeded": [
+        "Fresh deployed browser and provider-setting readback",
+        "Current contract, subprocessor, retention, and disclosure review"
+      ],
+      "sourceRefs": [
+        "website-shell-observability",
+        "website-csp",
+        "hosted-runtime-source"
+      ]
+    },
+    {
+      "id": "website-auth-membership",
+      "sourceState": "present",
+      "observedFact": "Website source uses Supabase browser authentication, profile and membership records, and Discord verification for member workflows.",
+      "status": "RUNTIME_READBACK_REQUIRED",
+      "value": null,
+      "owner": "identity-owner",
+      "question": "Which identity providers and phone controls are enabled, and what current account, session, verification, and deletion behavior applies?",
+      "evidenceNeeded": [
+        "Sanitized Auth and provider configuration readback",
+        "End-to-end account lifecycle and rights tests"
+      ],
+      "sourceRefs": [
+        "website-auth-config",
+        "website-auth-client",
+        "website-account-panel",
+        "hosted-runtime-source"
+      ]
+    },
+    {
+      "id": "website-social-sso",
+      "sourceState": "present-source-contract",
+      "observedFact": "Website owns the Social OAuth consent route and source contract, including membership entitlement enforcement before consent.",
+      "status": "RUNTIME_READBACK_REQUIRED",
+      "value": null,
+      "owner": "identity-owner",
+      "question": "Does the exact accepted cross-service contract match deployed Website, Supabase, and Social behavior?",
+      "evidenceNeeded": [
+        "Independent immutable contract acceptance",
+        "Preview and production SSO lifecycle evidence"
+      ],
+      "sourceRefs": [
+        "website-oauth-decision",
+        "social-entitlement-contract"
+      ]
+    },
+    {
+      "id": "gallery-storage-moderation-public-feed",
+      "sourceState": "present",
+      "observedFact": "Gallery source spans browser upload, Supabase Storage and Postgres, moderator review, and an anonymous approved feed with one-hour signed media URLs and uploader display fields.",
+      "status": "BLOCKED_APPROVAL",
+      "value": null,
+      "owner": "gallery-owner",
+      "question": "Which attribution, depicted-person, public-delivery, withdrawal, retirement, and account-deletion rules are approved?",
+      "evidenceNeeded": [
+        "Approved Gallery attribution and deletion decisions",
+        "Preview and production data-flow, access, withdrawal, and cleanup evidence"
+      ],
+      "sourceRefs": [
+        "website-gallery-submit",
+        "website-gallery-client",
+        "website-gallery-feed",
+        "gallery-feed-function",
+        "gallery-schema"
+      ]
+    },
+    {
+      "id": "optional-instagram-publication",
+      "sourceState": "present-optional-source",
+      "observedFact": "Website upload and database source record an optional Instagram publication choice and copy version.",
+      "status": "RUNTIME_READBACK_REQUIRED",
+      "value": null,
+      "owner": "gallery-owner",
+      "question": "Is optional publication active, and how are withdrawal, destination removal, and audit evidence handled?",
+      "evidenceNeeded": [
+        "Sanitized provider and function configuration readback",
+        "End-to-end consent, withdrawal, removal, and audit tests"
+      ],
+      "sourceRefs": [
+        "website-gallery-submit",
+        "website-gallery-client",
+        "gallery-instagram-consent"
+      ]
+    },
+    {
+      "id": "social-host-storage-delivery",
+      "sourceState": "present-source-contract",
+      "observedFact": "Source declares a hosted Social application, private image delivery, object storage, database, cache, queue, backup, and recovery boundaries.",
+      "status": "RUNTIME_READBACK_REQUIRED",
+      "value": null,
+      "owner": "social-owner",
+      "question": "What exact image, host, storage, queue, backup, and restore state is live and independently accepted?",
+      "evidenceNeeded": [
+        "Exact immutable image and deployment identity",
+        "Sanitized host, storage, backup, restore, and live-journey evidence"
+      ],
+      "sourceRefs": [
+        "social-delivery-contract",
+        "hosted-runtime-source"
+      ]
+    },
+    {
+      "id": "discord-community-integration",
+      "sourceState": "present-source-declaration",
+      "observedFact": "Source declares Discord identity, community, event, interaction, and moderation integration through Website and hosted backend boundaries.",
+      "status": "RUNTIME_READBACK_REQUIRED",
+      "value": null,
+      "owner": "community-owner",
+      "question": "Which events, messages, roles, interaction payloads, logs, and moderation records are currently processed and retained?",
+      "evidenceNeeded": [
+        "Current provider configuration and runtime-path evidence",
+        "Approved retention, moderation, rights, and incident workflow"
+      ],
+      "sourceRefs": [
+        "website-auth-config",
+        "website-discord-embed",
+        "hosted-runtime-source",
+        "website-architecture"
+      ]
+    },
+    {
+      "id": "storefront-hosting-commerce",
+      "sourceState": "present-source-gates",
+      "observedFact": "The repository contains Shopify theme source and a fail-closed launch-readiness ledger for policy, privacy, product, tax, fulfillment, payment, and operations evidence.",
+      "status": "BLOCKED_EXTERNAL",
+      "value": null,
+      "owner": "commerce-owner",
+      "question": "When do authenticated provider facts and qualified commerce, privacy, tax, and product reviews satisfy every launch gate?",
+      "evidenceNeeded": [
+        "Current authenticated storefront and admin readback",
+        "Qualified reviews and exact release approval"
+      ],
+      "sourceRefs": [
+        "shopify-readiness",
+        "hosted-runtime-source"
+      ]
+    },
+    {
+      "id": "raffle-spinner-backend",
+      "sourceState": "present-inactive-and-protected",
+      "observedFact": "Public source declares no active raffle while protected spinner database and media-job sources retain operational evidence for bounded periods.",
+      "status": "BLOCKED_APPROVAL",
+      "value": null,
+      "owner": "raffle-owner",
+      "question": "Which sponsor, jurisdictions, eligibility, official rules, reward, tax, funding, retention, and publication decisions authorize one exact cycle?",
+      "evidenceNeeded": [
+        "Qualified raffle and tax review",
+        "Exact provider, funding, runtime, evidence, and release approvals"
+      ],
+      "sourceRefs": [
+        "raffle-source",
+        "spinner-retention",
+        "spinner-media-retention"
+      ]
+    },
+    {
+      "id": "external-navigation-and-embeds",
+      "sourceState": "present",
+      "observedFact": "Website source contains direct official-profile links plus user-activated Discord and Spotify embedded content.",
+      "status": "RUNTIME_READBACK_REQUIRED",
+      "value": null,
+      "owner": "privacy-owner",
+      "question": "What current destination, cookie, telemetry, transfer, and notice facts apply to direct navigation and embedded content?",
+      "evidenceNeeded": [
+        "Fresh browser network and storage evidence",
+        "Current provider documentation and qualified notice review"
+      ],
+      "sourceRefs": [
+        "website-public-destinations",
+        "website-discord-embed",
+        "website-spotify-embed",
+        "website-csp"
+      ]
+    },
+    {
+      "id": "future-game-mobile-services",
+      "sourceState": "deferred-source",
+      "observedFact": "Website source defines only a public game concept and dormant tester boundary; mobile and playable game provider facts are outside this repository source packet.",
+      "status": "DEFERRED_BY_EXPLICIT_POLICY",
+      "value": null,
+      "owner": "release-owner",
+      "question": "Which approved cross-repository architecture, platforms, regions, data flows, notices, and safety controls precede activation?",
+      "evidenceNeeded": [
+        "Current Mobile and Pets repository evidence",
+        "Qualified platform, privacy, age, and safety review"
+      ],
+      "sourceRefs": [
+        "mochi-pets-contract",
+        "website-architecture"
+      ]
+    }
+  ],
+  "dataFlows": [
+    {
+      "id": "public-website-and-observability",
+      "surface": "website-public",
+      "subjects": [
+        "public visitors"
+      ],
+      "dataCategories": [
+        "requested content",
+        "request and device signals",
+        "analytics and performance signals"
+      ],
+      "sources": [
+        "visitor browser",
+        "Website application"
+      ],
+      "destinations": [
+        "Website hosting provider",
+        "Website observability provider"
+      ],
+      "purpose": [
+        "deliver public pages",
+        "measure performance",
+        "protect and operate the service"
+      ],
+      "legalBasis": null,
+      "retention": null,
+      "deletion": null,
+      "backup": null,
+      "transfer": null,
+      "status": "BLOCKED_APPROVAL",
+      "owner": "privacy-owner",
+      "question": "What exact signal inventory, legal basis, retention, deletion, transfer, and notice applies?",
+      "evidenceNeeded": [
+        "Fresh browser and provider inventory",
+        "Approved processing record and qualified review"
+      ],
+      "sourceRefs": [
+        "website-shell-observability",
+        "website-csp",
+        "hosted-runtime-source"
+      ]
+    },
+    {
+      "id": "account-auth-membership",
+      "surface": "website-members",
+      "subjects": [
+        "applicants",
+        "members",
+        "moderators"
+      ],
+      "dataCategories": [
+        "authentication identifiers",
+        "linked identities",
+        "phone numbers when enabled",
+        "guild membership and role evidence",
+        "profile fields",
+        "sessions and verification timestamps"
+      ],
+      "sources": [
+        "member",
+        "identity providers",
+        "Discord",
+        "authorized moderators"
+      ],
+      "destinations": [
+        "Supabase Auth",
+        "Supabase Postgres and Edge Functions",
+        "Discord",
+        "Website hosting"
+      ],
+      "purpose": [
+        "authenticate",
+        "verify guild membership",
+        "authorize member and moderator workflows",
+        "maintain account and profile state"
+      ],
+      "legalBasis": null,
+      "retention": null,
+      "deletion": null,
+      "backup": null,
+      "transfer": null,
+      "status": "BLOCKED_APPROVAL",
+      "owner": "privacy-owner",
+      "question": "What account lifecycle, legal basis, identity-provider scope, retention, deletion, and notice apply?",
+      "evidenceNeeded": [
+        "Current provider configuration and contracts",
+        "Approved account processing record and lifecycle tests"
+      ],
+      "sourceRefs": [
+        "website-auth-config",
+        "website-auth-client",
+        "website-account-panel"
+      ]
+    },
+    {
+      "id": "social-oauth-entitlement",
+      "surface": "website-and-social",
+      "subjects": [
+        "verified members"
+      ],
+      "dataCategories": [
+        "authorization request",
+        "Website identity",
+        "membership entitlement",
+        "Social account binding"
+      ],
+      "sources": [
+        "Website member",
+        "Supabase Auth and database",
+        "Social service"
+      ],
+      "destinations": [
+        "Supabase OAuth service",
+        "Website consent endpoint",
+        "Social service"
+      ],
+      "purpose": [
+        "authorize verified guild members to use Social"
+      ],
+      "legalBasis": null,
+      "retention": null,
+      "deletion": null,
+      "backup": null,
+      "transfer": null,
+      "status": "RUNTIME_READBACK_REQUIRED",
+      "owner": "identity-owner",
+      "question": "Does the exact deployed flow match one independently accepted contract, including revocation and deletion?",
+      "evidenceNeeded": [
+        "Immutable cross-service contract acceptance",
+        "Preview and production authorization, revocation, and deletion tests"
+      ],
+      "sourceRefs": [
+        "website-oauth-decision",
+        "social-entitlement-contract"
+      ]
+    },
+    {
+      "id": "gallery-submission-moderation-publication",
+      "surface": "gallery",
+      "subjects": [
+        "submitting members",
+        "people depicted in media",
+        "moderators",
+        "public viewers"
+      ],
+      "dataCategories": [
+        "source image",
+        "filename and content metadata",
+        "uploader identity",
+        "Discord guild, channel, message, attachment, and user identifiers",
+        "Discord attachment URL and image bytes",
+        "title, caption, and category",
+        "moderation state",
+        "optional publication choice, timestamp, source, and copy version",
+        "public signed media URLs and uploader display fields"
+      ],
+      "sources": [
+        "submitting member",
+        "Discord submission path",
+        "authorized moderator"
+      ],
+      "destinations": [
+        "Supabase Storage",
+        "Supabase Postgres and Edge Functions",
+        "Website public Gallery",
+        "optional external publication destination"
+      ],
+      "purpose": [
+        "accept and moderate member images",
+        "publish approved Gallery content",
+        "optionally publish separately selected content externally"
+      ],
+      "legalBasis": null,
+      "retention": null,
+      "deletion": null,
+      "backup": null,
+      "transfer": null,
+      "status": "BLOCKED_APPROVAL",
+      "owner": "gallery-owner",
+      "question": "What attribution, depicted-person, consent, public delivery, retention, withdrawal, account deletion, and destination-removal rules apply?",
+      "evidenceNeeded": [
+        "Approved Gallery product and privacy decisions",
+        "End-to-end source, database, storage, public-feed, withdrawal, and deletion evidence"
+      ],
+      "sourceRefs": [
+        "website-gallery-submit",
+        "website-gallery-client",
+        "gallery-feed-function",
+        "gallery-schema",
+        "gallery-instagram-consent",
+        "gallery-discord-ingress",
+        "gallery-discord-schema"
+      ]
+    },
+    {
+      "id": "private-guild-social",
+      "surface": "social",
+      "subjects": [
+        "verified members",
+        "moderators",
+        "support requesters"
+      ],
+      "dataCategories": [
+        "identity and membership",
+        "profiles",
+        "photos, posts, reactions, and messages",
+        "sessions and device signals",
+        "reports, moderation, and support records"
+      ],
+      "sources": [
+        "member",
+        "Website SSO",
+        "authorized stewards"
+      ],
+      "destinations": [
+        "Social compute, database, cache, queues, and object storage",
+        "authorized stewards",
+        "limited service providers as claimed by the notice"
+      ],
+      "purpose": [
+        "provide private guild social features",
+        "moderate and secure the service",
+        "support members"
+      ],
+      "legalBasis": null,
+      "retention": null,
+      "deletion": null,
+      "backup": null,
+      "transfer": null,
+      "status": "BLOCKED_APPROVAL",
+      "owner": "privacy-owner",
+      "question": "What legal basis, exact provider roles, live settings, retention, deletion, backup, moderation, and notice apply?",
+      "evidenceNeeded": [
+        "Current Social runtime, contract, provider, backup, and restore evidence",
+        "Approved processing and rights record"
+      ],
+      "sourceRefs": [
+        "social-privacy-contract",
+        "social-delivery-contract",
+        "social-pixelfed-config"
+      ]
+    },
+    {
+      "id": "external-embeds-and-links",
+      "surface": "website-public",
+      "subjects": [
+        "public visitors who activate or follow external content"
+      ],
+      "dataCategories": null,
+      "sources": [
+        "visitor browser"
+      ],
+      "destinations": [
+        "Discord",
+        "Spotify",
+        "official public profile platforms"
+      ],
+      "purpose": [
+        "display optional embedded community or media content",
+        "navigate to official public profiles"
+      ],
+      "legalBasis": null,
+      "retention": null,
+      "deletion": null,
+      "backup": null,
+      "transfer": null,
+      "status": "BLOCKED_EXTERNAL",
+      "owner": "privacy-owner",
+      "question": "Which provider-controlled processing occurs after activation or navigation, and what notice or choice is required?",
+      "evidenceNeeded": [
+        "Fresh browser network and storage evidence",
+        "Current provider privacy terms and qualified review"
+      ],
+      "sourceRefs": [
+        "website-public-destinations",
+        "website-discord-embed",
+        "website-spotify-embed"
+      ]
+    },
+    {
+      "id": "raffle-and-spinner",
+      "surface": "raffle",
+      "subjects": [
+        "eligible members",
+        "moderators",
+        "winners and alternates"
+      ],
+      "dataCategories": [
+        "eligibility and entry state",
+        "display names",
+        "draw commands and receipts",
+        "delivery state",
+        "reward and claim data when activated"
+      ],
+      "sources": [
+        "member",
+        "Website and Supabase",
+        "moderator",
+        "future reward provider"
+      ],
+      "destinations": [
+        "Supabase",
+        "private spinner Website route",
+        "Discord",
+        "future reward provider"
+      ],
+      "purpose": [
+        "operate an approved guild drawing",
+        "retain replay and delivery evidence",
+        "deliver an approved reward"
+      ],
+      "legalBasis": null,
+      "retention": "Source declares 30-day spinner receipt and media-job retention; broader participant, reward, tax, and backup retention is not approved.",
+      "deletion": null,
+      "backup": null,
+      "transfer": null,
+      "status": "BLOCKED_APPROVAL",
+      "owner": "raffle-owner",
+      "question": "Which jurisdiction, sponsor, rules, reward, tax, claim, retention, deletion, and publication terms authorize one cycle?",
+      "evidenceNeeded": [
+        "Qualified raffle, tax, privacy, and platform review",
+        "Exact runtime, provider, funding, and release evidence"
+      ],
+      "sourceRefs": [
+        "raffle-source",
+        "spinner-retention",
+        "spinner-media-retention"
+      ]
+    },
+    {
+      "id": "storefront-commerce",
+      "surface": "storefront",
+      "subjects": [
+        "visitors",
+        "prospective customers",
+        "customers",
+        "support requesters"
+      ],
+      "dataCategories": [
+        "storefront requests",
+        "privacy choices",
+        "customer and order data when enabled",
+        "payment, tax, shipping, and support data when enabled"
+      ],
+      "sources": [
+        "visitor or customer",
+        "Shopify",
+        "approved commerce operators"
+      ],
+      "destinations": [
+        "Shopify and configured commerce providers"
+      ],
+      "purpose": [
+        "present a gated storefront",
+        "future approved commerce and support"
+      ],
+      "legalBasis": null,
+      "retention": null,
+      "deletion": null,
+      "backup": null,
+      "transfer": null,
+      "status": "BLOCKED_EXTERNAL",
+      "owner": "commerce-owner",
+      "question": "What exact provider configuration, processing, policies, consent, retention, deletion, tax, fulfillment, and payment state applies?",
+      "evidenceNeeded": [
+        "Current authenticated provider evidence",
+        "Qualified legal, privacy, tax, product, and commerce review"
+      ],
+      "sourceRefs": [
+        "shopify-readiness"
+      ]
+    },
+    {
+      "id": "future-mobile-and-game",
+      "surface": "mobile-and-game",
+      "subjects": [
+        "future users and testers"
+      ],
+      "dataCategories": null,
+      "sources": null,
+      "destinations": null,
+      "purpose": [
+        "future first-party mobile and game experiences"
+      ],
+      "legalBasis": null,
+      "retention": null,
+      "deletion": null,
+      "backup": null,
+      "transfer": null,
+      "status": "DEFERRED_BY_EXPLICIT_POLICY",
+      "owner": "release-owner",
+      "question": "What exact repositories, artifacts, platforms, services, regions, data flows, safety controls, and notices are approved?",
+      "evidenceNeeded": [
+        "Approved Mobile and Pets architecture",
+        "Current platform, privacy, age, and safety review"
+      ],
+      "sourceRefs": [
+        "mochi-pets-contract",
+        "website-architecture"
+      ]
+    }
+  ],
+  "publicClaims": [
+    {
+      "id": "website-global-privacy-notice",
+      "claim": "Website source provides a current globally discoverable privacy notice.",
+      "sourceObservation": "The current privacy route source is absent and the current footer has no privacy link.",
+      "conflict": "Account, Gallery, analytics, embeds, external links, and Social handoff processing remain source-visible without a current Website privacy notice route.",
+      "status": "SOURCE_ABSENT_BLOCKER",
+      "value": null,
+      "owner": "privacy-owner",
+      "question": "Which notice architecture accurately covers each current surface?",
+      "evidenceNeeded": [
+        "Complete current processing inventory",
+        "Qualified-counsel and exact release-owner approval"
+      ],
+      "sourceRefs": [
+        "website-footer",
+        "website-route-matrix",
+        "website-shell-observability",
+        "website-gallery-feed"
+      ]
+    },
+    {
+      "id": "website-security-contact-change",
+      "claim": "The July Website support-email security-contact fact remains current.",
+      "sourceObservation": "Current root security and security metadata point to private vulnerability reporting or repository administration rather than the July support-email fact.",
+      "conflict": "The inherited security sources changed and the Social security metadata source is absent.",
+      "status": "BLOCKED_APPROVAL",
+      "value": null,
+      "owner": "security-owner",
+      "question": "Which monitored public security and support channels, response targets, and escalation paths are approved?",
+      "evidenceNeeded": [
+        "Approved public contact architecture",
+        "Monitoring, escalation, and rendered metadata evidence"
+      ],
+      "sourceRefs": [
+        "root-security-policy",
+        "website-security-txt"
+      ]
+    },
+    {
+      "id": "social-contact-link",
+      "claim": "Social privacy requests can use the linked Website contact page.",
+      "sourceObservation": "The Social privacy source links to a Website contact route that is absent at the anchor.",
+      "conflict": "The published source instruction has no matching Website route source.",
+      "status": "SOURCE_ABSENT_BLOCKER",
+      "value": null,
+      "owner": "support-owner",
+      "question": "What monitored intake route replaces or fulfills the current link?",
+      "evidenceNeeded": [
+        "Approved intake workflow",
+        "Source, rendered-route, and monitoring evidence"
+      ],
+      "sourceRefs": [
+        "social-privacy-contract",
+        "website-route-matrix"
+      ]
+    },
+    {
+      "id": "social-absolute-private",
+      "claim": "Everything in Social is private with no outside sharing.",
+      "sourceObservation": "Branding sources use absolute private wording while the privacy source describes stewards, service providers, legal disclosure, and member copying or sharing.",
+      "conflict": "Private member access and disabled federation do not mean zero processor, moderator, legal, or member-directed disclosure.",
+      "status": "BLOCKED_APPROVAL",
+      "value": null,
+      "owner": "privacy-owner",
+      "question": "What accurate member-facing wording is supported after provider and counsel review?",
+      "evidenceNeeded": [
+        "Current Social data-flow and provider evidence",
+        "Qualified-counsel and exact copy approval"
+      ],
+      "sourceRefs": [
+        "social-privacy-contract",
+        "social-instance-config"
+      ]
+    },
+    {
+      "id": "social-no-sale-provider-limits",
+      "claim": "Social does not sell member information and limits providers to hosting, security, storage, and delivery.",
+      "sourceObservation": "The shared privacy source states the claim.",
+      "conflict": "Repository source does not prove current contracts, subprocessors, downstream purposes, analytics, or jurisdiction-specific sale or sharing definitions.",
+      "status": "BLOCKED_EXTERNAL",
+      "value": null,
+      "owner": "privacy-owner",
+      "question": "Can current contracts and data flows substantiate the claim in every applicable jurisdiction?",
+      "evidenceNeeded": [
+        "Current provider contracts and subprocessor lists",
+        "Qualified sale and sharing analysis"
+      ],
+      "sourceRefs": [
+        "social-privacy-contract",
+        "social-delivery-contract"
+      ]
+    },
+    {
+      "id": "social-terms-current-and-unified",
+      "claim": "Desktop and mobile Social terms present one current approved contract.",
+      "sourceObservation": "Both routes can use one database page but their source fallbacks diverge.",
+      "conflict": "Repository source cannot prove live database content, governing law, venue, version, approval, or assent.",
+      "status": "BLOCKED_EXTERNAL",
+      "value": null,
+      "owner": "privacy-owner",
+      "question": "What terms are live and which exact source, version, locale, and assent record are approved?",
+      "evidenceNeeded": [
+        "Sanitized live terms readback",
+        "Qualified-counsel review and assent evidence"
+      ],
+      "sourceRefs": [
+        "social-site-controller",
+        "social-mobile-controller",
+        "social-site-terms",
+        "social-mobile-terms"
+      ]
+    },
+    {
+      "id": "social-guidelines-current",
+      "claim": "Social community guidelines match the current private guild service and applicable jurisdictions.",
+      "sourceObservation": "The source fallback is dated, references a public timeline and multiple countries, and can be replaced by database content.",
+      "conflict": "Live content, moderation authority, appeal path, and applicable jurisdiction are unproved.",
+      "status": "BLOCKED_EXTERNAL",
+      "value": null,
+      "owner": "community-owner",
+      "question": "What guidelines are live and which current moderation, appeal, jurisdiction, and private-community rules apply?",
+      "evidenceNeeded": [
+        "Sanitized live guidelines readback",
+        "Qualified governance and counsel review"
+      ],
+      "sourceRefs": [
+        "social-community-guidelines",
+        "social-site-controller"
+      ]
+    },
+    {
+      "id": "social-legal-notice-current",
+      "claim": "Repository source proves the current Social legal notice and operator facts.",
+      "sourceObservation": "The route renders only an active database page and has no repository content fallback.",
+      "conflict": "No current live content, operator fact, version, or approval is established by the source view.",
+      "status": "BLOCKED_EXTERNAL",
+      "value": null,
+      "owner": "privacy-owner",
+      "question": "What legal-notice content is live and which operator facts are approved?",
+      "evidenceNeeded": [
+        "Sanitized live legal-notice readback",
+        "Approved operator facts and qualified-counsel review"
+      ],
+      "sourceRefs": [
+        "social-legal-notice",
+        "social-site-controller"
+      ]
+    },
+    {
+      "id": "social-data-policy-complete",
+      "claim": "The Social data-policy help page provides a complete current policy.",
+      "sourceObservation": "The source page is unfinished.",
+      "conflict": "A linked unfinished page cannot establish a complete notice.",
+      "status": "BLOCKED_APPROVAL",
+      "value": null,
+      "owner": "privacy-owner",
+      "question": "Should the route be retired, redirected, or replaced after exact review?",
+      "evidenceNeeded": [
+        "Release-owner route disposition",
+        "Link and rendered-route regression evidence"
+      ],
+      "sourceRefs": [
+        "social-data-policy",
+        "social-routes"
+      ]
+    },
+    {
+      "id": "social-platform-terms-complete",
+      "claim": "The Social platform page defines a current developer or API contract.",
+      "sourceObservation": "The source page is empty.",
+      "conflict": "No developer or API terms are established.",
+      "status": "BLOCKED_APPROVAL",
+      "value": null,
+      "owner": "release-owner",
+      "question": "Should the route be retired until an approved developer program exists?",
+      "evidenceNeeded": [
+        "Release-owner route disposition",
+        "Link and rendered-route regression evidence"
+      ],
+      "sourceRefs": [
+        "social-platform-page",
+        "social-routes"
+      ]
+    },
+    {
+      "id": "social-permanent-deletion",
+      "claim": "Deleting a Social account permanently removes all listed data as described by help text.",
+      "sourceObservation": "Help source makes broad removal claims while source configuration defaults account deletion on with no queued delay; environment and cached runtime configuration can override those defaults, and source does not establish backup, moderation, security, legal-hold, or restore treatment.",
+      "conflict": "Live deletion configuration and end-to-end behavior are unproved.",
+      "status": "BLOCKED_EXTERNAL",
+      "value": null,
+      "owner": "privacy-owner",
+      "question": "What deletion behavior is live and which exceptions and timeframes are accurate?",
+      "evidenceNeeded": [
+        "Sanitized live deletion and backup readback",
+        "End-to-end deletion and restore test",
+        "Qualified claim review"
+      ],
+      "sourceRefs": [
+        "social-deletion-help",
+        "social-pixelfed-config"
+      ]
+    },
+    {
+      "id": "gallery-public-attribution-and-media",
+      "claim": "Current Website source clearly notices every public Gallery attribution and media-delivery disclosure.",
+      "sourceObservation": "The approved-feed source returns bounded signed URLs plus uploader display or Discord-name fields, while the Website privacy route is absent.",
+      "conflict": "Current source has public personal-attribution and media-delivery behavior without a matching Website notice route or approved attribution decision.",
+      "status": "BLOCKED_APPROVAL",
+      "value": null,
+      "owner": "gallery-owner",
+      "question": "Should public items use frozen reviewed credit, anonymous-only publication, or another approved attribution model?",
+      "evidenceNeeded": [
+        "Approved attribution, depicted-person, and withdrawal decision",
+        "Source-to-runtime public feed and rendered notice evidence"
+      ],
+      "sourceRefs": [
+        "gallery-feed-function",
+        "website-gallery-feed",
+        "website-footer"
+      ]
+    },
+    {
+      "id": "raffle-source-eligibility",
+      "claim": "Current source eligibility and no-purchase statements authorize a raffle launch.",
+      "sourceObservation": "Current public source says no raffle is active, entries are closed, no purchase is necessary, and an age and country rule would apply to an active drawing.",
+      "conflict": "Source copy does not establish sponsor, applicable jurisdictions, official rules, tax, reward, funding, platform, or counsel approval.",
+      "status": "BLOCKED_APPROVAL",
+      "value": null,
+      "owner": "raffle-owner",
+      "question": "Which exact approved cycle facts and rules permit activation?",
+      "evidenceNeeded": [
+        "Qualified raffle and tax review",
+        "Exact official rules, provider, funding, and release approval"
+      ],
+      "sourceRefs": [
+        "raffle-source"
+      ]
+    },
+    {
+      "id": "social-age-parental-policy",
+      "claim": "Social parental-control and age source reflect an approved current age policy.",
+      "sourceObservation": "Child-account and age surfaces remain in source while feature defaults and intended age policy are not provider- or owner-proven.",
+      "conflict": "Source presence is not an approved age, parental-consent, or child-safety policy.",
+      "status": "BLOCKED_APPROVAL",
+      "value": null,
+      "owner": "privacy-owner",
+      "question": "Should parental controls be permanently retired, and what minimum age and safeguards apply?",
+      "evidenceNeeded": [
+        "Release-owner feature and age decision",
+        "Sanitized live-state and account readback",
+        "Qualified child-privacy and safety review"
+      ],
+      "sourceRefs": [
+        "social-parental-controls",
+        "social-instance-config"
+      ]
+    }
+  ],
+  "retentionDeletion": [
+    {
+      "id": "website-account-lifecycle",
+      "surface": "website-members",
+      "sourceRule": "Website source provides account and sign-out workflows but no complete user-facing account-deletion route or cross-system deletion workflow.",
+      "runtimeVerified": false,
+      "legalHoldRule": null,
+      "backupRule": null,
+      "status": "SOURCE_ABSENT_BLOCKER",
+      "value": null,
+      "owner": "privacy-owner",
+      "question": "How are Auth, profiles, linked identities, verification, Social binding, Gallery, logs, and backups deleted or retained?",
+      "evidenceNeeded": [
+        "Approved account lifecycle and exception matrix",
+        "End-to-end deletion, restore, and provider-propagation tests"
+      ],
+      "sourceRefs": [
+        "website-account-panel",
+        "website-auth-client",
+        "gallery-schema"
+      ]
+    },
+    {
+      "id": "gallery-account-cascade",
+      "surface": "gallery",
+      "sourceRule": "Gallery database rows reference Auth users with database cascade, but source does not prove corresponding Storage object deletion, published-feed retirement, external removal, or backup handling.",
+      "runtimeVerified": false,
+      "legalHoldRule": null,
+      "backupRule": null,
+      "status": "BLOCKED_APPROVAL",
+      "value": null,
+      "owner": "gallery-owner",
+      "question": "What account-deletion and publication-retirement semantics apply to originals, derivatives, attribution, moderation evidence, and external copies?",
+      "evidenceNeeded": [
+        "Approved Gallery retention and deletion design",
+        "Database, Storage, feed, external-destination, and restore tests"
+      ],
+      "sourceRefs": [
+        "gallery-schema",
+        "gallery-feed-function",
+        "gallery-instagram-consent"
+      ]
+    },
+    {
+      "id": "gallery-rejected-cleanup",
+      "surface": "gallery",
+      "sourceRule": "A moderator-confirmed function deletes a rejected Storage object before deleting its database row and explicitly reports partial failure if the row deletion fails.",
+      "runtimeVerified": false,
+      "legalHoldRule": null,
+      "backupRule": null,
+      "status": "RUNTIME_READBACK_REQUIRED",
+      "value": null,
+      "owner": "gallery-owner",
+      "question": "How are partial cleanup failures reconciled, audited, retried, and reflected in rights responses?",
+      "evidenceNeeded": [
+        "Failure-injection and reconciliation tests",
+        "Sanitized runtime cleanup and audit evidence"
+      ],
+      "sourceRefs": [
+        "gallery-delete-function"
+      ]
+    },
+    {
+      "id": "gallery-general-retention",
+      "surface": "gallery",
+      "sourceRule": "No complete current source rule establishes periods for pending, approved, rejected, archived, moderation, attribution, consent, or public-delivery records.",
+      "runtimeVerified": false,
+      "legalHoldRule": null,
+      "backupRule": null,
+      "status": "BLOCKED_APPROVAL",
+      "value": null,
+      "owner": "privacy-owner",
+      "question": "Which purpose-limited periods, deletion triggers, holds, backup horizons, and immutable-evidence exceptions apply?",
+      "evidenceNeeded": [
+        "Approved retention schedule",
+        "Qualified legal review and runtime lifecycle tests"
+      ],
+      "sourceRefs": [
+        "gallery-schema",
+        "gallery-instagram-consent"
+      ]
+    },
+    {
+      "id": "spinner-thirty-day-source-rule",
+      "surface": "spinner",
+      "sourceRule": "Source retains draw receipts for at least 30 days and gives spinner media jobs a 30-day expiry, with cleanup functions and schedules declared in migration source.",
+      "runtimeVerified": false,
+      "legalHoldRule": null,
+      "backupRule": null,
+      "status": "RUNTIME_READBACK_REQUIRED",
+      "value": null,
+      "owner": "raffle-owner",
+      "question": "Are exact migrations and schedules deployed, and is the period legally and operationally approved with backup and hold treatment?",
+      "evidenceNeeded": [
+        "Current migration and schedule readback",
+        "Cleanup, backup, restore, and approved retention evidence"
+      ],
+      "sourceRefs": [
+        "spinner-retention",
+        "spinner-media-retention"
+      ]
+    },
+    {
+      "id": "social-account-deletion",
+      "surface": "social",
+      "sourceRule": "Social help describes disable and deletion outcomes while source configuration defaults account deletion on with no queued delay; environment and cached runtime configuration can override both settings.",
+      "runtimeVerified": false,
+      "legalHoldRule": null,
+      "backupRule": null,
+      "status": "BLOCKED_EXTERNAL",
+      "value": null,
+      "owner": "privacy-owner",
+      "question": "What deletion setting, delay, queue, media, moderation, security, backup, restore, and legal-hold behavior is live?",
+      "evidenceNeeded": [
+        "Sanitized runtime and backup readback",
+        "End-to-end deletion and restore test",
+        "Qualified claim review"
+      ],
+      "sourceRefs": [
+        "social-deletion-help",
+        "social-pixelfed-config",
+        "social-delivery-contract"
+      ]
+    },
+    {
+      "id": "website-telemetry-security-logs",
+      "surface": "website-public",
+      "sourceRule": "Source includes analytics, performance, request, authentication, and security paths but no complete current retention and deletion schedule.",
+      "runtimeVerified": false,
+      "legalHoldRule": null,
+      "backupRule": null,
+      "status": "BLOCKED_EXTERNAL",
+      "value": null,
+      "owner": "security-owner",
+      "question": "Which exact log and telemetry datasets exist, for how long, in which regions, and under what deletion, access, and hold controls?",
+      "evidenceNeeded": [
+        "Current provider and application logging inventory",
+        "Approved retention, access, incident, and deletion schedule"
+      ],
+      "sourceRefs": [
+        "website-shell-observability",
+        "website-csp",
+        "root-security-policy"
+      ]
+    },
+    {
+      "id": "storefront-record-lifecycle",
+      "surface": "storefront",
+      "sourceRule": "The readiness ledger requires privacy, retention, complaint, customer, order, tax, fulfillment, payment, and rollback evidence but does not prove current provider behavior.",
+      "runtimeVerified": false,
+      "legalHoldRule": null,
+      "backupRule": null,
+      "status": "BLOCKED_EXTERNAL",
+      "value": null,
+      "owner": "commerce-owner",
+      "question": "What provider and operator retention, deletion, return, backup, tax, chargeback, support, and hold rules apply?",
+      "evidenceNeeded": [
+        "Current authenticated provider and contract evidence",
+        "Qualified commerce, tax, and privacy review"
+      ],
+      "sourceRefs": [
+        "shopify-readiness"
+      ]
+    }
+  ],
+  "rightsFindings": [
+    {
+      "id": "access",
+      "right": "Access to personal data and processing information",
+      "surfaces": [
+        "website",
+        "gallery",
+        "social",
+        "discord",
+        "raffle",
+        "storefront"
+      ],
+      "intake": null,
+      "identityVerification": null,
+      "deadline": null,
+      "appeal": null,
+      "authorizedAgent": null,
+      "providerPropagation": null,
+      "evidenceTest": null,
+      "status": "SOURCE_ABSENT_BLOCKER",
+      "value": null,
+      "owner": "privacy-owner",
+      "question": "Which intake, verification, response, exception, delivery, provider, and appeal workflow applies?",
+      "evidenceNeeded": [
+        "Qualified jurisdictional applicability review",
+        "Approved workflow and synthetic end-to-end evidence"
+      ],
+      "sourceRefs": [
+        "social-privacy-contract",
+        "website-route-matrix"
+      ]
+    },
+    {
+      "id": "correction",
+      "right": "Correction of account, profile, membership, publication, and provider records",
+      "surfaces": [
+        "website",
+        "gallery",
+        "social",
+        "discord",
+        "storefront"
+      ],
+      "intake": null,
+      "identityVerification": null,
+      "deadline": null,
+      "appeal": null,
+      "authorizedAgent": null,
+      "providerPropagation": null,
+      "evidenceTest": null,
+      "status": "SOURCE_ABSENT_BLOCKER",
+      "value": null,
+      "owner": "privacy-owner",
+      "question": "How are corrections authenticated, propagated, audited, and appealed across every current system?",
+      "evidenceNeeded": [
+        "Approved correction workflow",
+        "Cross-system synthetic correction evidence"
+      ],
+      "sourceRefs": [
+        "website-account-panel",
+        "social-deletion-help",
+        "website-route-matrix"
+      ]
+    },
+    {
+      "id": "deletion",
+      "right": "Deletion of account, content, media, public attribution, and provider copies",
+      "surfaces": [
+        "website",
+        "gallery",
+        "social",
+        "discord",
+        "raffle",
+        "storefront"
+      ],
+      "intake": null,
+      "identityVerification": null,
+      "deadline": null,
+      "appeal": null,
+      "authorizedAgent": null,
+      "providerPropagation": null,
+      "evidenceTest": null,
+      "status": "SOURCE_ABSENT_BLOCKER",
+      "value": null,
+      "owner": "privacy-owner",
+      "question": "What deletion scope, exceptions, proof, propagation, backup, legal-hold, and restore treatment applies?",
+      "evidenceNeeded": [
+        "Approved deletion and retention architecture",
+        "End-to-end deletion, provider, backup, restore, and appeal evidence"
+      ],
+      "sourceRefs": [
+        "gallery-delete-function",
+        "social-deletion-help",
+        "website-route-matrix"
+      ]
+    },
+    {
+      "id": "portability",
+      "right": "Portable export where applicable",
+      "surfaces": [
+        "website",
+        "gallery",
+        "social",
+        "storefront"
+      ],
+      "intake": null,
+      "identityVerification": null,
+      "deadline": null,
+      "appeal": null,
+      "authorizedAgent": null,
+      "providerPropagation": null,
+      "evidenceTest": null,
+      "status": "BLOCKED_APPROVAL",
+      "value": null,
+      "owner": "privacy-owner",
+      "question": "Where does portability apply and what exact verified export is safe and complete?",
+      "evidenceNeeded": [
+        "Qualified applicability review",
+        "Approved export schema and synthetic privacy test"
+      ],
+      "sourceRefs": [
+        "social-privacy-contract",
+        "shopify-readiness"
+      ]
+    },
+    {
+      "id": "restriction-and-objection",
+      "right": "Restriction and objection where applicable",
+      "surfaces": [
+        "website",
+        "gallery",
+        "social",
+        "storefront"
+      ],
+      "intake": null,
+      "identityVerification": null,
+      "deadline": null,
+      "appeal": null,
+      "authorizedAgent": null,
+      "providerPropagation": null,
+      "evidenceTest": null,
+      "status": "BLOCKED_APPROVAL",
+      "value": null,
+      "owner": "privacy-owner",
+      "question": "Where do restriction and objection apply and how are they enforced across jobs, moderation, publication, and providers?",
+      "evidenceNeeded": [
+        "Qualified applicability review",
+        "Approved enforcement workflow and synthetic tests"
+      ],
+      "sourceRefs": [
+        "social-privacy-contract",
+        "gallery-instagram-consent",
+        "shopify-readiness"
+      ]
+    },
+    {
+      "id": "consent-withdrawal",
+      "right": "Withdrawal of optional publication, marketing, embed, and other consent-dependent choices",
+      "surfaces": [
+        "gallery",
+        "social",
+        "website",
+        "storefront"
+      ],
+      "intake": null,
+      "identityVerification": null,
+      "deadline": null,
+      "appeal": null,
+      "authorizedAgent": null,
+      "providerPropagation": null,
+      "evidenceTest": null,
+      "status": "SOURCE_ABSENT_BLOCKER",
+      "value": null,
+      "owner": "privacy-owner",
+      "question": "How can each optional choice be withdrawn and propagated without retaining unnecessary data?",
+      "evidenceNeeded": [
+        "Approved consent and withdrawal matrix",
+        "Source, provider, and end-to-end withdrawal evidence"
+      ],
+      "sourceRefs": [
+        "gallery-instagram-consent",
+        "website-spotify-embed",
+        "shopify-readiness"
+      ]
+    },
+    {
+      "id": "appeal",
+      "right": "Appeal of privacy, moderation, account, eligibility, and publication decisions where applicable",
+      "surfaces": [
+        "website",
+        "gallery",
+        "social",
+        "discord",
+        "raffle",
+        "storefront"
+      ],
+      "intake": null,
+      "identityVerification": null,
+      "deadline": null,
+      "appeal": null,
+      "authorizedAgent": null,
+      "providerPropagation": null,
+      "evidenceTest": null,
+      "status": "SOURCE_ABSENT_BLOCKER",
+      "value": null,
+      "owner": "privacy-owner",
+      "question": "Which decisions are appealable and what independent, timely, auditable review process applies?",
+      "evidenceNeeded": [
+        "Qualified applicability review",
+        "Approved appeal workflow and synthetic evidence"
+      ],
+      "sourceRefs": [
+        "social-community-guidelines",
+        "website-route-matrix",
+        "shopify-readiness"
+      ]
+    },
+    {
+      "id": "authorized-agent",
+      "right": "Authorized-agent request where applicable",
+      "surfaces": [
+        "website",
+        "gallery",
+        "social",
+        "storefront"
+      ],
+      "intake": null,
+      "identityVerification": null,
+      "deadline": null,
+      "appeal": null,
+      "authorizedAgent": null,
+      "providerPropagation": null,
+      "evidenceTest": null,
+      "status": "BLOCKED_APPROVAL",
+      "value": null,
+      "owner": "privacy-owner",
+      "question": "Where do authorized-agent requests apply and what proportionate authority and identity proof is required?",
+      "evidenceNeeded": [
+        "Qualified applicability review",
+        "Approved verification workflow and synthetic evidence"
+      ],
+      "sourceRefs": [
+        "website-route-matrix",
+        "shopify-readiness"
+      ]
+    },
+    {
+      "id": "non-retaliation",
+      "right": "Non-retaliation or non-discrimination where applicable",
+      "surfaces": [
+        "website",
+        "gallery",
+        "social",
+        "discord",
+        "raffle",
+        "storefront"
+      ],
+      "intake": null,
+      "identityVerification": null,
+      "deadline": null,
+      "appeal": null,
+      "authorizedAgent": null,
+      "providerPropagation": null,
+      "evidenceTest": null,
+      "status": "BLOCKED_APPROVAL",
+      "value": null,
+      "owner": "privacy-owner",
+      "question": "Which protections apply and how are they enforced across guild, moderation, raffle, and commerce decisions?",
+      "evidenceNeeded": [
+        "Qualified applicability review",
+        "Approved operational policy and evidence"
+      ],
+      "sourceRefs": [
+        "social-community-guidelines",
+        "raffle-source",
+        "shopify-readiness"
+      ]
+    }
+  ],
+  "providers": [
+    {
+      "id": "vercel",
+      "provider": "Vercel",
+      "sourceRole": "Website hosting, request processing, analytics, and performance observability",
+      "state": "active-source",
+      "contractDpa": null,
+      "currentSubprocessorList": null,
+      "regions": null,
+      "transferMechanism": null,
+      "deletionReturnTerms": null,
+      "securityEvidence": null,
+      "status": "BLOCKED_EXTERNAL",
+      "value": null,
+      "owner": "privacy-owner",
+      "question": "What current contract, DPA, subprocessors, regions, transfers, deletion terms, configuration, and security evidence apply?",
+      "evidenceNeeded": [
+        "Current provider contract and configured-service evidence",
+        "Qualified processor and transfer review"
+      ],
+      "sourceRefs": [
+        "website-shell-observability",
+        "hosted-runtime-source"
+      ]
+    },
+    {
+      "id": "supabase",
+      "provider": "Supabase",
+      "sourceRole": "Authentication, Postgres, Storage, row-level authorization, OAuth, and Edge Functions",
+      "state": "active-source",
+      "contractDpa": null,
+      "currentSubprocessorList": null,
+      "regions": null,
+      "transferMechanism": null,
+      "deletionReturnTerms": null,
+      "securityEvidence": null,
+      "status": "BLOCKED_EXTERNAL",
+      "value": null,
+      "owner": "privacy-owner",
+      "question": "What current contract, DPA, subprocessors, project region, transfers, deletion terms, configuration, and security evidence apply?",
+      "evidenceNeeded": [
+        "Current provider contract and configured-service evidence",
+        "Qualified processor and transfer review"
+      ],
+      "sourceRefs": [
+        "website-auth-config",
+        "hosted-runtime-source"
+      ]
+    },
+    {
+      "id": "digitalocean-spaces",
+      "provider": "DigitalOcean and Spaces",
+      "sourceRole": "Social compute, media storage, backup, and infrastructure",
+      "state": "active-source",
+      "contractDpa": null,
+      "currentSubprocessorList": null,
+      "regions": null,
+      "transferMechanism": null,
+      "deletionReturnTerms": null,
+      "securityEvidence": null,
+      "status": "BLOCKED_EXTERNAL",
+      "value": null,
+      "owner": "privacy-owner",
+      "question": "What current contract, DPA, subprocessors, regions, transfers, deletion, backup, restore, and security terms apply?",
+      "evidenceNeeded": [
+        "Current contract and sanitized infrastructure evidence",
+        "Qualified processor and transfer review"
+      ],
+      "sourceRefs": [
+        "social-delivery-contract",
+        "hosted-runtime-source"
+      ]
+    },
+    {
+      "id": "cloudflare",
+      "provider": "Cloudflare",
+      "sourceRole": "Source-declared edge, DNS, and abuse-control boundary",
+      "state": "active-source",
+      "contractDpa": null,
+      "currentSubprocessorList": null,
+      "regions": null,
+      "transferMechanism": null,
+      "deletionReturnTerms": null,
+      "securityEvidence": null,
+      "status": "BLOCKED_EXTERNAL",
+      "value": null,
+      "owner": "privacy-owner",
+      "question": "Which services, logs, bot controls, contracts, regions, transfers, deletion, and security settings are current?",
+      "evidenceNeeded": [
+        "Current contract and configured-service evidence",
+        "Qualified processor and transfer review"
+      ],
+      "sourceRefs": [
+        "website-architecture",
+        "hosted-runtime-source"
+      ]
+    },
+    {
+      "id": "github-ghcr",
+      "provider": "GitHub and GitHub Container Registry",
+      "sourceRole": "Source hosting, review, CI, security scanning, provenance, and container registry",
+      "state": "active-source",
+      "contractDpa": null,
+      "currentSubprocessorList": null,
+      "regions": null,
+      "transferMechanism": null,
+      "deletionReturnTerms": null,
+      "securityEvidence": null,
+      "status": "BLOCKED_EXTERNAL",
+      "value": null,
+      "owner": "release-owner",
+      "question": "What current organization contract, data location, subprocessors, transfers, deletion, and operator-data terms apply?",
+      "evidenceNeeded": [
+        "Current contract and organization evidence",
+        "Approved operator-data retention review"
+      ],
+      "sourceRefs": [
+        "website-architecture",
+        "social-delivery-contract"
+      ]
+    },
+    {
+      "id": "discord",
+      "provider": "Discord",
+      "sourceRole": "Guild identity, community, embeds, events, interactions, roles, and moderation",
+      "state": "active-source",
+      "contractDpa": null,
+      "currentSubprocessorList": null,
+      "regions": null,
+      "transferMechanism": null,
+      "deletionReturnTerms": null,
+      "securityEvidence": null,
+      "status": "BLOCKED_EXTERNAL",
+      "value": null,
+      "owner": "community-owner",
+      "question": "What current platform terms, data roles, cookies, regions, retention, deletion, transfers, and moderation terms apply?",
+      "evidenceNeeded": [
+        "Current platform and configured-service evidence",
+        "Qualified platform and transfer review"
+      ],
+      "sourceRefs": [
+        "website-discord-embed",
+        "website-auth-config",
+        "hosted-runtime-source"
+      ]
+    },
+    {
+      "id": "shopify",
+      "provider": "Shopify",
+      "sourceRole": "Storefront hosting and future approved customer, order, tax, marketing, and commerce operations",
+      "state": "activation-gated",
+      "contractDpa": null,
+      "currentSubprocessorList": null,
+      "regions": null,
+      "transferMechanism": null,
+      "deletionReturnTerms": null,
+      "securityEvidence": null,
+      "status": "BLOCKED_EXTERNAL",
+      "value": null,
+      "owner": "commerce-owner",
+      "question": "What current contract, DPA, subprocessors, regions, privacy controls, retention, transfers, deletion, and configured services apply?",
+      "evidenceNeeded": [
+        "Current contract and authenticated provider evidence",
+        "Qualified commerce and privacy review"
+      ],
+      "sourceRefs": [
+        "shopify-readiness"
+      ]
+    },
+    {
+      "id": "meta-publication",
+      "provider": "Meta publication destinations",
+      "sourceRole": "Optional external publication of separately selected Gallery content",
+      "state": "activation-gated",
+      "contractDpa": null,
+      "currentSubprocessorList": null,
+      "regions": null,
+      "transferMechanism": null,
+      "deletionReturnTerms": null,
+      "securityEvidence": null,
+      "status": "BLOCKED_EXTERNAL",
+      "value": null,
+      "owner": "gallery-owner",
+      "question": "What current destination terms, capabilities, regions, transfers, removal, deletion, and security rules apply?",
+      "evidenceNeeded": [
+        "Current platform and account-capability evidence",
+        "Qualified publication, privacy, and transfer review"
+      ],
+      "sourceRefs": [
+        "gallery-instagram-consent",
+        "website-gallery-submit"
+      ]
+    },
+    {
+      "id": "spotify",
+      "provider": "Spotify",
+      "sourceRole": "User-activated public media embed",
+      "state": "active-source",
+      "contractDpa": null,
+      "currentSubprocessorList": null,
+      "regions": null,
+      "transferMechanism": null,
+      "deletionReturnTerms": null,
+      "securityEvidence": null,
+      "status": "BLOCKED_EXTERNAL",
+      "value": null,
+      "owner": "privacy-owner",
+      "question": "What current embed, cookie, telemetry, transfer, and privacy terms apply?",
+      "evidenceNeeded": [
+        "Current platform documentation and browser evidence",
+        "Qualified cookie and disclosure review"
+      ],
+      "sourceRefs": [
+        "website-spotify-embed",
+        "website-csp"
+      ]
+    },
+    {
+      "id": "identity-providers",
+      "provider": "Configured third-party identity providers",
+      "sourceRole": "Source-default OAuth and optional phone authentication",
+      "state": "runtime-dependent",
+      "contractDpa": null,
+      "currentSubprocessorList": null,
+      "regions": null,
+      "transferMechanism": null,
+      "deletionReturnTerms": null,
+      "securityEvidence": null,
+      "status": "RUNTIME_READBACK_REQUIRED",
+      "value": null,
+      "owner": "identity-owner",
+      "question": "Which providers and phone controls are actually enabled and what contracts, scopes, regions, retention, deletion, and platform terms apply?",
+      "evidenceNeeded": [
+        "Sanitized Auth and provider configuration readback",
+        "Current platform and qualified privacy review"
+      ],
+      "sourceRefs": [
+        "website-auth-config",
+        "website-auth-client"
+      ]
+    },
+    {
+      "id": "apple-future",
+      "provider": "Apple platform services",
+      "sourceRole": "Future mobile distribution, identity, and optional platform services",
+      "state": "deferred",
+      "contractDpa": null,
+      "currentSubprocessorList": null,
+      "regions": null,
+      "transferMechanism": null,
+      "deletionReturnTerms": null,
+      "securityEvidence": null,
+      "status": "DEFERRED_BY_EXPLICIT_POLICY",
+      "value": null,
+      "owner": "mobile-owner",
+      "question": "Which Apple services will be used and what current privacy, account, platform, transfer, and deletion terms apply?",
+      "evidenceNeeded": [
+        "Approved Mobile architecture",
+        "Current Apple platform and qualified privacy review"
+      ],
+      "sourceRefs": [
+        "website-auth-config",
+        "website-architecture"
+      ]
+    },
+    {
+      "id": "unity-future",
+      "provider": "Unity platform services",
+      "sourceRole": "Future game development and optional runtime services",
+      "state": "deferred",
+      "contractDpa": null,
+      "currentSubprocessorList": null,
+      "regions": null,
+      "transferMechanism": null,
+      "deletionReturnTerms": null,
+      "securityEvidence": null,
+      "status": "DEFERRED_BY_EXPLICIT_POLICY",
+      "value": null,
+      "owner": "game-owner",
+      "question": "Which Unity services will be used and what current privacy, safety, transfer, retention, and deletion terms apply?",
+      "evidenceNeeded": [
+        "Approved Pets architecture",
+        "Current Unity platform and qualified privacy review"
+      ],
+      "sourceRefs": [
+        "mochi-pets-contract"
+      ]
+    }
+  ],
+  "approvalGates": [
+    {
+      "id": "operator-jurisdiction-age",
+      "category": "Operator identity, jurisdictions, contacts, languages, and age",
+      "requirements": [
+        "Approve exact legal operator, entity and trade-name authority, responsible contacts, operating and launch jurisdictions, languages, minimum ages, and safeguards."
+      ],
+      "status": "BLOCKED_APPROVAL",
+      "value": null,
+      "owner": "release-owner",
+      "question": "Which exact facts may be supplied to counsel and used in public records?",
+      "evidenceNeeded": [
+        "Approved operator-fact record",
+        "Qualified jurisdiction, age, and safety review"
+      ],
+      "sourceRefs": [
+        "repository-guidance",
+        "website-current-state",
+        "website-architecture"
+      ]
+    },
+    {
+      "id": "processing-retention-rights",
+      "category": "Processing, legal bases, retention, deletion, rights, consent, and incidents",
+      "requirements": [
+        "Approve purpose-by-purpose legal bases, retention, backup, holds, rights deadlines, appeals, authorized agents, provider propagation, consent evidence, and incident workflow."
+      ],
+      "status": "BLOCKED_APPROVAL",
+      "value": null,
+      "owner": "privacy-owner",
+      "question": "Which jurisdiction-specific rules apply to each current and gated surface?",
+      "evidenceNeeded": [
+        "Complete processing, retention, rights, and consent matrices",
+        "Qualified review and synthetic workflow evidence"
+      ],
+      "sourceRefs": [
+        "social-privacy-contract",
+        "website-gallery-client",
+        "shopify-readiness"
+      ]
+    },
+    {
+      "id": "provider-contract-transfer",
+      "category": "Providers, contracts, subprocessors, regions, transfers, deletion, and security",
+      "requirements": [
+        "Obtain current provider contracts, DPAs, subprocessor lists, regions, transfer mechanisms, government-access review, deletion and return terms, security evidence, and configured-service readback."
+      ],
+      "status": "BLOCKED_EXTERNAL",
+      "value": null,
+      "owner": "privacy-owner",
+      "question": "Which providers may continue after current contractual, privacy, transfer, and security review?",
+      "evidenceNeeded": [
+        "Current provider evidence",
+        "Qualified counsel and security review",
+        "Exact release-owner provider decision"
+      ],
+      "sourceRefs": [
+        "hosted-runtime-source",
+        "website-architecture"
+      ]
+    },
+    {
+      "id": "public-legal-copy-and-routes",
+      "category": "Privacy, terms, legal notice, community, contact, deletion, and assent routes",
+      "requirements": [
+        "Resolve every source conflict and absent route, choose one versioned source of truth per notice, and obtain exact counsel and release-owner approval before public-copy changes."
+      ],
+      "status": "BLOCKED_APPROVAL",
+      "value": null,
+      "owner": "release-owner",
+      "question": "Which exact reviewed text, effective date, locale, version, hash, assent method, and route architecture will be published?",
+      "evidenceNeeded": [
+        "Qualified-counsel redlines retained privately",
+        "Exact public-copy approval",
+        "Source, build, rendered, and route hash binding"
+      ],
+      "sourceRefs": [
+        "website-footer",
+        "social-privacy-contract",
+        "social-site-terms",
+        "social-mobile-terms",
+        "social-community-guidelines"
+      ]
+    },
+    {
+      "id": "gallery-product-privacy",
+      "category": "Gallery attribution, depicted people, consent, delivery, withdrawal, retention, and deletion",
+      "requirements": [
+        "Approve public attribution mode and the complete original, derivative, moderation, public-delivery, external-publication, withdrawal, account-deletion, and backup lifecycle."
+      ],
+      "status": "BLOCKED_APPROVAL",
+      "value": null,
+      "owner": "gallery-owner",
+      "question": "Which exact Gallery product and privacy decisions govern the final migration and runtime?",
+      "evidenceNeeded": [
+        "Approved Gallery decision record",
+        "End-to-end Preview and production lifecycle evidence"
+      ],
+      "sourceRefs": [
+        "gallery-feed-function",
+        "gallery-delete-function",
+        "gallery-instagram-consent"
+      ]
+    },
+    {
+      "id": "raffle-activation",
+      "category": "Raffle sponsor, jurisdiction, eligibility, official rules, reward, tax, funding, retention, and launch",
+      "requirements": [
+        "Keep the raffle inactive until exact qualified reviews, provider and funding evidence, immutable rules, production configuration, canary, rollback, and release approval are complete."
+      ],
+      "status": "BLOCKED_EXTERNAL",
+      "value": null,
+      "owner": "raffle-owner",
+      "question": "When does one exact cycle have complete legal, tax, provider, privacy, security, funding, and production evidence?",
+      "evidenceNeeded": [
+        "Qualified raffle and tax approval",
+        "Exact provider, funding, rules, canary, and release evidence"
+      ],
+      "sourceRefs": [
+        "raffle-source",
+        "spinner-retention",
+        "spinner-media-retention"
+      ]
+    },
+    {
+      "id": "storefront-activation",
+      "category": "Storefront legal, privacy, product, tax, fulfillment, payment, and operations",
+      "requirements": [
+        "Complete the fail-closed storefront readiness gates without inferring provider state or weakening policy, privacy-choice, product, safety, tax, fulfillment, payment, or evidence requirements."
+      ],
+      "status": "BLOCKED_EXTERNAL",
+      "value": null,
+      "owner": "commerce-owner",
+      "question": "When are every source, product, provider, policy, privacy, tax, fulfillment, payment, and release gate independently satisfied?",
+      "evidenceNeeded": [
+        "Completed storefront readiness ledger",
+        "Qualified reviews and authenticated provider evidence"
+      ],
+      "sourceRefs": [
+        "shopify-readiness"
+      ]
+    },
+    {
+      "id": "future-mobile-game",
+      "category": "Mobile and game architecture, platform, privacy, age, safety, artifact, and launch",
+      "requirements": [
+        "Keep Mobile and game activation deferred until authoritative repositories, immutable artifacts, platforms, identity, data flows, privacy manifests, age and safety controls, regions, and release gates are approved."
+      ],
+      "status": "DEFERRED_BY_EXPLICIT_POLICY",
+      "value": null,
+      "owner": "release-owner",
+      "question": "Which exact cross-repository and platform evidence must precede activation?",
+      "evidenceNeeded": [
+        "Approved Mobile and Pets architecture",
+        "Current platform, privacy, age, safety, artifact, and runtime evidence"
+      ],
+      "sourceRefs": [
+        "mochi-pets-contract",
+        "website-architecture"
+      ]
+    },
+    {
+      "id": "counsel-cost-release",
+      "category": "Private counsel packet, cost, qualified review, exact copy approval, and release",
+      "requirements": [
+        "Prepare restricted factual evidence, obtain exact counsel scope and cost approval, retain qualified jurisdiction-specific review, and record only a public-safe approval receipt before any public legal-copy release."
+      ],
+      "status": "BLOCKED_APPROVAL",
+      "value": null,
+      "owner": "release-owner",
+      "question": "What review scope, budget, reviewers, jurisdictions, privileged boundary, and exact release sequence are approved?",
+      "evidenceNeeded": [
+        "Approved counsel scope and cost",
+        "Qualified review",
+        "Exact public-copy and release approval"
+      ],
+      "sourceRefs": [
+        "repository-guidance",
+        "root-security-policy"
+      ]
+    }
+  ]
+}

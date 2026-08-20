@@ -15,6 +15,7 @@
     "check:apac-content": "node scripts/check-apac-content.mjs",
     "check:brand-boundaries": "node scripts/check-brand-boundaries.mjs",
     "check:repository-boundaries": "node scripts/check-repository-boundaries.mjs",
+    "check:legal-privacy-current-main": "node scripts/check-legal-privacy-current-main.mjs && node --test scripts/check-legal-privacy-current-main.test.mjs",
     "check:shopify-release-safety": "node apps/shopify-theme/scripts/check-release-safety.mjs",
     "check:social": "npm --prefix services/social run check:mochirii-ops",
     "check:browser-route-matrix": "node scripts/check-browser-route-matrix.mjs",

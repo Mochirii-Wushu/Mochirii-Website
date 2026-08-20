@@ -22,6 +22,8 @@ const checks = [
   ["check:apac-content", ["node", "scripts/check-apac-content.mjs"]],
   ["check:brand-boundaries", ["node", "scripts/check-brand-boundaries.mjs"]],
   ["check:repository-boundaries", ["node", "scripts/check-repository-boundaries.mjs"]],
+  ["check:legal-privacy-current-main", ["node", "scripts/check-legal-privacy-current-main.mjs"]],
+  ["test:legal-privacy-current-main", ["node", "--test", "scripts/check-legal-privacy-current-main.test.mjs"]],
   ["check:host-independence", ["node", "scripts/check-host-independence.mjs"]],
   ["check:shopify-release-safety", ["node", "apps/shopify-theme/scripts/check-release-safety.mjs"]],
   ["check:social", [...npmCommand, "--prefix", "services/social", "run", "check:mochirii-ops"]],
