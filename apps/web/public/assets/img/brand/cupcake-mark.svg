@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Mōchirīī cupcake mark">
+  <defs>
+    <linearGradient id="frosting" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff8ed"/>
+      <stop offset="0.58" stop-color="#f7b6bc"/>
+      <stop offset="1" stop-color="#d85a72"/>
+    </linearGradient>
+    <linearGradient id="wrapper" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f4ca67"/>
+      <stop offset="0.46" stop-color="#d59a31"/>
+      <stop offset="1" stop-color="#8d481f"/>
+    </linearGradient>
+    <linearGradient id="leaf" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#61b886"/>
+      <stop offset="1" stop-color="#166049"/>
+    </linearGradient>
+  </defs>
+
+  <ellipse cx="256" cy="443" rx="166" ry="26" fill="#102f2a" opacity=".22"/>
+
+  <path d="M126 274h260l-30 151c-3 16-17 27-33 27H189c-16 0-30-11-33-27z" fill="url(#wrapper)" stroke="#5e2f1c" stroke-width="12" stroke-linejoin="round"/>
+  <path d="M166 291l23 137M220 289l10 145M292 289l-10 145M346 291l-23 137" fill="none" stroke="#fff2b8" stroke-width="17" stroke-linecap="round" opacity=".62"/>
+  <path d="M132 278c13 21 45 24 62 5 20 25 57 25 77 0 20 25 57 25 77 0 16 18 47 16 60-4" fill="none" stroke="#6f3721" stroke-width="12" stroke-linecap="round"/>
+
+  <path d="M114 287c-1-51 37-88 86-88 7-47 44-79 91-79 52 0 95 41 96 93 32 9 54 38 54 72 0 9-2 18-5 26H82c-3-8-5-16-5-25 0-36 23-66 57-74" fill="url(#frosting)" stroke="#6f3721" stroke-width="12" stroke-linejoin="round"/>
+  <path d="M113 286c27-19 54-20 82-1 25-26 57-30 86-8 27-26 59-26 86-1 23-15 46-13 69 6" fill="none" stroke="#fff8ed" stroke-width="16" stroke-linecap="round" opacity=".72"/>
+
+  <path d="M255 141c-44 23-61 65-41 101 17-20 32-45 41-78 9 33 24 58 42 78 19-36 2-78-42-101z" fill="#fff3e7" stroke="#a8425a" stroke-width="9" stroke-linejoin="round"/>
+  <path d="M251 139c-43-18-81-2-97 39 32 2 59 13 83 35 10-25 15-49 14-74z" fill="#f9c4c5" stroke="#a8425a" stroke-width="9" stroke-linejoin="round"/>
+  <path d="M260 139c43-18 81-2 97 39-32 2-59 13-83 35-10-25-15-49-14-74z" fill="#f9c4c5" stroke="#a8425a" stroke-width="9" stroke-linejoin="round"/>
+
+  <path d="M238 126c-19-33-9-62 23-78 7 31-1 58-23 78z" fill="url(#leaf)" stroke="#174f3e" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M270 113c21-27 49-30 75-10-23 19-48 25-75 10z" fill="url(#leaf)" stroke="#174f3e" stroke-width="8" stroke-linejoin="round"/>
+  <circle cx="258" cy="123" r="22" fill="#c63f55" stroke="#6e2435" stroke-width="8"/>
+  <circle cx="250" cy="115" r="6" fill="#fff5dd" opacity=".82"/>
+
+  <path d="M106 421c-27-12-44-33-49-61 30 4 52 19 66 45M405 420c27-12 44-33 49-61-30 4-52 19-66 45" fill="none" stroke="#2c765a" stroke-width="12" stroke-linecap="round"/>
+</svg>

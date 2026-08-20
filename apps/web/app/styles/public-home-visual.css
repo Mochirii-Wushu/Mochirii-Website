@@ -254,12 +254,32 @@ body[data-page="home"] .hero-intro{
   padding:clamp(22px, 3vw, 34px);
 }
 
+body[data-page="home"] .home-recruitment-card{
+  align-self:stretch;
+  display:flex;
+  min-width:0;
+  flex-direction:column;
+  justify-content:center;
+}
+
 body[data-page="home"] .hero-intro .display-title{
   max-width:9ch;
 }
 
+body[data-page="home"] .home-recruitment-value{
+  max-width:48ch;
+  margin:clamp(12px, 1.8vw, 18px) 0 0;
+  color:rgba(245,248,245,.90);
+  font-size:clamp(1rem, 1.4vw, 1.12rem);
+  line-height:1.62;
+}
+
 body[data-page="home"] .hero-intro .prose-stack{
   max-width:68ch;
+}
+
+body[data-page="home"] .home-community-intro .meta-text{
+  margin-top:0;
 }
 
 body[data-page="home"] .home-guild-seal{
@@ -571,6 +591,10 @@ body[data-page="home"] .home-door:nth-child(4){
 }
 
 @media (max-width:900px){
+  body[data-page="home"] .home-recruitment-card{
+    padding:clamp(20px, 5vw, 28px);
+  }
+
   body[data-page="home"] .home-featured__plate .home-title{
     white-space:normal;
     font-size:inherit;
