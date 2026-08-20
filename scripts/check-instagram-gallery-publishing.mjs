@@ -10,6 +10,7 @@ const files = {
   migrationHistory: "supabase/migrations/20260607094500_restore_instagram_gallery_publishing_history.sql",
   migration: "supabase/migrations/20260607125027_add_instagram_gallery_publishing.sql",
   manualMigrationHistory: "supabase/migrations/20260608093407_restore_manual_instagram_share_history.sql",
+  reservationMigration: "supabase/migrations/20260811120000_add_discord_gallery_ingest_reservations.sql",
   discordIngest: "supabase/functions/submit-discord-gallery-image/index.ts",
   moderation: "supabase/functions/moderate-gallery-submission/index.ts",
   listQueue: "supabase/functions/list-instagram-publish-queue/index.ts",
@@ -72,6 +73,7 @@ const config = read(files.config);
 const migrationHistory = read(files.migrationHistory);
 const migration = read(files.migration);
 const manualMigrationHistory = read(files.manualMigrationHistory);
+const reservationMigration = read(files.reservationMigration);
 const discordIngest = read(files.discordIngest);
 const moderation = read(files.moderation);
 const listQueue = read(files.listQueue);
@@ -145,11 +147,20 @@ assertMatches(
 
 [
   "instagramOptIn",
-  "INSTAGRAM_OPT_IN_COPY_VERSION",
-  'instagram_opt_in_source: instagramOptIn ? "discord_slash_command" : null',
-  ".eq(\"discord_message_id\", messageId)",
-  ".eq(\"discord_attachment_id\", attachmentId)",
+  '"acquire_discord_gallery_ingest_reservation"',
+  "p_instagram_opt_in: instagramOptIn",
+  '"finalize_discord_gallery_ingest_reservation"',
 ].forEach((snippet) => assertIncludes("submit-discord-gallery-image", discordIngest, snippet));
+
+[
+  "reservation.instagram_opt_in <> p_instagram_opt_in",
+  "existing_submission.instagram_opt_in = reservation.instagram_opt_in",
+  "existing_submission.instagram_opt_in_source = 'discord_slash_command'",
+  "existing_submission.instagram_opt_in_copy_version = '2026-06-discord-submit-v1'",
+  "reservation.instagram_opt_in",
+  "case when reservation.instagram_opt_in then 'discord_slash_command' else null end",
+  "case when reservation.instagram_opt_in then '2026-06-discord-submit-v1' else null end",
+].forEach((snippet) => assertIncludes("Discord ingest reservation", reservationMigration, snippet));
 
 assertNotMatches(
   "submit-discord-gallery-image",
@@ -234,6 +245,7 @@ assertNotMatches(
 [
   "DISCORD_GALLERY_CHANNEL_ID=1508077313965817856",
   "DISCORD_GALLERY_INGEST_SECRET=",
+  "DISCORD_GALLERY_INGEST_HMAC_KEYS_JSON=",
   "INSTAGRAM_ACCOUNT_ID=",
   "INSTAGRAM_ACCESS_TOKEN=",
   "INSTAGRAM_API_VERSION=",

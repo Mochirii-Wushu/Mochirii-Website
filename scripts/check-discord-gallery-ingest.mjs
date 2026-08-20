@@ -1,24 +1,46 @@
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 const root = process.cwd();
-
+const failures = [];
 const files = {
   config: "supabase/config.toml",
   function: "supabase/functions/submit-discord-gallery-image/index.ts",
-  importMap: "supabase/functions/submit-discord-gallery-image/deno.json",
-  sourceMigration: "supabase/migrations/20260524114802_add_discord_gallery_submission_source.sql",
-  revokeMigration: "supabase/migrations/20260524115932_revoke_public_rls_auto_enable_execute.sql",
-  previousGalleryMigration: "supabase/migrations/20260513081523_create_discord_role_gated_gallery_uploads.sql",
-  readme: "supabase/README.md",
+  verifier: "supabase/functions/_shared/discord-gallery-ingest-auth.ts",
+  verifierTest: "supabase/functions/_shared/discord-gallery-ingest-auth_test.ts",
+  authorizationContext: "supabase/functions/_shared/discord-gallery-authorization-context.ts",
+  authorizationContextTest: "supabase/functions/_shared/discord-gallery-authorization-context_test.ts",
+  payload: "supabase/functions/_shared/discord-gallery-ingest-payload.ts",
+  payloadTest: "supabase/functions/_shared/discord-gallery-ingest-payload_test.ts",
+  reservation: "supabase/functions/_shared/discord-gallery-storage-reservation.ts",
+  reservationTest: "supabase/functions/_shared/discord-gallery-storage-reservation_test.ts",
+  transport: "supabase/functions/_shared/gallery-discord-ingest.ts",
+  transportTest: "supabase/functions/_shared/gallery-discord-ingest_test.ts",
+  sourceImage: "supabase/functions/_shared/gallery-source-image.ts",
+  sourceImageTest: "supabase/functions/_shared/gallery-source-image_test.ts",
+  sourceDecode: "supabase/functions/_shared/gallery-source-decode.ts",
+  sourceDecodeTest: "supabase/functions/_shared/gallery-source-decode_test.ts",
+  moderator: "supabase/functions/moderate-gallery-submission/index.ts",
+  nonceMigration: "supabase/migrations/20260729130654_add_discord_gallery_ingest_hmac_replay_guard.sql",
+  reservationMigration: "supabase/migrations/20260811120000_add_discord_gallery_ingest_reservations.sql",
+  hardeningMigration: "supabase/migrations/20260811121500_harden_discord_gallery_originals.sql",
+  nonceDatabaseTest: "supabase/tests/discord_gallery_ingest_hmac_test.sql",
+  reservationDatabaseTest: "supabase/tests/discord_gallery_ingest_reservations_test.sql",
+  contract: "docs/integrations/discord-gallery-ingest-hmac.v1.json",
+  authorizationContextContract: "docs/integrations/discord-gallery-authorization-context.v1.json",
+  activation: "docs/operations/discord-gallery-ingest-hmac-activation.md",
+  supabaseReadme: "supabase/README.md",
 };
+const expectedContractSha256 =
+  "af3025221626aadd2d0fc82fd79bb02b3f253ccdd8753fb78082aa885c929e3f";
+const expectedAuthorizationContextContractSha256 =
+  "db5ab92c20df4e59957979750e2ba6d3484f6112eb0ad87787bdf1d5be8d237c";
 
-const failures = [];
-
-function read(file) {
-  const fullPath = path.join(root, file);
+function read(relativePath) {
+  const fullPath = path.join(root, relativePath);
   if (!existsSync(fullPath)) {
-    failures.push(`${file}: missing required Discord gallery ingest file.`);
+    failures.push(`${relativePath}: missing required Discord gallery ingest file.`);
     return "";
   }
   return readFileSync(fullPath, "utf8");
@@ -36,219 +58,525 @@ function assertNotMatches(label, text, pattern, message) {
   if (pattern.test(text)) failures.push(`${label}: ${message}`);
 }
 
-function extractFunction(text, functionName) {
-  const start = text.indexOf(`function ${functionName}`);
-  if (start < 0) {
-    failures.push(`submit-discord-gallery-image: missing ${functionName} function.`);
-    return "";
-  }
-
-  const open = text.indexOf("{", start);
-  if (open < 0) {
-    failures.push(`submit-discord-gallery-image: malformed ${functionName} function.`);
-    return "";
-  }
-
-  let depth = 0;
-  for (let index = open; index < text.length; index += 1) {
-    const char = text[index];
-    if (char === "{") depth += 1;
-    if (char === "}") depth -= 1;
-    if (depth === 0) return text.slice(start, index + 1);
-  }
-
-  failures.push(`submit-discord-gallery-image: unterminated ${functionName} function.`);
-  return "";
-}
-
-function assertEqual(label, actual, expected) {
-  if (actual !== expected) failures.push(`${label}: expected ${expected}, got ${actual}`);
-}
-
 const config = read(files.config);
 const functionSource = read(files.function);
-const importMap = read(files.importMap);
-const sourceMigration = read(files.sourceMigration);
-const revokeMigration = read(files.revokeMigration);
-const previousGalleryMigration = read(files.previousGalleryMigration);
-const readme = read(files.readme);
-const authenticatedInsertGrant = previousGalleryMigration.match(
-  /grant insert \(([\s\S]*?)\) on table public\.gallery_submissions to authenticated;/,
-)?.[1] || "";
+const verifier = read(files.verifier);
+const verifierTest = read(files.verifierTest);
+const authorizationContext = read(files.authorizationContext);
+const authorizationContextTest = read(files.authorizationContextTest);
+const payload = read(files.payload);
+const payloadTest = read(files.payloadTest);
+const reservation = read(files.reservation);
+const reservationTest = read(files.reservationTest);
+const transport = read(files.transport);
+const transportTest = read(files.transportTest);
+const sourceImage = read(files.sourceImage);
+const sourceImageTest = read(files.sourceImageTest);
+const sourceDecode = read(files.sourceDecode);
+const sourceDecodeTest = read(files.sourceDecodeTest);
+const moderator = read(files.moderator);
+const nonceMigration = read(files.nonceMigration);
+const reservationMigration = read(files.reservationMigration);
+const hardeningMigration = read(files.hardeningMigration);
+const nonceDatabaseTest = read(files.nonceDatabaseTest);
+const reservationDatabaseTest = read(files.reservationDatabaseTest);
+const contractText = read(files.contract);
+const authorizationContextContractText = read(files.authorizationContextContract);
+const activation = read(files.activation);
+const supabaseReadme = read(files.supabaseReadme);
 
-assertIncludes("supabase config", config, "[functions.submit-discord-gallery-image]");
-assertIncludes("supabase config", config, "verify_jwt = false");
-assertIncludes("supabase config", config, 'import_map = "./functions/submit-discord-gallery-image/deno.json"');
-assertIncludes("supabase config", config, 'entrypoint = "./functions/submit-discord-gallery-image/index.ts"');
-
-assertIncludes("import map", importMap, '"@supabase/functions-js/edge-runtime.d.ts": "jsr:@supabase/functions-js@2.110.8/edge-runtime.d.ts"');
-assertIncludes("import map", importMap, '"@supabase/supabase-js": "npm:@supabase/supabase-js@2.110.8"');
+assertIncludes("Supabase config", config, "[functions.submit-discord-gallery-image]");
+assertIncludes("Supabase config", config, "verify_jwt = false");
+assertIncludes("Supabase config", config, 'entrypoint = "./functions/submit-discord-gallery-image/index.ts"');
 
 [
-  'const MEMBER_GALLERY_BUCKET = "member-gallery";',
-  "const MAX_SIZE_BYTES = 50 * 1024 * 1024;",
-  'const EXPECTED_DISCORD_GUILD_ID = "1078630751077142608";',
-  'const EXPECTED_REQUIRED_ROLE_IDS = ["1468659807736299520", "1078630751077142615"];',
-  'const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);',
-  'const DISCORD_CDN_HOSTS = new Set(["cdn.discordapp.com", "media.discordapp.net", "media.discordapp.com"]);',
-  "const RECENT_VERIFICATION_MS = 7 * 24 * 60 * 60 * 1000;",
-  '"Access-Control-Allow-Methods": "POST, OPTIONS"',
-  "x-mochirii-reaper-secret",
-  'Deno.env.get("DISCORD_GALLERY_INGEST_SECRET")',
-  'Deno.env.get("DISCORD_GALLERY_CHANNEL_ID")',
+  "DISCORD_GALLERY_INGEST_HMAC_KEYS_ENV",
+  "exactDiscordGalleryIngestPath",
+  "exactDiscordGallerySupabaseOrigin",
+  "readDiscordGalleryIngestBody",
+  "authenticateDiscordGalleryIngestBody",
+  "parseDiscordGalleryIngestJsonRecord",
+  "parseDiscordGalleryIngestPayload",
+  "discordGalleryAuthorizationContextMatches",
+  "downloadAllowlistedAttachment",
+  "validDiscordGalleryAttachmentUrl",
+  "validateGallerySourceBytes",
+  "decodeGallerySourceImage",
+  '"consume_discord_gallery_ingest_nonce"',
+  "const bodyRead = await readDiscordGalleryIngestBody(req);",
+  "parseDiscordGalleryIngestJsonRecord(authentication.bodyText)",
   'Deno.env.get("DISCORD_GUILD_ID")',
+  'canonicalDiscordSnowflake(\n    Deno.env.get("DISCORD_GALLERY_CHANNEL_ID")',
   'Deno.env.get("DISCORD_REQUIRED_ROLE_IDS")',
-  "getServiceRoleKey()",
-  "guildConfigMatches",
-  "roleConfigMatches",
-  "bearerOrHeaderSecret(req) !== ingestSecret",
-  'return jsonResponse({ ok: false, message: "Method not allowed." }, 405);',
-  'if (req.method === "OPTIONS")',
-  "validAttachmentUrl(body.attachmentUrl)",
-  "sniffMime(bytes)",
-  "responseMime",
-  "downloadedSize: bytes.byteLength",
-  "That file could not be read as a JPEG, PNG, or WebP image.",
-  ".eq(\"submission_source\", \"discord\")",
-  ".eq(\"discord_message_id\", messageId)",
-  ".eq(\"discord_attachment_id\", attachmentId)",
-  '.from("member_profiles")',
-  "memberStatus !== \"active\"",
-  "profile.has_required_discord_roles !== true",
-  "!verificationIsRecent(profile.discord_verified_at)",
-  "missingStoredRoleIds.length > 0",
-  ".upload(storagePath, bytes,",
-  "upsert: false",
-  "await adminClient.storage.from(MEMBER_GALLERY_BUCKET).remove([storagePath]);",
-  'submission_source: "discord"',
-  "discord_guild_id: guildId",
-  "discord_channel_id: channelId",
-  "discord_message_id: messageId",
-  "discord_attachment_id: attachmentId",
-  "discord_user_id: discordUserId",
-  "instagramOptIn",
-  "INSTAGRAM_OPT_IN_COPY_VERSION",
-  "instagram_opt_in: instagramOptIn",
-  'instagram_opt_in_source: instagramOptIn ? "discord_slash_command" : null',
-].forEach((snippet) => assertIncludes("submit-discord-gallery-image", functionSource, snippet));
+  "const DISCORD_REQUIRED_ROLE_COUNT = 2;",
+  "configuredRequiredRoleIds.filter",
+  "const MAX_SIZE_BYTES = GALLERY_SOURCE_IMAGE_MAX_BYTES;",
+  "const ATTACHMENT_TIMEOUT_MS = 15_000;",
+  "declaredSize === bytes.byteLength",
+  "missingRoleCount: missingStoredRoleIds.length",
+  '"acquire_discord_gallery_ingest_reservation"',
+  '"confirm_discord_gallery_ingest_upload"',
+  '"finalize_discord_gallery_ingest_reservation"',
+  "sourceSha256: sourceValidation.source.sha256",
+  "validatorVersion: GALLERY_SOURCE_IMAGE_VALIDATOR_VERSION",
+  "upsert: true",
+].forEach((snippet) => assertIncludes("Website receiver", functionSource, snippet));
 
 assertMatches(
-  "submit-discord-gallery-image",
+  "Website receiver",
   functionSource,
-  /url\.protocol !== "https:"[\s\S]*!DISCORD_CDN_HOSTS\.has\(url\.hostname\)[\s\S]*!hasAttachmentPath/,
-  "attachment URL must require HTTPS, an approved Discord CDN host, and an attachment path.",
+  /readDiscordGalleryIngestBody\(req\)[\s\S]*authenticateDiscordGalleryIngestBody\([\s\S]*parseDiscordGalleryIngestJsonRecord\(authentication\.bodyText\)[\s\S]*parseDiscordGalleryIngestPayload\(body\)[\s\S]*discordGalleryAuthorizationContextMatches\([\s\S]*\.from\("member_profiles"\)[\s\S]*downloadAllowlistedAttachment\([\s\S]*validateGallerySourceBytes\([\s\S]*decodeGallerySourceImage\([\s\S]*acquire_discord_gallery_ingest_reservation[\s\S]*\.upload\([\s\S]*confirm_discord_gallery_ingest_upload[\s\S]*finalize_discord_gallery_ingest_reservation/,
+  "exact-byte auth and nonce, payload/context checks, current profile authorization, transport/decode, reservation, upload confirmation, and finalization order drifted.",
 );
-
 assertMatches(
-  "submit-discord-gallery-image",
+  "Website receiver",
   functionSource,
-  /contentLength[\s\S]*contentLength > MAX_SIZE_BYTES/,
-  "attachment content-length must be bounded before body read.",
+  /const supabaseUrl = exactDiscordGallerySupabaseOrigin\([\s\S]*if \([\s\S]*!supabaseUrl[\s\S]*const adminClient = createClient\(supabaseUrl, serviceRoleKey/,
+  "the service-role client must be created only after exact canonical Supabase origin validation.",
 );
-
-assertMatches(
-  "submit-discord-gallery-image",
-  functionSource,
-  /bytes\.byteLength <= 0 \|\| bytes\.byteLength > MAX_SIZE_BYTES \|\| !sniffedMime/,
-  "downloaded attachment bytes must be non-empty and bounded.",
-);
-
 assertNotMatches(
-  "submit-discord-gallery-image",
+  "Website receiver",
   functionSource,
-  /sniffedMime\s*!==\s*declaredMime/,
-  "Discord-declared MIME metadata is advisory; sniffed bytes must be the final image type authority.",
+  /attachmentResponse\.arrayBuffer\(|\bfetch\(attachmentUrl|function sniffMime|\.remove\(|\.from\(["']gallery_submissions["']\)[\s\S]{0,200}\.insert\(/,
+  "unbounded attachment reads, magic-prefix-only validation, unsafe cleanup, and direct application inserts must not remain.",
 );
-
 assertNotMatches(
-  "submit-discord-gallery-image",
+  "Website receiver",
   functionSource,
-  /!declaredMime[\s\S]{0,180}invalid_discord_submission/,
-  "missing Discord-declared MIME metadata must not reject otherwise valid attachment metadata.",
+  /(?:nonce consumption|duplicate lookup|profile lookup|storage upload|submission insert)[\s\S]{0,240}(?:\.message|statusText)/,
+  "provider and database failure logs must use only fixed codes and booleans.",
 );
-
 assertNotMatches(
-  "submit-discord-gallery-image",
+  "Website receiver",
   functionSource,
-  /createSignedUrl|getPublicUrl|publicUrl|signed_url/i,
-  "ingest function must not create or expose public/signed image URLs.",
+  /DISCORD_GALLERY_INGEST_SECRET|x-mochirii-reaper-secret|bearerOrHeaderSecret/,
+  "retired static-secret authentication must not remain available.",
 );
-
-const sniffMimeSource = extractFunction(functionSource, "sniffMime")
-  .replace(/function sniffMime\(bytes: Uint8Array\): string \| null/, "function sniffMime(bytes)");
-const sniffMime = sniffMimeSource
-  ? new Function(`${sniffMimeSource}; return sniffMime;`)()
-  : () => null;
-
-assertEqual(
-  "sniffMime png fixture",
-  sniffMime(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])),
-  "image/png",
+assertNotMatches(
+  "Website receiver",
+  functionSource,
+  /["']\d{16,22}["']/,
+  "provider guild, channel, role, user, and application IDs must stay in validated runtime configuration.",
 );
-assertEqual("sniffMime jpeg fixture", sniffMime(new Uint8Array([0xff, 0xd8, 0xff, 0xdb])), "image/jpeg");
-assertEqual(
-  "sniffMime webp fixture",
-  sniffMime(new Uint8Array([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50])),
-  "image/webp",
+assertNotMatches(
+  "Website receiver",
+  functionSource,
+  /safeString\(body\.|String\(body\.|Number\(body\.|image\/jpg/,
+  "HMAC-bound payload fields must not be coerced, trimmed, truncated, or MIME-aliased.",
 );
-assertEqual("sniffMime non-image fixture", sniffMime(new Uint8Array([0x3c, 0x68, 0x74, 0x6d, 0x6c])), null);
 
 [
-  "add column if not exists submission_source text not null default 'website'",
-  "add column if not exists discord_guild_id text",
-  "add column if not exists discord_channel_id text",
-  "add column if not exists discord_message_id text",
-  "add column if not exists discord_attachment_id text",
-  "add column if not exists discord_user_id text",
-  "gallery_submissions_submission_source_check",
-  "submission_source in ('website', 'discord')",
-  "gallery_submissions_discord_source_required_check",
-  "discord_guild_id = '1078630751077142608'",
+  '"discord-gallery-ingest-hmac.v1"',
+  'const AUTH_VERSION = "v1";',
+  "DISCORD_GALLERY_INGEST_MAX_SKEW_SECONDS = 60",
+  "DISCORD_GALLERY_INGEST_MAX_BODY_BYTES = 16 * 1024",
+  "parseFlatStringMap",
+  "seen.has(key.value)",
+  "request.body.getReader()",
+  "timeoutMs = 5_000",
+  '"https://deyvmtncimmcinldjyqe.supabase.co"',
+  "exactDiscordGallerySupabaseOrigin",
+  "await reader.cancel().catch(() => undefined)",
+  'signature: "x-mochirii-gallery-signature"',
+  'crypto.subtle.digest("SHA-256"',
+  '{ name: "HMAC", hash: "SHA-256" }',
+  "constantTimeLowerHexMatches",
+  "dependencies.consumeNonce(keyId, nonce, expiresAt)",
+  "decodeDiscordGalleryIngestBody(rawBodyBytes)",
+  'bodyText.includes("\\uFEFF")',
+  "verification_unavailable",
+].forEach((snippet) => assertIncludes("Website verifier", verifier, snippet));
+assertMatches(
+  "Website verifier",
+  verifier,
+  /verifyDiscordGalleryIngestRequest\([\s\S]*decodeDiscordGalleryIngestBody\(rawBodyBytes\)/,
+  "exact bytes must be authenticated and nonce-consumed before UTF-8/BOM decoding.",
+);
+assertNotMatches(
+  "Website verifier",
+  verifier,
+  /ACTIVE_KEY_ID|createDiscordGalleryIngest(?:Headers|Signature)|discordGalleryIngestActiveKey|randomDiscordGalleryIngestNonce/,
+  "Website must not duplicate Reaper signer or active-key-selection ownership.",
+);
+
+[
+  "frozen Reaper signer fixture verifies once",
+  "exact bytes, method, and runtime-normalized pathname",
+  "exact bytes before UTF-8 and BOM rejection",
+  "stale, future, malformed, and unknown-key",
+  "rejects replay and fails closed",
+  "decoded duplicate IDs",
+  "streaming byte limit",
+  "exact canonical Supabase service origin",
+  "partialHeaders.delete",
+  "?x=1",
+  "normalizedTraversal",
+  "stalled, drip-fed, and aborted request bodies",
+  "FIXED_REAPER_SIGNATURE",
+].forEach((snippet) => assertIncludes("Website verifier tests", verifierTest, snippet));
+
+[
+  '"discord-gallery-authorization-context.v1"',
+  'rows.map(([label, value]) => `${label}\\0${value}\\n`)',
+  'DISCORD_GALLERY_AUTHORIZATION_CONTEXT_REQUIRED_ROLE_MATCH = "all"',
+  '"required-role-match",',
+  "BigInt(value)",
+  "parsed.toString(10) === value",
+  "new Set(roleIds).size !== roleIds.length",
+  ".sort((left, right)",
+  'crypto.subtle.digest(',
+  "constantTimeLowerHexMatches",
+].forEach((snippet) => assertIncludes("authorization context", authorizationContext, snippet));
+[
+  "independently reproduces the frozen authorization-context vector",
+  "af0e2e6f1bcc2f15633ed33fc8947684c0f86abf50fa82d51c7f849bd72450d2",
+  "rejects duplicates and malformed IDs",
+  "exact positive uint64 decimal bytes without coercion",
+  "ASCII role ordering is distinguished from numeric ordering",
+  "every frozen negative authorization-context override fails closed",
+  "requires both exact HMAC-bound context fields",
+  "literal and decoded duplicate keys",
+].forEach((snippet) => assertIncludes("authorization context tests", authorizationContextTest, snippet));
+
+[
+  "parseDiscordGalleryIngestPayload",
+  "keys.length !== PAYLOAD_KEYS.size",
+  'value.includes("\\uFEFF")',
+  "canonicalDiscordSnowflake",
+  "validDiscordGalleryAttachmentUrl",
+  "Number.isSafeInteger(body.sizeBytes)",
+  "GALLERY_SOURCE_IMAGE_MAX_BYTES",
+  "value.trim() === value",
+  'body.authorizationContextVersion !==',
+  "filenameMatchesMime",
+  'mimeType === "image/jpeg"',
+  'lowerFilename.endsWith(".jpeg")',
+].forEach((snippet) => assertIncludes("ingest payload", payload, snippet));
+[
+  "exact 14-field Reaper payload shape",
+  "missing, unknown, and implicit optional fields",
+  "coercion, whitespace, and truncation",
+  "escaped semantic U+FEFF",
+  "size, MIME, filename, and URL identity",
+  "exact authorization-context fields",
+  "8_388_609",
+  'mimeType: "image/jpg"',
+].forEach((snippet) => assertIncludes("ingest payload tests", payloadTest, snippet));
+
+[
+  "parseDiscordGalleryReservationAcquisition",
+  "parseDiscordGalleryUploadConfirmation",
+  "parseDiscordGalleryReservationFinalization",
+  "/discord-ingest/",
+  "storagePath !== expectedStoragePath",
+  '"tombstoned"',
+].forEach((snippet) => assertIncludes("storage reservation parser", reservation, snippet));
+[
+  "lease-generation user path and MIME extension",
+  "ready, busy, conflict, and tombstone outcomes",
+  "malformed database outcomes",
+].forEach((snippet) => assertIncludes("storage reservation parser tests", reservationTest, snippet));
+
+[
+  "validDiscordGalleryAttachmentUrl",
+  'url.protocol !== "https:"',
+  "url.username || url.password || url.hash || url.port",
+  'redirect: "manual"',
+  "maximumRedirects > 3",
+  "setTimeout(() => controller.abort(), timeoutMs)",
+  "response.body.getReader()",
+  "reader.cancel(\"attachment_too_large\")",
+  "attachment_content_length_mismatch",
+  "expectedChannelId",
+  "expectedAttachmentId",
+  "url.toString() === value",
+  "galleryDiscordIngestErrorCode",
+].forEach((snippet) => assertIncludes("attachment transport", transport, snippet));
+[
+  "allows only exact HTTPS Discord attachment origins and paths",
+  "a fourth redirect must fail before a fifth request",
+  "8 MiB+1 streaming boundary must cancel",
+  "applies one deadline to fetch and response streaming",
+  "SIGNED_QUERY_MUST_NOT_SURVIVE",
+  "URL channel identity must match the HMAC-bound body",
+  "URL attachment identity must match the HMAC-bound body",
+].forEach((snippet) => assertIncludes("attachment transport tests", transportTest, snippet));
+
+[
+  "GALLERY_SOURCE_IMAGE_MAX_BYTES = 8 * 1024 * 1024",
+  "GALLERY_SOURCE_IMAGE_MAX_EDGE = 4096",
+  "GALLERY_SOURCE_IMAGE_MAX_PIXELS = 12_600_000",
+  "GALLERY_SOURCE_WEBP_MAX_EDGE = 720",
+  "source_image_webp_dimensions_unsupported",
+  "source_image_mime_mismatch",
+].forEach((snippet) => assertIncludes("source image validator", sourceImage, snippet));
+[
+  "JPEG duplicate dimensions, truncation, and trailing data",
+  "PNG duplicate headers, CRC changes, nonconsecutive data, and truncation",
+  "WebP metadata, animation, unknown chunks",
+  "encoded-byte, edge, and pixel ceilings independently",
+  "source_image_webp_dimensions_unsupported",
+  "MIME confusion",
+  "const zeroWidth",
+  "const zeroHeight",
+].forEach((snippet) => assertIncludes("source image tests", sourceImageTest, snippet));
+
+[
+  'from "./gallery-webp-decoder.ts"',
+  "GALLERY_SOURCE_WEBP_DECODER_VERSION = 0x010600",
+  'if (mimeType === "image/webp")',
+  "isDecodableGalleryWebp",
+  'typeof globalThis.createImageBitmap !== "function"',
+  "decoded.close()",
+].forEach((snippet) => assertIncludes("source full decoder", sourceDecode, snippet));
+assertMatches(
+  "source full decoder",
+  sourceDecode,
+  /if \(mimeType === "image\/webp"\)[\s\S]*isDecodableGalleryWebp\([\s\S]*return \{[\s\S]*const selectedDecoder = bitmapDecoder \?\? runtimeBitmapDecoder\(\)/,
+  "WebP must return through libwebp before the JPEG/PNG bitmap decoder is selected.",
+);
+[
+  "valid lossy, lossless, and alpha WebP",
+  "structurally plausible corrupt WebP pixels",
+  "createImageBitmap only for JPEG and PNG",
+  "above the immutable 720px decode bound as unsupported",
+].forEach((snippet) => assertIncludes("source full-decode tests", sourceDecodeTest, snippet));
+
+[
+  "create table private.discord_gallery_ingest_nonces",
+  "primary key (key_id, nonce)",
+  "enable row level security",
+  "force row level security",
+  "revoke all on schema private from public, anon",
+  "revoke all on table private.discord_gallery_ingest_nonces",
+  "from public, anon, authenticated, service_role",
+  "create or replace function public.consume_discord_gallery_ingest_nonce",
+  "security definer",
+  "set search_path = ''",
+  "request_role is distinct from 'service_role'",
+  "current_setting('role', true)",
+  "or p_expires_at is null",
+  "on conflict (key_id, nonce) do nothing",
+  "grant execute on function public.consume_discord_gallery_ingest_nonce",
+  "to service_role",
+].forEach((snippet) => assertIncludes("nonce migration", nonceMigration, snippet));
+assertNotMatches(
+  "nonce migration",
+  nonceMigration,
+  /create table (?!private\.)/i,
+  "nonce state must not create a Data API exposed table.",
+);
+assertNotMatches(
+  "nonce migration",
+  nonceMigration,
+  /revoke all on schema private from[^;]*(?:authenticated|service_role)/i,
+  "the shared private schema grants used by existing Gallery RLS must remain intact.",
+);
+
+[
+  "private Discord gallery ingest nonce table exists",
+  "nonce migration preserves established private schema usage",
+  "nonce migration preserves existing authenticated Gallery helper execution",
+  "nonce table enables and forces RLS",
+  "browser and service roles have no direct nonce table access",
+  "only service role can call the nonce consumer",
+  "same key and nonce cannot be replayed",
+  "invalid key identifiers fail closed",
+  "expired nonce leases fail closed",
+  "overlong nonce leases fail closed",
+  "null nonce leases fail closed deterministically",
+  "internal guard rejects an absent role claim",
+].forEach((snippet) => assertIncludes("nonce database tests", nonceDatabaseTest, snippet));
+
+[
+  "add column source_sha256 text",
   "gallery_submissions_discord_id_format_check",
-  "create unique index if not exists gallery_submissions_discord_attachment_key",
-  "create index if not exists gallery_submissions_discord_user_id_idx",
-].forEach((snippet) => assertIncludes("source migration", sourceMigration, snippet));
-
-assertMatches(
-  "source migration",
-  sourceMigration,
-  /validate constraint gallery_submissions_submission_source_check[\s\S]*validate constraint gallery_submissions_discord_source_required_check[\s\S]*validate constraint gallery_submissions_discord_id_format_check/,
-  "new check constraints must be validated before release.",
-);
-
-assertIncludes("revoke migration", revokeMigration, "to_regprocedure('public.rls_auto_enable()')");
-assertIncludes("revoke migration", revokeMigration, "revoke execute on function public.rls_auto_enable() from public");
-assertIncludes("revoke migration", revokeMigration, "revoke execute on function public.rls_auto_enable() from anon");
-assertIncludes("revoke migration", revokeMigration, "revoke execute on function public.rls_auto_enable() from authenticated");
-
-assertMatches(
-  "previous gallery migration",
-  previousGalleryMigration,
-  /grant insert \([\s\S]*user_id,[\s\S]*storage_bucket,[\s\S]*storage_path,[\s\S]*original_filename,[\s\S]*mime_type,[\s\S]*size_bytes,[\s\S]*title,[\s\S]*caption,[\s\S]*category[\s\S]*\) on table public\.gallery_submissions to authenticated;/,
-  "authenticated insert grant should stay limited to website-editable submission fields.",
-);
-
+  "discord_guild_id ~ '^[1-9][0-9]{15,19}$'",
+  "information_schema.columns",
+  "column_name = 'user_metadata'",
+  "column_name = 'version'",
+  "discord_gallery_ingest_storage_schema_incompatible",
+  "create table private.discord_gallery_ingest_reservations",
+  "primary key (discord_message_id, discord_attachment_id)",
+  "unique (storage_path)",
+  "enable row level security",
+  "force row level security",
+  "revoke all on table private.discord_gallery_ingest_reservations",
+  "request_role is distinct from 'service_role'",
+  "current_setting('role', true)",
+  "create or replace function public.acquire_discord_gallery_ingest_reservation",
+  "create or replace function public.confirm_discord_gallery_ingest_upload",
+  "create or replace function public.finalize_discord_gallery_ingest_reservation",
+  "new_token::text || '.' || extension",
+  "storage_path = new_path",
+  "reservation.state in ('uploaded', 'ready')",
+  "storage_object_matches",
+  "object_row.user_metadata ->> 'sourceSha256'",
+  "object_row.user_metadata ->> 'validatorVersion'",
+  "reservation.state = 'ready'",
+  "'outcome', 'tombstoned'",
+  "gallery_ingest_finalize_conflict",
+  "to service_role",
+].forEach((snippet) => assertIncludes("reservation migration", reservationMigration, snippet));
 assertNotMatches(
-  "previous gallery migration",
-  authenticatedInsertGrant,
-  /discord_/,
-  "browser-authenticated insert grants must not include Discord source metadata.",
+  "reservation migration",
+  reservationMigration,
+  /create table public\./i,
+  "reservation state must remain outside public Data API tables.",
 );
 
 [
-  "DISCORD_GALLERY_CHANNEL_ID=1508077313965817856",
-  "DISCORD_GALLERY_INGEST_SECRET=<set manually, never commit>",
-  "share_to_instagram",
-  "instagramOptIn",
-  "supabase functions serve submit-discord-gallery-image --env-file supabase/functions/.env.local",
-  "supabase functions deploy submit-discord-gallery-image",
-  "browser users cannot set Discord source metadata.",
-  "submit-discord-gallery-image",
-  "verify_jwt = false",
-  "trusted Reaper bridge",
-  "existing linked `member_profiles.discord_user_id`",
-  "Discord uploads are idempotent by message/attachment ID.",
-].forEach((snippet) => assertIncludes("supabase README", readme, snippet));
+  "Users can update their own pending submission metadata",
+  "submission_source = 'website'",
+  "name not like ((select auth.uid())::text || '/discord-ingest/%')",
+  "p_object_name not like (p_user_id::text || '/discord-ingest/%')",
+  "Members update own pending gallery originals",
+  "Members delete own pending or orphaned gallery originals",
+  "revoke all on function public.gallery_commit_moderation",
+  "create or replace function public.gallery_commit_moderation_checked",
+  "request_role is distinct from 'service_role'",
+  "state = 'ready'",
+  "object_row.id is distinct from reservation.storage_object_id",
+  "object_row.version is distinct from reservation.storage_object_version",
+  "source_object_changed",
+].forEach((snippet) => assertIncludes("Discord original hardening migration", hardeningMigration, snippet));
+
+[
+  "submission_source,source_sha256",
+  '"gallery_commit_moderation_checked"',
+  "p_expected_source_sha256",
+].forEach((snippet) => assertIncludes("Gallery moderation receiver", moderator, snippet));
+
+[
+  "private Discord Gallery ingest reservation table exists",
+  "pinned local Storage schema exposes typed user metadata and object version",
+  "acquire guard rejects an absent claim as a non-superuser",
+  "set local role authenticated",
+  "finalize rejects a uint64 overflow identifier",
+  "storage rejects non-canonical Discord identifiers",
+  "reservation binds HMAC body metadata across retries",
+  "mismatched Storage digest metadata",
+  "object version changed after confirmation",
+  "ready duplicate disclosure requires full metadata identity",
+  "ready duplicate disclosure rechecks exact Storage object identity",
+  "lost-response finalization rechecks exact Storage object identity",
+  "application row vanished is not resurrected",
+  "failed finalization leaves a recoverable uploaded reservation",
+  "takeover rotates to a fresh path before a successor can upload",
+  "expired writer cannot rebind the finalized successor after its late upsert",
+  "late predecessor write leaves the ready generation identity and version unchanged",
+  "authenticated member cannot create inside the service reservation namespace",
+  "authenticated member cannot overwrite a Discord original",
+  "authenticated member cannot delete a Discord original",
+  "moderation commits only after digest, reservation, and object CAS match",
+].forEach((snippet) => assertIncludes("reservation database tests", reservationDatabaseTest, snippet));
+
+if (contractText) {
+  const contractBytes = Buffer.from(contractText, "utf8");
+  const digest = createHash("sha256").update(contractBytes).digest("hex");
+  if (digest !== expectedContractSha256) {
+    failures.push(`wire contract: expected SHA-256 ${expectedContractSha256}, received ${digest}.`);
+  }
+  if (contractBytes.length !== 2227 || !contractText.endsWith("\n")) {
+    failures.push("wire contract: expected exactly 2,227 UTF-8 bytes with final LF.");
+  }
+  try {
+    const contract = JSON.parse(contractText);
+    if (
+      contract.contractId !== "discord-gallery-ingest-hmac.v1" ||
+      contract.signerOwner !== "Mochirii-Wushu/Reaper-Discord-Bot" ||
+      contract.verifierOwner !== "Mochirii-Wushu/Mochirii-Website" ||
+      contract.wire?.pathSemantics?.verifierValue !==
+        "runtime-normalized-whatwg-url-pathname" ||
+      contract.wire?.pathSemantics?.rawRequestTargetBound !== false ||
+      contract.wire?.bodySemantics?.digestInput !==
+        "exact-bounded-request-body-bytes" ||
+      contract.wire?.bodySemantics?.decodeOrNormalizeBeforeDigest !== false ||
+      contract.wire?.bodySemantics?.utf8BomAccepted !== false ||
+      contract.ownershipBoundary?.reaperContainsSignerAndActiveKeySelection !== true ||
+      contract.ownershipBoundary?.websiteRetainsVerifierAndNonceStore !== true
+    ) failures.push("wire contract: repository ownership fields drifted.");
+  } catch {
+    failures.push("wire contract: invalid JSON.");
+  }
+}
+
+if (authorizationContextContractText) {
+  const contractBytes = Buffer.from(authorizationContextContractText, "utf8");
+  const digest = createHash("sha256")
+    .update(contractBytes)
+    .digest("hex");
+  if (digest !== expectedAuthorizationContextContractSha256) {
+    failures.push(
+      `authorization-context contract: expected SHA-256 ${expectedAuthorizationContextContractSha256}, received ${digest}.`,
+    );
+  }
+  if (
+    contractBytes.length !== 8451 ||
+    !authorizationContextContractText.endsWith("\n")
+  ) {
+    failures.push("authorization-context contract: expected exactly 8,451 UTF-8 bytes with final LF.");
+  }
+  try {
+    const contract = JSON.parse(authorizationContextContractText);
+    if (
+      contract.contractId !== "discord-gallery-authorization-context.v1" ||
+      contract.producerOwner !== "Mochirii-Wushu/Reaper-Discord-Bot" ||
+      contract.consumerOwner !== "Mochirii-Wushu/Mochirii-Website" ||
+      contract.canonicalization?.requiredRoleCount !== 2 ||
+      contract.canonicalization?.requiredRoleMatch !== "all" ||
+      contract.syntheticVector?.canonicalUtf8ByteCount !== 213 ||
+      contract.syntheticVector?.sha256 !==
+        "af0e2e6f1bcc2f15633ed33fc8947684c0f86abf50fa82d51c7f849bd72450d2" ||
+      contract.sortDistinguishingVector?.canonicalUtf8ByteCount !== 214 ||
+      contract.sortDistinguishingVector?.sha256 !==
+        "70e0d0f32e819025ab8b35831e2ccd53fc2d6a95599141d4fd7761a6d79fdbab" ||
+      contract.sortDistinguishingVector?.wrongNumericOrderSha256 !==
+        "dfbe607461ff52ce4484eb4ad13535243c18d41460f109ec884e6c3d01847c6f" ||
+      contract.negativeVectors?.length !== 13
+    ) failures.push("authorization-context contract: ownership or canonical vector drifted.");
+  } catch {
+    failures.push("authorization-context contract: invalid JSON.");
+  }
+}
+
+[
+  "source-only candidate",
+  "af3025221626aadd2d0fc82fd79bb02b3f253ccdd8753fb78082aa885c929e3f",
+  "db5ab92c20df4e59957979750e2ba6d3484f6112eb0ad87787bdf1d5be8d237c",
+  "strict HMAC-only",
+  "raw HTTP request target",
+  "U+FEFF anywhere",
+  "semantically equivalent JSON `\\uFEFF` escape",
+  "reject U+FEFF before signing",
+  "were revoked during review",
+  "6547fb8e06e792e59d810ab97de9609f3e0ccbf6",
+  "28144a28fa540ed6d93cd5d103c566049c9589d3",
+  "f7a9c927001931423af8beef57113d66f2257a63",
+  "expired-lease takeover atomically rotates the reservation to a fresh path",
+  "cannot overwrite",
+  "successor's ready object",
+  "persist after a successful retry",
+  "require a future reviewed retention",
+  "does not claim that every failure",
+  "does not strip JPEG EXIF/APP",
+  "no atomic per-member/window business rate limit",
+  "public feed v1",
+  "storage.objects.id uuid",
+  "brief fail-closed ingest",
+  "bounded transition mode",
+  "provider readback",
+  "No deployment is authorized",
+].forEach((snippet) => assertIncludes("activation runbook", activation, snippet));
+
+[
+  "strict HMAC-only `submit-discord-gallery-image` replacement",
+  "terminal replacement signer belongs to `Mochirii-Wushu/Reaper-Discord-Bot`",
+  "No legacy shared-secret fallback is present.",
+  "private resumable reservation",
+  "not metadata-sanitized",
+  "provider readback",
+].forEach((snippet) => assertIncludes("Supabase Gallery documentation", supabaseReadme, snippet));
 
 if (failures.length) {
   console.error("Discord gallery ingest validation failed.");
@@ -256,4 +584,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log("Discord gallery ingest validation OK.");
+console.log("Discord gallery ingest validation OK (Website verifier-only contract).");

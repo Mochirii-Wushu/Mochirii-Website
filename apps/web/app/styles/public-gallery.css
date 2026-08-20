@@ -231,12 +231,6 @@ body[data-page="gallery"] .gallery-grid{
 }
 
 .gallery-thumb{
-  position:relative;
-  display:block;
-  width:100%;
-  aspect-ratio:16 / 10;
-  overflow:hidden;
-  padding:0;
   border-radius:18px;
   border:1px solid transparent;
   background:
@@ -293,8 +287,7 @@ body[data-page="gallery"] .gallery-thumb:focus-visible{
   outline-offset:4px;
 }
 
-.gallery-thumb img{
-  display:block;
+.gallery-thumb .responsive-gallery-media__image{
   border-radius:17px;
   transform:scale(1.001);
   transition:transform .24s var(--ease), filter .24s var(--ease);

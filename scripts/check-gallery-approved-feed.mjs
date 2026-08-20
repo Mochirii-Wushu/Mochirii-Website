@@ -46,9 +46,29 @@ const runbook = read("docs/vote-reminder-runbook.md");
   "[...items, ...approvedItems]",
 ].forEach((snippet) => assertIncludes("GalleryBrowser approved feed", galleryBrowser, snippet));
 
+[
+  "result.message",
+  "result.statusText",
+].forEach((snippet) => {
+  if (galleryBrowser.includes(snippet)) failures.push(`GalleryBrowser approved feed: public status must not expose ${snippet}.`);
+});
+
 if (galleryBrowser.includes("setRandomSeed") || galleryBrowser.includes("createRandomSeed")) {
   failures.push("GalleryBrowser approved feed: random order must be stable before first paint.");
 }
+
+[
+  "Loading member-submitted images",
+  "Member-submitted images are temporarily unavailable",
+  "Member-submitted images loaded",
+  "No member-submitted images are available yet",
+  "currently available",
+  "gallery-feed-retry",
+].forEach((candidateOnlyCopy) => {
+  if (galleryBrowser.includes(candidateOnlyCopy)) {
+    failures.push(`GalleryBrowser approved feed: unapproved candidate-only public copy remains: ${candidateOnlyCopy}.`);
+  }
+});
 
 [
   "function publicApprovedGalleryFeedUrl",
@@ -96,17 +116,19 @@ assertIncludes("Leader Dashboard thumbnail backfill", leaderDashboardParts, "Pre
   "await isDecodableGalleryWebp(",
   'error: "thumbnail_decode_failed"',
   "thumbnailRevisionId = crypto.randomUUID();",
-  "galleryThumbnailStoragePath(submissionId, thumbnailRevisionId)",
+  "galleryThumbnailStoragePath(",
   "upsert: false",
-  '"gallery_commit_moderation"',
+  '"gallery_commit_moderation_checked"',
+  "p_expected_source_sha256:",
   "p_expected_thumbnail_revision_id: priorThumbnailRevisionId || null",
-  ".remove([thumbnailPath])",
+  ".remove([",
+  "thumbnailPath",
 ].forEach((snippet) => assertIncludes("atomic gallery moderation", moderation, snippet));
 if (/\.from\(["']gallery_submissions["']\)\s*\n?\s*\.update\(/.test(moderation)) {
-  failures.push("atomic gallery moderation: submission updates must remain inside gallery_commit_moderation.");
+  failures.push("atomic gallery moderation: submission updates must remain inside the database moderation RPC.");
 }
 if (/\.from\(["']gallery_moderation_events["']\)\s*\n?\s*\.insert\(/.test(moderation)) {
-  failures.push("atomic gallery moderation: audit inserts must remain inside gallery_commit_moderation.");
+  failures.push("atomic gallery moderation: audit inserts must remain inside the database moderation RPC.");
 }
 
 [

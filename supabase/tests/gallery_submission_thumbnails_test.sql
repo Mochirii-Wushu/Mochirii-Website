@@ -105,8 +105,9 @@ select ok(
 select ok(
   not has_function_privilege('anon', 'public.gallery_commit_moderation(uuid,uuid,text,text,uuid,text,text,bigint,uuid)', 'execute')
   and not has_function_privilege('authenticated', 'public.gallery_commit_moderation(uuid,uuid,text,text,uuid,text,text,bigint,uuid)', 'execute')
-  and has_function_privilege('service_role', 'public.gallery_commit_moderation(uuid,uuid,text,text,uuid,text,text,bigint,uuid)', 'execute'),
-  'atomic moderation is service-role only'
+  and not has_function_privilege('service_role', 'public.gallery_commit_moderation(uuid,uuid,text,text,uuid,text,text,bigint,uuid)', 'execute')
+  and has_function_privilege('service_role', 'public.gallery_commit_moderation_checked(uuid,uuid,text,text,uuid,text,text,bigint,uuid,text)', 'execute'),
+  'source-CAS moderation is service-role only and the unchecked RPC is revoked'
 );
 
 select ok(
@@ -165,13 +166,13 @@ insert into public.gallery_submissions (
 set local "request.jwt.claim.role" = 'service_role';
 
 select is(
-  (public.gallery_commit_moderation(
+  (public.gallery_commit_moderation_checked(
     '22222222-2222-4222-8222-222222222221',
     '99999999-9999-4999-8999-999999999999',
     'approved', null,
     '33333333-3333-4333-8333-333333333331',
     '_approved/thumbs/22222222-2222-4222-8222-222222222221/33333333-3333-4333-8333-333333333331.webp',
-    'image/webp', 70000, null
+    'image/webp', 70000, null, null
   ) ->> 'committed')::boolean,
   true,
   'approval and derivative selection commit together'
@@ -280,28 +281,28 @@ reset role;
 set local "request.jwt.claim.role" = 'service_role';
 
 select is(
-  (public.gallery_commit_moderation(
+  (public.gallery_commit_moderation_checked(
     '22222222-2222-4222-8222-222222222221',
     '99999999-9999-4999-8999-999999999999',
     'thumbnail', null,
     '44444444-4444-4444-8444-444444444441',
     '_approved/thumbs/22222222-2222-4222-8222-222222222221/44444444-4444-4444-8444-444444444441.webp',
     'image/webp', 71000,
-    '33333333-3333-4333-8333-333333333331'
+    '33333333-3333-4333-8333-333333333331', null
   ) ->> 'committed')::boolean,
   true,
   'thumbnail refresh accepts the current compare-and-swap revision'
 );
 
 select is(
-  public.gallery_commit_moderation(
+  public.gallery_commit_moderation_checked(
     '22222222-2222-4222-8222-222222222221',
     '99999999-9999-4999-8999-999999999999',
     'thumbnail', null,
     '55555555-5555-4555-8555-555555555551',
     '_approved/thumbs/22222222-2222-4222-8222-222222222221/55555555-5555-4555-8555-555555555551.webp',
     'image/webp', 72000,
-    '33333333-3333-4333-8333-333333333331'
+    '33333333-3333-4333-8333-333333333331', null
   ) ->> 'reason',
   'stale_thumbnail_revision',
   'a losing concurrent refresh is rejected by compare-and-swap'
@@ -315,10 +316,10 @@ select is(
 );
 
 select throws_ok(
-  $$select public.gallery_commit_moderation(
+  $$select public.gallery_commit_moderation_checked(
     '22222222-2222-4222-8222-222222222223',
     '99999999-9999-4999-8999-999999999999',
-    'rejected', repeat('x', 501), null, null, null, null, null
+    'rejected', repeat('x', 501), null, null, null, null, null, null
   )$$,
   '23514',
   'new row for relation "gallery_moderation_events" violates check constraint "gallery_moderation_events_reason_length"',
@@ -333,13 +334,13 @@ select is(
 );
 
 select is(
-  public.gallery_commit_moderation(
+  public.gallery_commit_moderation_checked(
     '22222222-2222-4222-8222-222222222224',
     '99999999-9999-4999-8999-999999999999',
     'approved', null,
     '33333333-3333-4333-8333-333333333334',
     '_approved/thumbs/22222222-2222-4222-8222-222222222224/33333333-3333-4333-8333-333333333334.webp',
-    'image/webp', 74000, null
+    'image/webp', 74000, null, null
   ) ->> 'reason',
   'original_object_mismatch',
   'invalid original object metadata fails closed without a cast error'

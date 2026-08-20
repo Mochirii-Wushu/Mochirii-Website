@@ -28,6 +28,29 @@ The Gallery is Mōchirīī's visual memory: screenshots of scenes, members, gath
 - The canonical Next Gallery renders static items in bounded batches of 24; keep the `Show more images` control as the only expansion action unless a later scoped performance pass replaces the pattern. The immutable legacy release remains rollback-only.
 - Approved member and Discord submissions may render with time-limited signed URLs only. Derivatives live below the service-owned `_approved/thumbs/{submission}/{revision}.webp` prefix; members cannot insert, update, read, or delete that prefix. Do not expose raw storage buckets, storage paths, service-role keys, or private media references to browser code.
 - Home Gallery Spotlight must keep using thumbnail paths in its grid and full-size Gallery images in its lightbox.
+- The source-only Discord receiver candidate is not deployed. Its stricter
+  ingest boundary accepts at most 8 MiB, 4,096 pixels per JPEG/PNG edge, and
+  12.6 million JPEG/PNG pixels after structural and full decode. Static WebP
+  uses the existing immutable libwebp 1.6.0 validator and is currently limited
+  to a 720-pixel edge; larger WebP is unsupported, not classified as corrupt.
+  This Discord receiver limit does not silently change the separate current
+  private Website upload contract. Activation requires the approved packet in
+  `docs/operations/discord-gallery-ingest-hmac-activation.md`.
+- Full source decode is validation, not sanitization. The candidate stores the
+  original encoded bytes and does not strip JPEG EXIF/APP or allowed PNG
+  ancillary metadata. Public release remains blocked on a reviewed sanitized
+  derivative/re-encode contract and tests.
+- The source candidate has no atomic per-member/window business rate limit.
+  Release remains blocked until a concurrency-safe database policy or a
+  separately approved provider control is reviewed and proven.
+- Current public-feed v1 signed-original delivery, URL trust, uploader
+  attribution, retention/anonymization, and account-deletion behavior are not
+  changed or closed by this source packet. No publication ledger is added.
+
+### Shared grid-media contract
+
+- Home Screenshot Spotlight and `/gallery` render thumbnails through `apps/web/components/ResponsiveGalleryMedia.tsx` and the neutral geometry in `apps/web/app/styles/shell-gallery-media.css`.
+- The shared media wrapper fills the stable 16:10 card and uses `object-fit: cover`; page-specific styles may add borders, scrims, hover treatment, or color without redefining the image geometry.
 
 ### Universal lightbox contract
 

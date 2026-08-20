@@ -39,6 +39,8 @@ const reviewedDatabaseTestPaths = new Set([
   "supabase/operations/validate_gallery_submission_thumbnails.sql",
   "supabase/operations/validate_reviewed_sya_spinner_classification.sql",
   "supabase/tests/gallery_submission_thumbnails_test.sql",
+  "supabase/tests/discord_gallery_ingest_hmac_test.sql",
+  "supabase/tests/discord_gallery_ingest_reservations_test.sql",
   "supabase/tests/private_live_spinner_test.sql",
   "supabase/tests/spinner_media_jobs_test.sql",
   "supabase/tests/official_raffle_publication_test.sql",

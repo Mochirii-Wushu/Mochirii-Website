@@ -14,7 +14,8 @@ import {
 } from "../_shared/gallery-thumbnail.ts";
 import { isDecodableGalleryWebp } from "../_shared/gallery-webp-decoder.ts";
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const VALID_ACTIONS = new Set(["approved", "rejected", "thumbnail"]);
 const MEMBER_GALLERY_BUCKET = "member-gallery";
 const INSTAGRAM_SUPPORTED_MIME_TYPES = new Set(["image/jpeg"]);
@@ -22,7 +23,8 @@ const INSTAGRAM_SUPPORTED_MIME_TYPES = new Set(["image/jpeg"]);
 function buildInstagramCaption(submission: JsonRecord): string {
   const title = safeString(submission.title, 80);
   const caption = safeString(submission.caption, 300);
-  const parts = [title, caption, "Shared from the Mōchirīī guild gallery."].filter(Boolean);
+  const parts = [title, caption, "Shared from the Mōchirīī guild gallery."]
+    .filter(Boolean);
   return parts.join("\n\n").slice(0, 2200);
 }
 
@@ -75,9 +77,12 @@ async function handleRequest(req: Request): Promise<Response> {
   }
 
   const expectedStatus = action === "thumbnail" ? "approved" : "pending";
-  const { data: currentSubmission, error: lookupError } = await access.adminClient
+  const { data: currentSubmission, error: lookupError } = await access
+    .adminClient
     .from("gallery_submissions")
-    .select("id,user_id,storage_bucket,storage_path,thumbnail_revision_id,thumbnail_storage_path,title,caption,mime_type,instagram_opt_in")
+    .select(
+      "id,user_id,storage_bucket,storage_path,thumbnail_revision_id,thumbnail_storage_path,title,caption,mime_type,instagram_opt_in,submission_source,source_sha256",
+    )
     .eq("id", submissionId)
     .eq("status", expectedStatus)
     .maybeSingle();
@@ -102,7 +107,9 @@ async function handleRequest(req: Request): Promise<Response> {
     return jsonResponse(
       {
         ok: false,
-        error: action === "thumbnail" ? "submission_not_approved" : "submission_not_pending",
+        error: action === "thumbnail"
+          ? "submission_not_approved"
+          : "submission_not_pending",
         message: action === "thumbnail"
           ? "This gallery submission is not approved or could not be found."
           : "This gallery submission is no longer pending or could not be found.",
@@ -147,10 +154,33 @@ async function handleRequest(req: Request): Promise<Response> {
   const userId = safeString(currentSubmission.user_id, 80);
   const bucket = safeString(currentSubmission.storage_bucket, 80);
   const originalStoragePath = safeString(currentSubmission.storage_path, 1000);
-  const priorThumbnailRevisionId = safeString(currentSubmission.thumbnail_revision_id, 80);
-  const priorThumbnailPath = safeString(currentSubmission.thumbnail_storage_path, 1000);
+  const priorThumbnailRevisionId = safeString(
+    currentSubmission.thumbnail_revision_id,
+    80,
+  );
+  const priorThumbnailPath = safeString(
+    currentSubmission.thumbnail_storage_path,
+    1000,
+  );
+  const submissionSource = safeString(currentSubmission.submission_source, 40);
+  const sourceSha256 = safeString(currentSubmission.source_sha256, 64);
   let thumbnailRevisionId: string | null = null;
   let thumbnailPath: string | null = null;
+
+  if (
+    submissionSource === "discord" &&
+    (!sourceSha256 || !/^[0-9a-f]{64}$/.test(sourceSha256))
+  ) {
+    return jsonResponse(
+      {
+        ok: false,
+        error: "source_integrity_unavailable",
+        message:
+          "This Discord gallery source cannot be verified for moderation.",
+      },
+      409,
+    );
+  }
 
   if (thumbnailResult?.ok) {
     if (!userId || bucket !== MEMBER_GALLERY_BUCKET || !originalStoragePath) {
@@ -165,7 +195,10 @@ async function handleRequest(req: Request): Promise<Response> {
     }
 
     thumbnailRevisionId = crypto.randomUUID();
-    thumbnailPath = galleryThumbnailStoragePath(submissionId, thumbnailRevisionId);
+    thumbnailPath = galleryThumbnailStoragePath(
+      submissionId,
+      thumbnailRevisionId,
+    );
     const { error: thumbnailUploadError } = await access.adminClient.storage
       .from(MEMBER_GALLERY_BUCKET)
       .upload(thumbnailPath, thumbnailResult.thumbnail.bytes, {
@@ -188,12 +221,13 @@ async function handleRequest(req: Request): Promise<Response> {
         500,
       );
     }
-
   }
 
-  const rejectionReason = action === "rejected" ? rawReason || "Rejected by moderator." : null;
+  const rejectionReason = action === "rejected"
+    ? rawReason || "Rejected by moderator."
+    : null;
   const { data: commitData, error: commitError } = await access.adminClient.rpc(
-    "gallery_commit_moderation",
+    "gallery_commit_moderation_checked",
     {
       p_submission_id: submissionId,
       p_moderator_id: access.userId,
@@ -201,29 +235,42 @@ async function handleRequest(req: Request): Promise<Response> {
       p_reason: rejectionReason,
       p_thumbnail_revision_id: thumbnailRevisionId,
       p_thumbnail_storage_path: thumbnailPath,
-      p_thumbnail_mime_type: thumbnailResult?.ok ? thumbnailResult.thumbnail.mimeType : null,
-      p_thumbnail_size_bytes: thumbnailResult?.ok ? thumbnailResult.thumbnail.sizeBytes : null,
+      p_thumbnail_mime_type: thumbnailResult?.ok
+        ? thumbnailResult.thumbnail.mimeType
+        : null,
+      p_thumbnail_size_bytes: thumbnailResult?.ok
+        ? thumbnailResult.thumbnail.sizeBytes
+        : null,
       p_expected_thumbnail_revision_id: priorThumbnailRevisionId || null,
+      p_expected_source_sha256: submissionSource === "discord"
+        ? sourceSha256
+        : null,
     },
   );
-  const commit = commitData && typeof commitData === "object" && !Array.isArray(commitData)
-    ? commitData as JsonRecord
-    : {};
+  const commit =
+    commitData && typeof commitData === "object" && !Array.isArray(commitData)
+      ? commitData as JsonRecord
+      : {};
   const committed = commit.committed === true;
 
   if (commitError || !committed) {
     if (thumbnailPath) {
-      await access.adminClient.storage.from(MEMBER_GALLERY_BUCKET).remove([thumbnailPath]);
+      await access.adminClient.storage.from(MEMBER_GALLERY_BUCKET).remove([
+        thumbnailPath,
+      ]);
     }
     console.error("moderate-gallery-submission atomic commit failed", {
       code: commitError?.code,
-      message: commitError?.message || safeString(commit.reason, 80) || "Atomic moderation conflict",
+      message: commitError?.message || safeString(commit.reason, 80) ||
+        "Atomic moderation conflict",
       submissionId,
     });
     return jsonResponse(
       {
         ok: false,
-        error: commitError ? "moderation_commit_failed" : safeString(commit.reason, 80),
+        error: commitError
+          ? "moderation_commit_failed"
+          : safeString(commit.reason, 80),
         message: action === "thumbnail"
           ? "This gallery thumbnail changed before the update completed. Refresh and try again."
           : "This gallery submission changed before moderation completed. Refresh and try again.",
@@ -232,29 +279,41 @@ async function handleRequest(req: Request): Promise<Response> {
     );
   }
 
-  const updatedSubmission = commit.submission && typeof commit.submission === "object" && !Array.isArray(commit.submission)
-    ? commit.submission as JsonRecord
-    : {};
+  const updatedSubmission =
+    commit.submission && typeof commit.submission === "object" &&
+      !Array.isArray(commit.submission)
+      ? commit.submission as JsonRecord
+      : {};
   const reviewedAt = safeString(updatedSubmission.reviewed_at, 80);
 
-  if (action === "thumbnail" && priorThumbnailPath && priorThumbnailPath !== thumbnailPath) {
+  if (
+    action === "thumbnail" && priorThumbnailPath &&
+    priorThumbnailPath !== thumbnailPath
+  ) {
     const { error: staleThumbnailError } = await access.adminClient.storage
       .from(MEMBER_GALLERY_BUCKET)
       .remove([priorThumbnailPath]);
     if (staleThumbnailError) {
-      console.warn("moderate-gallery-submission stale thumbnail cleanup deferred", {
-        message: staleThumbnailError.message,
-        submissionId,
-      });
+      console.warn(
+        "moderate-gallery-submission stale thumbnail cleanup deferred",
+        {
+          message: staleThumbnailError.message,
+          submissionId,
+        },
+      );
     }
   }
 
   let instagramJob: JsonRecord | null = null;
   if (action === "approved" && updatedSubmission.instagram_opt_in === true) {
     const mimeType = safeString(updatedSubmission.mime_type, 80);
-    const isEligible = Boolean(mimeType && INSTAGRAM_SUPPORTED_MIME_TYPES.has(mimeType));
+    const isEligible = Boolean(
+      mimeType && INSTAGRAM_SUPPORTED_MIME_TYPES.has(mimeType),
+    );
     const instagramStatus = isEligible ? "queued" : "ineligible";
-    const eligibilityReason = isEligible ? null : "Instagram v1 publishing supports JPEG images only.";
+    const eligibilityReason = isEligible
+      ? null
+      : "Instagram v1 publishing supports JPEG images only.";
 
     const { data: jobData, error: jobError } = await access.adminClient
       .from("gallery_instagram_publish_jobs")
@@ -280,7 +339,8 @@ async function handleRequest(req: Request): Promise<Response> {
         {
           ok: false,
           error: "instagram_job_failed",
-          message: "The submission was approved, but the Instagram publishing job could not be queued.",
+          message:
+            "The submission was approved, but the Instagram publishing job could not be queued.",
         },
         500,
       );
@@ -302,17 +362,21 @@ async function handleRequest(req: Request): Promise<Response> {
       });
 
     if (instagramEventError) {
-      console.error("moderate-gallery-submission instagram event insert failed", {
-        code: instagramEventError.code,
-        message: instagramEventError.message,
-        submissionId,
-      });
+      console.error(
+        "moderate-gallery-submission instagram event insert failed",
+        {
+          code: instagramEventError.code,
+          message: instagramEventError.message,
+          submissionId,
+        },
+      );
 
       return jsonResponse(
         {
           ok: false,
           error: "instagram_event_failed",
-          message: "The submission was approved, but the Instagram publishing audit event could not be recorded.",
+          message:
+            "The submission was approved, but the Instagram publishing audit event could not be recorded.",
         },
         500,
       );
@@ -330,7 +394,7 @@ async function handleRequest(req: Request): Promise<Response> {
     message: action === "approved"
       ? "Submission approved for the guild gallery."
       : action === "thumbnail"
-        ? "Gallery thumbnail prepared."
-        : "Submission declined.",
+      ? "Gallery thumbnail prepared."
+      : "Submission declined.",
   });
 }
