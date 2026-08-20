@@ -2,9 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  clearSpinnerLiveSnapshotCache,
+  createSpinnerLiveSnapshotCache,
   fetchSpinnerLiveSnapshot,
   spinnerLiveErrorRetryDelay,
   spinnerLivePollInterval,
+  type SpinnerLiveSnapshotCache,
   type SpinnerLiveResultV1,
 } from "./live";
 
@@ -27,6 +30,7 @@ export function useSpinnerLive({
   const runningRef = useRef(false);
   const failureCountRef = useRef(0);
   const mountedRef = useRef(false);
+  const snapshotCacheRef = useRef<SpinnerLiveSnapshotCache>(createSpinnerLiveSnapshotCache());
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,11 +39,19 @@ export function useSpinnerLive({
   }, [onResult]);
 
   useEffect(() => {
+    const snapshotCache = snapshotCacheRef.current;
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
+      clearSpinnerLiveSnapshotCache(snapshotCache);
     };
   }, []);
+
+  useEffect(() => {
+    if (!enabled) {
+      clearSpinnerLiveSnapshotCache(snapshotCacheRef.current);
+    }
+  }, [enabled]);
 
   const refresh = useCallback(async () => {
     if (!enabled || runningRef.current) return null;
@@ -51,7 +63,7 @@ export function useSpinnerLive({
     }
     runningRef.current = true;
     try {
-      const result = await fetchSpinnerLiveSnapshot();
+      const result = await fetchSpinnerLiveSnapshot(snapshotCacheRef.current);
       if (!mountedRef.current) return null;
       callbackRef.current(result);
       setConnected(true);

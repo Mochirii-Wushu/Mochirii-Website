@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  createSpinnerLiveSnapshotCache,
   createSpinnerServerClockAnchor,
   createSpinnerCommandId,
+  fetchSpinnerLiveSnapshot,
   formatSpinnerCountdown,
   isTerminalSpinnerSpinFailure,
   parsePendingSpinnerCommand,
@@ -11,6 +13,7 @@ import {
   parseSpinnerLiveSnapshot,
   reconcileSpinnerServerClockAnchor,
   resolveInitialViewerMotion,
+  SPINNER_SESSION_INVALID_EVENT,
   SpinnerLiveRequestError,
   spinnerCountdownSeconds,
   spinnerDrawAnnouncementTransition,
@@ -22,6 +25,7 @@ import {
   spinnerLiveTimeline,
   spinnerServerClockAnchorForSnapshot,
   spinnerServerClockNow,
+  sendSpinnerLiveCommand,
   // @ts-expect-error Node's type-stripping runner needs the explicit source extension.
 } from "../apps/web/components/spinner/live.ts";
 import {
@@ -52,6 +56,8 @@ const UPDATED_AT = "2026-07-26T18:00:00.000Z";
 const STARTED_AT = "2026-07-26T18:03:00.000Z";
 const REVEAL_AT = "2026-07-26T18:03:08.000Z";
 const SERVER_NOW = "2026-07-26T18:00:04.000Z";
+const NEXT_SERVER_NOW = "2026-07-26T18:00:06.000Z";
+const SNAPSHOT_ETAG = `"spinner-${SESSION_ID}-4-revealed"`;
 
 const PARTICIPANTS: ParticipantV1[] = [
   { version: 1, id: "40000000-0000-4000-8000-000000000004", displayName: "Lotus" },
@@ -121,6 +127,130 @@ function resultEnvelope(snapshot: ReturnType<typeof revealedSnapshot>, receipt: 
     },
   };
 }
+
+async function withBrowserTransport(
+  run: (dispatchedEvents: Event[]) => Promise<void>,
+) {
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
+  const originalFetch = globalThis.fetch;
+  const dispatchedEvents: Event[] = [];
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    value: {
+      setTimeout: globalThis.setTimeout.bind(globalThis),
+      clearTimeout: globalThis.clearTimeout.bind(globalThis),
+      dispatchEvent(event: Event) {
+        dispatchedEvents.push(event);
+        return true;
+      },
+    } as unknown as Window,
+  });
+  try {
+    await run(dispatchedEvents);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalWindow) Object.defineProperty(globalThis, "window", originalWindow);
+    else Reflect.deleteProperty(globalThis, "window");
+  }
+}
+
+test("unchanged GET polling sends the cached validator and reuses a bodyless 304 snapshot", async () => {
+  await withBrowserTransport(async () => {
+    const requests: RequestInit[] = [];
+    globalThis.fetch = (async (_input, init) => {
+      requests.push(init || {});
+      if (requests.length === 1) {
+        return new Response(JSON.stringify(resultEnvelope(revealedSnapshot())), {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+            ETag: SNAPSHOT_ETAG,
+            "X-Mochirii-Server-Time": SERVER_NOW,
+          },
+        });
+      }
+      return new Response(null, {
+        status: 304,
+        headers: {
+          ETag: SNAPSHOT_ETAG,
+          "X-Mochirii-Server-Time": NEXT_SERVER_NOW,
+        },
+      });
+    }) as typeof fetch;
+
+    const cache = createSpinnerLiveSnapshotCache();
+    const initial = await fetchSpinnerLiveSnapshot(cache);
+    const unchanged = await fetchSpinnerLiveSnapshot(cache);
+
+    assert.equal(new Headers(requests[0].headers).get("if-none-match"), null);
+    assert.equal(new Headers(requests[1].headers).get("if-none-match"), SNAPSHOT_ETAG);
+    assert.equal(unchanged.snapshot, initial.snapshot);
+    assert.equal(unchanged.serverNow, NEXT_SERVER_NOW);
+    assert.equal(
+      spinnerCountdownSeconds(STARTED_AT, Date.parse(unchanged.serverNow)),
+      spinnerCountdownSeconds(STARTED_AT, Date.parse(initial.serverNow)) - 2,
+    );
+  });
+});
+
+test("spinner POST commands never inherit a cached GET validator", async () => {
+  await withBrowserTransport(async () => {
+    const requests: RequestInit[] = [];
+    globalThis.fetch = (async (_input, init) => {
+      requests.push(init || {});
+      return new Response(JSON.stringify(resultEnvelope(revealedSnapshot())), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          ETag: SNAPSHOT_ETAG,
+          "X-Mochirii-Server-Time": SERVER_NOW,
+        },
+      });
+    }) as typeof fetch;
+
+    const cache = createSpinnerLiveSnapshotCache();
+    await fetchSpinnerLiveSnapshot(cache);
+    await sendSpinnerLiveCommand({
+      action: "reset",
+      commandId: DRAW_ID,
+      expectedRevision: 4,
+    });
+
+    assert.equal(new Headers(requests[0].headers).get("if-none-match"), null);
+    assert.equal(new Headers(requests[1].headers).get("if-none-match"), null);
+    assert.equal(requests[1].method, "POST");
+  });
+});
+
+test("auth failures invalidate the snapshot validator and retain the session-invalid event", async () => {
+  await withBrowserTransport(async (dispatchedEvents) => {
+    const requests: RequestInit[] = [];
+    globalThis.fetch = (async (_input, init) => {
+      requests.push(init || {});
+      if (requests.length === 2) return new Response(null, { status: 404 });
+      return new Response(JSON.stringify(resultEnvelope(revealedSnapshot())), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          ETag: SNAPSHOT_ETAG,
+          "X-Mochirii-Server-Time": SERVER_NOW,
+        },
+      });
+    }) as typeof fetch;
+
+    const cache = createSpinnerLiveSnapshotCache();
+    await fetchSpinnerLiveSnapshot(cache);
+    await assert.rejects(
+      fetchSpinnerLiveSnapshot(cache),
+      (error: unknown) => error instanceof SpinnerLiveRequestError && error.status === 404,
+    );
+    await fetchSpinnerLiveSnapshot(cache);
+
+    assert.equal(new Headers(requests[1].headers).get("if-none-match"), SNAPSHOT_ETAG);
+    assert.equal(new Headers(requests[2].headers).get("if-none-match"), null);
+    assert.deepEqual(dispatchedEvents.map((event) => event.type), [SPINNER_SESSION_INVALID_EVENT]);
+  });
+});
 
 test("idle snapshots accept genuine empty and one-participant rosters", () => {
   const empty = parseSpinnerLiveSnapshot(idleSnapshot());

@@ -45,6 +45,11 @@ export interface SpinnerLiveResultV1 {
   serverNow: string;
 }
 
+export interface SpinnerLiveSnapshotCache {
+  etag: string | null;
+  result: SpinnerLiveResultV1 | null;
+}
+
 export interface SpinnerLiveTimeline {
   startDelayMs: number;
   revealDelayMs: number;
@@ -275,6 +280,15 @@ function integer(value: unknown, minimum = 0): number | null {
   return Number.isSafeInteger(value) && Number(value) >= minimum ? Number(value) : null;
 }
 
+function spinnerEntityTag(value: string | null): string | null {
+  const normalized = value?.trim() || "";
+  if (
+    normalized.length === 0 || normalized.length > 256 ||
+    !/^(?:W\/)?"[\x21\x23-\x7e]*"$/u.test(normalized)
+  ) return null;
+  return normalized;
+}
+
 function participant(value: unknown): ParticipantV1 | null {
   const roster = parseStoredRoster({ version: 1, participants: [value] });
   return roster.participants.length === 1 ? roster.participants[0] : null;
@@ -461,26 +475,64 @@ export function createSpinnerCommandId(): string {
   ].join("-");
 }
 
-async function spinnerLiveRequest(init: RequestInit): Promise<SpinnerLiveResultV1> {
+export function createSpinnerLiveSnapshotCache(): SpinnerLiveSnapshotCache {
+  return { etag: null, result: null };
+}
+
+export function clearSpinnerLiveSnapshotCache(cache: SpinnerLiveSnapshotCache): void {
+  cache.etag = null;
+  cache.result = null;
+}
+
+async function spinnerLiveRequest(
+  init: RequestInit,
+  snapshotCache: SpinnerLiveSnapshotCache | null = null,
+): Promise<SpinnerLiveResultV1> {
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), SPINNER_BROWSER_REQUEST_TIMEOUT_MS);
   try {
+    const method = String(init.method || "GET").toUpperCase();
+    const cacheForSnapshot = method === "GET" ? snapshotCache : null;
+    const headers = new Headers(init.headers);
+    headers.set("Accept", "application/json");
+    if (init.body) headers.set("Content-Type", "application/json");
+    if (cacheForSnapshot?.etag) {
+      headers.set("If-None-Match", cacheForSnapshot.etag);
+    }
     const response = await fetch("/spinner/live", {
       credentials: "same-origin",
       cache: "no-store",
       ...init,
-      headers: {
-        Accept: "application/json",
-        ...(init.body ? { "Content-Type": "application/json" } : {}),
-        ...Object.fromEntries(new Headers(init.headers)),
-      },
+      headers,
       signal: controller.signal,
     });
+
+    if (response.status === 304) {
+      const responseEtag = spinnerEntityTag(response.headers.get("etag"));
+      const serverNow = isoOrNull(response.headers.get("x-mochirii-server-time"));
+      if (
+        !cacheForSnapshot?.etag || !cacheForSnapshot.result ||
+        responseEtag !== cacheForSnapshot.etag || !serverNow
+      ) {
+        if (snapshotCache) clearSpinnerLiveSnapshotCache(snapshotCache);
+        throw new SpinnerLiveRequestError(
+          "The live draw could not be synchronized.",
+          response.status,
+        );
+      }
+      const result = { ...cacheForSnapshot.result, serverNow };
+      cacheForSnapshot.result = result;
+      return result;
+    }
+
     const payload = await response.json().catch(() => null);
     const parsed = parseSpinnerLiveResult(payload);
     if (!response.ok || !parsed) {
       if ([401, 403, 404].includes(response.status)) {
+        if (snapshotCache) clearSpinnerLiveSnapshotCache(snapshotCache);
         window.dispatchEvent(new Event(SPINNER_SESSION_INVALID_EVENT));
+      } else if (cacheForSnapshot && response.ok) {
+        clearSpinnerLiveSnapshotCache(cacheForSnapshot);
       }
       const errorCode = typeof record(payload)?.error === "string"
         ? String(record(payload)?.error)
@@ -492,14 +544,23 @@ async function spinnerLiveRequest(init: RequestInit): Promise<SpinnerLiveResultV
           : "The live draw could not be synchronized.";
       throw new SpinnerLiveRequestError(message, response.status, errorCode);
     }
+    if (cacheForSnapshot) {
+      const etag = spinnerEntityTag(response.headers.get("etag"));
+      if (etag) {
+        cacheForSnapshot.etag = etag;
+        cacheForSnapshot.result = parsed;
+      } else {
+        clearSpinnerLiveSnapshotCache(cacheForSnapshot);
+      }
+    }
     return parsed;
   } finally {
     window.clearTimeout(timeout);
   }
 }
 
-export function fetchSpinnerLiveSnapshot() {
-  return spinnerLiveRequest({ method: "GET" });
+export function fetchSpinnerLiveSnapshot(cache: SpinnerLiveSnapshotCache) {
+  return spinnerLiveRequest({ method: "GET" }, cache);
 }
 
 export function sendSpinnerLiveCommand(command: SpinnerLiveCommand) {

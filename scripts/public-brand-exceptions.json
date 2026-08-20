@@ -10,6 +10,11 @@
     "reason": "Stable internal same-origin observability header."
   },
   {
+    "path": "apps/web/app/spinner/live/route.ts",
+    "fragment": "X-Mochirii-Server-Time",
+    "reason": "Stable internal same-origin authoritative clock header."
+  },
+  {
     "path": "apps/web/lib/brand.ts",
     "fragment": "technical: \"Mochirii\"",
     "reason": "Canonical ASCII technical identity."

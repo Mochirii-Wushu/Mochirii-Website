@@ -17,3 +17,15 @@ export function spinnerProxyOutcomeForStatus(
   }
   return null;
 }
+
+export function spinnerNotModifiedResponseMetadata(
+  headers: Pick<Headers, "get">,
+): { etag: string; serverTime: string } | null {
+  const etag = headers.get("etag")?.trim() || "";
+  const serverTime = headers.get("x-mochirii-server-time")?.trim() || "";
+  if (
+    !etag || etag.length > 256 || /[\r\n]/u.test(etag) ||
+    !serverTime || !Number.isFinite(Date.parse(serverTime))
+  ) return null;
+  return { etag, serverTime };
+}

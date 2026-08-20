@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cancelResponseBody, readBoundedResponseText } from "@/lib/bounded-response";
 import {
+  spinnerNotModifiedResponseMetadata,
   spinnerProxyOutcomeForStatus,
   type SpinnerProxyOutcome,
 } from "@/lib/spinner/proxy-outcome";
@@ -113,18 +114,24 @@ async function forwardLiveRequest({
       await cancelResponseBody(response);
       return opaqueDenied();
     }
-    const etag = response.headers.get("etag");
     if (response.status === 304) {
+      const notModifiedMetadata = spinnerNotModifiedResponseMetadata(response.headers);
+      if (!notModifiedMetadata) {
+        recordProxyError("invalid_not_modified_response", response.status);
+        return privateJson({ ok: false, message: "The live draw is unavailable." }, 503, "upstream-error");
+      }
       return new NextResponse(null, {
         status: 304,
         headers: {
           ...SPINNER_PRIVATE_RESPONSE_HEADERS,
           [SPINNER_OUTCOME_HEADER]: "not-modified",
-          ...(etag ? { ETag: etag } : {}),
+          ETag: notModifiedMetadata.etag,
+          "X-Mochirii-Server-Time": notModifiedMetadata.serverTime,
         },
       });
     }
 
+    const etag = response.headers.get("etag");
     const responseText = await readBoundedResponseText(response, MAX_RESPONSE_BYTES);
     if (responseText === null) {
       recordProxyError("response_too_large", response.status);

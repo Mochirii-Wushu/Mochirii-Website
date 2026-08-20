@@ -5,6 +5,7 @@ import {
   readBoundedResponseText,
 } from "../apps/web/lib/bounded-response.ts";
 import {
+  spinnerNotModifiedResponseMetadata,
   spinnerProxyOutcomeForStatus,
 } from "../apps/web/lib/spinner/proxy-outcome.ts";
 
@@ -132,4 +133,26 @@ test("spinner proxy outcomes distinguish polling, commands, and throttling", () 
   assert.equal(spinnerProxyOutcomeForStatus("GET", 400), null);
   assert.equal(spinnerProxyOutcomeForStatus("GET", 409), null);
   assert.equal(spinnerProxyOutcomeForStatus("GET", 503), null);
+});
+
+test("spinner proxy preserves the ETag and authoritative server time for bodyless 304 responses", () => {
+  const headers = new Headers({
+    ETag: '"spinner-session-4-revealed"',
+    "X-Mochirii-Server-Time": "2026-07-31T12:00:00.000Z",
+  });
+  assert.deepEqual(spinnerNotModifiedResponseMetadata(headers), {
+    etag: '"spinner-session-4-revealed"',
+    serverTime: "2026-07-31T12:00:00.000Z",
+  });
+  assert.equal(
+    spinnerNotModifiedResponseMetadata(new Headers({ ETag: '"spinner-session-4-revealed"' })),
+    null,
+  );
+  assert.equal(
+    spinnerNotModifiedResponseMetadata(new Headers({
+      ETag: '"spinner-session-4-revealed"',
+      "X-Mochirii-Server-Time": "not-a-time",
+    })),
+    null,
+  );
 });
