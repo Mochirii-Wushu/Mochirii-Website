@@ -172,7 +172,10 @@ Web build completes, run `npm run smoke:gallery:serve` in a separate terminal;
 both smoke tests expect that production-mode Next app on `127.0.0.1:8765`.
 Production mode keeps React and Vercel analytics behavior aligned with the CSP
 that ships, so the strict browser-error gate is not weakened for development
-runtime noise.
+runtime noise. The manual local Lighthouse workflow uses a test-only loopback
+proxy to intercept its deterministic empty Gallery response after the ordinary
+production build; local fixture values must never enter `NEXT_PUBLIC_*` or a
+client bundle.
 
 ## 12. Manual Smoke Checklist
 

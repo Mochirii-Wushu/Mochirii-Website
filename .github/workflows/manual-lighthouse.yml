@@ -66,9 +66,6 @@ jobs:
 
       - name: Build exact local Gallery audit target
         if: steps.gallery-target.outputs.kind == 'local'
-        env:
-          NEXT_PUBLIC_MOCHIRII_GALLERY_AUDIT_MODE: local-fixture-v1
-          NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:8765
         run: npm --prefix apps/web run build
 
       - name: Run Lighthouse audits
@@ -81,23 +78,22 @@ jobs:
           mkdir -p reports/lighthouse
 
           local_server_pid=""
-          local_fixture_pid=""
+          local_audit_proxy_pid=""
           lighthouse_chrome_flags="--headless --no-sandbox"
           if [[ "$GALLERY_AUDIT_KIND" == "local" ]]; then
             : >reports/lighthouse/local-gallery-fixture-requests.jsonl
+            npm --prefix apps/web run start -- --hostname 127.0.0.1 --port 8766 >reports/lighthouse/local-next.log 2>&1 &
+            local_server_pid="$!"
             node scripts/gallery-lighthouse-local-fixture.mjs serve \
               reports/lighthouse/local-gallery-fixture-requests.jsonl \
-              >reports/lighthouse/local-gallery-fixture.log 2>&1 &
-            local_fixture_pid="$!"
-            export NEXT_PUBLIC_MOCHIRII_GALLERY_AUDIT_MODE=local-fixture-v1
-            export NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:8765
+              http://127.0.0.1:8766 8765 \
+              >reports/lighthouse/local-gallery-audit-proxy.log 2>&1 &
+            local_audit_proxy_pid="$!"
             lighthouse_chrome_flags='--headless --no-sandbox --disable-background-networking --host-resolver-rules="MAP * ~NOTFOUND, EXCLUDE 127.0.0.1"'
-            npm --prefix apps/web run start -- --hostname 127.0.0.1 --port 8765 >reports/lighthouse/local-next.log 2>&1 &
-            local_server_pid="$!"
-            trap 'if [[ -n "$local_server_pid" ]]; then kill "$local_server_pid" 2>/dev/null || true; fi; if [[ -n "$local_fixture_pid" ]]; then kill "$local_fixture_pid" 2>/dev/null || true; fi' EXIT
+            trap 'if [[ -n "$local_server_pid" ]]; then kill "$local_server_pid" 2>/dev/null || true; fi; if [[ -n "$local_audit_proxy_pid" ]]; then kill "$local_audit_proxy_pid" 2>/dev/null || true; fi' EXIT
             for attempt in {1..60}; do
               if curl --fail --silent --show-error --output /dev/null "$GALLERY_AUDIT_ORIGIN/" && \
-                curl --fail --silent --show-error --output /dev/null http://127.0.0.1:8766/healthz; then
+                curl --fail --silent --show-error --output /dev/null "$GALLERY_AUDIT_ORIGIN/healthz"; then
                 break
               fi
               if [[ "$attempt" == "60" ]]; then

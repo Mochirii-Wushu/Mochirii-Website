@@ -127,7 +127,6 @@ test("asset resolvers derive only the exact credential-free media URL", async ()
 
 test("public media stays pinned to the configured Supabase project", async () => {
   const original = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const originalMode = process.env.NEXT_PUBLIC_MOCHIRII_GALLERY_AUDIT_MODE;
   try {
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://outside.invalid";
     assert.equal(await resolveApprovedGalleryOriginal(submissionId), mediaUrl("full"));
@@ -139,7 +138,6 @@ test("public media stays pinned to the configured Supabase project", async () =>
     );
 
     process.env.NEXT_PUBLIC_SUPABASE_URL = "http://127.0.0.1:8765";
-    delete process.env.NEXT_PUBLIC_MOCHIRII_GALLERY_AUDIT_MODE;
     assert.equal(
       await resolveApprovedGalleryOriginal(submissionId),
       mediaUrl("full"),
@@ -147,62 +145,6 @@ test("public media stays pinned to the configured Supabase project", async () =>
   } finally {
     if (original === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_URL;
     else process.env.NEXT_PUBLIC_SUPABASE_URL = original;
-    if (originalMode === undefined) delete process.env.NEXT_PUBLIC_MOCHIRII_GALLERY_AUDIT_MODE;
-    else process.env.NEXT_PUBLIC_MOCHIRII_GALLERY_AUDIT_MODE = originalMode;
-  }
-});
-
-test("the explicit local Lighthouse fixture is exact-loopback only", async () => {
-  const originalFetch = globalThis.fetch;
-  const originalUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const originalMode = process.env.NEXT_PUBLIC_MOCHIRII_GALLERY_AUDIT_MODE;
-  let requestedUrl = "";
-  try {
-    process.env.NEXT_PUBLIC_SUPABASE_URL = "http://127.0.0.1:8765";
-    process.env.NEXT_PUBLIC_MOCHIRII_GALLERY_AUDIT_MODE = "local-fixture-v1";
-    globalThis.fetch = async (input) => {
-      requestedUrl = String(input);
-      return new Response(JSON.stringify({
-        ok: true,
-        data: {
-          schemaVersion: 2,
-          items: [],
-          count: 0,
-          totalEligible: 0,
-          facets: {
-            "member-submissions": 0,
-            portraits: 0,
-            gatherings: 0,
-            action: 0,
-            scenery: 0,
-            companions: 0,
-          },
-          hasMore: false,
-          nextCursor: null,
-          partial: false,
-          complete: true,
-          deliveryFailures: 0,
-          delivery: "bounded-edge-media",
-          cacheSeconds: 15,
-        },
-        message: "No member-submitted images are available yet.",
-      }), { status: 200, headers: { "Content-Type": "application/json" } });
-    };
-
-    const result = await listApprovedGallerySubmissions({
-      query: "local-lighthouse-fixture-contract",
-    });
-    assert.equal(result.ok, true);
-    assert.equal(
-      requestedUrl,
-      "http://127.0.0.1:8765/functions/v1/list-approved-gallery-submissions",
-    );
-  } finally {
-    globalThis.fetch = originalFetch;
-    if (originalUrl === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_URL;
-    else process.env.NEXT_PUBLIC_SUPABASE_URL = originalUrl;
-    if (originalMode === undefined) delete process.env.NEXT_PUBLIC_MOCHIRII_GALLERY_AUDIT_MODE;
-    else process.env.NEXT_PUBLIC_MOCHIRII_GALLERY_AUDIT_MODE = originalMode;
   }
 });
 

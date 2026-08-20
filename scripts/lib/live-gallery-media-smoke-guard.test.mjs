@@ -151,7 +151,7 @@ test("rejects ambiguous, credentialed, path-bearing, and alternate local audit t
   }
 });
 
-test("manual Lighthouse defaults every route to a provider-free local audit", async () => {
+test("manual Lighthouse keeps its deterministic local intercept outside production code", async () => {
   const workflow = await readFile(
     new URL("../../.github/workflows/manual-lighthouse.yml", import.meta.url),
     "utf8",
@@ -184,9 +184,11 @@ test("manual Lighthouse defaults every route to a provider-free local audit", as
   assert.match(workflow, /steps\.gallery-target\.outputs\.kind == 'local'/);
   assert.match(workflow, /GALLERY_AUDIT_KIND: \$\{\{ steps\.gallery-target\.outputs\.kind \}\}/);
   assert.match(workflow, /GALLERY_AUDIT_ORIGIN: \$\{\{ steps\.gallery-target\.outputs\.normalized_origin \}\}/);
-  assert.match(workflow, /NEXT_PUBLIC_MOCHIRII_GALLERY_AUDIT_MODE: local-fixture-v1/);
-  assert.match(workflow, /NEXT_PUBLIC_SUPABASE_URL: http:\/\/127\.0\.0\.1:8765/);
+  assert.doesNotMatch(workflow, /NEXT_PUBLIC_MOCHIRII_GALLERY_AUDIT_MODE/);
+  assert.doesNotMatch(workflow, /NEXT_PUBLIC_SUPABASE_URL/);
+  assert.match(workflow, /npm --prefix apps\/web run start -- --hostname 127\.0\.0\.1 --port 8766/);
   assert.match(workflow, /gallery-lighthouse-local-fixture\.mjs serve/);
+  assert.match(workflow, /http:\/\/127\.0\.0\.1:8766 8765/);
   assert.match(workflow, /gallery-lighthouse-local-fixture\.mjs verify/);
   assert.match(workflow, /--disable-background-networking/);
   assert.match(workflow, /--host-resolver-rules=/);
@@ -198,12 +200,15 @@ test("manual Lighthouse defaults every route to a provider-free local audit", as
   assert.doesNotMatch(workflow, /\bsecrets\./);
   assert.match(resolver, /resolveGalleryAuditTarget/);
   assert.doesNotMatch(resolver, /\bfetch\s*\(/);
-  assert.match(nextConfig, /localGalleryAuditFixture/);
-  assert.match(nextConfig, /localGalleryAuditFixtureOrigin = "http:\/\/127\.0\.0\.1:8766"/);
-  assert.match(nextConfig, /source: "\/functions\/v1\/list-approved-gallery-submissions"/);
-  assert.match(nextConfig, /source: "\/_vercel\/insights\/script\.js"/);
-  assert.match(nextConfig, /source: "\/_vercel\/speed-insights\/script\.js"/);
-  assert.match(approvedFeed, /NEXT_PUBLIC_MOCHIRII_GALLERY_AUDIT_MODE/);
+  assert.doesNotMatch(nextConfig, /localGalleryAuditFixture/);
+  assert.doesNotMatch(nextConfig, /127\.0\.0\.1/);
+  assert.doesNotMatch(approvedFeed, /NEXT_PUBLIC_MOCHIRII_GALLERY_AUDIT_MODE/);
+  assert.doesNotMatch(approvedFeed, /local-fixture-v1/);
+  assert.doesNotMatch(approvedFeed, /127\.0\.0\.1/);
+  assert.match(fixture, /data-mochirii-gallery-audit-interceptor/);
+  assert.match(fixture, /const fixturePath = "\/__mochirii_gallery_lighthouse_fixture"/);
+  assert.match(fixture, /proxyToNext/);
+  assert.match(fixture, /u\.href===t&&m==="POST"/);
   assert.match(fixture, /zero hosted\/provider HTTP requests/);
   assert.match(fixture, /supabase/);
   assert.match(fixture, /parsed\.action === "list" && parsed\.pageSize === 24/);

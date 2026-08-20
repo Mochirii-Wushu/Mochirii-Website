@@ -102,26 +102,15 @@ const reviewedLoopbacks = new Map([
   [
     ".github/workflows/manual-lighthouse.yml",
     [
-      { value: "http://127.0.0.1:8765", count: 3 },
-      { value: "http://127.0.0.1:8766/healthz", count: 1 },
+      { value: "http://127.0.0.1:8765", count: 1 },
+      { value: "http://127.0.0.1:8766", count: 1 },
       { value: "--hostname 127.0.0.1", count: 1 },
       { value: "EXCLUDE 127.0.0.1", count: 1 },
     ],
   ],
   [
-    "apps/web/next.config.ts",
-    [
-      { value: "http://127.0.0.1:8765", count: 1 },
-      { value: "http://127.0.0.1:8766", count: 1 },
-    ],
-  ],
-  [
-    "apps/web/lib/gallery/approved-feed.ts",
-    [{ value: '"127.0.0.1"', count: 1 }],
-  ],
-  [
     "apps/web/lib/gallery/approved-feed_test.ts",
-    [{ value: "http://127.0.0.1:8765", count: 3 }],
+    [{ value: "http://127.0.0.1:8765", count: 1 }],
   ],
   [
     "apps/web/lib/gallery/moderation-preview-server-core.ts",

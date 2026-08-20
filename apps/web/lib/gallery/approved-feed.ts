@@ -240,10 +240,7 @@ function configuredSupabaseUrl() {
       !url.username && !url.password;
     const hostedProject = url.protocol === "https:" && !url.port &&
       url.hostname === `${projectRef}.supabase.co`;
-    const localAuditFixture =
-      process.env.NEXT_PUBLIC_MOCHIRII_GALLERY_AUDIT_MODE === "local-fixture-v1" &&
-      url.protocol === "http:" && url.hostname === "127.0.0.1" && url.port === "8765";
-    if (!exactRoot || (!hostedProject && !localAuditFixture)) return fallback;
+    if (!exactRoot || !hostedProject) return fallback;
     return new URL(url.origin);
   } catch {
     return fallback;

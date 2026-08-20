@@ -95,7 +95,10 @@ the exact process-scoped variable
 `MOCHIRII_ALLOW_LIVE_GALLERY_MEDIA_SMOKE_ONCE=true`. Do not save that variable
 in a shell profile, `.env` file, CI configuration, or provider setting. Normal
 development and broad browser verification should use the local fixture-backed
-origin. Manual Gallery Lighthouse defaults to that local production build. A
+origin. Manual Gallery Lighthouse builds the same production client used for
+release, then places a test-only loopback audit proxy in front of it. The proxy
+intercepts the exact public Gallery request at audit time; no fixture mode or
+loopback origin is compiled through a `NEXT_PUBLIC_*` value. A
 Vercel Preview or Production Lighthouse run is live provider traffic and
 requires the same exact one-shot opt-in plus separate source-binding evidence
 for the reviewed deployment.
