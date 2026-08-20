@@ -28,7 +28,7 @@ Current Home data shape:
 
 - `copy`: `bulletinIntro`, `doorsIntro`, `spotlightIntro`, `galleryIntro`
 - `celebrationSplash`: `enabled`, `startsAt`, `endsAt`, `title`, `message`, `storageKey`
-- `hero`: `image`, `atmosphereImage`, `descriptor`, `badges`
+- `hero`: `image`, `atmosphereImage`, `subtitle`, `valueProposition`, `descriptor`, `badges`
 - `seal`: `title`, `image`, `imageAlt`, `verse`
 - `bulletins[]`: `pinned`, `type`, `title`, `date`, `image`, `imageAlt`, `href`, optional `summary`
 - `tiles[]`: `label`, `title`, `image`, `alt`, `href`, optional `subtitle`
@@ -41,7 +41,9 @@ Renderer notes:
 - Monthly gathering and raffle dates come from `guild-schedule.json` when a bulletin has `scheduleId`.
 - `SpotlightWinnerTitle` may replace the configured fallback title with the finalized monthly Discord poll winner name from `get-current-spotlight-winner`; the path is name-only and must not expose Discord handles, profile links, avatars, vote counts, or candidate lists.
 - The Home server route selects exactly four stable Screenshot Spotlight items, and `HomeGalleryLightbox` opens them through the same shared viewer used by `/gallery`.
-- Home descriptor strings render as paragraphs, badges render as plain spans, and bulletin dates use the UTC formatter in `page.tsx`.
+- Home `valueProposition` renders in the compact first-viewport recruitment card. Descriptor strings retain the longer community introduction below the artwork, badges render as plain spans, and bulletin dates use the UTC formatter in `page.tsx`.
+- Home recruitment CTAs preserve only the approved v3 Meta campaign values for `utm_source`, `utm_medium`, `utm_campaign`, and `utm_content` when routing internally to `/join`; unknown, duplicated, or arbitrary query values are discarded.
+- The current Vercel Hobby plan does not support the planned paid-recruitment custom event, so v3 emits no CTA custom event and requires no analytics upgrade. Existing Web Analytics and the allowlisted campaign URLs remain the measurement baseline.
 - Door, bulletin, spotlight, and gallery media render from controlled data fields through owned image components or elements.
 - Inline HTML and Markdown are not supported in Home JSON copy.
 - Home kicker, `h1`, primary CTA labels, section headings, metadata, header, footer, and navigation are component-owned rather than data-driven.
@@ -128,7 +130,8 @@ Official profiles are direct HTTPS links, not embeds. Keep provider URLs out of 
 - Home should feel clear, human, xianxia-inspired, and Mōchirīī-specific.
 - Cupcake warmth may appear lightly.
 - Do not overuse Cupcake language.
-- Keep the approved `apps/web/public/data/home.json` `hero.subtitle` exactly `Asia Pacific • Where Winds Meet Guild`; this is the sole Home body-copy exception for the exact game name.
+- Keep the approved `apps/web/public/data/home.json` `hero.subtitle` exactly `Asia Pacific • Where Winds Meet Guild`.
+- Keep the component-owned Home recruitment kicker exactly `Where Winds Meet • SEA Server`. The subtitle and this kicker are the only Home body-copy exceptions for the exact game name.
 - Do not use `Where Winds Meet` elsewhere in regular visible Home body copy.
 - Keep functional labels clear.
 - Avoid generic AI-like language.
@@ -185,7 +188,7 @@ Image expectations:
 Next app shared hero presentation:
 
 - Shared `PageHero` routes and Home use the same stable `3 / 2` hero image frame inside the tokenized `--hero-frame-max-width` container.
-- The hero image frame renders first, then Home may place the intro card and guild seal together in a slim row below it with positive spacing. Main page content follows below the hero header.
+- Home's paid-recruitment first viewport is the approved ordering exception: the compact recruitment card precedes the artwork in source order, sits immediately beside it on desktop, and remains above the bounded `3 / 2` artwork on mobile so both CTAs stay within the first 800 CSS pixels. The longer community introduction and guild seal follow with positive spacing.
 - Hero images should render with `object-fit: contain` and `object-position: center`, with no crop, scrim, tint, CSS filter, transform, or overlay covering the image.
 - Do not use negative `--hero-image-to-card-gap` values, page-scoped hero geometry tokens, one-off hero margins, or page-local hero aspect/size overrides.
 - Surface tiers should remain explicit: hero shell, primary content card, quiet card, tool panel, and admin/member panel.

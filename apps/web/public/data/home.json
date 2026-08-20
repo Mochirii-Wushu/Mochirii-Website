@@ -17,15 +17,16 @@
     "image": "./assets/img/hero/hero.webp",
     "atmosphereImage": "",
     "subtitle": "Asia Pacific • Where Winds Meet Guild",
+    "valueProposition": "An English-friendly APAC guild with Discord, UTC+8 events, and room for casual cross-platform players.",
     "descriptor": [
       "Mōchirīī is a cozy little guild for wanderers seeking friendly company, whimsical events, baddie smashing battles & lots of cupcakes with a place to rest along the cultivation road.",
       "Optional Discord, come follow the joining path & grow at your own pace beneath the lantern glow. Read the event notes, RSVP to events that interest you & bring a little frosting warmth to the guild as we wander onward together."
     ],
     "badges": [
       "Recruitment Open",
+      "SEA Server",
       "Cross-Platform",
-      "Casual Members",
-      "Always Welcome"
+      "UTC+8 Events"
     ]
   },
   "seal": {

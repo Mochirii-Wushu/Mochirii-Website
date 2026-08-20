@@ -19,6 +19,7 @@
     "check:public-artifact-semantics": "node scripts/check-public-artifact-semantics.mjs",
     "check:public-image-decode": "node scripts/check-public-image-decode.mjs",
     "test:web-runtime-performance": "node --experimental-default-type=module --experimental-strip-types --test lib/auth-redirect.test.mts lib/auth-load-generation_test.ts lib/events/reference-time_test.ts lib/observability/authenticated-route-timing_test.ts lib/oauth/consent-login-url.test.mts lib/security/protected-csp.test.mts lib/supabase/server-access-policy.test.mts lib/supabase/server-fetch.test.mts",
+    "test:paid-recruitment-tracking": "node --experimental-default-type=module --experimental-strip-types --test lib/paid-recruitment-tracking.test.mts",
     "test:raffle-leaderboard": "node --experimental-default-type=module --experimental-strip-types --test lib/raffle/leaderboard-core.test.mts",
     "check:raffle-server-boundary": "node scripts/check-raffle-server-boundary.mjs",
     "test:raffle-server-boundary": "node scripts/test-raffle-server-boundary.mjs",
@@ -31,7 +32,7 @@
     "lint": "eslint",
     "test:spinner-private": "node --experimental-default-type=module --experimental-strip-types --test ../../tests/spinner-media-renderer.test.ts ../../tests/spinner-proxy.test.ts",
     "toolchain:check": "node scripts/check-local-toolchain.mjs",
-    "verify:local": "npm run toolchain:check && npm run test:web-runtime-performance && npm run test:raffle-leaderboard && npm run test:phone-auth-policy && npm run lint && npm run check:public-artifact-semantics && npm run check:public-image-decode && npm run build && npm run check:client-bundle && npm run check:font-bundle && npm run check:route-css-bundle"
+    "verify:local": "npm run toolchain:check && npm run test:web-runtime-performance && npm run test:paid-recruitment-tracking && npm run test:raffle-leaderboard && npm run test:phone-auth-policy && npm run lint && npm run check:public-artifact-semantics && npm run check:public-image-decode && npm run build && npm run check:client-bundle && npm run check:font-bundle && npm run check:route-css-bundle"
   },
   "dependencies": {
     "@napi-rs/canvas": "1.0.2",

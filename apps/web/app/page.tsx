@@ -15,6 +15,7 @@ import {
   HomeGalleryLightbox,
   type GallerySpotlightItem,
 } from "@/components/HomeGalleryLightbox";
+import { HomeRecruitmentCtas } from "@/components/HomeRecruitmentCtas";
 import { BodyPageMarker } from "@/components/public-pages/BodyPageMarker";
 import { SpotlightWinnerTitle } from "@/components/public-pages/SpotlightWinnerTitle";
 import { StaticImage } from "@/components/public-pages/common";
@@ -354,63 +355,65 @@ export default function Home() {
       <OptionalBirthdaySplash config={homeData.celebrationSplash} />
       <header className="page-hero-shell" aria-label="Home hero">
         <div className="container">
-          <section className="page-hero page-hero--tall">
-            <StaticImage
-              id="heroImage"
-              src={publicPath(homeData.hero.image, "/assets/img/hero/hero.webp")}
-              alt="Hero artwork for Mōchirīī guild"
-              className="page-hero__img"
-              width="1536"
-              height="1024"
-              priority
-              sizes="(max-width: 1232px) calc(100vw - 32px), 1200px"
-            />
-            {homeData.hero.atmosphereImage ? (
+          <div className="home-recruitment-stage">
+            <section
+              className="glass-card glass-card--strong glass-pad hero-intro home-recruitment-card"
+              aria-labelledby="homeHeading"
+            >
+              <p className="kicker" id="homeKicker">Where Winds Meet • SEA Server</p>
+              <h1 className="display-title" id="homeHeading">Mōchirīī</h1>
+              <p className="home-recruitment-value" id="homeValueProposition">
+                {homeData.hero.valueProposition}
+              </p>
+
+              <div className="badge-row" id="heroBadges" aria-label="Guild badges">
+                {heroBadges.map((badge) => (
+                  <span key={badge}>{badge}</span>
+                ))}
+              </div>
+
+              <HomeRecruitmentCtas discordUrl={DISCORD_INVITE_URL} />
+            </section>
+
+            <section className="page-hero page-hero--tall">
               <StaticImage
-                id="heroAtmosphere"
-                src={publicPath(homeData.hero.atmosphereImage)}
-                alt=""
-                className="page-hero__atmos"
-                width={1536}
-                height={1024}
-                sizes="(max-width: 1232px) calc(100vw - 32px), 1200px"
-                aria-hidden="true"
+                id="heroImage"
+                src={publicPath(homeData.hero.image, "/assets/img/hero/hero.webp")}
+                alt="Hero artwork for Mōchirīī guild"
+                className="page-hero__img"
+                width="1536"
+                height="1024"
+                priority
+                sizes="(max-width: 820px) calc(100vw - 32px), (max-width: 1232px) 58vw, 690px"
               />
-            ) : null}
-          </section>
+              {homeData.hero.atmosphereImage ? (
+                <StaticImage
+                  id="heroAtmosphere"
+                  src={publicPath(homeData.hero.atmosphereImage)}
+                  alt=""
+                  className="page-hero__atmos"
+                  width={1536}
+                  height={1024}
+                  sizes="(max-width: 820px) calc(100vw - 32px), (max-width: 1232px) 58vw, 690px"
+                  aria-hidden="true"
+                />
+              ) : null}
+            </section>
+          </div>
         </div>
 
         <div className="container hero-overlap">
           <div className="home-hero-row">
-            <section className="glass-card glass-card--strong glass-pad hero-intro">
-              <p className="kicker" id="homeKicker">Jianghu Guild Hall</p>
-              <h1 className="display-title" id="homeHeading">Mōchirīī</h1>
+            <section
+              className="glass-card glass-card--strong glass-pad hero-intro home-community-intro"
+              aria-label="About Mōchirīī"
+            >
               <p className="meta-text u-mt-10" id="homeSubtitle">
                 {homeData.hero.subtitle}
               </p>
 
               <div id="heroDescriptor" className="prose-stack" aria-live="polite">
                 <Descriptor lines={heroDescriptor} />
-              </div>
-
-              <div className="badge-row" id="heroBadges" aria-label="Guild badges">
-                {heroBadges.slice(0, 8).map((badge) => (
-                  <span key={badge}>{badge}</span>
-                ))}
-              </div>
-
-              <div className="hero-cta-row" aria-label="Primary actions">
-                <a
-                  className="hero-cta hero-cta--primary"
-                  href={DISCORD_INVITE_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Join Discord
-                </a>
-                <Link className="hero-cta" href="/join">
-                  How to Join
-                </Link>
               </div>
             </section>
 
