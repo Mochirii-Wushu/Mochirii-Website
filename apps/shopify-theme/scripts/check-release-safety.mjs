@@ -1,6 +1,7 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { lstatSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { checkoutPrimitiveCategories, checkoutSafetyFileKind } from "./lib/checkout-cta-safety.mjs";
 
 const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const failures = [];
@@ -16,7 +17,15 @@ function readThemeJson(relativePath) {
 function walk(directory) {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const absolute = path.join(directory, entry.name);
-    return entry.isDirectory() ? walk(absolute) : [absolute];
+    const stats = lstatSync(absolute);
+    if (stats.isSymbolicLink()) {
+      failures.push(`${path.relative(appRoot, absolute).split(path.sep).join("/")}: symbolic links are forbidden in release-safety inventory`);
+      return [];
+    }
+    if (stats.isDirectory()) return walk(absolute);
+    if (stats.isFile()) return [absolute];
+    failures.push(`${path.relative(appRoot, absolute).split(path.sep).join("/")}: non-regular runtime entry is forbidden`);
+    return [];
   });
 }
 
@@ -27,10 +36,10 @@ function requireText(relativePath, source, expected) {
 }
 
 const settings = readThemeJson("config/settings_data.json");
-if (settings.current?.checkout_enabled !== false) {
-  failures.push("config/settings_data.json: checkout_enabled must remain false");
+if (settings.current?.checkout_cta_enabled !== false) {
+  failures.push("config/settings_data.json: checkout_cta_enabled must remain false");
 }
-for (const removedSetting of ["product_publication_approved", "show_internal_product_meta"]) {
+for (const removedSetting of ["checkout_enabled", "product_publication_approved", "show_internal_product_meta"]) {
   if (Object.hasOwn(settings.current ?? {}, removedSetting)) {
     failures.push(`config/settings_data.json: obsolete or unsafe setting is forbidden: ${removedSetting}`);
   }
@@ -43,11 +52,13 @@ for (const immutableWordmarkSetting of ["brand_display_name", "corporate_display
 
 const schema = readThemeJson("config/settings_schema.json");
 const schemaSettings = schema.flatMap((group) => group.settings ?? []);
-const checkoutControl = schemaSettings.find((setting) => setting.id === "checkout_enabled");
-if (!checkoutControl || checkoutControl.type !== "checkbox" || checkoutControl.default !== false) {
-  failures.push("config/settings_schema.json: checkout_enabled must be a false-by-default checkbox");
+const checkoutCtaControl = schemaSettings.find((setting) => setting.id === "checkout_cta_enabled");
+if (!checkoutCtaControl || checkoutCtaControl.type !== "checkbox" || checkoutCtaControl.default !== false ||
+    !checkoutCtaControl.info?.includes("Controls only this theme's cart-page button") ||
+    !checkoutCtaControl.info?.includes("It does not disable other checkout routes")) {
+  failures.push("config/settings_schema.json: checkout_cta_enabled must be a false-by-default presentation-only control");
 }
-for (const removedSetting of ["product_publication_approved", "show_internal_product_meta"]) {
+for (const removedSetting of ["checkout_enabled", "product_publication_approved", "show_internal_product_meta"]) {
   if (schemaSettings.some((setting) => setting.id === removedSetting)) {
     failures.push(`config/settings_schema.json: obsolete or unsafe setting is forbidden: ${removedSetting}`);
   }
@@ -58,12 +69,30 @@ for (const immutableWordmarkSetting of ["brand_display_name", "corporate_display
   }
 }
 
-const liquidFiles = walk(appRoot)
+const runtimeRoots = ["assets", "blocks", "config", "layout", "locales", "sections", "snippets", "templates"];
+const runtimeFiles = runtimeRoots.flatMap((root) => walk(path.join(appRoot, root)));
+const liquidFiles = runtimeFiles
   .filter((file) => path.extname(file) === ".liquid")
   .map((file) => ({
     relativePath: path.relative(appRoot, file).split(path.sep).join("/"),
     source: readFileSync(file, "utf8"),
   }));
+
+const unclassifiedRuntimeFiles = runtimeFiles.filter((file) => checkoutSafetyFileKind(file) === null);
+for (const file of unclassifiedRuntimeFiles) {
+  failures.push(`${path.relative(appRoot, file).split(path.sep).join("/")}: runtime file type is not classified for checkout safety`);
+}
+const checkoutRuntimeFiles = runtimeFiles
+  .filter((file) => checkoutSafetyFileKind(file) === "text")
+  .map((file) => ({
+    relativePath: path.relative(appRoot, file).split(path.sep).join("/"),
+    source: readFileSync(file, "utf8"),
+  }));
+for (const { relativePath, source } of checkoutRuntimeFiles) {
+  for (const category of checkoutPrimitiveCategories(source)) {
+    failures.push(`${relativePath}: contains forbidden ${category}`);
+  }
+}
 
 const forbiddenRuntimePatterns = [
   ["internal product metadata setting", /show_internal_product_meta/iu],
@@ -86,7 +115,7 @@ for (const { relativePath, source } of liquidFiles) {
 
 const cart = read("sections/main-cart.liquid");
 for (const token of [
-  "{% if settings.checkout_enabled %}",
+  "{% if settings.checkout_cta_enabled %}",
   '<button class="button" type="submit" name="checkout">Checkout</button>',
   '<button class="button" type="button" disabled="disabled">Checkout opens when the store launches.</button>',
 ]) {
@@ -545,4 +574,7 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log(`Shopify release-safety check OK (${liquidFiles.length} Liquid files; products visible, checkout disabled).`);
+console.log(
+  `Shopify release-safety check OK (${liquidFiles.length} Liquid files; products visible, ` +
+  "theme checkout CTA disabled; Shopify checkout remains provider-controlled).",
+);

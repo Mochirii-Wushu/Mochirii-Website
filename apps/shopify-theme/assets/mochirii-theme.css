@@ -694,8 +694,7 @@ h3 {
   margin-top: var(--space-3);
 }
 
-.button,
-.shopify-payment-button__button {
+.button {
   display: inline-flex;
   min-height: 44px;
   align-items: center;
@@ -718,9 +717,7 @@ h3 {
 }
 
 .button:hover,
-.button:focus,
-.shopify-payment-button__button:hover,
-.shopify-payment-button__button:focus {
+.button:focus {
   background: var(--jade-0);
   color: #ffffff;
 }

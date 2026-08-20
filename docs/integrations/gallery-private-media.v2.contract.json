@@ -1,0 +1,358 @@
+{
+  "schemaVersion": 1,
+  "contractId": "gallery-private-media",
+  "contractVersion": "2.0.0",
+  "dtoVersion": "gallery-private-media.v2",
+  "lifecycle": {
+    "status": "DORMANT_SOURCE_ONLY",
+    "activation": false,
+    "runtimeRoutesRegistered": false,
+    "runtimeMutationIncluded": false,
+    "providerMutationAuthorized": false,
+    "publicMutationIncluded": false
+  },
+  "v1Compatibility": {
+    "mode": "PRESERVE_UNCHANGED",
+    "routeOwner": "list-approved-gallery-submissions",
+    "consumerOptInRequired": true,
+    "automaticFallbackFromV2": false,
+    "cutoverRequiresApproval": true
+  },
+  "identifiers": {
+    "publicItemId": {
+      "source": "SERVER_GENERATED_PUBLIC_ALIAS",
+      "wirePrefix": "gpm2i.",
+      "alphabet": "BASE64URL_NO_PADDING",
+      "minOpaqueCharacters": 22,
+      "maxOpaqueCharacters": 43,
+      "stableAcrossPages": true,
+      "databaseIdAllowed": false,
+      "submissionIdAllowed": false,
+      "userIdAllowed": false,
+      "storageIdAllowed": false,
+      "embeddedMaterialAllowed": []
+    }
+  },
+  "routes": {
+    "list": {
+      "method": "POST",
+      "path": "/api/gallery/private-media/v2/list",
+      "request": {
+        "contentType": "application/json",
+        "allowedFields": [
+          "cursor",
+          "pageSize"
+        ],
+        "bodyBytesMax": 1024,
+        "timeoutMs": 3000
+      },
+      "response": {
+        "contentType": "application/json",
+        "versionLiteral": "gallery-private-media.v2",
+        "allowedFields": [
+          "version",
+          "items",
+          "nextCursor",
+          "hasMore"
+        ],
+        "itemAllowedFields": [
+          "publicItemId",
+          "thumbnailUrl",
+          "thumbnailWidth",
+          "thumbnailHeight",
+          "caption",
+          "category",
+          "publishedAt"
+        ],
+        "itemForbiddenFields": [
+          "id",
+          "submissionId",
+          "uploaderId",
+          "profileId",
+          "storagePath",
+          "bucket",
+          "originalUrl",
+          "fullUrl",
+          "fullSignedUrl",
+          "full_signed_url",
+          "mediaUrl",
+          "mediaCapability",
+          "providerUrl",
+          "providerPath"
+        ],
+        "bodyBytesMax": 262144,
+        "timeoutMs": 4000
+      },
+      "thumbnail": {
+        "urlPolicy": "SAME_ORIGIN_RELATIVE",
+        "pathPrefix": "/api/gallery/private-media/v2/thumb/",
+        "providerRedirectAllowed": false,
+        "maxBytes": 81920,
+        "decodedMaxEdgePixels": 720,
+        "decodedMaxPixels": 518400,
+        "outputMaxEdgePixels": 720,
+        "outputMaxPixels": 518400,
+        "metadataPolicy": "SANITIZED_REENCODE_ONLY"
+      },
+      "pagination": {
+        "pageSize": {
+          "min": 1,
+          "default": 24,
+          "max": 24
+        },
+        "cursor": {
+          "wirePrefix": "gpm2c.",
+          "opaque": true,
+          "versioned": true,
+          "authenticated": true,
+          "confidentiality": "AEAD_REQUIRED",
+          "clientDecodingRequired": false,
+          "stableSnapshot": true,
+          "filterBound": true,
+          "forwardOnly": true,
+          "expiresSeconds": 900,
+          "safePayloadFields": [
+            "version",
+            "snapshotPublicationSequence",
+            "afterPublishedAt",
+            "afterPublicItemId",
+            "filterDigest",
+            "expiresAt"
+          ],
+          "forbiddenPayloadMaterial": [
+            "databaseId",
+            "submissionId",
+            "userId",
+            "storagePath",
+            "providerData",
+            "capability"
+          ]
+        },
+        "snapshot": {
+          "mode": "VERSIONED_VISIBILITY_SEQUENCE",
+          "cursorField": "snapshotPublicationSequence",
+          "sequenceClassification": "NON_SECRET_SNAPSHOT_MATERIAL",
+          "sequenceAssignment": "SERVER_ASSIGNED_GLOBAL_STRICT_MONOTONIC",
+          "sequenceAtomicWithVisibilityChange": true,
+          "sequenceImmutable": true,
+          "firstPageCapture": "ATOMIC_COMMITTED_HIGH_WATER_AT_REQUEST_START",
+          "everyPagePredicate": "visibleFromPublicationSequence <= snapshotPublicationSequence AND (visibleUntilPublicationSequence IS NULL OR visibleUntilPublicationSequence > snapshotPublicationSequence)",
+          "versionedFields": [
+            "publishedAt",
+            "publicItemId",
+            "filterMembership",
+            "visibility"
+          ],
+          "coveredChanges": [
+            "INSERT",
+            "PUBLISH",
+            "UNPUBLISH",
+            "REPUBLISH",
+            "PUBLISHED_AT_CHANGE",
+            "PUBLIC_ITEM_ID_CHANGE",
+            "FILTER_MEMBERSHIP_CHANGE"
+          ],
+          "laterSameTimestampInsertExcluded": true,
+          "laterNullTimestampInsertExcluded": true,
+          "laterVisibilityMutationExcluded": true
+        },
+        "stableOrder": [
+          {
+            "field": "publishedAt",
+            "direction": "DESC",
+            "nulls": "LAST"
+          },
+          {
+            "field": "publicItemId",
+            "direction": "DESC",
+            "nulls": "FORBIDDEN"
+          }
+        ],
+        "continuationPredicate": {
+          "nonNullPublishedAt": "publishedAt < afterPublishedAt OR (publishedAt = afterPublishedAt AND publicItemId < afterPublicItemId) OR publishedAt IS NULL",
+          "nullPublishedAt": "publishedAt IS NULL AND publicItemId < afterPublicItemId"
+        }
+      },
+      "rateLimit": {
+        "atomic": true,
+        "windowSeconds": 60,
+        "maxRequests": 30,
+        "subject": {
+          "mode": "SERVER_KEYED_WINDOW_DIGEST",
+          "digestBytes": 32,
+          "windowBound": true,
+          "keyRotationRequired": true,
+          "rawIpPersisted": false,
+          "rawAccountPersisted": false,
+          "rawCookiePersisted": false,
+          "browserFingerprintAllowed": false,
+          "subjectRetentionSecondsMax": 120
+        },
+        "failMode": "CLOSED"
+      }
+    },
+    "intent": {
+      "method": "POST",
+      "path": "/api/gallery/private-media/v2/intent",
+      "request": {
+        "contentType": "application/json",
+        "allowedFields": [
+          "publicItemId",
+          "intent"
+        ],
+        "bodyBytesMax": 512,
+        "timeoutMs": 3000,
+        "intentLiteral": "OPEN_MEDIA"
+      },
+      "validation": {
+        "orderedSteps": [
+          "PARSE_BOUNDED_BODY",
+          "REQUIRE_EXACT_FIELDS",
+          "REQUIRE_PUBLIC_ITEM_ID",
+          "REQUIRE_INTENT_LITERAL",
+          "RESOLVE_APPROVED_CURRENT_REVISION",
+          "ENFORCE_ATOMIC_RATE_LIMIT",
+          "ISSUE_CAPABILITY"
+        ],
+        "unknownItemResponse": "NOT_FOUND",
+        "invalidIntentResponse": "INVALID_REQUEST"
+      },
+      "response": {
+        "contentType": "application/json",
+        "versionLiteral": "gallery-private-media.v2",
+        "allowedFields": [
+          "version",
+          "publicItemId",
+          "capabilityUrl",
+          "expiresAt"
+        ],
+        "bodyBytesMax": 2048,
+        "timeoutMs": 4000,
+        "capabilityCount": 1
+      },
+      "capability": {
+        "urlPolicy": "SAME_ORIGIN_RELATIVE",
+        "pathPrefix": "/api/gallery/private-media/v2/content/",
+        "allowedSchemes": [],
+        "providerRedirectAllowed": false,
+        "ttlSeconds": {
+          "min": 15,
+          "default": 45,
+          "max": 60
+        },
+        "singleUse": true,
+        "itemBound": true,
+        "intentBound": true,
+        "revisionBound": true,
+        "metadataPolicy": "SANITIZED_REENCODE_ONLY",
+        "rawUploadedOriginalAllowed": false,
+        "absoluteBytesCeiling": 52428800,
+        "decodedOutputBoundsGate": "viewerDerivativeBounds",
+        "firstByteTimeoutMs": 5000,
+        "totalTimeoutMs": 30000,
+        "delivery": {
+          "allowedMethods": [
+            "GET"
+          ],
+          "requestBodyAllowed": false,
+          "successStatus": 200,
+          "requiredResponseHeaders": {
+            "Content-Type": "image/webp",
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff",
+            "Referrer-Policy": "no-referrer"
+          }
+        },
+        "observability": {
+          "redactionRequiredBeforeEmission": true,
+          "capabilityTokenLogged": false,
+          "capabilityPathLogged": false,
+          "capabilityUrlLogged": false,
+          "logsIncludeCapabilityMaterial": false,
+          "errorsIncludeCapabilityMaterial": false,
+          "tracesIncludeCapabilityMaterial": false,
+          "diagnosticsIncludeCapabilityMaterial": false
+        }
+      },
+      "rateLimit": {
+        "atomic": true,
+        "windowSeconds": 60,
+        "maxRequests": 12,
+        "subject": {
+          "mode": "SERVER_KEYED_WINDOW_DIGEST",
+          "digestBytes": 32,
+          "windowBound": true,
+          "keyRotationRequired": true,
+          "rawIpPersisted": false,
+          "rawAccountPersisted": false,
+          "rawCookiePersisted": false,
+          "browserFingerprintAllowed": false,
+          "subjectRetentionSecondsMax": 120
+        },
+        "failMode": "CLOSED"
+      }
+    }
+  },
+  "errors": {
+    "allowedFields": [
+      "code",
+      "message"
+    ],
+    "allowedCodes": [
+      "INVALID_REQUEST",
+      "INVALID_CURSOR",
+      "NOT_FOUND",
+      "RATE_LIMITED",
+      "UNAVAILABLE"
+    ],
+    "providerErrorIncluded": false,
+    "stackIncluded": false,
+    "causeIncluded": false,
+    "filesystemPathIncluded": false,
+    "storagePathIncluded": false
+  },
+  "privacy": {
+    "sampleIdentifiersIncluded": false,
+    "sampleCapabilitiesIncluded": false,
+    "providerIdentifiersIncluded": false,
+    "secretMaterialIncluded": false
+  },
+  "cost": {
+    "currentPacket": {
+      "classification": "SOURCE_ONLY_NO_RUNTIME_COST_MUTATION",
+      "runtimeCostMutation": false
+    },
+    "futureActivation": {
+      "classification": "COST_UNKNOWN",
+      "activationBlocking": true,
+      "currentQuotaBillingPreflightRequired": true,
+      "dimensions": [
+        "EGRESS",
+        "COMPUTE",
+        "STORAGE"
+      ]
+    }
+  },
+  "decisionGates": {
+    "attribution": {
+      "status": "UNRESOLVED",
+      "activationBlocking": true,
+      "runtimeClaimAllowed": false
+    },
+    "retention": {
+      "status": "UNRESOLVED",
+      "activationBlocking": true,
+      "runtimeClaimAllowed": false
+    },
+    "accountDeletion": {
+      "status": "UNRESOLVED",
+      "activationBlocking": true,
+      "runtimeClaimAllowed": false
+    },
+    "viewerDerivativeBounds": {
+      "status": "UNRESOLVED",
+      "activationBlocking": true,
+      "runtimeClaimAllowed": false
+    }
+  }
+}

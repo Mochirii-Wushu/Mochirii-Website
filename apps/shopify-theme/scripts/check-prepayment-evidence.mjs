@@ -9,6 +9,11 @@ import {
 
 const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const repositoryRoot = path.resolve(appRoot, "../..");
+const HELP = `Usage:
+  npm run gate:prepayment-complete -- --bundle <ignored-prepayment-bundle.json>
+
+The bundle must be a regular ignored, untracked JSON file under .artifacts/operations.
+This command reads local evidence only. It does not access or mutate Shopify.\n`;
 
 function output(gate, category, count = 1) {
   const stream = category === "pass" ? process.stdout : process.stderr;
@@ -25,7 +30,7 @@ function parseArguments(argv) {
 
 const args = parseArguments(process.argv.slice(2));
 if (args?.help) {
-  output("prepayment", "usage", 1);
+  process.stdout.write(HELP);
   process.exit(0);
 }
 if (!args) {
