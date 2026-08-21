@@ -22,6 +22,8 @@ const publicRoutes = [
   { route: "/spotify", key: "spotify", file: "apps/web/app/spotify/page.tsx" },
   { route: "/spotlight", key: "spotlight", file: "apps/web/app/spotlight/page.tsx" },
   { route: "/twills", key: "twills", file: "apps/web/app/twills/page.tsx" },
+  { route: "/privacy", key: "privacy", file: "apps/web/app/privacy/page.tsx" },
+  { route: "/meta-data-deletion", key: "metaDataDeletion", file: "apps/web/app/meta-data-deletion/page.tsx" },
   { route: "/games/mochi-pets", key: "mochiPets", file: "apps/web/app/games/mochi-pets/page.tsx" },
 ];
 
