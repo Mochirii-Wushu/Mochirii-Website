@@ -16,6 +16,8 @@ type PageKey =
   | "spotify"
   | "recruitment"
   | "twills"
+  | "privacy"
+  | "metaDataDeletion"
   | "mochiPets";
 
 const pageMeta: Record<
@@ -117,6 +119,18 @@ const pageMeta: Record<
       "Profile for Twills, Mōchirīī leader and guild contact for Where Winds Meet members who need a clear next step.",
     path: "/twills",
     image: "/assets/img/profiles/twills/hero.webp",
+  },
+  privacy: {
+    title: "Privacy • Mōchirīī",
+    description: "Website privacy information and contact options for Mōchirīī account and Gallery questions.",
+    path: "/privacy",
+    image: "/assets/img/gallery/hero.webp",
+  },
+  metaDataDeletion: {
+    title: "Data Deletion Requests • Mōchirīī",
+    description: "How to ask Mōchirīī to review deletion of eligible website data it controls.",
+    path: "/meta-data-deletion",
+    image: "/assets/img/gallery/hero.webp",
   },
   mochiPets: {
     title: "Mochi Pets • Mōchirīī Guild World",

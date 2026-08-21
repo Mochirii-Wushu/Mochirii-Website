@@ -53,6 +53,11 @@ const headerProfiles = [
 ];
 
 const footerProfiles = [...headerProfiles];
+const footerLegalLinks = [
+  { name: "Privacy", href: "/privacy" },
+  { name: "Data Deletion", href: "/meta-data-deletion" },
+  { name: "support@mochirii.com", href: "mailto:support@mochirii.com" },
+];
 
 const permittedPreActivationOrigins = new Set([new URL(SUPABASE_PROJECT_URL).origin]);
 
@@ -256,6 +261,20 @@ async function verifyFooter(page) {
   const profiles = footer.locator('[data-official-profiles="footer"]');
   await verifyProfileSection(profiles, footerProfiles, "footer Official profiles");
   await assertElementInsideViewport(page, profiles, "footer Official profiles");
+
+  const legal = footer.getByRole("navigation", { name: "Privacy and support", exact: true });
+  assert(await legal.count() === 1, "footer Privacy and support navigation is missing or duplicated");
+  assert(await legal.locator("a").count() === footerLegalLinks.length, "footer Privacy and support link inventory drifted");
+  for (const expected of footerLegalLinks) {
+    const link = legal.getByRole("link", { name: expected.name, exact: true });
+    assert(await link.count() === 1, `footer is missing the exact ${expected.name} link`);
+    assert(await link.isVisible(), `footer ${expected.name} link is not visible`);
+    assert(await link.getAttribute("href") === expected.href, `footer ${expected.name} link has the wrong destination`);
+    assert(await link.getAttribute("target") === null, `footer ${expected.name} link unexpectedly opens a new browsing context`);
+    const box = await link.boundingBox();
+    assert(box && box.width >= 44 && box.height >= 44, `footer ${expected.name} link is smaller than 44 by 44 CSS pixels`);
+    await assertElementInsideViewport(page, link, `footer ${expected.name} link`);
+  }
 }
 
 async function verifyProfileSection(section, expectedProfiles, label) {

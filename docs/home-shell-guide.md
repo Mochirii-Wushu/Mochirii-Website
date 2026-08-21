@@ -107,6 +107,12 @@ Current footer content:
 - Official profiles render from the shared canonical profile collection. Facebook, Instagram, TikTok, Twitch, and YouTube appear in both header and footer.
 - Copyright year rendered by the Footer component.
 - Footer metadata line with the game name.
+- Privacy and Data Deletion links.
+- Public support contact at `support@mochirii.com`.
+
+The two linked pages are deliberately scoped to current Website source and request intake. They do not claim a
+complete cross-service legal notice, a verified mailbox service level, a universal retention schedule, or automatic
+removal of third-party copies. Provider and counsel-backed statements remain separate release gates.
 
 Keep the footer compact. It should remain a shared navigation and identity surface, not a full mission statement or duplicate Recruitment/Join content.
 

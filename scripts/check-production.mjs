@@ -32,6 +32,8 @@ const pageUrls = [
   "/recruitment",
   "/join",
   "/events",
+  "/privacy",
+  "/meta-data-deletion",
   "/robots.txt",
   "/sitemap.xml",
 ];
@@ -154,6 +156,9 @@ async function checkMetadata() {
   assertIncludes(home.text, new RegExp(`<link\\s+rel="canonical"\\s+href="${escapeRegExp(BASE_URL)}/?"`, "i"), "homepage canonical");
   assertIncludes(home.text, /property="og:title"/i, "homepage OG title");
   assertIncludes(home.text, /property="og:image"/i, "homepage OG image");
+  assertIncludes(home.text, /href="\/privacy"/i, "homepage footer Privacy link");
+  assertIncludes(home.text, /href="\/meta-data-deletion"/i, "homepage footer Data Deletion link");
+  assertIncludes(home.text, /href="mailto:support@mochirii\.com"/i, "homepage footer support link");
 
   const ogImage = extractMetaContent(home.text, /property="og:image"\s+content="([^"]+)"/i);
   if (!ogImage) throw new Error("Homepage OG image URL was not found");
@@ -169,12 +174,30 @@ async function checkMetadata() {
     new RegExp(`<link\\s+rel="canonical"\\s+href="${escapeRegExp(BASE_URL)}/recruitment"`, "i"),
     "recruitment canonical"
   );
+
+  const privacy = await fetchText("/privacy");
+  assertIncludes(privacy.text, /Website scope|privacy questions/i, "privacy page content");
+  assertIncludes(
+    privacy.text,
+    new RegExp(`<link\\s+rel="canonical"\\s+href="${escapeRegExp(BASE_URL)}/privacy"`, "i"),
+    "privacy canonical"
+  );
+
+  const deletion = await fetchText("/meta-data-deletion");
+  assertIncludes(deletion.text, /Data Deletion Requests|How to make a request/i, "data deletion page content");
+  assertIncludes(
+    deletion.text,
+    new RegExp(`<link\\s+rel="canonical"\\s+href="${escapeRegExp(BASE_URL)}/meta-data-deletion"`, "i"),
+    "data deletion canonical"
+  );
 }
 
 async function checkDiscoveryFiles() {
   const sitemap = await fetchText("/sitemap.xml");
   assertIncludes(sitemap.text, /<urlset[\s>]/i, "sitemap urlset");
   assertIncludes(sitemap.text, new RegExp(`${escapeRegExp(BASE_URL)}/gallery`, "i"), "gallery sitemap entry");
+  assertIncludes(sitemap.text, new RegExp(`${escapeRegExp(BASE_URL)}/privacy`, "i"), "privacy sitemap entry");
+  assertIncludes(sitemap.text, new RegExp(`${escapeRegExp(BASE_URL)}/meta-data-deletion`, "i"), "data deletion sitemap entry");
 
   const robots = await fetchText("/robots.txt");
   assertIncludes(robots.text, new RegExp(`Sitemap:\\s*${escapeRegExp(BASE_URL)}/sitemap\\.xml`, "i"), "robots sitemap entry");
