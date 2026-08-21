@@ -37,10 +37,10 @@
   "overrides": {
     "@babel/core": "7.29.7",
     "@tootallnate/once": "2.0.1",
-    "brace-expansion": "5.0.8",
-    "fast-uri": "3.1.4",
-    "js-yaml": "4.3.0",
-    "minimatch": "10.2.5",
+    "brace-expansion": "5.0.9",
+    "fast-uri": "3.1.5",
+    "js-yaml": "4.3.1",
+    "minimatch": "10.2.6",
     "nanoid": "3.3.18",
     "postcss": "8.5.23",
     "sharp": "0.35.3",
@@ -60,21 +60,19 @@
     },
     "@vercel/node": {
       "path-to-regexp": "6.3.0",
-      "undici": "6.27.0"
+      "undici": "6.28.0"
     },
     "@vercel/remix-builder": {
       "path-to-regexp": "6.3.0"
+    },
+    "@vercel/sandbox": {
+      "undici": "7.29.0"
     },
     "@vercel/static-config": {
       "ajv": "8.20.0"
     },
     "vercel": {
-      "undici": "6.27.0",
-      "sandbox": {
-        "@vercel/sandbox": {
-          "undici": "7.28.0"
-        }
-      }
+      "undici": "6.28.0"
     }
   },
   "devDependencies": {
