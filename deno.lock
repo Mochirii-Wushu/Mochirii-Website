@@ -5,7 +5,7 @@
     "npm:@supabase/supabase-js@2.110.8": "2.110.8",
     "npm:lighthouse@13.4.1": "13.4.1_@opentelemetry+core@2.10.0__@opentelemetry+api@1.9.1",
     "npm:openai@^4.52.5": "4.104.0",
-    "npm:playwright@1.62.0": "1.62.0",
+    "npm:playwright@1.62.1": "1.62.1",
     "npm:supabase@2.109.1": "2.109.1",
     "npm:tweetnacl@1.0.3": "1.0.3"
   },
@@ -802,12 +802,12 @@
       ],
       "bin": true
     },
-    "playwright-core@1.62.0": {
-      "integrity": "sha512-nsNRyq0r2zsG8AcRHWknc9QRA5XCueC7gWMrs+Gx2tlZn9hcl8zudfh00lhJPY1DE7NmZ6bDsT9g2yey8mXljA==",
+    "playwright-core@1.62.1": {
+      "integrity": "sha512-wPYSwEBJY9GHraISXqyqtx0na0LpO3XEX7jNDhntbex7tzUS7kLnZsOlFruFJB4Hi/rhDMjXGqHewDZ68nYZVw==",
       "bin": true
     },
-    "playwright@1.62.0": {
-      "integrity": "sha512-Z14dG305dgaLu6foB1TXQagFiW8JfSUIUaUuPaKQ6NtBPKF1P/qXcqfh6c6K/icPqdy37JmjbiBXf6JNg6Sylw==",
+    "playwright@1.62.1": {
+      "integrity": "sha512-0M+L3LAD8/nm554LOla9Ayx0j0tmFZ0FBcoQ7F1VuVHpM/XpiC8RcDzBQB8W5+hA8L22THxELzeF+2WcUzvcLg==",
       "dependencies": [
         "playwright-core"
       ],
@@ -1026,7 +1026,7 @@
     "packageJson": {
       "dependencies": [
         "npm:lighthouse@13.4.1",
-        "npm:playwright@1.62.0",
+        "npm:playwright@1.62.1",
         "npm:supabase@2.109.1"
       ]
     }
