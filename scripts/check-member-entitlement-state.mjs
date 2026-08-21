@@ -21,6 +21,27 @@ const documentationPath = path.join(
 const documentation = readFileSync(documentationPath, "utf8").replaceAll("\r\n", "\n");
 const documentationCompact = documentation.replace(/\s+/gu, " ");
 
+const resultChangedCoverage = [
+  {
+    pattern: /select\s+is\(\s*\(select\s+result_changed\s+from\s+public\.commit_member_entitlement_snapshot_core_v1\(\s*'11111111-1111-4111-8111-111111111111'\s*,\s*0\s*,\s*true\s*,\s*false\s*,\s*null\s*,\s*null\s*\)\s*\)\s*,\s*true\s*,\s*'the first denied snapshot reports a materialized change'/giu,
+    label: "a new event reports result_changed true",
+  },
+  {
+    pattern: /select\s+is\(\s*\(select\s+result_changed\s+from\s+public\.commit_member_entitlement_snapshot_core_v1\(\s*'11111111-1111-4111-8111-111111111111'\s*,\s*1\s*,\s*true\s*,\s*false\s*,\s*null\s*,\s*null\s*\)\s*\)\s*,\s*false\s*,\s*'an exact replay reports no materialized change'/giu,
+    label: "an exact replay reports result_changed false",
+  },
+];
+
+function validateResultChangedCoverage(source) {
+  for (const { pattern, label } of resultChangedCoverage) {
+    assert.equal(
+      [...source.matchAll(pattern)].length,
+      1,
+      `pgTAP must bind the result_changed contract exactly once: ${label}`,
+    );
+  }
+}
+
 const tables = [
   "member_entitlement_runtime_control",
   "member_entitlement_subject_locks",
@@ -241,9 +262,39 @@ function validateMigration(source) {
   ]) {
     assert.ok(!forbidden.test(normalized), `migration contains forbidden active or contradictory surface: ${forbidden}`);
   }
+
+  assert.match(
+    normalized,
+    /if\s+v_has_existing[\s\S]*?then\s+return\s+query\s+select\s+v_existing\.subject\s*,\s*v_existing\.revision\s*,\s*null::uuid\s*,[\s\S]*?v_existing\.effective_at\s*,\s*false\s*;\s*return\s*;\s*end\s+if\s*;/iu,
+    "an exact replay must return result_changed false",
+  );
+  assert.match(
+    normalized,
+    /return\s+query\s+select\s+state\.subject\s*,\s*state\.revision\s*,\s*state\.event_id\s*,[\s\S]*?state\.effective_at\s*,\s*true\s+from\s+private\.member_entitlement_state/iu,
+    "a materialized event must return result_changed true",
+  );
 }
 
 validateMigration(migration);
+validateResultChangedCoverage(test);
+
+for (const hostileTest of [
+  test.replace(
+    "true,\n  'the first denied snapshot reports a materialized change'",
+    "false,\n  'the first denied snapshot reports a materialized change'",
+  ),
+  test.replace(
+    "false,\n  'an exact replay reports no materialized change'",
+    "true,\n  'an exact replay reports no materialized change'",
+  ),
+]) {
+  assert.notEqual(hostileTest, test, "result_changed hostile test mutation must alter the fixture");
+  assert.throws(
+    () => validateResultChangedCoverage(hostileTest),
+    /result_changed contract/iu,
+    "checker must reject an inverted result_changed pgTAP expectation",
+  );
+}
 
 for (const hostileAppend of [
   "alter table private.member_entitlement_state disable row level security;",
@@ -298,6 +349,14 @@ for (const hostileAppend of [
     "constraint member_entitlement_state_subject_lock_fkey\n    foreign key (subject)\n    references private.member_entitlement_subject_locks (subject)\n    on delete restrict",
     "constraint member_entitlement_state_subject_lock_fkey\n    foreign key (subject)\n    references private.member_entitlement_subject_locks (subject)\n    on delete cascade",
   ),
+  migration.replace(
+    "v_existing.effective_at,\n      false;",
+    "v_existing.effective_at,\n      true;",
+  ),
+  migration.replace(
+    "state.effective_at,\n    true\n  from private.member_entitlement_state",
+    "state.effective_at,\n    false\n  from private.member_entitlement_state",
+  ),
 ]) {
   assert.throws(
     () => validateMigration(hostileAppend.startsWith("-- Establish")
@@ -309,7 +368,7 @@ for (const hostileAppend of [
 }
 
 for (const marker of [
-  "Status: source candidate; hosted Preview only.",
+  "Status: source candidate; hosted Preview evidence is non-production.",
   "every runtime capability remains disabled",
   "These rows are not delivery acknowledgements",
   "intentionally has no cascading `auth.users` foreign key",
@@ -364,6 +423,8 @@ for (const marker of [
   "failed replay preserves the newer snapshot and its exact event-target state",
   "an exact replay creates no event",
   "an exact replay returns no new event identifier",
+  "the first denied snapshot reports a materialized change",
+  "an exact replay reports no materialized change",
   "the exact due instant denies once",
   "every event has exactly the complete bounded consumer target set",
   "current state is byte-semantic equal to its immutable event snapshot",

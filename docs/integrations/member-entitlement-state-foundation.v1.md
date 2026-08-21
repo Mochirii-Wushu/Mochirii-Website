@@ -1,11 +1,11 @@
 # Member Entitlement State Foundation v1
 
-Status: source candidate; hosted Preview only. The pull request's Supabase Git
-integration has applied the migration to its isolated hosted Preview branch.
-It has not been applied to production, and every runtime capability remains
-disabled.
+Status: source candidate; hosted Preview evidence is non-production. The exact
+successor head must pass the repository's Supabase Git integration in its
+isolated hosted Preview before source acceptance. It has not been applied to
+production, and every runtime capability remains disabled.
 
-Base Website source: `d5e55abfb5e5d6fbecaf7da1cec762ba9bc9cdab`.
+Base Website source: `8779968290fe5884035fa8c142ff1280be1f5a6e`.
 
 ## Purpose
 

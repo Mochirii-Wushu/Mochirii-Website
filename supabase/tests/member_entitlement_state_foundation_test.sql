@@ -575,11 +575,13 @@ select throws_ok(
   'first materialization requires expected revision zero'
 );
 
-select lives_ok(
-  $$select * from public.commit_member_entitlement_snapshot_core_v1(
-    '11111111-1111-4111-8111-111111111111', 0, true, false, null, null
-  )$$,
-  'the first denied snapshot commits through the service-only RPC'
+select is(
+  (select result_changed
+   from public.commit_member_entitlement_snapshot_core_v1(
+     '11111111-1111-4111-8111-111111111111', 0, true, false, null, null
+   )),
+  true,
+  'the first denied snapshot reports a materialized change'
 );
 
 reset role;
@@ -618,11 +620,13 @@ select is(
 set local role service_role;
 select set_config('request.jwt.claims', '{"role":"service_role"}', true);
 
-select lives_ok(
-  $$select * from public.commit_member_entitlement_snapshot_core_v1(
-    '11111111-1111-4111-8111-111111111111', 1, true, false, null, null
-  )$$,
-  'an exact replay succeeds idempotently'
+select is(
+  (select result_changed
+   from public.commit_member_entitlement_snapshot_core_v1(
+     '11111111-1111-4111-8111-111111111111', 1, true, false, null, null
+   )),
+  false,
+  'an exact replay reports no materialized change'
 );
 
 reset role;
