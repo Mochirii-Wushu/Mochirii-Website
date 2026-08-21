@@ -23,6 +23,20 @@ Functions, and schema changes migration-based. Do not commit real secrets or
 - Do not deploy Edge Functions unless a future task explicitly approves deployment.
 - Protected page text must not be changed for auth/gallery-upload work.
 
+## Inert Member Entitlement State
+
+The durable entitlement substrate is documented in
+[`../docs/integrations/member-entitlement-state-foundation.v1.md`](../docs/integrations/member-entitlement-state-foundation.v1.md).
+It adds private revision, snapshot, delivery-obligation, and expiry state with
+all runtime flags false. It creates no producer, dispatcher, scheduler,
+consumer protocol, provider binding, or live login behavior. Its pull request
+may apply the migration to an isolated hosted Preview branch. A protected
+`main` merge automatically applies new migrations to production and redeploys
+the full declared Edge Function inventory through the existing Supabase Git
+integration, so that merge requires an exact production release approval.
+Enabling any entitlement capability requires a later reviewed forward
+migration and separate activation approval.
+
 ## Edge Function Dependencies
 
 Every deployed function owns a local `deno.json` with exact direct dependency
