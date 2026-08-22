@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { parseNextConfigLegacyRedirects, readNextConfigSource } from "./lib/app-router-inventory.mjs";
 import { SITE_ORIGIN } from "./lib/public-urls.mjs";
 
 const root = process.cwd();
@@ -216,9 +217,15 @@ assert(!/\b(?:source_draw_id|receipt_hash|roster_hash|actor_id|user_id)\b/i.test
 assertIncludes("official winner reduced motion", read(files.sideStyles), "@media (prefers-reduced-motion:reduce)");
 assertIncludes("official winner narrow reflow", read(files.sideStyles), "@media (max-width:600px)");
 
-const nextConfig = read(files.nextConfig);
-assertIncludes("Next redirects", nextConfig, '["/raffles", "/raffle"]');
-assertIncludes("Next redirects", nextConfig, '["/raffles.html", "/raffle"]');
+let nextRedirects = new Map();
+try {
+  const nextConfig = readNextConfigSource(resolve(root, files.nextConfig));
+  nextRedirects = new Map(parseNextConfigLegacyRedirects(nextConfig).map((redirect) => [redirect.source, redirect.destination]));
+} catch {
+  failures.push("Next redirects: contract could not be read or parsed [NEXT_REDIRECT_INPUT]");
+}
+assert(nextRedirects.get("/raffles") === "/raffle", "Next redirects: missing /raffles -> /raffle");
+assert(nextRedirects.get("/raffles.html") === "/raffle", "Next redirects: missing /raffles.html -> /raffle");
 assertIncludes("navigation", read(files.navigation), 'href: "/raffle", label: "Raffle", nav: "raffle"');
 assertIncludes("footer", read(files.footer), '{ href: "/raffle", label: "Raffle" }');
 assertIncludes("home bulletin", read(files.home), '"href": "/raffle"');

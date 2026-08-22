@@ -64,6 +64,8 @@ const checks = [
   ["test:gallery-thumbnail", ["deno", "test", "--lock=deno.lock", "--frozen=true", "supabase/functions/_shared/gallery-thumbnail_test.ts"]],
   ["check:gallery-timestamps", ["node", "scripts/check-gallery-timestamps.mjs"]],
   ["check:media-performance", ["node", "scripts/check-media-performance.mjs"]],
+  ["check:app-route-inventory", ["node", "scripts/check-app-route-inventory.mjs"]],
+  ["test:app-route-inventory", ["node", "--test", "scripts/lib/app-router-inventory.test.mjs"]],
   ["check:next-route-delivery", ["node", "scripts/check-next-route-delivery.mjs"]],
   ["check:guild-schedule", ["node", "scripts/check-guild-schedule.mjs"]],
   ["check:home-celebration-splash", ["node", "scripts/check-home-celebration-splash.mjs"]],
