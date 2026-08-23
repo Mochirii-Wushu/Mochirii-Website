@@ -112,8 +112,8 @@
       "id": "package-route-evidence-wiring",
       "path": "package.json",
       "scope": "exact npm commands for route-evidence checking and hostile tests",
-      "bytes": 16524,
-      "sha256": "0D846DC9B1024C291E455C6DFB187DD8C26C6AE8461D13F56BF9197BC627481D",
+      "bytes": 16727,
+      "sha256": "C38A6A093F55582C2430D8B1CC17771EACC8CC1C460E166BDA3AE3FE933A6C80",
       "status": "verified_source"
     },
     {
@@ -136,8 +136,8 @@
       "id": "repository-check-runner",
       "path": "scripts/check-all.mjs",
       "scope": "full-repository execution wiring for route-evidence checks",
-      "bytes": 11522,
-      "sha256": "94479434008A77BC5C17A4BD7FD12E1305CE86DF3CA61B110526B3E45C7D361D",
+      "bytes": 11738,
+      "sha256": "3EEC12E326FB39A184D69FA10263CD8A283CE81009D4F7D6652743EC56CA7449",
       "status": "verified_source"
     },
     {
