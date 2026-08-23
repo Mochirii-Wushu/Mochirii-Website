@@ -1,0 +1,1757 @@
+{
+  "schemaVersion": 1,
+  "publicSafe": true,
+  "inventoryCommit": "92fc424c6434e7baa4fe0387bfccf8d8a6631c4e",
+  "coverage": {
+    "appRouterRoutes": "matrix_complete_source_only",
+    "metadataAndStaticSurfaces": "pending_separate_inventory",
+    "storefrontSurfaces": "pending_separate_decision_record",
+    "phase4Exit": "not_claimed"
+  },
+  "routeMatrix": {
+    "path": "apps/web/config/app-route-matrix.v1.json",
+    "bytes": 9336,
+    "sha256": "7E694D6AD1F8DA8E0B5B0F3753AF6544731D685A675F47F77A38C673C930A1C5",
+    "sourceCommit": "92fc424c6434e7baa4fe0387bfccf8d8a6631c4e",
+    "routeCount": 38,
+    "redirectCount": 19
+  },
+  "stateClasses": [
+    "loading",
+    "empty",
+    "validation",
+    "conflict",
+    "offline",
+    "timeout",
+    "error",
+    "not-found",
+    "unavailable"
+  ],
+  "evidenceCatalog": [
+    {
+      "id": "accessibility-route-matrix",
+      "path": "scripts/check-accessibility-route-matrix.mjs",
+      "scope": "source-only accessibility route definitions; no browser or assistive-technology claim",
+      "bytes": 18890,
+      "sha256": "E49B7E5CCF2F6AF6CB1669004F7C6AB950A95D320920D2C4795F95F370A6F005",
+      "status": "verified_source"
+    },
+    {
+      "id": "app-route-evidence-checker",
+      "path": "scripts/check-app-route-evidence.mjs",
+      "scope": "actual CLI execution and categorical exit contract",
+      "bytes": 15211,
+      "sha256": "D0606419B42BBF83D682D6E7D730B6872C2F69992B580D547E434B80C728B05D",
+      "status": "verified_source"
+    },
+    {
+      "id": "app-route-evidence-tests",
+      "path": "scripts/lib/app-route-evidence.test.mjs",
+      "scope": "actual CLI and hostile route-evidence controls",
+      "bytes": 45650,
+      "sha256": "CBEDB0990FBA4B6254B9D9925AC8B4EA3FDDF8FED805EF6ED075520507A0DBA8",
+      "status": "verified_source"
+    },
+    {
+      "id": "app-route-evidence-validator",
+      "path": "scripts/lib/app-route-evidence.mjs",
+      "scope": "bounded source-only route-evidence validation contract",
+      "bytes": 30750,
+      "sha256": "9BE59C4D915F260EA3ABAEF3798B33FB8BA4E2798DB0CF18F389E08F34132573",
+      "status": "verified_source"
+    },
+    {
+      "id": "app-route-inventory",
+      "path": "scripts/check-app-route-inventory.mjs",
+      "scope": "App Router filesystem, route matrix, and redirect source contract",
+      "bytes": 2073,
+      "sha256": "B182DFC1E8020CAC1E1215822FEF378B5DFB346457DF7E67DDCDE50B906128BF",
+      "status": "verified_source"
+    },
+    {
+      "id": "app-route-inventory-library",
+      "path": "scripts/lib/app-router-inventory.mjs",
+      "scope": "direct App Router inventory parser dependency used by route-evidence validation",
+      "bytes": 59423,
+      "sha256": "5051994396F6B0EAC3033F13CF2DC41BD2DCD8FF3102CF11DC49F8B53F780D84",
+      "status": "verified_source"
+    },
+    {
+      "id": "app-route-inventory-tests",
+      "path": "scripts/lib/app-router-inventory.test.mjs",
+      "scope": "hostile source-only App Router inventory controls",
+      "bytes": 94604,
+      "sha256": "7CC03CBB3A12BAAB5FDAA4378E4D3F422A3F1A415260D4DBBEBE5818B9EE3F3D",
+      "status": "verified_source"
+    },
+    {
+      "id": "content-guardrails",
+      "path": "scripts/check-content-guardrails.mjs",
+      "scope": "source-only public content and protected-copy guardrails",
+      "bytes": 19301,
+      "sha256": "B7B46E2D998894143929AB5BAAB14A975A2B8E9369F7686758E04A324B2C67B8",
+      "status": "verified_source"
+    },
+    {
+      "id": "metadata-smoke",
+      "path": "scripts/check-observability-metadata-smoke.mjs",
+      "scope": "offline metadata contract; live mode is not claimed by this ledger",
+      "bytes": 29882,
+      "sha256": "C5E4CD83EDF225A43E95A889A240433D81D3BB3ABCA2176992D57A1F67803913",
+      "status": "verified_source"
+    },
+    {
+      "id": "next-route-delivery",
+      "path": "scripts/check-next-route-delivery.mjs",
+      "scope": "source and build-contract route delivery checks; no live delivery claim",
+      "bytes": 8059,
+      "sha256": "913E1722817EFA6AB5E6559537F32A7ED3AC6C25C814EC90045C3A75B4FEA88F",
+      "status": "verified_source"
+    },
+    {
+      "id": "package-route-evidence-wiring",
+      "path": "package.json",
+      "scope": "exact npm commands for route-evidence checking and hostile tests",
+      "bytes": 16727,
+      "sha256": "C38A6A093F55582C2430D8B1CC17771EACC8CC1C460E166BDA3AE3FE933A6C80",
+      "status": "verified_source"
+    },
+    {
+      "id": "protected-content",
+      "path": "scripts/check-protected-content.mjs",
+      "scope": "exact protected-copy source contract",
+      "bytes": 2768,
+      "sha256": "0A22F4A84FC7DB91AC1B17EE0FA80AE489C3F1690F7848E1B477D97D8EFEDDD9",
+      "status": "verified_source"
+    },
+    {
+      "id": "public-url-config",
+      "path": "apps/web/config/public-urls.json",
+      "scope": "canonical Website origin source used by route URL evidence",
+      "bytes": 1350,
+      "sha256": "3F0244DE6384743E7EDA19A723DEF9DBC7C00769633134F4D5049F512164080A",
+      "status": "verified_source"
+    },
+    {
+      "id": "repository-check-runner",
+      "path": "scripts/check-all.mjs",
+      "scope": "full-repository execution wiring for route-evidence checks",
+      "bytes": 11738,
+      "sha256": "3EEC12E326FB39A184D69FA10263CD8A283CE81009D4F7D6652743EC56CA7449",
+      "status": "verified_source"
+    },
+    {
+      "id": "runtime-performance",
+      "path": "scripts/check-web-runtime-performance.mjs",
+      "scope": "source performance budgets; no route-specific field measurement claim",
+      "bytes": 9782,
+      "sha256": "BAE2A060EEB25B7FFD885CA98127E3421BDD8A3EF040ED1B0E9A52BC5F199763",
+      "status": "verified_source"
+    },
+    {
+      "id": "security-hardening",
+      "path": "scripts/check-security-hardening.mjs",
+      "scope": "source-only security and privacy hardening contract",
+      "bytes": 23161,
+      "sha256": "45F2573CC354D0516680552356A1A85EFDFC9A800173CE665B3D8CE78AA0B72C",
+      "status": "verified_source"
+    },
+    {
+      "id": "site-navigation",
+      "path": "scripts/check-site-navigation.mjs",
+      "scope": "source-only shared navigation contract; no browser journey claim",
+      "bytes": 18919,
+      "sha256": "4501DF9BD9148BBD8854DB6B6932BC9EFE648EFAEB71FC5EE4848E40084AEFB9",
+      "status": "verified_source"
+    }
+  ],
+  "assessmentProfiles": [
+    {
+      "id": "accessibility-source-pending",
+      "status": "defined_not_run",
+      "evidence": [
+        "accessibility-route-matrix"
+      ]
+    },
+    {
+      "id": "cache-privacy-source-pending",
+      "status": "defined_not_run",
+      "evidence": [
+        "security-hardening"
+      ]
+    },
+    {
+      "id": "delivery-source-pending",
+      "status": "defined_not_run",
+      "evidence": [
+        "next-route-delivery",
+        "site-navigation"
+      ]
+    },
+    {
+      "id": "inventory-automated-source",
+      "status": "verified_source",
+      "evidence": [
+        "app-route-inventory",
+        "app-route-inventory-library",
+        "app-route-inventory-tests"
+      ]
+    },
+    {
+      "id": "manual-not-run",
+      "status": "defined_not_run",
+      "evidence": []
+    },
+    {
+      "id": "metadata-security-source-pending",
+      "status": "defined_not_run",
+      "evidence": [
+        "metadata-smoke",
+        "security-hardening"
+      ]
+    },
+    {
+      "id": "not-applicable",
+      "status": "not_applicable",
+      "evidence": []
+    },
+    {
+      "id": "performance-source-pending",
+      "status": "defined_not_run",
+      "evidence": [
+        "runtime-performance"
+      ]
+    },
+    {
+      "id": "protected-copy-source-pending",
+      "status": "defined_not_run",
+      "evidence": [
+        "content-guardrails",
+        "protected-content"
+      ]
+    },
+    {
+      "id": "responsive-source-pending",
+      "status": "defined_not_run",
+      "evidence": [
+        "accessibility-route-matrix"
+      ]
+    },
+    {
+      "id": "runtime-not-run",
+      "status": "defined_not_run",
+      "evidence": []
+    },
+    {
+      "id": "security-source-pending",
+      "status": "defined_not_run",
+      "evidence": [
+        "security-hardening"
+      ]
+    },
+    {
+      "id": "visual-not-run",
+      "status": "defined_not_run",
+      "evidence": []
+    }
+  ],
+  "stateProfiles": [
+    {
+      "id": "internal-not-applicable",
+      "states": {
+        "loading": "not_applicable",
+        "empty": "not_applicable",
+        "validation": "not_applicable",
+        "conflict": "not_applicable",
+        "offline": "not_applicable",
+        "timeout": "not_applicable",
+        "error": "not_applicable",
+        "not-found": "not_applicable",
+        "unavailable": "not_applicable"
+      },
+      "evidence": []
+    },
+    {
+      "id": "phase4-not-run",
+      "states": {
+        "loading": "defined_not_run",
+        "empty": "defined_not_run",
+        "validation": "defined_not_run",
+        "conflict": "defined_not_run",
+        "offline": "defined_not_run",
+        "timeout": "defined_not_run",
+        "error": "defined_not_run",
+        "not-found": "defined_not_run",
+        "unavailable": "defined_not_run"
+      },
+      "evidence": []
+    }
+  ],
+  "routes": [
+    {
+      "path": "/",
+      "kind": "page",
+      "source": "app/page.tsx",
+      "surface": "public",
+      "productionSmoke": true,
+      "methods": [],
+      "canonicalUrl": "https://mochirii.com/",
+      "routeTemplateUrl": "https://mochirii.com/",
+      "sourceOwner": "Mochirii-Wushu/Mochirii-Website/apps/web",
+      "audience": "matrix-declared public visitors",
+      "authorizationClass": "matrix_declared_public_access",
+      "upstreamData": [
+        "checked-in route source and public data dependencies not yet inventoried"
+      ],
+      "downstreamContracts": [
+        "Next.js document response and shared navigation shell"
+      ],
+      "assessments": {
+        "protectedCopy": "protected-copy-source-pending",
+        "desktopMobileBehavior": "responsive-source-pending",
+        "accessibility": "accessibility-source-pending",
+        "consoleNetwork": "delivery-source-pending",
+        "metadataSecurityHeaders": "metadata-security-source-pending",
+        "cachePrivacy": "cache-privacy-source-pending",
+        "performance": "performance-source-pending",
+        "previewVisualEvidence": "visual-not-run",
+        "automatedTests": "inventory-automated-source",
+        "manualTests": "manual-not-run"
+      },
+      "stateProfile": "phase4-not-run",
+      "terminalStatus": "in_progress",
+      "remaining": [
+        "automated, preview, and manual route evidence remains incomplete",
+        "Phase 4 state coverage remains incomplete"
+      ]
+    },
+    {
+      "path": "/[...not-found]",
+      "kind": "page",
+      "source": "app/[...not-found]/page.tsx",
+      "surface": "not-found",
+      "productionSmoke": false,
+      "methods": [],
+      "canonicalUrl": null,
+      "routeTemplateUrl": "https://mochirii.com/[...not-found]",
+      "sourceOwner": "Mochirii-Wushu/Mochirii-Website/apps/web",
+      "audience": "matrix-declared unmatched public requests",
+      "authorizationClass": "matrix_declared_not_found",
+      "upstreamData": [
+        "unmatched request path",
+        "checked-in not-found source"
+      ],
+      "downstreamContracts": [
+        "Next.js not-found document response"
+      ],
+      "assessments": {
+        "protectedCopy": "protected-copy-source-pending",
+        "desktopMobileBehavior": "responsive-source-pending",
+        "accessibility": "accessibility-source-pending",
+        "consoleNetwork": "delivery-source-pending",
+        "metadataSecurityHeaders": "metadata-security-source-pending",
+        "cachePrivacy": "cache-privacy-source-pending",
+        "performance": "performance-source-pending",
+        "previewVisualEvidence": "visual-not-run",
+        "automatedTests": "inventory-automated-source",
+        "manualTests": "manual-not-run"
+      },
+      "stateProfile": "phase4-not-run",
+      "terminalStatus": "in_progress",
+      "remaining": [
+        "automated, preview, and manual route evidence remains incomplete",
+        "Phase 4 state coverage remains incomplete"
+      ]
+    },
+    {
+      "path": "/account",
+      "kind": "page",
+      "source": "app/account/page.tsx",
+      "surface": "member",
+      "productionSmoke": true,
+      "methods": [],
+      "canonicalUrl": "https://mochirii.com/account",
+      "routeTemplateUrl": "https://mochirii.com/account",
+      "sourceOwner": "Mochirii-Wushu/Mochirii-Website/apps/web",
+      "audience": "matrix-declared signed-in members",
+      "authorizationClass": "matrix_declared_member_authorization_not_yet_evidenced",
+      "upstreamData": [
+        "route authorization dataflow not yet evidenced",
+        "checked-in route source and server dependencies not yet inventoried"
+      ],
+      "downstreamContracts": [
+        "Next.js document response and shared navigation shell"
+      ],
+      "assessments": {
+        "protectedCopy": "protected-copy-source-pending",
+        "desktopMobileBehavior": "responsive-source-pending",
+        "accessibility": "accessibility-source-pending",
+        "consoleNetwork": "delivery-source-pending",
+        "metadataSecurityHeaders": "metadata-security-source-pending",
+        "cachePrivacy": "cache-privacy-source-pending",
+        "performance": "performance-source-pending",
+        "previewVisualEvidence": "visual-not-run",
+        "automatedTests": "inventory-automated-source",
+        "manualTests": "manual-not-run"
+      },
+      "stateProfile": "phase4-not-run",
+      "terminalStatus": "in_progress",
+      "remaining": [
+        "automated, preview, and manual route evidence remains incomplete",
+        "Phase 4 state coverage remains incomplete"
+      ]
+    },
+    {
+      "path": "/announcements",
+      "kind": "page",
+      "source": "app/announcements/page.tsx",
+      "surface": "public",
+      "productionSmoke": true,
+      "methods": [],
+      "canonicalUrl": "https://mochirii.com/announcements",
+      "routeTemplateUrl": "https://mochirii.com/announcements",
+      "sourceOwner": "Mochirii-Wushu/Mochirii-Website/apps/web",
+      "audience": "matrix-declared public visitors",
+      "authorizationClass": "matrix_declared_public_access",
+      "upstreamData": [
+        "checked-in route source and public data dependencies not yet inventoried"
+      ],
+      "downstreamContracts": [
+        "Next.js document response and shared navigation shell"
+      ],
+      "assessments": {
+        "protectedCopy": "protected-copy-source-pending",
+        "desktopMobileBehavior": "responsive-source-pending",
+        "accessibility": "accessibility-source-pending",
+        "consoleNetwork": "delivery-source-pending",
+        "metadataSecurityHeaders": "metadata-security-source-pending",
+        "cachePrivacy": "cache-privacy-source-pending",
+        "performance": "performance-source-pending",
+        "previewVisualEvidence": "visual-not-run",
+        "automatedTests": "inventory-automated-source",
+        "manualTests": "manual-not-run"
+      },
+      "stateProfile": "phase4-not-run",
+      "terminalStatus": "in_progress",
+      "remaining": [
+        "automated, preview, and manual route evidence remains incomplete",
+        "Phase 4 state coverage remains incomplete"
+      ]
+    },
+    {
+      "path": "/api/forums/discourse-connect",
+      "kind": "handler",
+      "source": "app/api/forums/discourse-connect/route.ts",
+      "surface": "member",
+      "productionSmoke": false,
+      "methods": [
+        "POST"
+      ],
+      "canonicalUrl": null,
+      "routeTemplateUrl": "https://mochirii.com/api/forums/discourse-connect",
+      "sourceOwner": "Mochirii-Wushu/Mochirii-Website/apps/web",
+      "audience": "matrix-declared signed-in members",
+      "authorizationClass": "matrix_declared_member_authorization_not_yet_evidenced",
+      "upstreamData": [
+        "HTTP request validation not yet evidenced",
+        "route authorization dataflow not yet evidenced",
+        "checked-in route source and server dependencies not yet inventoried"
+      ],
+      "downstreamContracts": [
+        "Next.js route-handler HTTP response"
+      ],
+      "assessments": {
+        "protectedCopy": "not-applicable",
+        "desktopMobileBehavior": "not-applicable",
+        "accessibility": "not-applicable",
+        "consoleNetwork": "runtime-not-run",
+        "metadataSecurityHeaders": "security-source-pending",
+        "cachePrivacy": "cache-privacy-source-pending",
+        "performance": "runtime-not-run",
+        "previewVisualEvidence": "not-applicable",
+        "automatedTests": "inventory-automated-source",
+        "manualTests": "manual-not-run"
+      },
+      "stateProfile": "phase4-not-run",
+      "terminalStatus": "in_progress",
+      "remaining": [
+        "automated, preview, and manual route evidence remains incomplete",
+        "Phase 4 state coverage remains incomplete"
+      ]
+    },
+    {
+      "path": "/api/oauth/decision",
+      "kind": "handler",
+      "source": "app/api/oauth/decision/route.ts",
+      "surface": "member",
+      "productionSmoke": false,
+      "methods": [
+        "POST"
+      ],
+      "canonicalUrl": null,
+      "routeTemplateUrl": "https://mochirii.com/api/oauth/decision",
+      "sourceOwner": "Mochirii-Wushu/Mochirii-Website/apps/web",
+      "audience": "matrix-declared signed-in members",
+      "authorizationClass": "matrix_declared_member_authorization_not_yet_evidenced",
+      "upstreamData": [
+        "HTTP request validation not yet evidenced",
+        "route authorization dataflow not yet evidenced",
+        "checked-in route source and server dependencies not yet inventoried"
+      ],
+      "downstreamContracts": [
+        "Next.js route-handler HTTP response"
+      ],
+      "assessments": {
+        "protectedCopy": "not-applicable",
+        "desktopMobileBehavior": "not-applicable",
+        "accessibility": "not-applicable",
+        "consoleNetwork": "runtime-not-run",
+        "metadataSecurityHeaders": "security-source-pending",
+        "cachePrivacy": "cache-privacy-source-pending",
+        "performance": "runtime-not-run",
+        "previewVisualEvidence": "not-applicable",
+        "automatedTests": "inventory-automated-source",
+        "manualTests": "manual-not-run"
+      },
+      "stateProfile": "phase4-not-run",
+      "terminalStatus": "in_progress",
+      "remaining": [
+        "automated, preview, and manual route evidence remains incomplete",
+        "Phase 4 state coverage remains incomplete"
+      ]
+    },
+    {
+      "path": "/api/raffle/latest-winner",
+      "kind": "handler",
+      "source": "app/api/raffle/latest-winner/route.ts",
+      "surface": "public",
+      "productionSmoke": false,
+      "methods": [
+        "GET"
+      ],
+      "canonicalUrl": null,
+      "routeTemplateUrl": "https://mochirii.com/api/raffle/latest-winner",
+      "sourceOwner": "Mochirii-Wushu/Mochirii-Website/apps/web",
+      "audience": "matrix-declared public visitors",
+      "authorizationClass": "matrix_declared_public_access",
+      "upstreamData": [
+        "HTTP request validation not yet evidenced",
+        "checked-in route source and server dependencies not yet inventoried"
+      ],
+      "downstreamContracts": [
+        "Next.js route-handler HTTP response"
+      ],
+      "assessments": {
+        "protectedCopy": "not-applicable",
+        "desktopMobileBehavior": "not-applicable",
+        "accessibility": "not-applicable",
+        "consoleNetwork": "runtime-not-run",
+        "metadataSecurityHeaders": "security-source-pending",
+        "cachePrivacy": "cache-privacy-source-pending",
+        "performance": "runtime-not-run",
+        "previewVisualEvidence": "not-applicable",
+        "automatedTests": "inventory-automated-source",
+        "manualTests": "manual-not-run"
+      },
+      "stateProfile": "phase4-not-run",
+      "terminalStatus": "in_progress",
+      "remaining": [
+        "automated, preview, and manual route evidence remains incomplete",
+        "Phase 4 state coverage remains incomplete"
+      ]
+    },
+    {
+      "path": "/auth",
+      "kind": "page",
+      "source": "app/auth/page.tsx",
+      "surface": "public",
+      "productionSmoke": true,
+      "methods": [],
+      "canonicalUrl": "https://mochirii.com/auth",
+      "routeTemplateUrl": "https://mochirii.com/auth",
+      "sourceOwner": "Mochirii-Wushu/Mochirii-Website/apps/web",
+      "audience": "matrix-declared public visitors",
+      "authorizationClass": "matrix_declared_public_access",
+      "upstreamData": [
+        "checked-in route source and public data dependencies not yet inventoried"
+      ],
+      "downstreamContracts": [
+        "Next.js document response and shared navigation shell"
+      ],
+      "assessments": {
+        "protectedCopy": "protected-copy-source-pending",
+        "desktopMobileBehavior": "responsive-source-pending",
+        "accessibility": "accessibility-source-pending",
+        "consoleNetwork": "delivery-source-pending",
+        "metadataSecurityHeaders": "metadata-security-source-pending",
+        "cachePrivacy": "cache-privacy-source-pending",
+        "performance": "performance-source-pending",
+        "previewVisualEvidence": "visual-not-run",
+        "automatedTests": "inventory-automated-source",
+        "manualTests": "manual-not-run"
+      },
+      "stateProfile": "phase4-not-run",
+      "terminalStatus": "in_progress",
+      "remaining": [
+        "automated, preview, and manual route evidence remains incomplete",
+        "Phase 4 state coverage remains incomplete"
+      ]
+    },
+    {
+      "path": "/events",
+      "kind": "page",
+      "source": "app/events/page.tsx",
+      "surface": "public",
+      "productionSmoke": true,
+      "methods": [],
+      "canonicalUrl": "https://mochirii.com/events",
+      "routeTemplateUrl": "https://mochirii.com/events",
+      "sourceOwner": "Mochirii-Wushu/Mochirii-Website/apps/web",
+      "audience": "matrix-declared public visitors",
+      "authorizationClass": "matrix_declared_public_access",
+      "upstreamData": [
+        "checked-in route source and public data dependencies not yet inventoried"
+      ],
+      "downstreamContracts": [
+        "Next.js document response and shared navigation shell"
+      ],
+      "assessments": {
+        "protectedCopy": "protected-copy-source-pending",
+        "desktopMobileBehavior": "responsive-source-pending",
+        "accessibility": "accessibility-source-pending",
+        "consoleNetwork": "delivery-source-pending",
+        "metadataSecurityHeaders": "metadata-security-source-pending",
+        "cachePrivacy": "cache-privacy-source-pending",
+        "performance": "performance-source-pending",
+        "previewVisualEvidence": "visual-not-run",
+        "automatedTests": "inventory-automated-source",
+        "manualTests": "manual-not-run"
+      },
+      "stateProfile": "phase4-not-run",
+      "terminalStatus": "in_progress",
+      "remaining": [
+        "automated, preview, and manual route evidence remains incomplete",
+        "Phase 4 state coverage remains incomplete"
+      ]
+    },
+    {
+      "path": "/forums/connect",
+      "kind": "page",
+      "source": "app/forums/connect/page.tsx",
+      "surface": "member",
+      "productionSmoke": false,
+      "methods": [],
+      "canonicalUrl": "https://mochirii.com/forums/connect",
+      "routeTemplateUrl": "https://mochirii.com/forums/connect",
+      "sourceOwner": "Mochirii-Wushu/Mochirii-Website/apps/web",
+      "audience": "matrix-declared signed-in members",
+      "authorizationClass": "matrix_declared_member_authorization_not_yet_evidenced",
+      "upstreamData": [
+        "route authorization dataflow not yet evidenced",
+        "checked-in route source and server dependencies not yet inventoried"
+      ],
+      "downstreamContracts": [
+        "Next.js document response and shared navigation shell"
+      ],
+      "assessments": {
+        "protectedCopy": "protected-copy-source-pending",
+        "desktopMobileBehavior": "responsive-source-pending",
+        "accessibility": "accessibility-source-pending",
+        "consoleNetwork": "delivery-source-pending",
+        "metadataSecurityHeaders": "metadata-security-source-pending",
+        "cachePrivacy": "cache-privacy-source-pending",
+        "performance": "performance-source-pending",
+        "previewVisualEvidence": "visual-not-run",
+        "automatedTests": "inventory-automated-source",
+        "manualTests": "manual-not-run"
+      },
+      "stateProfile": "phase4-not-run",
+      "terminalStatus": "in_progress",
+      "remaining": [
+        "automated, preview, and manual route evidence remains incomplete",
+        "Phase 4 state coverage remains incomplete"
+      ]
+    },
+    {
+      "path": "/gallery",
+      "kind": "page",
+      "source": "app/gallery/page.tsx",
+      "surface": "public",
+      "productionSmoke": true,
+      "methods": [],
+      "canonicalUrl": "https://mochirii.com/gallery",
+      "routeTemplateUrl": "https://mochirii.com/gallery",
+      "sourceOwner": "Mochirii-Wushu/Mochirii-Website/apps/web",
+      "audience": "matrix-declared public visitors",
+      "authorizationClass": "matrix_declared_public_access",
+      "upstreamData": [
+        "checked-in route source and public data dependencies not yet inventoried"
+      ],
+      "downstreamContracts": [
+        "Next.js document response and shared navigation shell"
+      ],
+      "assessments": {
+        "protectedCopy": "protected-copy-source-pending",
+        "desktopMobileBehavior": "responsive-source-pending",
+        "accessibility": "accessibility-source-pending",
+        "consoleNetwork": "delivery-source-pending",
+        "metadataSecurityHeaders": "metadata-security-source-pending",
+        "cachePrivacy": "cache-privacy-source-pending",
+        "performance": "performance-source-pending",
+        "previewVisualEvidence": "visual-not-run",
+        "automatedTests": "inventory-automated-source",
+        "manualTests": "manual-not-run"
+      },
+      "stateProfile": "phase4-not-run",
+      "terminalStatus": "in_progress",
+      "remaining": [
+        "automated, preview, and manual route evidence remains incomplete",
+        "Phase 4 state coverage remains incomplete"
+      ]
+    },
+    {
+      "path": "/gallery-submit",
+      "kind": "page",
+      "source": "app/gallery-submit/page.tsx",
+      "surface": "member",
+      "productionSmoke": true,
+      "methods": [],
+      "canonicalUrl": "https://mochirii.com/gallery-submit",
+      "routeTemplateUrl": "https://mochirii.com/gallery-submit",
+      "sourceOwner": "Mochirii-Wushu/Mochirii-Website/apps/web",
+      "audience": "matrix-declared signed-in members",
+      "authorizationClass": "matrix_declared_member_authorization_not_yet_evidenced",
+      "upstreamData": [
+        "route authorization dataflow not yet evidenced",
+        "checked-in route source and server dependencies not yet inventoried"
+      ],
+      "downstreamContracts": [
+        "Next.js document response and shared navigation shell"
+      ],
+      "assessments": {
+        "protectedCopy": "protected-copy-source-pending",
+        "desktopMobileBehavior": "responsive-source-pending",
+        "accessibility": "accessibility-source-pending",
+        "consoleNetwork": "delivery-source-pending",
+        "metadataSecurityHeaders": "metadata-security-source-pending",
+        "cachePrivacy": "cache-privacy-source-pending",
+        "performance": "performance-source-pending",
+        "previewVisualEvidence": "visual-not-run",
+        "automatedTests": "inventory-automated-source",
+        "manualTests": "manual-not-run"
+      },
+      "stateProfile": "phase4-not-run",
+      "terminalStatus": "in_progress",
+      "remaining": [
+        "automated, preview, and manual route evidence remains incomplete",
+        "Phase 4 state coverage remains incomplete"
+      ]
+    },
+    {
+      "path": "/games/mochi-pets",
+      "kind": "page",
+      "source": "app/games/mochi-pets/page.tsx",
+      "surface": "public",
+      "productionSmoke": true,
+      "methods": [],
+      "canonicalUrl": "https://mochirii.com/games/mochi-pets",
+      "routeTemplateUrl": "https://mochirii.com/games/mochi-pets",
+      "sourceOwner": "Mochirii-Wushu/Mochirii-Website/apps/web",
+      "audience": "matrix-declared public visitors",
+      "authorizationClass": "matrix_declared_public_access",
+      "upstreamData": [
+        "checked-in route source and public data dependencies not yet inventoried"
+      ],
+      "downstreamContracts": [
+        "Next.js document response and shared navigation shell"
+      ],
+      "assessments": {
+        "protectedCopy": "protected-copy-source-pending",
+        "desktopMobileBehavior": "responsive-source-pending",
+        "accessibility": "accessibility-source-pending",
+        "consoleNetwork": "delivery-source-pending",
+        "metadataSecurityHeaders": "metadata-security-source-pending",
+        "cachePrivacy": "cache-privacy-source-pending",
+        "performance": "performance-source-pending",
+        "previewVisualEvidence": "visual-not-run",
+        "automatedTests": "inventory-automated-source",
+        "manualTests": "manual-not-run"
+      },
+      "stateProfile": "phase4-not-run",
+      "terminalStatus": "in_progress",
+      "remaining": [
+        "automated, preview, and manual route evidence remains incomplete",
+        "Phase 4 state coverage remains incomplete"
+      ]
+    },
+    {
+      "path": "/games/mochi-pets/member-access",
+      "kind": "handler",
+      "source": "app/games/mochi-pets/member-access/route.ts",
+      "surface": "member",
+      "productionSmoke": false,
+      "methods": [
+        "POST",
+        "DELETE"
+      ],
+      "canonicalUrl": null,
+      "routeTemplateUrl": "https://mochirii.com/games/mochi-pets/member-access",
+      "sourceOwner": "Mochirii-Wushu/Mochirii-Website/apps/web",
+      "audience": "matrix-declared signed-in members",
+      "authorizationClass": "matrix_declared_member_authorization_not_yet_evidenced",
+      "upstreamData": [
+        "HTTP request validation not yet evidenced",
+        "route authorization dataflow not yet evidenced",
+        "checked-in route source and server dependencies not yet inventoried"
+      ],
+      "downstreamContracts": [
+        "Next.js route-handler HTTP response"
+      ],
+      "assessments": {
+        "protectedCopy": "not-applicable",
+        "desktopMobileBehavior": "not-applicable",
+        "accessibility": "not-applicable",
+        "consoleNetwork": "runtime-not-run",
+        "metadataSecurityHeaders": "security-source-pending",
+        "cachePrivacy": "cache-privacy-source-pending",
+        "performance": "runtime-not-run",
+        "previewVisualEvidence": "not-applicable",
+        "automatedTests": "inventory-automated-source",
+        "manualTests": "manual-not-run"
+      },
+      "stateProfile": "phase4-not-run",
+      "terminalStatus": "in_progress",
+      "remaining": [
+        "automated, preview, and manual route evidence remains incomplete",
+        "Phase 4 state coverage remains incomplete"
+      ]
+    },
+    {
+      "path": "/games/mochi-pets/tester-login",
+      "kind": "handler",
+      "source": "app/games/mochi-pets/tester-login/route.ts",
+      "surface": "member",
+      "productionSmoke": false,
+      "methods": [
+        "POST"
+      ],
+      "canonicalUrl": null,
+      "routeTemplateUrl": "https://mochirii.com/games/mochi-pets/tester-login",
+      "sourceOwner": "Mochirii-Wushu/Mochirii-Website/apps/web",
+      "audience": "matrix-declared signed-in members",
+      "authorizationClass": "matrix_declared_member_authorization_not_yet_evidenced",
+      "upstreamData": [
+        "HTTP request validation not yet evidenced",
+        "route authorization dataflow not yet evidenced",
+        "checked-in route source and server dependencies not yet inventoried"
+      ],
+      "downstreamContracts": [
+        "Next.js route-handler HTTP response"
+      ],
+      "assessments": {
+        "protectedCopy": "not-applicable",
+        "desktopMobileBehavior": "not-applicable",
+        "accessibility": "not-applicable",
+        "consoleNetwork": "runtime-not-run",
+        "metadataSecurityHeaders": "security-source-pending",
+        "cachePrivacy": "cache-privacy-source-pending",
+        "performance": "runtime-not-run",
+        "previewVisualEvidence": "not-applicable",
+        "automatedTests": "inventory-automated-source",
+        "manualTests": "manual-not-run"
+      },
+      "stateProfile": "phase4-not-run",
+      "terminalStatus": "in_progress",
+      "remaining": [
+        "automated, preview, and manual route evidence remains incomplete",
+        "Phase 4 state coverage remains incomplete"
+      ]
+    },
+    {
+      "path": "/games/mochi-pets/tester-logout",
+      "kind": "handler",
+      "source": "app/games/mochi-pets/tester-logout/route.ts",
+      "surface": "member",
+      "productionSmoke": false,
+      "methods": [
+        "POST"
+      ],
+      "canonicalUrl": null,
+      "routeTemplateUrl": "https://mochirii.com/games/mochi-pets/tester-logout",
+      "sourceOwner": "Mochirii-Wushu/Mochirii-Website/apps/web",
+      "audience": "matrix-declared signed-in members",
+      "authorizationClass": "matrix_declared_member_authorization_not_yet_evidenced",
+      "upstreamData": [
+        "HTTP request validation not yet evidenced",
+        "route authorization dataflow not yet evidenced",
+        "checked-in route source and server dependencies not yet inventoried"
+      ],
+      "downstreamContracts": [
+        "Next.js route-handler HTTP response"
+      ],
+      "assessments": {
+        "protectedCopy": "not-applicable",
+        "desktopMobileBehavior": "not-applicable",
+        "accessibility": "not-applicable",
+        "consoleNetwork": "runtime-not-run",
+        "metadataSecurityHeaders": "security-source-pending",
+        "cachePrivacy": "cache-privacy-source-pending",
+        "performance": "runtime-not-run",
+        "previewVisualEvidence": "not-applicable",
+        "automatedTests": "inventory-automated-source",
+        "manualTests": "manual-not-run"
+      },
+      "stateProfile": "phase4-not-run",
+      "terminalStatus": "in_progress",
+      "remaining": [
+        "automated, preview, and manual route evidence remains incomplete",
+        "Phase 4 state coverage remains incomplete"
+      ]
+    },
+    {
+      "path": "/join",
+      "kind": "page",
+      "source": "app/join/page.tsx",
+      "surface": "public",
+      "productionSmoke": true,
+      "methods": [],
+      "canonicalUrl": "https://mochirii.com/join",
+      "routeTemplateUrl": "https://mochirii.com/join",
+      "sourceOwner": "Mochirii-Wushu/Mochirii-Website/apps/web",
+      "audience": "matrix-declared public visitors",
+      "authorizationClass": "matrix_declared_public_access",
+      "upstreamData": [
+        "checked-in route source and public data dependencies not yet inventoried"
+      ],
+      "downstreamContracts": [
+        "Next.js document response and shared navigation shell"
+      ],
+      "assessments": {
+        "protectedCopy": "protected-copy-source-pending",
+        "desktopMobileBehavior": "responsive-source-pending",
+        "accessibility": "accessibility-source-pending",
+        "consoleNetwork": "delivery-source-pending",
+        "metadataSecurityHeaders": "metadata-security-source-pending",
+        "cachePrivacy": "cache-privacy-source-pending",
+        "performance": "performance-source-pending",
+        "previewVisualEvidence": "visual-not-run",
+        "automatedTests": "inventory-automated-source",
+        "manualTests": "manual-not-run"
+      },
+      "stateProfile": "phase4-not-run",
+      "terminalStatus": "in_progress",
+      "remaining": [
+        "automated, preview, and manual route evidence remains incomplete",
+        "Phase 4 state coverage remains incomplete"
+      ]
+    },
+    {
+      "path": "/leader-dashboard",
+      "kind": "page",
+      "source": "app/leader-dashboard/page.tsx",
+      "surface": "moderator",
+      "productionSmoke": true,
+      "methods": [],
+      "canonicalUrl": "https://mochirii.com/leader-dashboard",
+      "routeTemplateUrl": "https://mochirii.com/leader-dashboard",
+      "sourceOwner": "Mochirii-Wushu/Mochirii-Website/apps/web",
+      "audience": "matrix-declared authorized moderators",
+      "authorizationClass": "matrix_declared_moderator_authorization_not_yet_evidenced",
+      "upstreamData": [
+        "route authorization dataflow not yet evidenced",
+        "checked-in route source and server dependencies not yet inventoried"
+      ],
+      "downstreamContracts": [
+        "Next.js document response and shared navigation shell"
+      ],
+      "assessments": {
+        "protectedCopy": "protected-copy-source-pending",
+        "desktopMobileBehavior": "responsive-source-pending",
+        "accessibility": "accessibility-source-pending",
+        "consoleNetwork": "delivery-source-pending",
+        "metadataSecurityHeaders": "metadata-security-source-pending",
+        "cachePrivacy": "cache-privacy-source-pending",
+        "performance": "performance-source-pending",
+        "previewVisualEvidence": "visual-not-run",
+        "automatedTests": "inventory-automated-source",
+        "manualTests": "manual-not-run"
+      },
+      "stateProfile": "phase4-not-run",
+      "terminalStatus": "in_progress",
+      "remaining": [
+        "automated, preview, and manual route evidence remains incomplete",
+        "Phase 4 state coverage remains incomplete"
+      ]
+    },
+    {
+      "path": "/leaders",
+      "kind": "page",
+      "source": "app/leaders/page.tsx",
+      "surface": "public",
+      "productionSmoke": true,
+      "methods": [],
+      "canonicalUrl": "https://mochirii.com/leaders",
+      "routeTemplateUrl": "https://mochirii.com/leaders",
+      "sourceOwner": "Mochirii-Wushu/Mochirii-Website/apps/web",
+      "audience": "matrix-declared public visitors",
+      "authorizationClass": "matrix_declared_public_access",
+      "upstreamData": [
+        "checked-in route source and public data dependencies not yet inventoried"
+      ],
+      "downstreamContracts": [
+        "Next.js document response and shared navigation shell"
+      ],
+      "assessments": {
+        "protectedCopy": "protected-copy-source-pending",
+        "desktopMobileBehavior": "responsive-source-pending",
+        "accessibility": "accessibility-source-pending",
+        "consoleNetwork": "delivery-source-pending",
+        "metadataSecurityHeaders": "metadata-security-source-pending",
+        "cachePrivacy": "cache-privacy-source-pending",
+        "performance": "performance-source-pending",
+        "previewVisualEvidence": "visual-not-run",
+        "automatedTests": "inventory-automated-source",
+        "manualTests": "manual-not-run"
+      },
+      "stateProfile": "phase4-not-run",
+      "terminalStatus": "in_progress",
+      "remaining": [
+        "automated, preview, and manual route evidence remains incomplete",
+        "Phase 4 state coverage remains incomplete"
+      ]
+    },
+    {
+      "path": "/meta-data-deletion",
+      "kind": "page",
+      "source": "app/meta-data-deletion/page.tsx",
+      "surface": "public",
+      "productionSmoke": true,
+      "methods": [],
+      "canonicalUrl": "https://mochirii.com/meta-data-deletion",
+      "routeTemplateUrl": "https://mochirii.com/meta-data-deletion",
+      "sourceOwner": "Mochirii-Wushu/Mochirii-Website/apps/web",
+      "audience": "matrix-declared public visitors",
+      "authorizationClass": "matrix_declared_public_access",
+      "upstreamData": [
+        "checked-in route source and public data dependencies not yet inventoried"
+      ],
+      "downstreamContracts": [
+        "Next.js document response and shared navigation shell"
+      ],
+      "assessments": {
+        "protectedCopy": "protected-copy-source-pending",
+        "desktopMobileBehavior": "responsive-source-pending",
+        "accessibility": "accessibility-source-pending",
+        "consoleNetwork": "delivery-source-pending",
+        "metadataSecurityHeaders": "metadata-security-source-pending",
+        "cachePrivacy": "cache-privacy-source-pending",
+        "performance": "performance-source-pending",
+        "previewVisualEvidence": "visual-not-run",
+        "automatedTests": "inventory-automated-source",
+        "manualTests": "manual-not-run"
+      },
+      "stateProfile": "phase4-not-run",
+      "terminalStatus": "in_progress",
+      "remaining": [
+        "automated, preview, and manual route evidence remains incomplete",
+        "Phase 4 state coverage remains incomplete"
+      ]
+    },
+    {
+      "path": "/oauth/consent",
+      "kind": "page",
+      "source": "app/oauth/consent/page.tsx",
+      "surface": "member",
+      "productionSmoke": false,
+      "methods": [],
+      "canonicalUrl": "https://mochirii.com/oauth/consent",
+      "routeTemplateUrl": "https://mochirii.com/oauth/consent",
+      "sourceOwner": "Mochirii-Wushu/Mochirii-Website/apps/web",
+      "audience": "matrix-declared signed-in members",
+      "authorizationClass": "matrix_declared_member_authorization_not_yet_evidenced",
+      "upstreamData": [
+        "route authorization dataflow not yet evidenced",
+        "checked-in route source and server dependencies not yet inventoried"
+      ],
+      "downstreamContracts": [
+        "Next.js document response and shared navigation shell"
+      ],
+      "assessments": {
+        "protectedCopy": "protected-copy-source-pending",
+        "desktopMobileBehavior": "responsive-source-pending",
+        "accessibility": "accessibility-source-pending",
+        "consoleNetwork": "delivery-source-pending",
+        "metadataSecurityHeaders": "metadata-security-source-pending",
+        "cachePrivacy": "cache-privacy-source-pending",
+        "performance": "performance-source-pending",
+        "previewVisualEvidence": "visual-not-run",
+        "automatedTests": "inventory-automated-source",
+        "manualTests": "manual-not-run"
+      },
+      "stateProfile": "phase4-not-run",
+      "terminalStatus": "in_progress",
+      "remaining": [
+        "automated, preview, and manual route evidence remains incomplete",
+        "Phase 4 state coverage remains incomplete"
+      ]
+    },
+    {
+      "path": "/privacy",
+      "kind": "page",
+      "source": "app/privacy/page.tsx",
+      "surface": "public",
+      "productionSmoke": true,
+      "methods": [],
+      "canonicalUrl": "https://mochirii.com/privacy",
+      "routeTemplateUrl": "https://mochirii.com/privacy",
+      "sourceOwner": "Mochirii-Wushu/Mochirii-Website/apps/web",
+      "audience": "matrix-declared public visitors",
+      "authorizationClass": "matrix_declared_public_access",
+      "upstreamData": [
+        "checked-in route source and public data dependencies not yet inventoried"
+      ],
+      "downstreamContracts": [
+        "Next.js document response and shared navigation shell"
+      ],
+      "assessments": {
+        "protectedCopy": "protected-copy-source-pending",
+        "desktopMobileBehavior": "responsive-source-pending",
+        "accessibility": "accessibility-source-pending",
+        "consoleNetwork": "delivery-source-pending",
+        "metadataSecurityHeaders": "metadata-security-source-pending",
+        "cachePrivacy": "cache-privacy-source-pending",
+        "performance": "performance-source-pending",
+        "previewVisualEvidence": "visual-not-run",
+        "automatedTests": "inventory-automated-source",
+        "manualTests": "manual-not-run"
+      },
+      "stateProfile": "phase4-not-run",
+      "terminalStatus": "in_progress",
+      "remaining": [
+        "automated, preview, and manual route evidence remains incomplete",
+        "Phase 4 state coverage remains incomplete"
+      ]
+    },
+    {
+      "path": "/raffle",
+      "kind": "page",
+      "source": "app/raffle/page.tsx",
+      "surface": "public",
+      "productionSmoke": true,
+      "methods": [],
+      "canonicalUrl": "https://mochirii.com/raffle",
+      "routeTemplateUrl": "https://mochirii.com/raffle",
+      "sourceOwner": "Mochirii-Wushu/Mochirii-Website/apps/web",
+      "audience": "matrix-declared public visitors",
+      "authorizationClass": "matrix_declared_public_access",
+      "upstreamData": [
+        "checked-in route source and public data dependencies not yet inventoried"
+      ],
+      "downstreamContracts": [
+        "Next.js document response and shared navigation shell"
+      ],
+      "assessments": {
+        "protectedCopy": "protected-copy-source-pending",
+        "desktopMobileBehavior": "responsive-source-pending",
+        "accessibility": "accessibility-source-pending",
+        "consoleNetwork": "delivery-source-pending",
+        "metadataSecurityHeaders": "metadata-security-source-pending",
+        "cachePrivacy": "cache-privacy-source-pending",
+        "performance": "performance-source-pending",
+        "previewVisualEvidence": "visual-not-run",
+        "automatedTests": "inventory-automated-source",
+        "manualTests": "manual-not-run"
+      },
+      "stateProfile": "phase4-not-run",
+      "terminalStatus": "in_progress",
+      "remaining": [
+        "automated, preview, and manual route evidence remains incomplete",
+        "Phase 4 state coverage remains incomplete"
+      ]
+    },
+    {
+      "path": "/raffle-render-fixtures-internal/[scenario]",
+      "kind": "page",
+      "source": "app/raffle-render-fixtures-internal/[scenario]/page.tsx",
+      "surface": "internal",
+      "productionSmoke": false,
+      "methods": [],
+      "canonicalUrl": null,
+      "routeTemplateUrl": "https://mochirii.com/raffle-render-fixtures-internal/[scenario]",
+      "sourceOwner": "Mochirii-Wushu/Mochirii-Website/apps/web",
+      "audience": "matrix-declared build-time test harness",
+      "authorizationClass": "matrix_declared_internal_build_only",
+      "upstreamData": [
+        "checked-in render-fixture scenario source"
+      ],
+      "downstreamContracts": [
+        "build-only render-fixture response"
+      ],
+      "assessments": {
+        "protectedCopy": "not-applicable",
+        "desktopMobileBehavior": "not-applicable",
+        "accessibility": "not-applicable",
+        "consoleNetwork": "not-applicable",
+        "metadataSecurityHeaders": "not-applicable",
+        "cachePrivacy": "not-applicable",
+        "performance": "not-applicable",
+        "previewVisualEvidence": "not-applicable",
+        "automatedTests": "inventory-automated-source",
+        "manualTests": "not-applicable"
+      },
+      "stateProfile": "internal-not-applicable",
+      "terminalStatus": "excluded_internal",
+      "remaining": []
+    },
+    {
+      "path": "/raffle/rules",
+      "kind": "page",
+      "source": "app/raffle/rules/page.tsx",
+      "surface": "public",
+      "productionSmoke": true,
+      "methods": [],
+      "canonicalUrl": "https://mochirii.com/raffle/rules",
+      "routeTemplateUrl": "https://mochirii.com/raffle/rules",
+      "sourceOwner": "Mochirii-Wushu/Mochirii-Website/apps/web",
+      "audience": "matrix-declared public visitors",
+      "authorizationClass": "matrix_declared_public_access",
+      "upstreamData": [
+        "checked-in route source and public data dependencies not yet inventoried"
+      ],
+      "downstreamContracts": [
+        "Next.js document response and shared navigation shell"
+      ],
+      "assessments": {
+        "protectedCopy": "protected-copy-source-pending",
+        "desktopMobileBehavior": "responsive-source-pending",
+        "accessibility": "accessibility-source-pending",
+        "consoleNetwork": "delivery-source-pending",
+        "metadataSecurityHeaders": "metadata-security-source-pending",
+        "cachePrivacy": "cache-privacy-source-pending",
+        "performance": "performance-source-pending",
+        "previewVisualEvidence": "visual-not-run",
+        "automatedTests": "inventory-automated-source",
+        "manualTests": "manual-not-run"
+      },
+      "stateProfile": "phase4-not-run",
+      "terminalStatus": "in_progress",
+      "remaining": [
+        "automated, preview, and manual route evidence remains incomplete",
+        "Phase 4 state coverage remains incomplete"
+      ]
+    },
+    {
+      "path": "/raffle/rules/[version]",
+      "kind": "page",
+      "source": "app/raffle/rules/[version]/page.tsx",
+      "surface": "public",
+      "productionSmoke": false,
+      "methods": [],
+      "canonicalUrl": null,
+      "routeTemplateUrl": "https://mochirii.com/raffle/rules/[version]",
+      "sourceOwner": "Mochirii-Wushu/Mochirii-Website/apps/web",
+      "audience": "matrix-declared public visitors",
+      "authorizationClass": "matrix_declared_public_access",
+      "upstreamData": [
+        "checked-in route source and public data dependencies not yet inventoried"
+      ],
+      "downstreamContracts": [
+        "Next.js document response and shared navigation shell"
+      ],
+      "assessments": {
+        "protectedCopy": "protected-copy-source-pending",
+        "desktopMobileBehavior": "responsive-source-pending",
+        "accessibility": "accessibility-source-pending",
+        "consoleNetwork": "delivery-source-pending",
+        "metadataSecurityHeaders": "metadata-security-source-pending",
+        "cachePrivacy": "cache-privacy-source-pending",
+        "performance": "performance-source-pending",
+        "previewVisualEvidence": "visual-not-run",
+        "automatedTests": "inventory-automated-source",
+        "manualTests": "manual-not-run"
+      },
+      "stateProfile": "phase4-not-run",
+      "terminalStatus": "in_progress",
+      "remaining": [
+        "automated, preview, and manual route evidence remains incomplete",
+        "Phase 4 state coverage remains incomplete"
+      ]
+    },
+    {
+      "path": "/ranks",
+      "kind": "page",
+      "source": "app/ranks/page.tsx",
+      "surface": "public",
+      "productionSmoke": true,
+      "methods": [],
+      "canonicalUrl": "https://mochirii.com/ranks",
+      "routeTemplateUrl": "https://mochirii.com/ranks",
+      "sourceOwner": "Mochirii-Wushu/Mochirii-Website/apps/web",
+      "audience": "matrix-declared public visitors",
+      "authorizationClass": "matrix_declared_public_access",
+      "upstreamData": [
+        "checked-in route source and public data dependencies not yet inventoried"
+      ],
+      "downstreamContracts": [
+        "Next.js document response and shared navigation shell"
+      ],
+      "assessments": {
+        "protectedCopy": "protected-copy-source-pending",
+        "desktopMobileBehavior": "responsive-source-pending",
+        "accessibility": "accessibility-source-pending",
+        "consoleNetwork": "delivery-source-pending",
+        "metadataSecurityHeaders": "metadata-security-source-pending",
+        "cachePrivacy": "cache-privacy-source-pending",
+        "performance": "performance-source-pending",
+        "previewVisualEvidence": "visual-not-run",
+        "automatedTests": "inventory-automated-source",
+        "manualTests": "manual-not-run"
+      },
+      "stateProfile": "phase4-not-run",
+      "terminalStatus": "in_progress",
+      "remaining": [
+        "automated, preview, and manual route evidence remains incomplete",
+        "Phase 4 state coverage remains incomplete"
+      ]
+    },
+    {
+      "path": "/recruitment",
+      "kind": "page",
+      "source": "app/recruitment/page.tsx",
+      "surface": "public",
+      "productionSmoke": true,
+      "methods": [],
+      "canonicalUrl": "https://mochirii.com/recruitment",
+      "routeTemplateUrl": "https://mochirii.com/recruitment",
+      "sourceOwner": "Mochirii-Wushu/Mochirii-Website/apps/web",
+      "audience": "matrix-declared public visitors",
+      "authorizationClass": "matrix_declared_public_access",
+      "upstreamData": [
+        "checked-in route source and public data dependencies not yet inventoried"
+      ],
+      "downstreamContracts": [
+        "Next.js document response and shared navigation shell"
+      ],
+      "assessments": {
+        "protectedCopy": "protected-copy-source-pending",
+        "desktopMobileBehavior": "responsive-source-pending",
+        "accessibility": "accessibility-source-pending",
+        "consoleNetwork": "delivery-source-pending",
+        "metadataSecurityHeaders": "metadata-security-source-pending",
+        "cachePrivacy": "cache-privacy-source-pending",
+        "performance": "performance-source-pending",
+        "previewVisualEvidence": "visual-not-run",
+        "automatedTests": "inventory-automated-source",
+        "manualTests": "manual-not-run"
+      },
+      "stateProfile": "phase4-not-run",
+      "terminalStatus": "in_progress",
+      "remaining": [
+        "automated, preview, and manual route evidence remains incomplete",
+        "Phase 4 state coverage remains incomplete"
+      ]
+    },
+    {
+      "path": "/social",
+      "kind": "page",
+      "source": "app/social/page.tsx",
+      "surface": "public",
+      "productionSmoke": true,
+      "methods": [],
+      "canonicalUrl": "https://mochirii.com/social",
+      "routeTemplateUrl": "https://mochirii.com/social",
+      "sourceOwner": "Mochirii-Wushu/Mochirii-Website/apps/web",
+      "audience": "matrix-declared public visitors",
+      "authorizationClass": "matrix_declared_public_access",
+      "upstreamData": [
+        "checked-in route source and public data dependencies not yet inventoried"
+      ],
+      "downstreamContracts": [
+        "Next.js document response and shared navigation shell"
+      ],
+      "assessments": {
+        "protectedCopy": "protected-copy-source-pending",
+        "desktopMobileBehavior": "responsive-source-pending",
+        "accessibility": "accessibility-source-pending",
+        "consoleNetwork": "delivery-source-pending",
+        "metadataSecurityHeaders": "metadata-security-source-pending",
+        "cachePrivacy": "cache-privacy-source-pending",
+        "performance": "performance-source-pending",
+        "previewVisualEvidence": "visual-not-run",
+        "automatedTests": "inventory-automated-source",
+        "manualTests": "manual-not-run"
+      },
+      "stateProfile": "phase4-not-run",
+      "terminalStatus": "in_progress",
+      "remaining": [
+        "automated, preview, and manual route evidence remains incomplete",
+        "Phase 4 state coverage remains incomplete"
+      ]
+    },
+    {
+      "path": "/spinner",
+      "kind": "page",
+      "source": "app/spinner/page.tsx",
+      "surface": "private",
+      "productionSmoke": false,
+      "methods": [],
+      "canonicalUrl": "https://mochirii.com/spinner",
+      "routeTemplateUrl": "https://mochirii.com/spinner",
+      "sourceOwner": "Mochirii-Wushu/Mochirii-Website/apps/web",
+      "audience": "matrix-declared authorized raffle operators",
+      "authorizationClass": "matrix_declared_private_authorization_not_yet_evidenced",
+      "upstreamData": [
+        "route authorization dataflow not yet evidenced",
+        "checked-in route source and server dependencies not yet inventoried"
+      ],
+      "downstreamContracts": [
+        "Next.js document response and shared navigation shell"
+      ],
+      "assessments": {
+        "protectedCopy": "protected-copy-source-pending",
+        "desktopMobileBehavior": "responsive-source-pending",
+        "accessibility": "accessibility-source-pending",
+        "consoleNetwork": "delivery-source-pending",
+        "metadataSecurityHeaders": "metadata-security-source-pending",
+        "cachePrivacy": "cache-privacy-source-pending",
+        "performance": "performance-source-pending",
+        "previewVisualEvidence": "visual-not-run",
+        "automatedTests": "inventory-automated-source",
+        "manualTests": "manual-not-run"
+      },
+      "stateProfile": "phase4-not-run",
+      "terminalStatus": "in_progress",
+      "remaining": [
+        "automated, preview, and manual route evidence remains incomplete",
+        "Phase 4 state coverage remains incomplete"
+      ]
+    },
+    {
+      "path": "/spinner/[...not-found]",
+      "kind": "page",
+      "source": "app/spinner/[...not-found]/page.tsx",
+      "surface": "private",
+      "productionSmoke": false,
+      "methods": [],
+      "canonicalUrl": null,
+      "routeTemplateUrl": "https://mochirii.com/spinner/[...not-found]",
+      "sourceOwner": "Mochirii-Wushu/Mochirii-Website/apps/web",
+      "audience": "matrix-declared authorized raffle operators",
+      "authorizationClass": "matrix_declared_private_authorization_not_yet_evidenced",
+      "upstreamData": [
+        "route authorization dataflow not yet evidenced",
+        "checked-in route source and server dependencies not yet inventoried"
+      ],
+      "downstreamContracts": [
+        "Next.js document response and shared navigation shell"
+      ],
+      "assessments": {
+        "protectedCopy": "protected-copy-source-pending",
+        "desktopMobileBehavior": "responsive-source-pending",
+        "accessibility": "accessibility-source-pending",
+        "consoleNetwork": "delivery-source-pending",
+        "metadataSecurityHeaders": "metadata-security-source-pending",
+        "cachePrivacy": "cache-privacy-source-pending",
+        "performance": "performance-source-pending",
+        "previewVisualEvidence": "visual-not-run",
+        "automatedTests": "inventory-automated-source",
+        "manualTests": "manual-not-run"
+      },
+      "stateProfile": "phase4-not-run",
+      "terminalStatus": "in_progress",
+      "remaining": [
+        "automated, preview, and manual route evidence remains incomplete",
+        "Phase 4 state coverage remains incomplete"
+      ]
+    },
+    {
+      "path": "/spinner/live",
+      "kind": "handler",
+      "source": "app/spinner/live/route.ts",
+      "surface": "private",
+      "productionSmoke": false,
+      "methods": [
+        "GET",
+        "POST",
+        "PUT",
+        "PATCH",
+        "DELETE",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "canonicalUrl": null,
+      "routeTemplateUrl": "https://mochirii.com/spinner/live",
+      "sourceOwner": "Mochirii-Wushu/Mochirii-Website/apps/web",
+      "audience": "matrix-declared authorized raffle operators",
+      "authorizationClass": "matrix_declared_private_authorization_not_yet_evidenced",
+      "upstreamData": [
+        "HTTP request validation not yet evidenced",
+        "route authorization dataflow not yet evidenced",
+        "checked-in route source and server dependencies not yet inventoried"
+      ],
+      "downstreamContracts": [
+        "Next.js route-handler HTTP response"
+      ],
+      "assessments": {
+        "protectedCopy": "not-applicable",
+        "desktopMobileBehavior": "not-applicable",
+        "accessibility": "not-applicable",
+        "consoleNetwork": "runtime-not-run",
+        "metadataSecurityHeaders": "security-source-pending",
+        "cachePrivacy": "cache-privacy-source-pending",
+        "performance": "runtime-not-run",
+        "previewVisualEvidence": "not-applicable",
+        "automatedTests": "inventory-automated-source",
+        "manualTests": "manual-not-run"
+      },
+      "stateProfile": "phase4-not-run",
+      "terminalStatus": "in_progress",
+      "remaining": [
+        "automated, preview, and manual route evidence remains incomplete",
+        "Phase 4 state coverage remains incomplete"
+      ]
+    },
+    {
+      "path": "/spinner/media/render",
+      "kind": "handler",
+      "source": "app/spinner/media/render/route.ts",
+      "surface": "private",
+      "productionSmoke": false,
+      "methods": [
+        "GET",
+        "POST",
+        "PUT",
+        "PATCH",
+        "DELETE",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "canonicalUrl": null,
+      "routeTemplateUrl": "https://mochirii.com/spinner/media/render",
+      "sourceOwner": "Mochirii-Wushu/Mochirii-Website/apps/web",
+      "audience": "matrix-declared authorized raffle operators",
+      "authorizationClass": "matrix_declared_private_authorization_not_yet_evidenced",
+      "upstreamData": [
+        "HTTP request validation not yet evidenced",
+        "route authorization dataflow not yet evidenced",
+        "checked-in route source and server dependencies not yet inventoried"
+      ],
+      "downstreamContracts": [
+        "Next.js route-handler HTTP response"
+      ],
+      "assessments": {
+        "protectedCopy": "not-applicable",
+        "desktopMobileBehavior": "not-applicable",
+        "accessibility": "not-applicable",
+        "consoleNetwork": "runtime-not-run",
+        "metadataSecurityHeaders": "security-source-pending",
+        "cachePrivacy": "cache-privacy-source-pending",
+        "performance": "runtime-not-run",
+        "previewVisualEvidence": "not-applicable",
+        "automatedTests": "inventory-automated-source",
+        "manualTests": "manual-not-run"
+      },
+      "stateProfile": "phase4-not-run",
+      "terminalStatus": "in_progress",
+      "remaining": [
+        "automated, preview, and manual route evidence remains incomplete",
+        "Phase 4 state coverage remains incomplete"
+      ]
+    },
+    {
+      "path": "/spinner/session",
+      "kind": "handler",
+      "source": "app/spinner/session/route.ts",
+      "surface": "private",
+      "productionSmoke": false,
+      "methods": [
+        "GET",
+        "POST",
+        "PUT",
+        "PATCH",
+        "DELETE",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "canonicalUrl": null,
+      "routeTemplateUrl": "https://mochirii.com/spinner/session",
+      "sourceOwner": "Mochirii-Wushu/Mochirii-Website/apps/web",
+      "audience": "matrix-declared authorized raffle operators",
+      "authorizationClass": "matrix_declared_private_authorization_not_yet_evidenced",
+      "upstreamData": [
+        "HTTP request validation not yet evidenced",
+        "route authorization dataflow not yet evidenced",
+        "checked-in route source and server dependencies not yet inventoried"
+      ],
+      "downstreamContracts": [
+        "Next.js route-handler HTTP response"
+      ],
+      "assessments": {
+        "protectedCopy": "not-applicable",
+        "desktopMobileBehavior": "not-applicable",
+        "accessibility": "not-applicable",
+        "consoleNetwork": "runtime-not-run",
+        "metadataSecurityHeaders": "security-source-pending",
+        "cachePrivacy": "cache-privacy-source-pending",
+        "performance": "runtime-not-run",
+        "previewVisualEvidence": "not-applicable",
+        "automatedTests": "inventory-automated-source",
+        "manualTests": "manual-not-run"
+      },
+      "stateProfile": "phase4-not-run",
+      "terminalStatus": "in_progress",
+      "remaining": [
+        "automated, preview, and manual route evidence remains incomplete",
+        "Phase 4 state coverage remains incomplete"
+      ]
+    },
+    {
+      "path": "/spotify",
+      "kind": "page",
+      "source": "app/spotify/page.tsx",
+      "surface": "public",
+      "productionSmoke": true,
+      "methods": [],
+      "canonicalUrl": "https://mochirii.com/spotify",
+      "routeTemplateUrl": "https://mochirii.com/spotify",
+      "sourceOwner": "Mochirii-Wushu/Mochirii-Website/apps/web",
+      "audience": "matrix-declared public visitors",
+      "authorizationClass": "matrix_declared_public_access",
+      "upstreamData": [
+        "checked-in route source and public data dependencies not yet inventoried"
+      ],
+      "downstreamContracts": [
+        "Next.js document response and shared navigation shell"
+      ],
+      "assessments": {
+        "protectedCopy": "protected-copy-source-pending",
+        "desktopMobileBehavior": "responsive-source-pending",
+        "accessibility": "accessibility-source-pending",
+        "consoleNetwork": "delivery-source-pending",
+        "metadataSecurityHeaders": "metadata-security-source-pending",
+        "cachePrivacy": "cache-privacy-source-pending",
+        "performance": "performance-source-pending",
+        "previewVisualEvidence": "visual-not-run",
+        "automatedTests": "inventory-automated-source",
+        "manualTests": "manual-not-run"
+      },
+      "stateProfile": "phase4-not-run",
+      "terminalStatus": "in_progress",
+      "remaining": [
+        "automated, preview, and manual route evidence remains incomplete",
+        "Phase 4 state coverage remains incomplete"
+      ]
+    },
+    {
+      "path": "/spotlight",
+      "kind": "page",
+      "source": "app/spotlight/page.tsx",
+      "surface": "public",
+      "productionSmoke": true,
+      "methods": [],
+      "canonicalUrl": "https://mochirii.com/spotlight",
+      "routeTemplateUrl": "https://mochirii.com/spotlight",
+      "sourceOwner": "Mochirii-Wushu/Mochirii-Website/apps/web",
+      "audience": "matrix-declared public visitors",
+      "authorizationClass": "matrix_declared_public_access",
+      "upstreamData": [
+        "checked-in route source and public data dependencies not yet inventoried"
+      ],
+      "downstreamContracts": [
+        "Next.js document response and shared navigation shell"
+      ],
+      "assessments": {
+        "protectedCopy": "protected-copy-source-pending",
+        "desktopMobileBehavior": "responsive-source-pending",
+        "accessibility": "accessibility-source-pending",
+        "consoleNetwork": "delivery-source-pending",
+        "metadataSecurityHeaders": "metadata-security-source-pending",
+        "cachePrivacy": "cache-privacy-source-pending",
+        "performance": "performance-source-pending",
+        "previewVisualEvidence": "visual-not-run",
+        "automatedTests": "inventory-automated-source",
+        "manualTests": "manual-not-run"
+      },
+      "stateProfile": "phase4-not-run",
+      "terminalStatus": "in_progress",
+      "remaining": [
+        "automated, preview, and manual route evidence remains incomplete",
+        "Phase 4 state coverage remains incomplete"
+      ]
+    },
+    {
+      "path": "/tome",
+      "kind": "page",
+      "source": "app/tome/page.tsx",
+      "surface": "public",
+      "productionSmoke": true,
+      "methods": [],
+      "canonicalUrl": "https://mochirii.com/tome",
+      "routeTemplateUrl": "https://mochirii.com/tome",
+      "sourceOwner": "Mochirii-Wushu/Mochirii-Website/apps/web",
+      "audience": "matrix-declared public visitors",
+      "authorizationClass": "matrix_declared_public_access",
+      "upstreamData": [
+        "checked-in route source and public data dependencies not yet inventoried"
+      ],
+      "downstreamContracts": [
+        "Next.js document response and shared navigation shell"
+      ],
+      "assessments": {
+        "protectedCopy": "protected-copy-source-pending",
+        "desktopMobileBehavior": "responsive-source-pending",
+        "accessibility": "accessibility-source-pending",
+        "consoleNetwork": "delivery-source-pending",
+        "metadataSecurityHeaders": "metadata-security-source-pending",
+        "cachePrivacy": "cache-privacy-source-pending",
+        "performance": "performance-source-pending",
+        "previewVisualEvidence": "visual-not-run",
+        "automatedTests": "inventory-automated-source",
+        "manualTests": "manual-not-run"
+      },
+      "stateProfile": "phase4-not-run",
+      "terminalStatus": "in_progress",
+      "remaining": [
+        "automated, preview, and manual route evidence remains incomplete",
+        "Phase 4 state coverage remains incomplete"
+      ]
+    },
+    {
+      "path": "/twills",
+      "kind": "page",
+      "source": "app/twills/page.tsx",
+      "surface": "public",
+      "productionSmoke": true,
+      "methods": [],
+      "canonicalUrl": "https://mochirii.com/twills",
+      "routeTemplateUrl": "https://mochirii.com/twills",
+      "sourceOwner": "Mochirii-Wushu/Mochirii-Website/apps/web",
+      "audience": "matrix-declared public visitors",
+      "authorizationClass": "matrix_declared_public_access",
+      "upstreamData": [
+        "checked-in route source and public data dependencies not yet inventoried"
+      ],
+      "downstreamContracts": [
+        "Next.js document response and shared navigation shell"
+      ],
+      "assessments": {
+        "protectedCopy": "protected-copy-source-pending",
+        "desktopMobileBehavior": "responsive-source-pending",
+        "accessibility": "accessibility-source-pending",
+        "consoleNetwork": "delivery-source-pending",
+        "metadataSecurityHeaders": "metadata-security-source-pending",
+        "cachePrivacy": "cache-privacy-source-pending",
+        "performance": "performance-source-pending",
+        "previewVisualEvidence": "visual-not-run",
+        "automatedTests": "inventory-automated-source",
+        "manualTests": "manual-not-run"
+      },
+      "stateProfile": "phase4-not-run",
+      "terminalStatus": "in_progress",
+      "remaining": [
+        "automated, preview, and manual route evidence remains incomplete",
+        "Phase 4 state coverage remains incomplete"
+      ]
+    }
+  ]
+}

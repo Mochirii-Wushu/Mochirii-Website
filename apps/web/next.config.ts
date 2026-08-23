@@ -7,28 +7,6 @@ import publicUrls from "./config/public-urls.json";
 const appRoot = dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = resolve(appRoot, "../..");
 
-const legacyHtmlRedirects = [
-  ["/index.html", "/"],
-  ["/join.html", "/join"],
-  ["/gallery.html", "/gallery"],
-  ["/leaders.html", "/leaders"],
-  ["/tome.html", "/tome"],
-  ["/ranks.html", "/ranks"],
-  ["/events.html", "/events"],
-  ["/announcements.html", "/announcements"],
-  ["/raffles", "/raffle"],
-  ["/raffles.html", "/raffle"],
-  ["/recruitment.html", "/recruitment"],
-  ["/auth.html", "/auth"],
-  ["/account.html", "/account"],
-  ["/social.html", "/social"],
-  ["/gallery-submit.html", "/gallery-submit"],
-  ["/spotify.html", "/spotify"],
-  ["/spotlight.html", "/spotlight"],
-  ["/twills.html", "/twills"],
-  ["/leader-dashboard.html", "/leader-dashboard"],
-] as const;
-
 const contentSecurityPolicy = [
   "default-src 'self'",
   "base-uri 'self'",
@@ -147,11 +125,27 @@ const nextConfig: NextConfig = {
     ];
   },
   async redirects() {
-    return legacyHtmlRedirects.map(([source, destination]) => ({
-      source,
-      destination,
-      permanent: true,
-    }));
+    return [
+      { source: "/index.html", destination: "/", permanent: true },
+      { source: "/join.html", destination: "/join", permanent: true },
+      { source: "/gallery.html", destination: "/gallery", permanent: true },
+      { source: "/leaders.html", destination: "/leaders", permanent: true },
+      { source: "/tome.html", destination: "/tome", permanent: true },
+      { source: "/ranks.html", destination: "/ranks", permanent: true },
+      { source: "/events.html", destination: "/events", permanent: true },
+      { source: "/announcements.html", destination: "/announcements", permanent: true },
+      { source: "/raffles", destination: "/raffle", permanent: true },
+      { source: "/raffles.html", destination: "/raffle", permanent: true },
+      { source: "/recruitment.html", destination: "/recruitment", permanent: true },
+      { source: "/auth.html", destination: "/auth", permanent: true },
+      { source: "/account.html", destination: "/account", permanent: true },
+      { source: "/social.html", destination: "/social", permanent: true },
+      { source: "/gallery-submit.html", destination: "/gallery-submit", permanent: true },
+      { source: "/spotify.html", destination: "/spotify", permanent: true },
+      { source: "/spotlight.html", destination: "/spotlight", permanent: true },
+      { source: "/twills.html", destination: "/twills", permanent: true },
+      { source: "/leader-dashboard.html", destination: "/leader-dashboard", permanent: true },
+    ];
   },
 };
 

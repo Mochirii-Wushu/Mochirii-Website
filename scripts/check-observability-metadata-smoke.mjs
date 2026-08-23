@@ -1,11 +1,67 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
+import { validateAppRouteMatrix } from "./lib/app-router-inventory.mjs";
 import { SITE_ORIGIN } from "./lib/public-urls.mjs";
+import { readBoundedHtmlResponse } from "./smoke-vercel-production.mjs";
 
 const root = process.cwd();
-const failures = [];
+export const OBSERVABILITY_DIAGNOSTIC_LIMITS = Object.freeze({
+  messages: 64,
+  messageCharacters: 256,
+  aggregateCharacters: 8192,
+  metadataUrlCharacters: 2048,
+});
+const FAILURE_OVERFLOW = "additional observability failures were suppressed";
+
+export function createObservabilityFailureRecorder() {
+  const messages = [];
+  let aggregateCharacters = 0;
+  let saturated = false;
+
+  function record(message) {
+    if (saturated) return;
+    const raw = typeof message === "string" ? message : "observability validation failed";
+    const bounded = raw.length <= OBSERVABILITY_DIAGNOSTIC_LIMITS.messageCharacters
+      ? raw
+      : `${raw.slice(0, OBSERVABILITY_DIAGNOSTIC_LIMITS.messageCharacters - 3)}...`;
+    const reservesOverflow = messages.length < OBSERVABILITY_DIAGNOSTIC_LIMITS.messages - 1
+      && aggregateCharacters + bounded.length
+        <= OBSERVABILITY_DIAGNOSTIC_LIMITS.aggregateCharacters - FAILURE_OVERFLOW.length;
+    if (reservesOverflow) {
+      messages.push(bounded);
+      aggregateCharacters += bounded.length;
+      return;
+    }
+    if (messages.length < OBSERVABILITY_DIAGNOSTIC_LIMITS.messages
+      && aggregateCharacters + FAILURE_OVERFLOW.length <= OBSERVABILITY_DIAGNOSTIC_LIMITS.aggregateCharacters) {
+      messages.push(FAILURE_OVERFLOW);
+      aggregateCharacters += FAILURE_OVERFLOW.length;
+    }
+    saturated = true;
+  }
+
+  return { messages, record };
+}
+
+const failureRecorder = createObservabilityFailureRecorder();
+const failures = failureRecorder.messages;
 const notes = [];
 const retiredGameSlug = ["mochi", "social"].join("-");
+const routeMatrixResult = validateAppRouteMatrix({
+  appDirectory: path.join(root, "apps", "web", "app"),
+  matrixPath: path.join(root, "apps", "web", "config", "app-route-matrix.v1.json"),
+});
+for (const failure of routeMatrixResult.failures) {
+  failureRecorder.record(`production route matrix: ${failure}`);
+}
+const routeMatrixRows = Array.isArray(routeMatrixResult.matrix?.routes) ? routeMatrixResult.matrix.routes : [];
+const productionSmokeRoutes = new Set(
+  routeMatrixRows
+    .filter((route) => route && typeof route === "object" && !Array.isArray(route)
+      && route.kind === "page" && route.productionSmoke === true)
+    .map((route) => route.path),
+);
 
 const publicRoutes = [
   { route: "/", label: "home", file: "apps/web/app/page.tsx", metadataFile: "apps/web/app/layout.tsx" },
@@ -43,13 +99,22 @@ const retiredRoutes = [
 const noindexRoutes = [...protectedRoutes];
 
 const allSmokeRoutes = [...publicRoutes.map((item) => item.route), ...noindexRoutes.map((item) => item.route)];
+const allSmokeRouteSet = new Set(allSmokeRoutes);
+const requiredLiveHeaders = [
+  "content-security-policy",
+  "x-content-type-options",
+  "referrer-policy",
+  "permissions-policy",
+  "cross-origin-opener-policy",
+  "x-frame-options",
+];
 
 function read(relativePath) {
   return readFileSync(path.join(root, relativePath), "utf8");
 }
 
 function fail(message) {
-  failures.push(message);
+  failureRecorder.record(message);
 }
 
 function note(message) {
@@ -152,9 +217,11 @@ function checkDiscoveryFiles() {
 
 function checkProductionSmokeCoverage() {
   const smoke = read("scripts/smoke-vercel-production.mjs");
+  assertIncludes("production route smoke", smoke, "app-route-matrix.v1.json");
+  assertIncludes("production route smoke", smoke, "route.productionSmoke === true");
 
   for (const route of allSmokeRoutes) {
-    assertRouteListed("production route smoke", smoke, route);
+    assert(productionSmokeRoutes.has(route), `production route matrix: expected route ${route}`);
   }
 
   for (const route of ["/auth", "/account", "/gallery-submit", "/leader-dashboard", "/games/mochi-pets"]) {
@@ -173,50 +240,172 @@ function checkDocs() {
   assertIncludes("app README", readme, "## Vercel Observability");
 }
 
-async function checkLiveIfRequested() {
-  if (process.env.MOCHIRII_OBSERVABILITY_LIVE !== "1") {
+async function cancelLiveResponseBody(response) {
+  try {
+    await response?.body?.cancel?.();
+  } catch {
+    // Cancellation failure must not replace a categorical validation result.
+  }
+}
+
+function parseLiveBaseOrigin(value) {
+  if (typeof value !== "string" || value.length === 0
+    || value.length > OBSERVABILITY_DIAGNOSTIC_LIMITS.metadataUrlCharacters) return null;
+  let parsed;
+  try {
+    parsed = new URL(value);
+  } catch {
+    return null;
+  }
+  if (!["http:", "https:"].includes(parsed.protocol)
+    || parsed.username
+    || parsed.password
+    || parsed.pathname !== "/"
+    || parsed.search
+    || parsed.hash) return null;
+  return parsed.origin;
+}
+
+function isRedirectStatus(status) {
+  return Number.isInteger(status) && status >= 300 && status <= 399;
+}
+
+function responseMatchesExactRequest(response, requestedUrl) {
+  if (!(requestedUrl instanceof URL)
+    || !["http:", "https:"].includes(requestedUrl.protocol)
+    || requestedUrl.username
+    || requestedUrl.password
+    || response?.redirected !== false
+    || typeof response.url !== "string"
+    || response.url.length === 0
+    || response.url.length > OBSERVABILITY_DIAGNOSTIC_LIMITS.metadataUrlCharacters) return false;
+  let observed;
+  try {
+    observed = new URL(response.url);
+  } catch {
+    return false;
+  }
+  return ["http:", "https:"].includes(observed.protocol)
+    && !observed.username
+    && !observed.password
+    && observed.origin === requestedUrl.origin
+    && observed.href === requestedUrl.href;
+}
+
+function hasUtf8HtmlMediaType(response) {
+  const contentType = response?.headers?.get?.("content-type");
+  if (typeof contentType !== "string" || contentType.length > 256) return false;
+  const normalized = asciiLower(contentType);
+  return /^[\t ]*text\/html[\t ]*;[\t ]*charset=(?:"utf-8"|utf-8)[\t ]*$/.test(normalized);
+}
+
+export async function checkLiveIfRequested({
+  fetchImpl = fetch,
+  recordFailure = fail,
+  liveEnabled = process.env.MOCHIRII_OBSERVABILITY_LIVE === "1",
+  baseUrl = process.env.MOCHIRII_PRODUCTION_BASE_URL || SITE_ORIGIN,
+  routes = allSmokeRoutes,
+} = {}) {
+  if (!liveEnabled) {
     note("Live metadata/header read skipped; set MOCHIRII_OBSERVABILITY_LIVE=1 for read-only production route/header verification.");
     return;
   }
 
-  const baseUrl = process.env.MOCHIRII_PRODUCTION_BASE_URL || SITE_ORIGIN;
-  const requiredHeaders = [
-    "content-security-policy",
-    "x-content-type-options",
-    "referrer-policy",
-    "permissions-policy",
-    "cross-origin-opener-policy",
-    "x-frame-options",
-  ];
+  if (!Array.isArray(routes) || routes.some((route) => !allSmokeRouteSet.has(route))) {
+    throw new Error("observability route selection was invalid");
+  }
 
-  for (const route of allSmokeRoutes) {
-    const url = new URL(route, baseUrl);
-    const response = await fetch(url, {
-      headers: { "user-agent": "MochiriiObservabilityMetadataSmoke/1.0" },
-      signal: AbortSignal.timeout(30000),
-    });
-    const html = await response.text();
+  const normalizedBaseUrl = parseLiveBaseOrigin(baseUrl);
+  if (!normalizedBaseUrl) {
+    recordFailure("live observability base URL rejected");
+    return;
+  }
 
-    assert(response.status === 200, `live ${route}: expected 200, got ${response.status}`);
-    assert(/vercel/i.test(response.headers.get("server") || "") || response.headers.get("x-vercel-id"), `live ${route}: expected Vercel headers`);
-    for (const header of requiredHeaders) {
-      assert(response.headers.get(header), `live ${route}: expected ${header}`);
+  for (const route of routes) {
+    const url = new URL(route, `${normalizedBaseUrl}/`);
+    let response;
+    try {
+      response = await fetchImpl(url, {
+        headers: { "user-agent": "MochiriiObservabilityMetadataSmoke/1.0" },
+        redirect: "manual",
+        signal: AbortSignal.timeout(30000),
+      });
+    } catch {
+      recordFailure(`live ${route}: route request failed`);
+      continue;
     }
-
-    if (publicRoutes.some((item) => item.route === route)) {
-      await checkLivePublicMetadata({ route, url, html, baseUrl });
-    }
-
-    if (noindexRoutes.some((item) => item.route === route)) {
-      assert(/<meta name="robots" content="noindex,\s*no(?:follow|archive)|<meta name="robots" content="noindex,\s*follow/i.test(html), `live ${route}: expected noindex robots meta`);
+    try {
+      await inspectLiveObservabilityResponse({
+        route,
+        url,
+        response,
+        baseUrl: normalizedBaseUrl,
+        isPublic: publicRoutes.some((item) => item.route === route),
+        isNoindex: noindexRoutes.some((item) => item.route === route),
+        fetchImpl,
+        recordFailure,
+      });
+    } catch {
+      recordFailure(`live ${route}: HTML response rejected`);
     }
   }
 }
 
-async function checkLivePublicMetadata({ route, url, html, baseUrl }) {
-  const canonical = extractLink(html, "canonical");
+export async function inspectLiveObservabilityResponse({
+  route,
+  url,
+  response,
+  baseUrl,
+  isPublic,
+  isNoindex,
+  fetchImpl = fetch,
+  recordFailure = fail,
+}) {
+  const exactResponseUrl = responseMatchesExactRequest(response, url);
+  if (isRedirectStatus(response.status)) {
+    recordFailure(`live ${route}: route redirect rejected`);
+    await cancelLiveResponseBody(response);
+    return;
+  }
+  if (!exactResponseUrl) {
+    recordFailure(`live ${route}: route response URL rejected`);
+    await cancelLiveResponseBody(response);
+    return;
+  }
+  if (response.status !== 200) {
+    recordFailure(`live ${route}: unexpected HTTP status`);
+    await cancelLiveResponseBody(response);
+    return;
+  }
+  if (!hasUtf8HtmlMediaType(response)) {
+    recordFailure(`live ${route}: UTF-8 HTML media type rejected`);
+    await cancelLiveResponseBody(response);
+    return;
+  }
+  if (!(/vercel/i.test(response.headers.get("server") || "") || response.headers.get("x-vercel-id"))) {
+    recordFailure(`live ${route}: expected Vercel headers`);
+  }
+  for (const header of requiredLiveHeaders) {
+    if (!response.headers.get(header)) recordFailure(`live ${route}: expected ${header}`);
+  }
+  const html = await readBoundedHtmlResponse(response);
+  const metadata = createActiveMetadataReader(html);
+
+  if (isPublic) {
+    await checkLivePublicMetadata({ route, url, metadata, baseUrl, fetchImpl, recordFailure });
+  }
+  const robots = metadata.meta("name", "robots");
+  if (isNoindex && !/^noindex,\s*(?:nofollow|noarchive|follow)$/i.test(robots)) {
+    recordFailure(`live ${route}: expected noindex robots meta`);
+  }
+}
+
+async function checkLivePublicMetadata({ route, url, metadata, baseUrl, fetchImpl, recordFailure }) {
+  const canonical = metadata.link("canonical");
   const expectedCanonical = route === "/" ? `${baseUrl}/` : `${baseUrl}${route}`;
-  assert(normalizeUrl(canonical) === normalizeUrl(expectedCanonical), `live ${route}: expected canonical ${expectedCanonical}, got ${canonical || "missing"}`);
+  if (normalizeUrl(canonical) !== normalizeUrl(expectedCanonical)) {
+    recordFailure(`live ${route}: canonical metadata mismatch`);
+  }
 
   const requiredMeta = [
     ["og:title", "property"],
@@ -230,80 +419,414 @@ async function checkLivePublicMetadata({ route, url, html, baseUrl }) {
   ];
 
   for (const [name, attribute] of requiredMeta) {
-    const value = extractMeta(html, attribute, name);
-    assert(value, `live ${route}: expected ${name} metadata`);
+    const value = metadata.meta(attribute, name);
+    if (!value) recordFailure(`live ${route}: expected ${name} metadata`);
   }
 
-  const ogUrl = extractMeta(html, "property", "og:url");
-  assert(normalizeUrl(ogUrl) === normalizeUrl(expectedCanonical), `live ${route}: expected og:url ${expectedCanonical}, got ${ogUrl || "missing"}`);
-  assert(extractMeta(html, "name", "twitter:card") === "summary_large_image", `live ${route}: expected twitter summary_large_image card`);
+  const ogUrl = metadata.meta("property", "og:url");
+  if (normalizeUrl(ogUrl) !== normalizeUrl(expectedCanonical)) {
+    recordFailure(`live ${route}: og:url metadata mismatch`);
+  }
+  if (metadata.meta("name", "twitter:card") !== "summary_large_image") {
+    recordFailure(`live ${route}: expected twitter summary_large_image card`);
+  }
 
   const imageValues = [
-    extractMeta(html, "property", "og:image"),
-    extractMeta(html, "name", "twitter:image"),
+    metadata.meta("property", "og:image"),
+    metadata.meta("name", "twitter:image"),
   ].filter(Boolean);
   for (const imageValue of [...new Set(imageValues)]) {
-    await checkReachableImage(new URL(imageValue, url), route);
+    const imageUrl = resolveSameOriginMetadataImage(url, imageValue);
+    if (!imageUrl) {
+      recordFailure(`live ${route}: social image URL rejected`);
+      continue;
+    }
+    await checkReachableImage(imageUrl, route, { fetchImpl, recordFailure });
   }
 }
 
-async function checkReachableImage(url, route) {
-  const response = await fetch(url, {
-    method: "GET",
-    headers: { "user-agent": "MochiriiObservabilityMetadataSmoke/1.0" },
-    signal: AbortSignal.timeout(30000),
+export function resolveSameOriginMetadataImage(pageUrl, imageValue) {
+  if (typeof imageValue !== "string" || imageValue.length === 0
+    || imageValue.length > OBSERVABILITY_DIAGNOSTIC_LIMITS.metadataUrlCharacters
+    || imageValue.includes("&")) return null;
+  let page;
+  let candidate;
+  try {
+    page = pageUrl instanceof URL ? pageUrl : new URL(pageUrl);
+    candidate = new URL(imageValue, page);
+  } catch {
+    return null;
+  }
+  if (!["http:", "https:"].includes(candidate.protocol)
+    || candidate.origin !== page.origin
+    || candidate.username
+    || candidate.password
+    || candidate.href.length > OBSERVABILITY_DIAGNOSTIC_LIMITS.metadataUrlCharacters
+    || candidate.search
+    || candidate.hash
+    || candidate.href.includes("?")
+    || candidate.href.includes("#")
+    || !candidate.pathname.startsWith("/assets/")) return null;
+  return candidate;
+}
+
+async function checkReachableImage(url, route, { fetchImpl, recordFailure }) {
+  let response;
+  try {
+    response = await fetchImpl(url, {
+      method: "GET",
+      headers: { "user-agent": "MochiriiObservabilityMetadataSmoke/1.0" },
+      redirect: "manual",
+      signal: AbortSignal.timeout(30000),
+    });
+  } catch {
+    recordFailure(`live ${route}: social image request failed`);
+    return;
+  }
+  const exactResponseUrl = responseMatchesExactRequest(response, url);
+  if (isRedirectStatus(response.status)) {
+    recordFailure(`live ${route}: social image redirect rejected`);
+    await cancelLiveResponseBody(response);
+    return;
+  }
+  if (!exactResponseUrl) {
+    recordFailure(`live ${route}: social image response URL rejected`);
+    await cancelLiveResponseBody(response);
+    return;
+  }
+  if (response.status !== 200) {
+    recordFailure(`live ${route}: social image returned unexpected status`);
+    await cancelLiveResponseBody(response);
+    return;
+  }
+  if (!/^image\//i.test(response.headers.get("content-type") || "")) {
+    recordFailure(`live ${route}: social image returned non-image content`);
+  }
+  await cancelLiveResponseBody(response);
+}
+
+const RAW_TEXT_ELEMENTS = new Set([
+  "iframe",
+  "noembed",
+  "noframes",
+  "noscript",
+  "plaintext",
+  "script",
+  "style",
+  "textarea",
+  "title",
+  "xmp",
+]);
+const FOREIGN_METADATA_CONTAINERS = new Set(["math", "svg"]);
+const INERT_METADATA_CONTAINERS = new Set(["math", "select", "svg", "template"]);
+const OBSERVABILITY_INERT_CONTAINER_DEPTH_LIMIT = 64;
+const OBSERVABILITY_METADATA_TAG_LIMIT = 256;
+const OBSERVABILITY_METADATA_ATTRIBUTES = new Set(["content", "href", "name", "property", "rel"]);
+
+function asciiLower(value) {
+  return value.replace(/[A-Z]/g, (character) => character.toLowerCase());
+}
+
+function isHtmlSpace(character) {
+  return character === "\t" || character === "\n" || character === "\f"
+    || character === "\r" || character === " ";
+}
+
+function findMarkupDeclarationEnd(html, start) {
+  let quote = "";
+  for (let index = start; index < html.length; index += 1) {
+    const character = html[index];
+    if (quote) {
+      if (character === quote) quote = "";
+      continue;
+    }
+    if (character === '"' || character === "'") {
+      quote = character;
+      continue;
+    }
+    if (character === ">") return index;
+  }
+  return -1;
+}
+
+function findHtmlTagEnd(html, start) {
+  let state = "before-name";
+  let quote = "";
+  for (let index = start; index < html.length; index += 1) {
+    const character = html[index];
+    if (state === "quoted-value") {
+      if (character === quote) {
+        quote = "";
+        state = "before-name";
+      }
+      continue;
+    }
+    if (character === ">") return index;
+    if (state === "before-name") {
+      if (isHtmlSpace(character) || character === "/") continue;
+      state = "name";
+      continue;
+    }
+    if (state === "name") {
+      if (isHtmlSpace(character)) state = "after-name";
+      else if (character === "/") state = "before-name";
+      else if (character === "=") state = "before-value";
+      continue;
+    }
+    if (state === "after-name") {
+      if (isHtmlSpace(character)) continue;
+      if (character === "/") state = "before-name";
+      else if (character === "=") state = "before-value";
+      else state = "name";
+      continue;
+    }
+    if (state === "before-value") {
+      if (isHtmlSpace(character)) continue;
+      if (character === '"' || character === "'") {
+        quote = character;
+        state = "quoted-value";
+      } else {
+        state = "unquoted-value";
+      }
+      continue;
+    }
+    if (state === "unquoted-value" && isHtmlSpace(character)) state = "before-name";
+  }
+  return -1;
+}
+
+function parseHtmlTagAt(html, start) {
+  let cursor = start + 1;
+  let closing = false;
+  if (html[cursor] === "/") {
+    closing = true;
+    cursor += 1;
+  }
+  const nameStart = cursor;
+  while (cursor < html.length && !/[\t\n\f\r />]/.test(html[cursor])) cursor += 1;
+  if (cursor === nameStart) return null;
+  const name = asciiLower(html.slice(nameStart, cursor));
+  const end = findHtmlTagEnd(html, cursor);
+  if (end < 0) {
+    return { attributes: new Map(), closing, duplicates: new Set(), end: html.length, malformed: true, name };
+  }
+  if (closing) {
+    return { attributes: new Map(), closing, duplicates: new Set(), end, malformed: false, name };
+  }
+
+  const attributes = new Map();
+  const duplicates = new Set();
+  while (cursor < end) {
+    while (cursor < end && /[\t\n\f\r ]/.test(html[cursor])) cursor += 1;
+    if (cursor >= end || html[cursor] === "/") {
+      cursor += 1;
+      continue;
+    }
+    const attributeStart = cursor;
+    if (html[cursor] === "=") cursor += 1;
+    while (cursor < end && !/[\t\n\f\r />=]/.test(html[cursor])) cursor += 1;
+    if (cursor === attributeStart) {
+      cursor += 1;
+      continue;
+    }
+    const attributeName = asciiLower(html.slice(attributeStart, cursor));
+    while (cursor < end && /[\t\n\f\r ]/.test(html[cursor])) cursor += 1;
+    let value = "";
+    if (html[cursor] === "=") {
+      cursor += 1;
+      while (cursor < end && /[\t\n\f\r ]/.test(html[cursor])) cursor += 1;
+      const quote = html[cursor] === '"' || html[cursor] === "'" ? html[cursor] : "";
+      if (quote) {
+        cursor += 1;
+        const valueStart = cursor;
+        while (cursor < end && html[cursor] !== quote) cursor += 1;
+        if (cursor >= end) {
+          return { attributes, closing, duplicates, end, malformed: true, name };
+        }
+        value = html.slice(valueStart, cursor);
+        cursor += 1;
+      } else {
+        const valueStart = cursor;
+        while (cursor < end && !/[\t\n\f\r >]/.test(html[cursor])) cursor += 1;
+        value = html.slice(valueStart, cursor);
+      }
+    }
+    if (OBSERVABILITY_METADATA_ATTRIBUTES.has(attributeName)) {
+      if (attributes.has(attributeName)) duplicates.add(attributeName);
+      else attributes.set(attributeName, value);
+    }
+  }
+  return { attributes, closing, duplicates, end, malformed: false, name };
+}
+
+function findRawTextClose(html, asciiLowerHtml, start, name) {
+  const needle = "</" + name;
+  const scriptEscapeStart = name === "script" ? html.indexOf("<!--", start) : -1;
+  let cursor = start;
+  while (cursor < html.length) {
+    const closingStart = asciiLowerHtml.indexOf(needle, cursor);
+    if (closingStart < 0) return -1;
+    const boundary = html[closingStart + needle.length];
+    if (scriptEscapeStart >= 0 && scriptEscapeStart < closingStart) return -1;
+    if (boundary === ">" || boundary === "/" || isHtmlSpace(boundary)) {
+      const closingTag = parseHtmlTagAt(html, closingStart);
+      if (closingTag?.closing && !closingTag.malformed && closingTag.name === name) {
+        return closingTag.end + 1;
+      }
+      return -1;
+    }
+    cursor = closingStart + needle.length;
+  }
+  return -1;
+}
+
+function collectActiveMetadataTags(html) {
+  if (typeof html !== "string") return [];
+  const asciiLowerHtml = asciiLower(html);
+  const tags = [];
+  const inertContainers = [];
+  let foreignContainerDepth = 0;
+  let cursor = 0;
+
+  while (cursor < html.length) {
+    const start = html.indexOf("<", cursor);
+    if (start < 0) break;
+    if (html.startsWith("<!--", start)) {
+      const commentEnd = html.indexOf("-->", start + 4);
+      if (commentEnd < 0) return null;
+      cursor = commentEnd + 3;
+      continue;
+    }
+    if (html.startsWith("<![CDATA[", start) && foreignContainerDepth > 0) {
+      const cdataEnd = html.indexOf("]]>", start + 9);
+      if (cdataEnd < 0) break;
+      cursor = cdataEnd + 3;
+      continue;
+    }
+    if (html[start + 1] === "!" || html[start + 1] === "?") {
+      const declarationEnd = findMarkupDeclarationEnd(html, start + 2);
+      if (declarationEnd < 0) return null;
+      cursor = declarationEnd + 1;
+      continue;
+    }
+
+    const tag = parseHtmlTagAt(html, start);
+    if (!tag) {
+      cursor = start + 1;
+      continue;
+    }
+    if (tag.malformed) return null;
+    cursor = tag.end + 1;
+
+    if (tag.closing) {
+      if (inertContainers.at(-1) === tag.name) {
+        inertContainers.pop();
+        if (FOREIGN_METADATA_CONTAINERS.has(tag.name)) foreignContainerDepth -= 1;
+      }
+      else if (inertContainers.length > 0) continue;
+      continue;
+    }
+
+    if (tag.name === "frameset") return null;
+
+    if (RAW_TEXT_ELEMENTS.has(tag.name)) {
+      if (tag.name === "plaintext") break;
+      const rawTextEnd = findRawTextClose(html, asciiLowerHtml, cursor, tag.name);
+      if (rawTextEnd < 0) return null;
+      cursor = rawTextEnd;
+      continue;
+    }
+    if (INERT_METADATA_CONTAINERS.has(tag.name)) {
+      if (inertContainers.length >= OBSERVABILITY_INERT_CONTAINER_DEPTH_LIMIT) return null;
+      inertContainers.push(tag.name);
+      if (FOREIGN_METADATA_CONTAINERS.has(tag.name)) foreignContainerDepth += 1;
+      continue;
+    }
+    if (inertContainers.length > 0) continue;
+    if (tag.name === "link" || tag.name === "meta") {
+      if (tags.length >= OBSERVABILITY_METADATA_TAG_LIMIT) return null;
+      tags.push(tag);
+    }
+  }
+  return inertContainers.length === 0 ? tags : null;
+}
+
+function createActiveMetadataReader(html) {
+  const tags = collectActiveMetadataTags(html);
+  const rejected = tags === null;
+  const metadataTags = tags || [];
+  return Object.freeze({
+    link(rel) {
+      if (rejected) return "";
+      const matches = [];
+      for (const tag of metadataTags) {
+        if (tag.name !== "link") continue;
+        if (tag.duplicates.has("rel") || tag.duplicates.has("href")) return "";
+        const relTokens = asciiLower(tag.attributes.get("rel") || "")
+          .split(/[\t\n\f\r ]+/)
+          .filter(Boolean);
+        if (relTokens.includes(asciiLower(rel))) matches.push(tag.attributes.get("href") || "");
+      }
+      return matches.length === 1 ? matches[0] : "";
+    },
+    meta(attribute, value) {
+      if (rejected) return "";
+      const matches = [];
+      for (const tag of metadataTags) {
+        if (tag.name !== "meta") continue;
+        if (tag.duplicates.has(attribute) || tag.duplicates.has("content")) return "";
+        if (asciiLower(tag.attributes.get(attribute) || "") === asciiLower(value)) {
+          matches.push(tag.attributes.get("content") || "");
+        }
+      }
+      return matches.length === 1 ? matches[0] : "";
+    },
   });
-  assert(response.status === 200, `live ${route}: social image ${url.href} expected 200, got ${response.status}`);
-  assert(/^image\//i.test(response.headers.get("content-type") || ""), `live ${route}: social image ${url.href} should return image content`);
-  await response.body?.cancel?.();
-}
-
-function extractLink(html, rel) {
-  const pattern = new RegExp(`<link\\b[^>]*\\brel=["']${escapeRegExp(rel)}["'][^>]*>`, "i");
-  const tag = html.match(pattern)?.[0] || "";
-  return extractAttribute(tag, "href");
-}
-
-function extractMeta(html, attribute, value) {
-  const pattern = new RegExp(`<meta\\b[^>]*\\b${attribute}=["']${escapeRegExp(value)}["'][^>]*>`, "i");
-  const tag = html.match(pattern)?.[0] || "";
-  return extractAttribute(tag, "content");
-}
-
-function extractAttribute(tag, attribute) {
-  const pattern = new RegExp(`\\b${attribute}=["']([^"']+)["']`, "i");
-  return tag.match(pattern)?.[1] || "";
-}
-
-function escapeRegExp(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function normalizeUrl(value) {
-  if (!value) return "";
-  const url = new URL(value);
+  if (typeof value !== "string" || value.length === 0
+    || value.length > OBSERVABILITY_DIAGNOSTIC_LIMITS.metadataUrlCharacters) return "";
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    return "";
+  }
+  if (!["http:", "https:"].includes(url.protocol) || url.username || url.password) return "";
   if (url.pathname === "/") url.pathname = "";
   url.hash = "";
   return url.href.replace(/\/$/, "");
 }
 
-await checkLiveIfRequested();
-checkLayoutObservability();
-checkPublicMetadata();
-checkProtectedNoindex();
-checkRetiredRoutes();
-checkDiscoveryFiles();
-checkProductionSmokeCoverage();
-checkDocs();
+export async function run() {
+  await checkLiveIfRequested();
+  checkLayoutObservability();
+  checkPublicMetadata();
+  checkProtectedNoindex();
+  checkRetiredRoutes();
+  checkDiscoveryFiles();
+  checkProductionSmokeCoverage();
+  checkDocs();
 
-for (const message of notes) {
-  console.log(`NOTE ${message}`);
+  for (const message of notes) {
+    console.log(`NOTE ${message}`);
+  }
+
+  if (failures.length) {
+    console.error("Observability/metadata smoke validation failed:");
+    for (const failure of failures) console.error(`- ${failure}`);
+    process.exitCode = 1;
+    return;
+  }
+
+  console.log(`Observability/metadata smoke validation OK (${publicRoutes.length} public routes, ${noindexRoutes.length} noindex routes).`);
 }
 
-if (failures.length) {
-  console.error("Observability/metadata smoke validation failed:");
-  for (const failure of failures) console.error(`- ${failure}`);
-  process.exit(1);
+const invokedUrl = process.argv[1] ? pathToFileURL(path.resolve(process.argv[1])).href : "";
+if (invokedUrl === import.meta.url) {
+  run().catch(() => {
+    console.error("Observability/metadata smoke validation failed [UNEXPECTED]");
+    process.exitCode = 1;
+  });
 }
-
-console.log(`Observability/metadata smoke validation OK (${publicRoutes.length} public routes, ${noindexRoutes.length} noindex routes).`);
