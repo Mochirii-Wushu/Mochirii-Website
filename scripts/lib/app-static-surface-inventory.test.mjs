@@ -24,11 +24,11 @@ const libraryPath = path.join(root, "scripts", "lib", "app-static-surface-invent
 const libraryUrl = pathToFileURL(libraryPath).href;
 const appRouterLibraryPath = path.join(root, "scripts", "lib", "app-router-inventory.mjs");
 const configPath = path.join(root, "apps", "web", "config", "app-static-surface-inventory.v1.json");
-const expectedSuccess = "App static surface inventory OK (29 metadata routes, 249 public files, 38482422 bytes).\n";
+const expectedSuccess = "App static surface inventory OK (29 metadata routes, 249 public files, 38482392 bytes).\n";
 const expectedCheckerBytes = 13_000;
-const expectedCheckerSha256 = "BDBC68874AB6FAFACC3A277BFDC824B83E06B42BCC2057DFD972497CD61770C1";
-const expectedLibraryBytes = 24_235;
-const expectedLibrarySha256 = "1CFF1B3A5B28DA62A43EC69366F92F5F17BFA998F4089C04CE4573A00BA7B993";
+const expectedCheckerSha256 = "993ADBDAD7C3552F7F022510E31D95420576771EC10FF4EE0865CEBF47B54404";
+const expectedLibraryBytes = 24_956;
+const expectedLibrarySha256 = "AF6A2D5632582D56B92C8E7CD0D7ED0A004712BFCF51091DE2A1AFB50BD63C0A";
 const expectedAppRouterLibraryBytes = 59_423;
 const expectedAppRouterLibrarySha256 = "5051994396F6B0EAC3033F13CF2DC41BD2DCD8FF3102CF11DC49F8B53F780D84";
 
@@ -67,6 +67,7 @@ const {
   inspectCanonicalInventoryDocument,
   publicUrlMatchesAppRoute,
   readBoundedOrdinaryFile,
+  STATIC_SURFACE_LIMITS,
   staticSurfaceInventorySourceBaseCommit,
   validateAppStaticSurfaceInventory,
 } = await import(libraryUrl);
@@ -239,7 +240,7 @@ test("current source builds the complete source-only inventory", () => {
     indexedMetadataRoutes: 18,
     nonindexedMetadataRoutes: 11,
     publicFiles: 249,
-    publicBytes: 38_482_422,
+    publicBytes: 38_482_392,
     sourceFiles: 44,
   });
   assert.deepEqual(inventory.coverage, {
@@ -306,7 +307,7 @@ test("public inventory covers every ordinary file with exact aggregate categorie
       .map((category) => [category, rows.filter((row) => row.category === category).length]),
   );
   assert.equal(rows.length, 249);
-  assert.equal(rows.reduce((sum, row) => sum + row.bytes, 0), 38_482_422);
+  assert.equal(rows.reduce((sum, row) => sum + row.bytes, 0), 38_482_392);
   assert.deepEqual(categoryCounts, {
     asset: 231,
     discovery: 3,
@@ -427,6 +428,122 @@ test("public enumeration rejects unsupported formats", () => {
     );
   } finally {
     cleanup(directory);
+  }
+});
+
+test("public text inventory canonicalizes CRLF and rejects unsafe source bytes", () => {
+  const directory = fixtureDirectory();
+  try {
+    const publicDirectory = path.join(directory, "public");
+    mkdirSync(publicDirectory);
+    const canonicalFiles = new Map([
+      ["data.json", Buffer.from('{\n  "ok": true\n}\n', "utf8")],
+      ["feed.xml", Buffer.from("<root>\n</root>\n", "utf8")],
+      ["NOTICE.TXT", Buffer.from("alpha\nbeta\n", "utf8")],
+      ["site.css", Buffer.from("a {\n  color: red;\n}\n", "utf8")],
+    ]);
+    for (const [name, bytes] of canonicalFiles) writeFileSync(path.join(publicDirectory, name), bytes);
+    const lfRows = enumeratePublicFiles({ rootDirectory: directory, publicDirectory: "public" });
+    for (const [name, bytes] of canonicalFiles) {
+      writeFileSync(
+        path.join(publicDirectory, name),
+        Buffer.from(bytes.toString("utf8").replace(/\n/g, "\r\n"), "utf8"),
+      );
+    }
+    const crlfRows = enumeratePublicFiles({ rootDirectory: directory, publicDirectory: "public" });
+    assert.deepEqual(crlfRows, lfRows);
+    for (const [name, bytes] of canonicalFiles) {
+      const row = lfRows.find((candidate) => candidate.source.endsWith("/" + name));
+      assert.ok(row);
+      assert.equal(row.bytes, bytes.length);
+      assert.equal(row.sha256, sha256(bytes));
+    }
+  } finally {
+    cleanup(directory);
+  }
+
+  for (const hostile of [
+    Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from("bom\n", "utf8")]),
+    Buffer.from("nul\0byte\n", "utf8"),
+    Buffer.from("lone\rcarriage\n", "utf8"),
+    Buffer.from("carriage-at-eof\r", "utf8"),
+    Buffer.from("double\r\r\n", "utf8"),
+    Buffer.from([0xc3, 0x28]),
+  ]) {
+    const hostileDirectory = fixtureDirectory();
+    try {
+      const publicDirectory = path.join(hostileDirectory, "public");
+      mkdirSync(publicDirectory);
+      writeFileSync(path.join(publicDirectory, "hostile.txt"), hostile);
+      assert.throws(
+        () => enumeratePublicFiles({ rootDirectory: hostileDirectory, publicDirectory: "public" }),
+        (error) => error?.code === "PUBLIC_TREE",
+      );
+    } finally {
+      cleanup(hostileDirectory);
+    }
+  }
+});
+
+test("public binary inventory preserves exact opaque bytes", () => {
+  const directory = fixtureDirectory();
+  try {
+    const publicDirectory = path.join(directory, "public");
+    mkdirSync(publicDirectory);
+    const opaque = Buffer.from([0xef, 0xbb, 0xbf, 0x00, 0x0d, 0x0a, 0x0d, 0xc3, 0x28]);
+    writeFileSync(path.join(publicDirectory, "opaque.png"), opaque);
+    const rows = enumeratePublicFiles({ rootDirectory: directory, publicDirectory: "public" });
+    assert.deepEqual(rows, [{
+      url: "/opaque.png",
+      source: "public/opaque.png",
+      bytes: opaque.length,
+      sha256: sha256(opaque),
+      category: "other",
+      format: "png",
+    }]);
+  } finally {
+    cleanup(directory);
+  }
+});
+
+test("public text limits remain bound to raw checkout bytes", () => {
+  const perFileDirectory = fixtureDirectory();
+  try {
+    const publicDirectory = path.join(perFileDirectory, "public");
+    mkdirSync(publicDirectory);
+    const repetitions = Math.floor(STATIC_SURFACE_LIMITS.publicFileBytes / 3) + 1;
+    const oversizedRawText = Buffer.from("x\r\n".repeat(repetitions), "ascii");
+    assert.ok(oversizedRawText.length > STATIC_SURFACE_LIMITS.publicFileBytes);
+    assert.ok(oversizedRawText.toString("ascii").replace(/\r\n/g, "\n").length
+      < STATIC_SURFACE_LIMITS.publicFileBytes);
+    writeFileSync(path.join(publicDirectory, "oversized.txt"), oversizedRawText);
+    assert.throws(
+      () => enumeratePublicFiles({ rootDirectory: perFileDirectory, publicDirectory: "public" }),
+      (error) => error?.code === "PUBLIC_TREE",
+    );
+  } finally {
+    cleanup(perFileDirectory);
+  }
+
+  const aggregateDirectory = fixtureDirectory();
+  try {
+    const publicDirectory = path.join(aggregateDirectory, "public");
+    mkdirSync(publicDirectory);
+    const rawFileBytes = 7.5 * 1024 * 1024;
+    const aggregateText = Buffer.from("x\r\n".repeat(rawFileBytes / 3), "ascii");
+    assert.equal(aggregateText.length, rawFileBytes);
+    for (let index = 0; index < 9; index += 1) {
+      writeFileSync(path.join(publicDirectory, `aggregate-${index}.txt`), aggregateText);
+    }
+    assert.ok(aggregateText.length * 9 > STATIC_SURFACE_LIMITS.publicAggregateBytes);
+    assert.ok(aggregateText.toString("ascii").replace(/\r\n/g, "\n").length * 9
+      < STATIC_SURFACE_LIMITS.publicAggregateBytes);
+    assert.throws(
+      () => enumeratePublicFiles({ rootDirectory: aggregateDirectory, publicDirectory: "public" }),
+      (error) => error?.code === "PUBLIC_TREE",
+    );
+  } finally {
+    cleanup(aggregateDirectory);
   }
 });
 

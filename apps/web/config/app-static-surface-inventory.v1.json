@@ -14,7 +14,7 @@
     "indexedMetadataRoutes": 18,
     "nonindexedMetadataRoutes": 11,
     "publicFiles": 249,
-    "publicBytes": 38482422,
+    "publicBytes": 38482392,
     "sourceFiles": 44
   },
   "sourceCatalog": [
@@ -211,7 +211,7 @@
     {
       "path": "scripts/check-app-static-surface-inventory.mjs",
       "bytes": 13000,
-      "sha256": "BDBC68874AB6FAFACC3A277BFDC824B83E06B42BCC2057DFD972497CD61770C1"
+      "sha256": "993ADBDAD7C3552F7F022510E31D95420576771EC10FF4EE0865CEBF47B54404"
     },
     {
       "path": "scripts/check-assets.mjs",
@@ -230,13 +230,13 @@
     },
     {
       "path": "scripts/lib/app-static-surface-inventory.mjs",
-      "bytes": 24235,
-      "sha256": "1CFF1B3A5B28DA62A43EC69366F92F5F17BFA998F4089C04CE4573A00BA7B993"
+      "bytes": 24956,
+      "sha256": "AF6A2D5632582D56B92C8E7CD0D7ED0A004712BFCF51091DE2A1AFB50BD63C0A"
     },
     {
       "path": "scripts/lib/app-static-surface-inventory.test.mjs",
-      "bytes": 25177,
-      "sha256": "BE4100E343F4C86EEAB35372C2FC3FF728A5BEADDC8E6819C469F2F2E0CEE280"
+      "bytes": 29918,
+      "sha256": "179B2C909F8B7F20D14E1EADB54D9347F7175B6C62F21A64A5FBE00E8FAAB781"
     }
   ],
   "metadataRoutes": [
@@ -622,8 +622,8 @@
     {
       "url": "/.well-known/security.txt",
       "source": "apps/web/public/.well-known/security.txt",
-      "bytes": 251,
-      "sha256": "87779A4212E5EBCA5250BB61F9E7A593849CC64453114085CDA87BA10BAC5398",
+      "bytes": 246,
+      "sha256": "B82439BB859A7069C98BBEFBE58C9492A796F09AFEA9690F531AE340F8B3D19C",
       "category": "discovery",
       "format": "txt"
     },
@@ -2598,16 +2598,16 @@
     {
       "url": "/robots.txt",
       "source": "apps/web/public/robots.txt",
-      "bytes": 90,
-      "sha256": "9A6A00AC31947B0F2A7423149159BCC60ECD54AB2BE577137E4367BAB1BDE49C",
+      "bytes": 85,
+      "sha256": "A0F71ACED5971A958F11845133AA0219CD5AF1C7F4120CC7E93FB389CD589785",
       "category": "discovery",
       "format": "txt"
     },
     {
       "url": "/sitemap.xml",
       "source": "apps/web/public/sitemap.xml",
-      "bytes": 1050,
-      "sha256": "D14829AC3EFB5C2C542BDB78ACAD7E6D7818F00FE43B45FFB1A1AD5454FA0335",
+      "bytes": 1030,
+      "sha256": "D348E93B07936B016AAA544EE8CC5C78FA9CF02CCE59B06F40B327C260A63068",
       "category": "discovery",
       "format": "xml"
     }

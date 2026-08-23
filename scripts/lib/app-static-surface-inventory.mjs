@@ -10,6 +10,7 @@ import {
   realpathSync,
 } from "node:fs";
 import path from "node:path";
+import { TextDecoder } from "node:util";
 import { validateAppRouteMatrix } from "./app-router-inventory.mjs";
 
 export const STATIC_SURFACE_LIMITS = Object.freeze({
@@ -49,6 +50,7 @@ const FORMAT_BY_EXTENSION = Object.freeze({
   ".webp": "webp",
   ".xml": "xml",
 });
+const TEXT_PUBLIC_FORMAT_PATTERN = /^(?:css|json|txt|xml)$/;
 const RESERVED_APP_STATIC_FILE_PATTERN = /^(?:favicon\.ico|robots\.(?:txt|js|jsx|ts|tsx)|sitemap\.(?:xml|js|jsx|ts|tsx)|manifest\.(?:json|webmanifest|js|jsx|ts|tsx)|(?:icon|apple-icon)[0-9]*\.(?:ico|jpg|jpeg|png|svg|js|jsx|ts|tsx)|(?:opengraph-image|twitter-image)[0-9]*\.(?:jpg|jpeg|png|gif|js|jsx|ts|tsx)|(?:opengraph-image|twitter-image)[0-9]*\.alt\.txt)$/i;
 const APP_LAYOUT_FILE_PATTERN = /^layout\.(?:js|jsx|ts|tsx)$/;
 
@@ -428,12 +430,22 @@ function publicFormat(relativePath) {
   return format;
 }
 
+function canonicalPublicFileBytes(buffer, format) {
+  if (!TEXT_PUBLIC_FORMAT_PATTERN.test(format)) return buffer;
+  const source = decodeFatalUtf8(buffer, "PUBLIC_TREE");
+  if (source.includes("\0") || /\r(?!\n)/.test(source)) fail("PUBLIC_TREE");
+  return source.includes("\r")
+    ? Buffer.from(source.replace(/\r\n/g, "\n"), "utf8")
+    : buffer;
+}
+
 export function enumeratePublicFiles({ rootDirectory, publicDirectory = "apps/web/public" }) {
   const publicRelativePath = toSafeRelativePath(publicDirectory, "PUBLIC_TREE");
   const publicAbsolutePath = path.resolve(rootDirectory, ...publicRelativePath.split("/"));
   const publicRoot = rootRealPath(publicAbsolutePath, "PUBLIC_TREE");
   const rows = [];
-  let aggregateBytes = 0;
+  let canonicalAggregateBytes = 0;
+  let rawAggregateBytes = 0;
 
   function visit(directory, prefix, depth) {
     if (depth > STATIC_SURFACE_LIMITS.publicDepth) fail("PUBLIC_TREE");
@@ -465,15 +477,19 @@ export function enumeratePublicFiles({ rootDirectory, publicDirectory = "apps/we
       }
       if (!entry.isFile() || !stats.isFile()) fail("PUBLIC_TREE");
 
-      const buffer = readBoundedOrdinaryFile({
+      const format = publicFormat(relativePath);
+      const rawBuffer = readBoundedOrdinaryFile({
         rootDirectory: publicRoot,
         relativePath,
         maxBytes: STATIC_SURFACE_LIMITS.publicFileBytes,
         failureCode: "PUBLIC_TREE",
       });
-      aggregateBytes += buffer.length;
+      const buffer = canonicalPublicFileBytes(rawBuffer, format);
+      rawAggregateBytes += rawBuffer.length;
+      canonicalAggregateBytes += buffer.length;
       if (rows.length >= STATIC_SURFACE_LIMITS.publicFiles
-        || aggregateBytes > STATIC_SURFACE_LIMITS.publicAggregateBytes) {
+        || rawAggregateBytes > STATIC_SURFACE_LIMITS.publicAggregateBytes
+        || canonicalAggregateBytes > STATIC_SURFACE_LIMITS.publicAggregateBytes) {
         fail("PUBLIC_TREE");
       }
       rows.push({
@@ -482,7 +498,7 @@ export function enumeratePublicFiles({ rootDirectory, publicDirectory = "apps/we
         bytes: buffer.length,
         sha256: sha256(buffer),
         category: publicCategory(relativePath),
-        format: publicFormat(relativePath),
+        format,
       });
     }
     const after = directoryState(directory, publicRoot, "PUBLIC_TREE");
