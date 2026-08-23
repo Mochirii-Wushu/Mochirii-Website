@@ -22,6 +22,132 @@ function publicAssetPath(value) {
   return clean.startsWith("/") ? clean.slice(1) : clean;
 }
 
+function galleryStaticPairKey(thumbnail, full) {
+  return JSON.stringify([thumbnail, full]);
+}
+
+const galleryAllowedWebpChunks = new Set(["VP8X", "ALPH", "VP8 ", "VP8L"]);
+
+function galleryWebpError(message) {
+  throw new Error(`WebP: ${message}`);
+}
+
+function galleryWebpUint24(buffer, offset) {
+  return buffer[offset] | (buffer[offset + 1] << 8) | (buffer[offset + 2] << 16);
+}
+
+function validateGalleryStaticWebp(buffer) {
+  if (!Buffer.isBuffer(buffer) || buffer.length < 26) galleryWebpError("container is too short");
+  if (buffer.toString("ascii", 0, 4) !== "RIFF" || buffer.toString("ascii", 8, 12) !== "WEBP") {
+    galleryWebpError("RIFF/WEBP signature is missing");
+  }
+  if (buffer.readUInt32LE(4) + 8 !== buffer.length) galleryWebpError("RIFF length does not match the file length");
+
+  let offset = 12;
+  let chunkCount = 0;
+  let imageChunks = 0;
+  let extendedHeader = false;
+  let extendedFlags = 0;
+  let sawAlpha = false;
+  let width = 0;
+  let height = 0;
+
+  while (offset < buffer.length) {
+    if (chunkCount >= 100_000) galleryWebpError("chunk count exceeds the validation bound");
+    if (offset + 8 > buffer.length) galleryWebpError("truncated chunk header");
+    const type = buffer.toString("ascii", offset, offset + 4);
+    const size = buffer.readUInt32LE(offset + 4);
+    const payload = offset + 8;
+    const end = payload + size;
+    const paddedEnd = end + (size & 1);
+    if (end < payload || paddedEnd > buffer.length) galleryWebpError(`${type || "unknown"} chunk exceeds the container`);
+    if (!galleryAllowedWebpChunks.has(type)) galleryWebpError(`unapproved ${JSON.stringify(type)} chunk`);
+    if ((size & 1) !== 0 && buffer[end] !== 0) galleryWebpError(`${type} chunk has a nonzero padding byte`);
+
+    if (type === "VP8X") {
+      if (extendedHeader || offset !== 12 || size !== 10) galleryWebpError("invalid or duplicate VP8X header");
+      if (buffer[payload + 1] !== 0 || buffer[payload + 2] !== 0 || buffer[payload + 3] !== 0) {
+        galleryWebpError("VP8X reserved bytes are nonzero");
+      }
+      extendedFlags = buffer[payload];
+      if ((extendedFlags & ~0x10) !== 0) galleryWebpError("VP8X advertises metadata, animation, or reserved features");
+      extendedHeader = true;
+      width = galleryWebpUint24(buffer, payload + 4) + 1;
+      height = galleryWebpUint24(buffer, payload + 7) + 1;
+    } else if (type === "ALPH") {
+      if (!extendedHeader || sawAlpha || imageChunks > 0 || (extendedFlags & 0x10) === 0 || size < 1) {
+        galleryWebpError("ALPH is duplicate, out of order, empty, or not declared by VP8X");
+      }
+      const alphaHeader = buffer[payload];
+      const compression = alphaHeader & 0x03;
+      const preprocessing = (alphaHeader >>> 4) & 0x03;
+      if ((alphaHeader & 0xc0) !== 0 || compression > 1 || preprocessing > 1) {
+        galleryWebpError("ALPH header contains a reserved or unsupported value");
+      }
+      if (compression === 0 && size !== width * height + 1) {
+        galleryWebpError("uncompressed ALPH payload length does not match the canvas");
+      }
+      if (compression === 1 && size < 2) galleryWebpError("compressed ALPH payload is empty");
+      sawAlpha = true;
+    } else if (type === "VP8 ") {
+      if (imageChunks > 0 || size < 10 || (buffer[payload] & 1) !== 0) galleryWebpError("invalid or duplicate VP8 key frame");
+      if (buffer[payload + 3] !== 0x9d || buffer[payload + 4] !== 0x01 || buffer[payload + 5] !== 0x2a) {
+        galleryWebpError("VP8 frame sync code is missing");
+      }
+      const frameWidth = buffer.readUInt16LE(payload + 6) & 0x3fff;
+      const frameHeight = buffer.readUInt16LE(payload + 8) & 0x3fff;
+      if (extendedHeader && Boolean(extendedFlags & 0x10) !== sawAlpha) galleryWebpError("VP8X alpha declaration disagrees with ALPH");
+      if (extendedHeader && (frameWidth !== width || frameHeight !== height)) galleryWebpError("VP8 frame dimensions disagree with VP8X");
+      if (!extendedHeader) [width, height] = [frameWidth, frameHeight];
+      imageChunks += 1;
+    } else if (type === "VP8L") {
+      if (imageChunks > 0 || sawAlpha || size < 5 || buffer[payload] !== 0x2f) galleryWebpError("invalid or duplicate VP8L frame");
+      const bits = buffer.readUInt32LE(payload + 1);
+      if ((bits >>> 29) !== 0) galleryWebpError("VP8L version bits are nonzero");
+      const frameWidth = (bits & 0x3fff) + 1;
+      const frameHeight = ((bits >>> 14) & 0x3fff) + 1;
+      const hasAlpha = (bits & 0x10000000) !== 0;
+      if (extendedHeader && Boolean(extendedFlags & 0x10) !== hasAlpha) galleryWebpError("VP8X alpha declaration disagrees with VP8L");
+      if (extendedHeader && (frameWidth !== width || frameHeight !== height)) galleryWebpError("VP8L frame dimensions disagree with VP8X");
+      if (!extendedHeader) [width, height] = [frameWidth, frameHeight];
+      imageChunks += 1;
+    }
+
+    offset = paddedEnd;
+    chunkCount += 1;
+  }
+
+  if (offset !== buffer.length) galleryWebpError("container ends between chunks");
+  if (imageChunks !== 1) galleryWebpError("container must contain exactly one static image");
+  if (width === 0 || height === 0) galleryWebpError("image has zero dimensions");
+  return { width, height };
+}
+
+function assertGalleryStaticWebpCanaries(validWebp) {
+  const expectReject = (label, candidate) => {
+    try {
+      validateGalleryStaticWebp(candidate);
+    } catch {
+      return;
+    }
+    galleryWebpError(`validator canary accepted ${label}`);
+  };
+
+  const badLength = Buffer.from(validWebp);
+  badLength.writeUInt32LE(17, 4);
+  expectReject("a mismatched RIFF length", badLength);
+
+  const metadataPayload = Buffer.from("validator-canary", "ascii");
+  const metadataChunk = Buffer.alloc(8 + metadataPayload.length + (metadataPayload.length & 1));
+  metadataChunk.write("EXIF", 0, 4, "ascii");
+  metadataChunk.writeUInt32LE(metadataPayload.length, 4);
+  metadataPayload.copy(metadataChunk, 8);
+  const metadataWebp = Buffer.concat([validWebp.subarray(0, 12), metadataChunk, validWebp.subarray(12)]);
+  metadataWebp.writeUInt32LE(metadataWebp.length - 8, 4);
+  expectReject("an unapproved metadata chunk", metadataWebp);
+  expectReject("a truncated container", validWebp.subarray(0, validWebp.length - 1));
+}
+
 function assertFileExists(label, relativePath) {
   assert(existsSync(path.join(root, relativePath)), `${label}: missing ${relativePath}`);
 }
@@ -55,10 +181,19 @@ const galleryItems = (Array.isArray(galleryData.albums) ? galleryData.albums : [
 assert(galleryItems.length > 0, "apps/web/public/data/gallery.json: expected at least one gallery item.");
 
 const galleryStaticThumbnailMaximumBytes = 300 * 1024;
+const galleryStaticFullMaximumBytes = 2 * 1024 * 1024;
+const galleryStaticFullMaximumEdge = 2560;
 const galleryMemberThumbnailMaximumBytes = 80 * 1024;
 const galleryInitialTransferMaximumBytes = 2 * 1024 * 1024;
 const galleryRenderBatchSize = 24;
 const galleryThumbnailSizes = [];
+let galleryWebpCanariesChecked = false;
+const galleryStaticPairs = new Set(
+  galleryItems.map((item) => galleryStaticPairKey(
+    publicAssetPath(item.thumb),
+    publicAssetPath(item.full || item.src),
+  )),
+);
 
 for (const item of galleryItems) {
   const id = String(item.id || item.full || item.src || "gallery item");
@@ -66,6 +201,7 @@ for (const item of galleryItems) {
   const full = publicAssetPath(item.full || item.src);
 
   assert(thumb.includes("assets/img/gallery/thumbs/"), `${id}: grid thumbnail must use assets/img/gallery/thumbs/.`);
+  assert(Boolean(full), `${id}: full/lightbox image path is required.`);
   assert(!full.includes("/thumbs/"), `${id}: full/lightbox image must not use a thumbnail path.`);
   assert(thumb !== full, `${id}: thumbnail and full image paths must be different.`);
 
@@ -83,8 +219,43 @@ for (const item of galleryItems) {
   }
 
   if (full) {
-    assertFileExists(`${id} full image`, path.join("apps/web/public", full).split(path.sep).join("/"));
+    const fullPath = path.join("apps/web/public", full).split(path.sep).join("/");
+    assert(full.toLowerCase().endsWith(".webp"), `${id}: full image must use a .webp path.`);
+    assertFileExists(`${id} full image`, fullPath);
+    if (existsSync(path.join(root, fullPath))) {
+      try {
+        const fullBuffer = readFileSync(path.join(root, fullPath));
+        assert(
+          fullBuffer.length <= galleryStaticFullMaximumBytes,
+          `${id}: full image is ${fullBuffer.length} bytes; maximum is ${galleryStaticFullMaximumBytes}.`,
+        );
+        const { width, height } = validateGalleryStaticWebp(fullBuffer);
+        if (!galleryWebpCanariesChecked) {
+          assertGalleryStaticWebpCanaries(fullBuffer);
+          galleryWebpCanariesChecked = true;
+        }
+        assert(
+          width <= galleryStaticFullMaximumEdge && height <= galleryStaticFullMaximumEdge,
+          `${id}: full image is ${width}x${height}; maximum edge is ${galleryStaticFullMaximumEdge}.`,
+        );
+      } catch (error) {
+        fail(`${id}: full-image validation failed: ${error instanceof Error ? error.message : String(error)}.`);
+      }
+    }
   }
+}
+
+assert(galleryWebpCanariesChecked, "Gallery static WebP validator canaries did not run.");
+
+const homeData = JSON.parse(read("apps/web/public/data/home.json"));
+const homeGalleryFallbacks = Array.isArray(homeData.gallery) ? homeData.gallery : [];
+for (const [index, item] of homeGalleryFallbacks.entries()) {
+  const homeThumbnail = publicAssetPath(item.image);
+  const homeFull = publicAssetPath(item.full || item.image);
+  assert(
+    galleryStaticPairs.has(galleryStaticPairKey(homeThumbnail, homeFull)),
+    `Home Screenshot Spotlight fallback ${index + 1}: thumbnail/full pair must belong to the validated static Gallery inventory.`,
+  );
 }
 
 const worstCaseStaticBatchBytes = galleryThumbnailSizes
