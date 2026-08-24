@@ -32,8 +32,8 @@ const expectedLibraryBytes = 24_956;
 const expectedLibrarySha256 = "AF6A2D5632582D56B92C8E7CD0D7ED0A004712BFCF51091DE2A1AFB50BD63C0A";
 const expectedAppRouterLibraryBytes = 59_423;
 const expectedAppRouterLibrarySha256 = "5051994396F6B0EAC3033F13CF2DC41BD2DCD8FF3102CF11DC49F8B53F780D84";
-const expectedProductionCheckerBytes = 107_442;
-const expectedProductionCheckerSha256 = "EECF77B765BF2F724382A3E428F540E174130CB06B6E206C780B1840CC31BCB2";
+const expectedProductionCheckerBytes = 143_373;
+const expectedProductionCheckerSha256 = "5AA65B5F924D7E7AFC5960F845B41D7D4F6754BCDE144B77870D95F610F679BB";
 
 function sha256(buffer) {
   return createHash("sha256").update(buffer).digest("hex").toUpperCase();
@@ -69,7 +69,10 @@ if (!exactOrdinarySource(checkerPath, expectedCheckerBytes, expectedCheckerSha25
 
 const {
   PRODUCTION_CHECK_LIMITS,
+  canonicalizeProductionFlightResourceEnvelopeStream,
+  checkProduction,
   checkProductionWithTestFixtures,
+  productionDocumentProfileMatches,
   productionDocumentPolicyMatches,
 } = await import(pathToFileURL(productionCheckerPath).href);
 
@@ -874,8 +877,97 @@ function resealReply(url, body, headers) {
   };
 }
 
+function resealFlightScript(record) {
+  return `<script>self.__next_f.push(${JSON.stringify([1, record])})</script>`;
+}
+
+function transformResealFlightStream(body, transform) {
+  const prefix = "<script>self.__next_f.push(";
+  const scriptStart = body.indexOf(prefix);
+  const scriptEnd = body.indexOf(")</script>", scriptStart);
+  assert(scriptStart >= 0 && scriptEnd > scriptStart);
+  const payload = JSON.parse(body.slice(scriptStart + prefix.length, scriptEnd));
+  assert(Array.isArray(payload) && payload.length === 2 && payload[0] === 1);
+  const transformed = transform(payload[1]);
+  assert.equal(typeof transformed, "string");
+  assert.notEqual(transformed, payload[1]);
+  return body.slice(0, scriptStart)
+    + resealFlightScript(transformed)
+    + body.slice(scriptEnd + ")</script>".length);
+}
+
+const resealFlightBuildId = "0123456789abcdefghijk";
+const resealFlightSemanticToken = "zyxwvutsrqponmlkjihgf";
+const resealFlightVisiblePath = "/_next/static/chunks/copy-3nk76snv1e0rj.js";
+const resealFlightAlternateVisiblePath = "/_next/static/chunks/copy-2q2n8r5k4t9bc.js";
+const resealSafeFlightNode = [
+  "$", "span", "copy", { children: `Mōchirīī ${resealFlightVisiblePath}` },
+];
+
+function resealFlightStream({
+  buildId = resealFlightBuildId,
+  fontPath = "/_next/static/media/noto_serif_sc_latin.p.2xkduggpvd1-n.woff2",
+  hintStylePath = "/_next/static/chunks/1edizae69s1-8.css",
+  importPath = "/_next/static/chunks/1y9qnyvp65ool.js",
+  node = resealSafeFlightNode,
+  scriptPath = "/_next/static/chunks/0_kqt9b7hwk8z.js",
+  semanticToken = resealFlightSemanticToken,
+  stylePath = "/_next/static/chunks/3u3ip5izc6gmi.css",
+} = {}) {
+  const resourceLink = ["$", "link", "flight-style", {
+    rel: "stylesheet",
+    href: stylePath,
+    precedence: "next",
+    crossOrigin: "$undefined",
+    nonce: "$undefined",
+  }];
+  const root = {
+    P: null,
+    c: [],
+    q: "",
+    i: false,
+    f: [resourceLink, "$L1"],
+    m: "fixture",
+    G: [],
+    S: false,
+    h: null,
+    r: "",
+    s: "",
+    a: "",
+    l: "",
+    p: "",
+    d: semanticToken,
+    b: buildId,
+  };
+  const container = ["$", "div", "fixture", { children: ["$L2", "$L3", "$L4"] }];
+  const structuredData = ["$", "script", "jsonld", {
+    dangerouslySetInnerHTML: { __html: JSON.stringify({ "@context": "https://schema.org" }) },
+    type: "application/ld+json",
+  }];
+  const resourceScript = ["$", "script", "flight-script", {
+    src: scriptPath,
+    async: true,
+    nonce: "$undefined",
+  }];
+  return `0:${JSON.stringify(root)}\n`
+    + `5:I${JSON.stringify([45129, [importPath], "FixtureModule"])}\n`
+    + `:HL${JSON.stringify([hintStylePath, "style"])}\n`
+    + `:HL${JSON.stringify([fontPath, "font", { crossOrigin: "", type: "font/woff2" }])}\n`
+    + `1:${JSON.stringify(container)}\n`
+    + `2:${JSON.stringify(node)}\n`
+    + `3:${JSON.stringify(structuredData)}\n`
+    + `4:${JSON.stringify(resourceScript)}\n`;
+}
+
+const resealSafeFlightStream = resealFlightStream();
+const resealSafeFlightScript = resealFlightScript(resealSafeFlightStream);
+const resealFlightInitializer = "<script>(self.__next_f=self.__next_f||[]).push([0])</script>";
+
 const resealStaticResources = Object.freeze({
-  body: '<script async="" src="/_next/static/chunks/3nk76snv1e0rj.js"></script>',
+  body: '<script async="" src="/_next/static/chunks/3nk76snv1e0rj.js"></script>'
+    + '<script async="" src="/_next/static/chunks/turbopack-3x7rb7n3bw1wb.js"></script>'
+    + resealFlightInitializer
+    + resealSafeFlightScript,
   head: '<link rel="stylesheet" href="/_next/static/chunks/3jvcxpga865m1.css" data-precedence="next">',
 });
 
@@ -906,6 +998,10 @@ function resealFixture({
       const responseBuildId = buildIdForPath(url.pathname, occurrence);
       if (typeof body === "string" && responseBuildId) {
         body = body.replaceAll("/_next/static/", `/_next/static/${responseBuildId}/`);
+        body = body.replaceAll(
+          `/_next/static/${responseBuildId}/chunks/copy-`,
+          "/_next/static/chunks/copy-",
+        );
         const responseScriptBuildId = scriptBuildId === undefined
           ? responseBuildId : scriptBuildId;
         if (responseScriptBuildId !== responseBuildId) {
@@ -927,6 +1023,45 @@ function resealFixture({
 const fontPreload = (buildId, name) =>
   `</_next/static/${buildId ? buildId + "/" : ""}media/${name}.woff2>; rel=preload; as="font"; crossorigin=""; type="font/woff2"`;
 
+function resealFlightPolicyFixture(bodyTransform = (body) => body) {
+  return resealFixture({
+    bodyTransform,
+    resourcePaths: new Set(["/events", "/gallery", "/join", "/privacy"]),
+    responseHeaders: (url) => url.pathname === "/events" ? {
+      link: [fontPreload("", "font-a"), fontPreload("", "font-b")].join(", "),
+    } : {},
+  });
+}
+
+async function loadProductionSelectorWithFixturePolicies(directory) {
+  const source = readFileSync(productionCheckerPath, "utf8");
+  const productionMarker = "const PRODUCTION_DOCUMENT_POLICIES = Object.freeze({";
+  const testMarker = "const TEST_DOCUMENT_POLICIES = Object.freeze({";
+  const followingMarker = "const PRODUCTION_SITE_HEADER_ATTRIBUTE_NAMES =";
+  assert.equal(source.split(productionMarker).length - 1, 1);
+  assert.equal(source.split(testMarker).length - 1, 1);
+  assert.equal(source.split(followingMarker).length - 1, 1);
+  const productionStart = source.indexOf(productionMarker);
+  const testStart = source.indexOf(testMarker, productionStart + productionMarker.length);
+  const followingStart = source.indexOf(followingMarker, testStart + testMarker.length);
+  assert(productionStart >= 0 && testStart > productionStart && followingStart > testStart);
+  const fixturePolicyDeclaration = source.slice(testStart, followingStart)
+    .replace(testMarker, productionMarker);
+  assert.equal(fixturePolicyDeclaration.includes(testMarker), false);
+  const mutated = source.slice(0, productionStart)
+    + fixturePolicyDeclaration
+    + "const TEST_DOCUMENT_POLICIES = Object.freeze({});\n"
+    + source.slice(followingStart);
+  assert.notEqual(mutated, source);
+  assert.equal(mutated.split(productionMarker).length - 1, 1);
+  assert.equal(mutated.split(testMarker).length - 1, 1);
+  const mutatedPath = path.join(directory, "check-production-fixture-policies.mjs");
+  writeFileSync(mutatedPath, mutated, "utf8");
+  const module = await import(pathToFileURL(mutatedPath).href);
+  assert.equal(typeof module.checkProduction, "function");
+  return module.checkProduction;
+}
+
 test("production document variants preserve exact header-resource pairings", () => {
   const headerA = "A".repeat(64);
   const headerB = "B".repeat(64);
@@ -944,6 +1079,94 @@ test("production document variants preserve exact header-resource pairings", () 
   assert.equal(productionDocumentPolicyMatches(policy, headerB, resourcesC), true);
   assert.equal(productionDocumentPolicyMatches(policy, headerA, resourcesC), false);
   assert.equal(productionDocumentPolicyMatches(policy, headerB, resourcesA), false);
+});
+
+test("production profiles bind the repaired local and live resource envelopes exactly", () => {
+  const sharedHeader = "767693EE075EE31FE445A966DBE0BC2823B4353406A94C590DFF787CEED8E5E3";
+  const localHomeHeader = "675E803BB871598DAD4CE0D1A3A64CB1ED1D30FB7616932CEA63CF25A98530F0";
+  const localHomeResources = "3ED2476C6AE21876EADBE86B73FE0615C8FB8E1350C5E8CD9C8B34EF5B971820";
+  const liveHomeResources = "AF7841F98846581A218F2CBF97474B61B44F133E70586FE31B59D404416A1A12";
+  const recruitmentHeader = "179EADA7DAB503C38AD261D71B2301F8DB134C5354ED186BE6ED227C213E5649";
+  const localRecruitmentResources = "C92A261DD8F4354A428EFE76BA65AC19DBE81319FAC57762A97D1FB249FA238A";
+  const liveRecruitmentResources = "6CC57E08D21592A8C637D344931BBB4F508699AE69EA768C3ABC1E920DDFA023";
+  const localPrivacyResources = "727E4C0D6E5C2A93C57660844BD08264A02643416CE0D63BCE58832DC2A863AA";
+  const livePrivacyResources = "6EA10100B693D0E95B09CBF1F6901F0CC5EEBD853F1A2607BE846A5C7AEF4C7C";
+  const localDeletionResources = "ED2A94A30FFCEF523DAA23935D4327E0782719182CDEAC3EECFA14EEF2452E4E";
+  const liveDeletionResources = "43111FFA05C8E063026126CAC9A90A7C97A28C38CC8F1BD8B3F7398B904DA0CC";
+  assert.equal(productionDocumentProfileMatches(
+    "home", localHomeHeader, localHomeResources,
+  ), true);
+  assert.equal(productionDocumentProfileMatches("home", sharedHeader, liveHomeResources), true);
+  assert.equal(productionDocumentProfileMatches(
+    "recruitment", recruitmentHeader, localRecruitmentResources,
+  ), true);
+  assert.equal(productionDocumentProfileMatches(
+    "recruitment", recruitmentHeader, liveRecruitmentResources,
+  ), true);
+  assert.equal(productionDocumentProfileMatches(
+    "privacy", sharedHeader, localPrivacyResources,
+  ), true);
+  assert.equal(productionDocumentProfileMatches(
+    "privacy", sharedHeader, livePrivacyResources,
+  ), true);
+  assert.equal(productionDocumentProfileMatches(
+    "deletion", sharedHeader, localDeletionResources,
+  ), true);
+  assert.equal(productionDocumentProfileMatches(
+    "deletion", sharedHeader, liveDeletionResources,
+  ), true);
+  assert.equal(productionDocumentProfileMatches("home", localHomeHeader, liveHomeResources), false);
+  assert.equal(productionDocumentProfileMatches("home", sharedHeader, localHomeResources), false);
+  assert.equal(productionDocumentProfileMatches(
+    "recruitment", recruitmentHeader, localPrivacyResources,
+  ), false);
+  assert.equal(productionDocumentProfileMatches(
+    "privacy", sharedHeader, "24BA6252EED0D271A80D25CE45A61BF813F151A0D015291F4EDC1B4D5B2E9225",
+  ), false);
+  assert.equal(productionDocumentProfileMatches(
+    "unknown", sharedHeader, localPrivacyResources,
+  ), false);
+});
+
+test("production export selects and enforces its bound policy dataflow", async () => {
+  const directory = fixtureDirectory();
+  try {
+    const checkProductionWithFixturePolicies = await loadProductionSelectorWithFixturePolicies(
+      directory,
+    );
+    const safe = resealFlightPolicyFixture();
+    assert.deepEqual(await checkProductionWithFixturePolicies({
+      baseUrl: resealBaseUrl,
+      defaultBaseUrlLoader: () => resealSiteOrigin,
+      fetchImpl: safe.fetchImpl,
+      maxAttempts: 1,
+    }), { ok: true });
+    assert.equal(safe.calls.length, 16);
+    assert(safe.calls.every(({ options }) => options.redirect === "manual"));
+
+    for (const node of [
+      ["$", "span", "copy", { children: "Mōchirīx" }],
+      ["$", "span", "copy", { children: `Mōchirīī ${resealFlightAlternateVisiblePath}` }],
+      ["$", "iframe", "copy", { src: "https://outside.example/harvest" }],
+      ["$", "script", "copy", { src: "https://outside.example/injected.js" }],
+    ]) {
+      const hostile = resealFlightPolicyFixture((body, url, occurrence) => {
+        if (url.pathname !== "/privacy" || occurrence !== 2) return body;
+        return body.replace(
+          resealSafeFlightScript,
+          resealFlightScript(resealFlightStream({ node })),
+        );
+      });
+      await assert.rejects(() => checkProductionWithFixturePolicies({
+        baseUrl: resealBaseUrl,
+        defaultBaseUrlLoader: () => resealSiteOrigin,
+        fetchImpl: hostile.fetchImpl,
+        maxAttempts: 1,
+      }), { message: "HTML_DOCUMENT_REJECTED" });
+    }
+  } finally {
+    cleanup(directory);
+  }
 });
 
 test("production checker accepts the bounded Vercel publication envelope", async () => {
@@ -993,14 +1216,24 @@ test("production checker accepts the bounded Vercel publication envelope", async
 
   const splitFlightStream = resealFixture({
     buildId: "build_a",
-    bodyTransform(body, url) {
-      if (url.pathname !== "/events") return body;
-      const firstPayload = JSON.stringify([1, 'x:"/_next/static/']);
-      const secondPayload = JSON.stringify([1, 'build_a/chunks/ordinary.js"\n']);
-      return body.replace(
-        "</body>",
-        `<script>self.__next_f.push(${firstPayload})</script><script>self.__next_f.push(${secondPayload})</script></body>`,
-      );
+    resourcePaths: new Set(["/privacy"]),
+    bodyTransform(body, url, occurrence) {
+      if (url.pathname !== "/privacy" || occurrence !== 2) return body;
+      const prefix = "<script>self.__next_f.push(";
+      const scriptStart = body.indexOf(prefix);
+      const scriptEnd = body.indexOf(")</script>", scriptStart);
+      assert(scriptStart >= 0 && scriptEnd > scriptStart);
+      const payload = JSON.parse(body.slice(scriptStart + prefix.length, scriptEnd));
+      assert(Array.isArray(payload) && payload.length === 2 && payload[0] === 1);
+      const stream = payload[1];
+      const splitAt = stream.indexOf("build_a") + Math.floor("build_a".length / 2);
+      assert(splitAt > 0 && splitAt < stream.length);
+      const firstPayload = JSON.stringify([1, stream.slice(0, splitAt)]);
+      const secondPayload = JSON.stringify([1, stream.slice(splitAt)]);
+      return body.slice(0, scriptStart)
+        + `<script>self.__next_f.push(${firstPayload})</script>`
+        + `<script>self.__next_f.push(${secondPayload})</script>`
+        + body.slice(scriptEnd + ")</script>".length);
     },
   });
   assert.deepEqual(await checkProductionWithTestFixtures({
@@ -1011,8 +1244,932 @@ test("production checker accepts the bounded Vercel publication envelope", async
   assert.equal(splitFlightStream.calls.length, 16);
 });
 
+test("production Flight aggregation preserves its body context and resource position", async () => {
+  const regularScript = '<script async="" src="/_next/static/chunks/3nk76snv1e0rj.js"></script>';
+  const turbopackScript = '<script async="" src="/_next/static/chunks/turbopack-3x7rb7n3bw1wb.js"></script>';
+  const splitAt = Math.floor(resealSafeFlightStream.length / 2);
+  const firstFlightScript = resealFlightScript(resealSafeFlightStream.slice(0, splitAt));
+  const secondFlightScript = resealFlightScript(resealSafeFlightStream.slice(splitAt));
+  const flightBlock = resealFlightInitializer + resealSafeFlightScript;
+  const cases = [
+    ["head-context", (body) => body.replace(flightBlock, "")
+      .replace("<head>", "<head>" + flightBlock)],
+    ["initializer-after-flight", (body) => body.replace(
+      flightBlock,
+      resealSafeFlightScript + resealFlightInitializer,
+    )],
+    ["intervening-resource", (body) => body.replace(
+      resealStaticResources.body,
+      regularScript + resealFlightInitializer
+        + firstFlightScript + turbopackScript + secondFlightScript,
+    )],
+  ];
+  for (const [name, transform] of cases) {
+    const current = resealFixture({
+      resourcePaths: new Set(["/privacy"]),
+      bodyTransform(body, url, occurrence) {
+        if (url.pathname !== "/privacy" || occurrence !== 2) return body;
+        const mutated = transform(body);
+        assert.notEqual(mutated, body, name);
+        return mutated;
+      },
+    });
+    await assert.rejects(() => checkProductionWithTestFixtures({
+      baseUrl: resealBaseUrl,
+      fetchImpl: current.fetchImpl,
+      maxAttempts: 1,
+    }), { message: "HTML_DOCUMENT_REJECTED" }, name);
+    assert.equal(current.calls.length, 13, name);
+    assert(current.calls.every(({ options }) => options.redirect === "manual"), name);
+  }
+});
+
+test("production checker accepts only genuine stable bare Next resource hashes across rebuilds", async () => {
+  const rebuilt = resealFixture({
+    bodyTransform: (body) => body
+      .replaceAll(
+        "/_next/static/chunks/3nk76snv1e0rj.js",
+        "/_next/static/chunks/45cn8rw14zvg_.js",
+      )
+      .replaceAll(
+        "/_next/static/chunks/3jvcxpga865m1.css",
+        "/_next/static/chunks/2q2n8r5k4t9bc.css",
+      ),
+    resourcePaths: new Set(["/events", "/gallery", "/join", "/privacy"]),
+    responseHeaders: (url) => url.pathname === "/events" ? {
+      link: [fontPreload("", "font-a"), fontPreload("", "font-b")].join(", "),
+    } : {},
+  });
+  assert.deepEqual(await checkProductionWithTestFixtures({
+    baseUrl: resealBaseUrl,
+    fetchImpl: rebuilt.fetchImpl,
+    maxAttempts: 1,
+  }), { ok: true });
+  assert.equal(rebuilt.calls.length, 16);
+});
+
+test("production checker accepts genuine Turbopack-prefixed resource hashes across rebuilds", async () => {
+  const rebuilt = resealFixture({
+    bodyTransform: (body) => body.replaceAll(
+      "turbopack-3x7rb7n3bw1wb.js",
+      "turbopack-1a2b3c4d5e6-7.js",
+    ),
+    resourcePaths: new Set(["/events", "/gallery", "/join", "/privacy"]),
+    responseHeaders: (url) => url.pathname === "/events" ? {
+      link: [fontPreload("", "font-a"), fontPreload("", "font-b")].join(", "),
+    } : {},
+  });
+  assert.deepEqual(await checkProductionWithTestFixtures({
+    baseUrl: resealBaseUrl,
+    fetchImpl: rebuilt.fetchImpl,
+    maxAttempts: 1,
+  }), { ok: true });
+  assert.equal(rebuilt.calls.length, 16);
+});
+
+test("production resource shapes reject count, order, context, type, and non-Next drift", async () => {
+  const canonical = `<link rel="canonical" href="${resealSiteOrigin}">`;
+  const mutations = [
+    ["remove", (body) => body.replace(resealStaticResources.head, "")],
+    ["add", (body) => body.replace(
+      resealStaticResources.body,
+      resealStaticResources.body + resealStaticResources.body,
+    )],
+    ["reorder", (body) => body.replace(resealStaticResources.head, "")
+      .replace(canonical, resealStaticResources.head + canonical)],
+    ["context", (body) => body.replace(resealStaticResources.head, "")
+      .replace("</body>", resealStaticResources.head + "</body>")],
+    ["type", (body) => body.replace("3jvcxpga865m1.css", "3jvcxpga865m1.js")],
+    ["ordinary-word", (body) => body.replace("3nk76snv1e0rj.js", "configuration.js")],
+    ["ordinary-symbols", (body) => body.replace("3nk76snv1e0rj.js", "_____________.js")],
+    ["out-of-range-base38", (body) => body.replace("3nk76snv1e0rj.js", "5nk76snv1e0rj.js")],
+    ["above-maximum-base38", (body) => body.replace("3nk76snv1e0rj.js", "45cn8rw14zvg-.js")],
+    ["short-generated-token", (body) => body.replace("3nk76snv1e0rj.js", "3nk76snv1e0r.js")],
+    ["long-generated-token", (body) => body.replace("3nk76snv1e0rj.js", "3nk76snv1e0rj0.js")],
+    ["full-generated-token", (body) => body.replace(
+      "3nk76snv1e0rj.js",
+      "3nk76snv1e0rj0a2b4c6d8e0f.js",
+    )],
+    ["uppercase-generated-token", (body) => body.replace("3nk76snv1e0rj.js", "3Nk76snv1e0rj.js")],
+    ["changed-stable-prefix", (body) => body.replace(
+      "turbopack-3x7rb7n3bw1wb.js",
+      "webpack-3x7rb7n3bw1wb.js",
+    )],
+    ["invalid-stable-prefix", (body) => body.replace(
+      "turbopack-3x7rb7n3bw1wb.js",
+      "turbopack_3x7rb7n3bw1wb.js",
+    )],
+    ["non-Next", (body) => body.replace(
+      "/_next/static/chunks/3nk76snv1e0rj.js",
+      "/assets/non-next-app.js",
+    )],
+  ];
+  for (const [name, mutate] of mutations) {
+    const current = resealFixture({
+      resourcePaths: new Set(["/privacy"]),
+      bodyTransform(body, url, occurrence) {
+        return url.pathname === "/privacy" && occurrence === 2 ? mutate(body) : body;
+      },
+    });
+    await assert.rejects(() => checkProductionWithTestFixtures({
+      baseUrl: resealBaseUrl,
+      fetchImpl: current.fetchImpl,
+      maxAttempts: 1,
+    }), { message: "HTML_DOCUMENT_REJECTED" }, name);
+  }
+});
+
+test("production resource envelopes bind every non-generated Flight payload byte", async () => {
+  const safeFlightLines = resealSafeFlightStream.trimEnd().split("\n");
+  const recordTwo = safeFlightLines.findIndex((line) => line.startsWith("2:"));
+  const recordThree = safeFlightLines.findIndex((line) => line.startsWith("3:"));
+  assert(recordTwo >= 0 && recordThree === recordTwo + 1);
+  const reorderedLines = [...safeFlightLines];
+  [reorderedLines[recordTwo], reorderedLines[recordThree]] = [
+    reorderedLines[recordThree], reorderedLines[recordTwo],
+  ];
+  const reorderedFlightStream = reorderedLines.join("\n") + "\n";
+  const hostileStreams = [
+    ["copy", resealFlightStream({
+      node: ["$", "span", "copy", { children: "Mōchirīx" }],
+    })],
+    ["iframe", resealFlightStream({
+      node: ["$", "iframe", "copy", { src: "https://outside.example/harvest" }],
+    })],
+    ["script", resealFlightStream({
+      node: ["$", "script", "copy", { src: "https://outside.example/injected.js" }],
+    })],
+    ["root-semantic", resealFlightStream({ semanticToken: "abcdefghijklmnopqrstu" })],
+    ["resource-shaped-copy", resealFlightStream({
+      node: [
+        "$", "span", "copy", { children: `Mōchirīī ${resealFlightAlternateVisiblePath}` },
+      ],
+    })],
+    ["record-order", reorderedFlightStream],
+  ];
+  for (const [name, stream] of hostileStreams) {
+    const current = resealFixture({
+      resourcePaths: new Set(["/privacy"]),
+      bodyTransform(body, url, occurrence) {
+        if (url.pathname !== "/privacy" || occurrence !== 2) return body;
+        const mutated = body.replace(resealSafeFlightScript, resealFlightScript(stream));
+        assert.notEqual(mutated, body);
+        return mutated;
+      },
+    });
+    const messages = [];
+    await assert.rejects(() => checkProductionWithTestFixtures({
+      baseUrl: resealBaseUrl,
+      diagnose: true,
+      fetchImpl: current.fetchImpl,
+      maxAttempts: 1,
+      reportDiagnostic: (message) => messages.push(message),
+    }), { message: "HTML_DOCUMENT_REJECTED" }, name);
+    assert.equal(current.calls.length, 13, name);
+    assert(current.calls.every(({ options }) => options.redirect === "manual"), name);
+    assert.equal(messages.length, 15, name);
+    assert.deepEqual(messages.slice(-2), [
+      name === "script" || name === "iframe"
+        ? "HTML namespace parser PAYLOAD_MODEL"
+        : "HTML document parser RESOURCE_DIGEST",
+      "HTML metadata namespace rejected /privacy",
+    ], name);
+    const diagnosticText = messages.join("\n");
+    assert.equal(diagnosticText.includes("outside.example"), false, name);
+    assert.equal(diagnosticText.includes("Mōchirīx"), false, name);
+  }
+});
+
+test("production Flight build identity is the only normalized root field", async () => {
+  const alternateBuildId = "abcdefghijk0123456789";
+  assert.equal(alternateBuildId.length, 21);
+  const current = resealFixture({
+    resourcePaths: new Set(["/events", "/gallery", "/join", "/privacy"]),
+    responseHeaders: (url) => url.pathname === "/events" ? {
+      link: [fontPreload("", "font-a"), fontPreload("", "font-b")].join(", "),
+    } : {},
+    bodyTransform(body, url, occurrence) {
+      if (url.pathname !== "/privacy" || occurrence !== 2) return body;
+      const mutated = body.replace(
+        resealSafeFlightScript,
+        resealFlightScript(resealFlightStream({ buildId: alternateBuildId })),
+      );
+      assert.notEqual(mutated, body);
+      return mutated;
+    },
+  });
+  assert.deepEqual(await checkProductionWithTestFixtures({
+    baseUrl: resealBaseUrl,
+    fetchImpl: current.fetchImpl,
+    maxAttempts: 1,
+  }), { ok: true });
+  assert.equal(current.calls.length, 16);
+  assert(current.calls.every(({ options }) => options.redirect === "manual"));
+
+  const wrapperEscaped = resealFlightPolicyFixture((body, url, occurrence) => {
+    if (url.pathname !== "/privacy" || occurrence !== 2) return body;
+    const escapedScript = resealSafeFlightScript.replace(
+      "Mōchirīī",
+      String.raw`M\u014Dchir\u012B\u012B`,
+    );
+    assert.notEqual(escapedScript, resealSafeFlightScript);
+    return body.replace(resealSafeFlightScript, escapedScript);
+  });
+  assert.deepEqual(await checkProductionWithTestFixtures({
+    baseUrl: resealBaseUrl,
+    fetchImpl: wrapperEscaped.fetchImpl,
+    maxAttempts: 1,
+  }), { ok: true });
+  assert.equal(wrapperEscaped.calls.length, 16);
+  assert(wrapperEscaped.calls.every(({ options }) => options.redirect === "manual"));
+
+  const rootEscaped = resealFlightPolicyFixture((body, url, occurrence) => {
+    if (url.pathname !== "/privacy" || occurrence !== 2) return body;
+    const escapedRootStream = resealSafeFlightStream.replace(
+      resealFlightBuildId,
+      String.raw`\u0030123456789abcdefghijk`,
+    );
+    return body.replace(resealSafeFlightScript, resealFlightScript(escapedRootStream));
+  });
+  assert.deepEqual(await checkProductionWithTestFixtures({
+    baseUrl: resealBaseUrl,
+    fetchImpl: rootEscaped.fetchImpl,
+    maxAttempts: 1,
+  }), { ok: true });
+  assert.equal(rootEscaped.calls.length, 16);
+  assert(rootEscaped.calls.every(({ options }) => options.redirect === "manual"));
+
+  const resourceRebuilt = resealFlightPolicyFixture((body, url, occurrence) => {
+    if (url.pathname !== "/privacy" || occurrence !== 2) return body;
+    const rebuiltStream = resealFlightStream({
+      fontPath: "/_next/static/media/noto_serif_sc_latin.p.3w1kw-jw7m3mi.woff2",
+      hintStylePath: "/_next/static/chunks/3cfkfdpl5tlld.css",
+      importPath: "/_next/static/chunks/10i858mih-457.js",
+      scriptPath: "/_next/static/chunks/3ojsee-o9apn_.js",
+      stylePath: "/_next/static/chunks/1edizae69s1-8.css",
+    });
+    return body.replace(resealSafeFlightScript, resealFlightScript(rebuiltStream));
+  });
+  assert.deepEqual(await checkProductionWithTestFixtures({
+    baseUrl: resealBaseUrl,
+    fetchImpl: resourceRebuilt.fetchImpl,
+    maxAttempts: 1,
+  }), { ok: true });
+  assert.equal(resourceRebuilt.calls.length, 16);
+  assert(resourceRebuilt.calls.every(({ options }) => options.redirect === "manual"));
+});
+
+test("production resource envelopes reject malformed or ambiguous Flight roots", async () => {
+  const rootLine = resealSafeFlightStream.slice(0, resealSafeFlightStream.indexOf("\n") + 1);
+  const malformedStreams = [
+    ["missing", resealSafeFlightStream.slice(rootLine.length)],
+    ["duplicate", rootLine + resealSafeFlightStream],
+    ["reordered", resealSafeFlightStream.replace(
+      '0:{"P":null,"c":[]',
+      '0:{"c":[],"P":null',
+    )],
+    ["non-final-build", resealSafeFlightStream.replace(
+      `"d":"${resealFlightSemanticToken}","b":"${resealFlightBuildId}"}`,
+      `"b":"${resealFlightBuildId}","d":"${resealFlightSemanticToken}"}`,
+    )],
+    ["short-build", resealFlightStream({ buildId: "too-short" })],
+    ["invalid-build", resealFlightStream({ buildId: "0123456789abcdefghij." })],
+  ];
+  for (const [name, stream] of malformedStreams) {
+    const current = resealFixture({
+      resourcePaths: new Set(["/privacy"]),
+      bodyTransform(body, url, occurrence) {
+        if (url.pathname !== "/privacy" || occurrence !== 2) return body;
+        const mutated = body.replace(resealSafeFlightScript, resealFlightScript(stream));
+        assert.notEqual(mutated, body);
+        return mutated;
+      },
+    });
+    const messages = [];
+    await assert.rejects(() => checkProductionWithTestFixtures({
+      baseUrl: resealBaseUrl,
+      diagnose: true,
+      fetchImpl: current.fetchImpl,
+      maxAttempts: 1,
+      reportDiagnostic: (message) => messages.push(message),
+    }), { message: "HTML_DOCUMENT_REJECTED" }, name);
+    assert.equal(current.calls.length, 13, name);
+    assert(current.calls.every(({ options }) => options.redirect === "manual"), name);
+    assert.equal(messages.length, 15, name);
+    assert.deepEqual(messages.slice(-2), [
+      "HTML namespace parser PAYLOAD_MODEL",
+      "HTML metadata namespace rejected /privacy",
+    ], name);
+    assert.equal(messages.join("\n").includes(stream), false, name);
+  }
+});
+
+test("production Flight row identities are canonical, unique, bounded, and supported", async () => {
+  const alternateRootLine = resealFlightStream({
+    buildId: "abcdefghijklmnopqrstu",
+  }).split("\n")[0];
+  const alternateRootPayload = alternateRootLine.slice(alternateRootLine.indexOf(":") + 1);
+  const duplicateModelLine = resealSafeFlightStream.split("\n").find((line) => line.startsWith("2:"));
+  assert(duplicateModelLine);
+  const cases = [
+    ["leading-zero-root", (stream) => stream + `00:${alternateRootPayload}\n`],
+    ["empty-root", (stream) => stream + `:${alternateRootPayload}\n`],
+    ["overflow-root", (stream) => stream + `100000000:${alternateRootPayload}\n`],
+    ["duplicate-model", (stream) => stream + duplicateModelLine + "\n"],
+    ["close-without-open", (stream) => stream + "6:C\n"],
+    ["duplicate-open", (stream) => stream + "6:X\n6:X\n"],
+    ["missing-close", (stream) => stream + "6:X\n"],
+    ["closed-model-collision", (stream) => stream + "6:X\n6:C\n6:null\n"],
+    ["model-open-collision", (stream) => stream + "6:null\n6:X\n"],
+    ["duplicate-close", (stream) => stream + "6:X\n6:C\n6:C\n"],
+    ["unresolved-forward-close-reference", (stream) => stream + '6:X\n6:C"$7"\n'],
+    ["self-close-reference", (stream) => stream + '6:X\n6:C"$6"\n'],
+    ["short-text-frame", (stream) => stream + "6:x\n6:T5,safe6:C\n"],
+    ["unsupported-tag", (stream) => stream + '6:E{"digest":"semantic row"}\n'],
+  ];
+  for (const [name, mutate] of cases) {
+    const current = resealFixture({
+      resourcePaths: new Set(["/events"]),
+      bodyTransform(body, url) {
+        if (url.pathname !== "/events") return body;
+        return transformResealFlightStream(body, (stream) => {
+          const mutated = mutate(stream);
+          assert.notEqual(mutated, stream, name);
+          return mutated;
+        });
+      },
+    });
+    const messages = [];
+    await assert.rejects(() => checkProductionWithTestFixtures({
+      baseUrl: resealBaseUrl,
+      diagnose: true,
+      fetchImpl: current.fetchImpl,
+      maxAttempts: 1,
+      reportDiagnostic: (message) => messages.push(message),
+    }), { message: "HTML_DOCUMENT_REJECTED" }, name);
+    assert.equal(current.calls.length, 5, name);
+    assert(current.calls.every(({ options }) => options.redirect === "manual"), name);
+    assert.deepEqual(messages.slice(-2), [
+      "HTML namespace parser PAYLOAD_MODEL",
+      "HTML namespace rejected /events",
+    ], name);
+    const diagnostics = messages.join("\n");
+    assert.equal(diagnostics.includes(alternateRootPayload), false, name);
+    assert.equal(diagnostics.includes("semantic row"), false, name);
+  }
+});
+
+test("production Flight parser accepts reviewed intrinsics, primitives, and deferred lifecycle", () => {
+  const reviewedNode = ["$", "div", "copy", { children: [
+    ["$", "link", null, {
+      rel: "canonical",
+      href: "https://mochirii.com/games/mochi-pets",
+    }],
+    ["$", "a", null, {
+      href: "/events",
+      target: "$undefined",
+      rel: "$undefined",
+      children: "Events",
+    }],
+    ["$", "img", null, {
+      id: "recruitmentAtmosphere",
+      src: "/assets/img/recruitment/atmosphere.webp",
+      alt: "",
+      className: "page-hero__atmos",
+      decoding: "async",
+      "aria-hidden": "true",
+    }],
+  ] }];
+  const stream = resealFlightStream({ node: reviewedNode })
+    + '6:"$Sreact.fragment"\n'
+    + "7:null\n"
+    + "8:true\n"
+    + "9:42\n"
+    + "a:x\n"
+    + "a:T4,safe"
+    + 'b:"returned"\n'
+    + 'a:C"$b"\n'
+    + "c:X\n"
+    + 'c:{"safe":true}\n'
+    + 'd:"returned"\n'
+    + 'c:C"$d"\n';
+  const buildIds = new Set();
+  const resourceUrls = [];
+  const canonical = canonicalizeProductionFlightResourceEnvelopeStream(
+    stream,
+    buildIds,
+    resourceUrls,
+    new URL("https://preview.example/games/mochi-pets"),
+  );
+  assert.equal(typeof canonical, "string");
+  assert(canonical.includes(
+    '6:"$Sreact.fragment"\n7:null\n8:true\n9:42\na:x\na:T4,safeb:"returned"\n'
+      + 'a:C"$b"\nc:X\nc:{"safe":true}\nd:"returned"\nc:C"$d"\n',
+  ));
+  assert.deepEqual([...buildIds], [""]);
+  assert.equal(resourceUrls.length, 8);
+  assert(resourceUrls.every((value) => typeof value === "string" && value.length > 0));
+});
+
+test("production Flight parser accepts pinned Next iterable frames", () => {
+  const probe = String.raw`
+const rsc = require("./apps/web/node_modules/next/dist/compiled/react-server-dom-webpack/cjs/react-server-dom-webpack-server.node.production.js");
+async function* selfIterating() { yield "safe"; return "lower-return"; }
+let step = 0;
+const iterator = {
+  next() {
+    step += 1;
+    return Promise.resolve(step === 1
+      ? { done: false, value: { safe: true } }
+      : { done: true, value: "upper-return" });
+  },
+  [Symbol.asyncIterator]() { return this; },
+};
+const iterable = { [Symbol.asyncIterator]() { return iterator; } };
+let delayedReady = false;
+let releaseDelayed;
+const delayedWakeable = new Promise((resolve) => { releaseDelayed = resolve; });
+const delayedReturn = {};
+Object.defineProperty(delayedReturn, "delayed", {
+  enumerable: true,
+  get() { if (!delayedReady) throw delayedWakeable; return "later"; },
+});
+let delayedStep = 0;
+const delayedIterator = {
+  next() {
+    delayedStep += 1;
+    if (delayedStep === 1) return Promise.resolve({ done: false, value: "first" });
+    setImmediate(() => { delayedReady = true; releaseDelayed(); });
+    return Promise.resolve({ done: true, value: delayedReturn });
+  },
+  [Symbol.asyncIterator]() { return this; },
+};
+const delayedIterable = { [Symbol.asyncIterator]() { return delayedIterator; } };
+const model = {
+  P: null, c: [], q: "", i: false,
+  f: [selfIterating(), iterable, delayedIterable], m: "fixture", G: [],
+  S: false, h: null, r: "", s: "", a: "", l: "", p: "", d: "zyxwvutsrqponmlkjihgf",
+  b: "0123456789abcdefghijk",
+};
+(async () => {
+  const stream = await rsc.renderToReadableStream(model, {});
+  const chunks = [];
+  for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+  process.stdout.write(Buffer.concat(chunks).toString("base64"));
+})().catch(() => process.exit(1));
+`;
+  const child = spawnSync(nodeExecutable, ["--conditions", "react-server", "-e", probe], {
+    cwd: root,
+    encoding: "utf8",
+    env: {},
+    maxBuffer: 1024 * 1024,
+    timeout: 30_000,
+    windowsHide: true,
+  });
+  assert.equal(child.error, undefined);
+  assert.equal(child.signal, null);
+  assert.equal(child.status, 0);
+  assert.equal(child.stderr, "");
+  assert(/^[A-Za-z0-9+/]+={0,2}$/.test(child.stdout));
+  const emitted = Buffer.from(child.stdout, "base64").toString("utf8");
+  assert.match(emitted, /^[0-9a-f]+:x$/m);
+  assert.match(emitted, /^[0-9a-f]+:X$/m);
+  assert.match(emitted, /[0-9a-f]+:T4,safe/);
+  assert.match(emitted, /^[0-9a-f]+:\{"safe":true\}$/m);
+  assert.match(emitted, /^[0-9a-f]+:C"\$[0-9a-f]+"$/m);
+  const delayedRow = emitted.match(/^([0-9a-f]+):\{"delayed":"later"\}$/m);
+  assert(delayedRow);
+  const delayedClose = emitted.indexOf(`C"$${delayedRow[1]}"`);
+  assert(delayedClose >= 0);
+  assert(delayedClose < delayedRow.index);
+  assert.equal(
+    typeof canonicalizeProductionFlightResourceEnvelopeStream(
+      emitted,
+      new Set(),
+      [],
+      new URL("https://preview.example/"),
+    ),
+    "string",
+  );
+});
+
+test("production Flight intrinsic resources reject active unreviewed browser surfaces", async () => {
+  const sentinel = "MOCHIRII_FLIGHT_INTRINSIC_SENTINEL";
+  const cases = [
+    [
+      "mixed-image",
+      ["$", "img", "copy", {
+        src: `/_next/static/build_b/media/${sentinel}.webp`,
+        alt: "",
+      }],
+      "HTML namespace parser MIXED_NAMESPACE",
+    ],
+    [
+      "iframe",
+      ["$", "iframe", "copy", { src: `https://outside.example/${sentinel}` }],
+      "HTML namespace parser PAYLOAD_MODEL",
+    ],
+    [
+      "mixed-case-iframe",
+      ["$", "IFRAME", "copy", { src: `https://outside.example/${sentinel}` }],
+      "HTML namespace parser PAYLOAD_MODEL",
+    ],
+    [
+      "inline-script",
+      ["$", "script", "copy", { children: sentinel }],
+      "HTML namespace parser PAYLOAD_MODEL",
+    ],
+    [
+      "non-object-jsonld",
+      ["$", "script", "copy", {
+        dangerouslySetInnerHTML: { __html: JSON.stringify(sentinel) },
+        type: "application/ld+json",
+      }],
+      "HTML namespace parser PAYLOAD_MODEL",
+    ],
+    [
+      "style",
+      ["$", "style", "copy", { children: `body{background:url(${sentinel})}` }],
+      "HTML namespace parser PAYLOAD_MODEL",
+    ],
+    [
+      "image-event-handler",
+      ["$", "img", "copy", {
+        src: "/assets/img/recruitment/atmosphere.webp",
+        alt: "",
+        onError: sentinel,
+      }],
+      "HTML namespace parser PAYLOAD_MODEL",
+    ],
+    [
+      "generic-style",
+      ["$", "div", "copy", { style: { background: `url(${sentinel})` } }],
+      "HTML namespace parser PAYLOAD_MODEL",
+    ],
+    [
+      "active-anchor",
+      ["$", "a", "copy", { href: `javascript:${sentinel}`, children: "copy" }],
+      "HTML namespace parser PAYLOAD_MODEL",
+    ],
+  ];
+  for (const [name, node, category] of cases) {
+    const current = resealFixture({
+      resourcePaths: new Set(["/events"]),
+      bodyTransform(body, url) {
+        if (url.pathname !== "/events") return body;
+        return body.replace(
+          resealSafeFlightScript,
+          resealFlightScript(resealFlightStream({ node })),
+        );
+      },
+    });
+    const messages = [];
+    await assert.rejects(() => checkProductionWithTestFixtures({
+      baseUrl: resealBaseUrl,
+      diagnose: true,
+      fetchImpl: current.fetchImpl,
+      maxAttempts: 1,
+      reportDiagnostic: (message) => messages.push(message),
+    }), { message: "HTML_DOCUMENT_REJECTED" }, name);
+    assert.equal(current.calls.length, 5, name);
+    assert(current.calls.every(({ options }) => options.redirect === "manual"), name);
+    assert.deepEqual(messages.slice(-2), [category, "HTML namespace rejected /events"], name);
+    const diagnostics = messages.join("\n");
+    assert.equal(diagnostics.includes(sentinel), false, name);
+    assert.equal(diagnostics.includes("outside.example"), false, name);
+    assert.equal(diagnostics.includes("javascript:"), false, name);
+  }
+});
+
+test("production Flight row framing requires one terminal LF and no blank rows", async () => {
+  const cases = [
+    ["leading-blank", (stream) => "\n" + stream],
+    ["interior-blank", (stream) => stream.replace("\n5:I", "\n\n5:I")],
+    ["repeated-terminal", (stream) => stream + "\n"],
+    ["unterminated-final", (stream) => stream.slice(0, -1)],
+  ];
+  for (const [name, mutate] of cases) {
+    const current = resealFixture({
+      resourcePaths: new Set(["/events"]),
+      bodyTransform(body, url) {
+        if (url.pathname !== "/events") return body;
+        return transformResealFlightStream(body, (stream) => {
+          const mutated = mutate(stream);
+          assert.notEqual(mutated, stream, name);
+          return mutated;
+        });
+      },
+    });
+    const messages = [];
+    await assert.rejects(() => checkProductionWithTestFixtures({
+      baseUrl: resealBaseUrl,
+      diagnose: true,
+      fetchImpl: current.fetchImpl,
+      maxAttempts: 1,
+      reportDiagnostic: (message) => messages.push(message),
+    }), { message: "HTML_DOCUMENT_REJECTED" }, name);
+    assert.equal(current.calls.length, 5, name);
+    assert(current.calls.every(({ options }) => options.redirect === "manual"), name);
+    assert.deepEqual(messages.slice(-2), [
+      "HTML namespace parser PAYLOAD_MODEL",
+      "HTML namespace rejected /events",
+    ], name);
+    assert.equal(messages.join("\n").includes(name), false, name);
+  }
+});
+
+test("production namespace keeps the canonical origin immutable across a deferred audio base", async () => {
+  for (const namespacePath of [
+    "/_next/ignored/../static/build_b/media/evil.webp",
+    "/%255fnext/%2573tatic/build_b/media/evil.webp",
+  ]) {
+    const current = resealFixture({
+      buildId: "build_a",
+      bodyTransform(body, url, occurrence) {
+        if (url.pathname !== "/recruitment" || occurrence !== 1) return body;
+        const disguisedMixedNamespace = `${url.origin}${namespacePath}`;
+        return body.replace(
+          "Audio fallback.</audio>",
+          `<base href="https://outside.example/">fallback</audio><img src="${disguisedMixedNamespace}">`,
+        );
+      },
+    });
+    await assert.rejects(() => checkProductionWithTestFixtures({
+      baseUrl: resealBaseUrl,
+      fetchImpl: current.fetchImpl,
+      maxAttempts: 1,
+    }), { message: "HTML_DOCUMENT_REJECTED" });
+  }
+});
+
+test("production namespace accepts encoded active URLs only when they retain the active build", async () => {
+  const current = resealFixture({
+    buildId: "build_a",
+    bodyTransform(body, url) {
+      if (url.pathname !== "/events") return body;
+      return body.replace(
+        "<main>",
+        `<main><img src="/%5fnext/static/build_a/media/allowed.webp">`,
+      ).replace(
+        resealFlightVisiblePath,
+        "/%255fnext/%2573tatic/build_a/chunks/allowed.js",
+      );
+    },
+  });
+  assert.deepEqual(await checkProductionWithTestFixtures({
+    baseUrl: resealBaseUrl,
+    fetchImpl: current.fetchImpl,
+    maxAttempts: 1,
+  }), { ok: true });
+  assert.equal(current.calls.length, 16);
+});
+
+test("production namespace rejects a mixed build in every structural Flight resource slot", async () => {
+  const cases = [
+    ["import", "/_next/static/build_a/chunks/1y9qnyvp65ool.js"],
+    ["style-hint", "/_next/static/build_a/chunks/1edizae69s1-8.css"],
+    ["font-hint", "/_next/static/build_a/media/noto_serif_sc_latin.p.2xkduggpvd1-n.woff2"],
+    ["root-link", "/_next/static/build_a/chunks/3u3ip5izc6gmi.css"],
+    ["script", "/_next/static/build_a/chunks/0_kqt9b7hwk8z.js"],
+  ];
+  for (const [name, activePath] of cases) {
+    const current = resealFixture({
+      buildId: "build_a",
+      resourcePaths: new Set(["/events"]),
+      bodyTransform(body, url) {
+        if (url.pathname !== "/events") return body;
+        const mutated = body.replace(activePath, activePath.replace("/build_a/", "/build_b/"));
+        assert.notEqual(mutated, body);
+        return mutated;
+      },
+    });
+    const messages = [];
+    await assert.rejects(() => checkProductionWithTestFixtures({
+      baseUrl: resealBaseUrl,
+      diagnose: true,
+      fetchImpl: current.fetchImpl,
+      maxAttempts: 1,
+      reportDiagnostic: (message) => messages.push(message),
+    }), { message: "HTML_DOCUMENT_REJECTED" }, name);
+    assert.equal(current.calls.length, 5, name);
+    assert(current.calls.every(({ options }) => options.redirect === "manual"), name);
+    assert.deepEqual(messages.slice(-2), [
+      "HTML namespace parser MIXED_NAMESPACE",
+      "HTML namespace rejected /events",
+    ], name);
+    const diagnostics = messages.join("\n");
+    assert.equal(diagnostics.includes("build_b"), false, name);
+    assert.equal(diagnostics.includes(activePath), false, name);
+  }
+});
+
+test("production namespace recognizes semantic resource properties and the supported image hint", async () => {
+  const rootLinkPath = "/_next/static/build_a/chunks/3u3ip5izc6gmi.css";
+  const scriptPath = "/_next/static/build_a/chunks/0_kqt9b7hwk8z.js";
+  const current = resealFixture({
+    buildId: "build_a",
+    resourcePaths: new Set(["/events"]),
+    bodyTransform(body, url) {
+      if (url.pathname !== "/events") return body;
+      return transformResealFlightStream(body, (stream) => {
+        const replacements = [
+          [
+            JSON.stringify({
+              rel: "stylesheet", href: rootLinkPath, precedence: "next",
+              crossOrigin: "$undefined", nonce: "$undefined",
+            }),
+            JSON.stringify({
+              nonce: "$undefined", href: rootLinkPath, rel: "stylesheet",
+              crossOrigin: "$undefined", precedence: "next",
+            }),
+          ],
+          [
+            JSON.stringify({ src: scriptPath, async: true, nonce: "$undefined" }),
+            JSON.stringify({ nonce: "$undefined", src: scriptPath, async: true }),
+          ],
+          [
+            JSON.stringify({ crossOrigin: "", type: "font/woff2" }),
+            JSON.stringify({ type: "font/woff2", crossOrigin: "" }),
+          ],
+          [
+            "\n1:",
+            `\n:HL${JSON.stringify(["/assets/img/recruitment/atmosphere.webp", "image"])}\n1:`,
+          ],
+        ];
+        let transformed = stream;
+        for (const [before, after] of replacements) {
+          const next = transformed.replace(before, after);
+          assert.notEqual(next, transformed);
+          transformed = next;
+        }
+        return transformed;
+      });
+    },
+  });
+  assert.deepEqual(await checkProductionWithTestFixtures({
+    baseUrl: resealBaseUrl,
+    fetchImpl: current.fetchImpl,
+    maxAttempts: 1,
+  }), { ok: true });
+  assert.equal(current.calls.length, 16);
+  assert(current.calls.every(({ options }) => options.redirect === "manual"));
+});
+
+test("production Flight image hints stay on the exact bounded public asset surface", async () => {
+  const imageHint = (value) => `:HL${JSON.stringify([value, "image"])}\n`;
+  const resolvedOverbound = "/assets/"
+    + "a".repeat(PRODUCTION_CHECK_LIMITS.assetUrlCharacters - "/assets/".length - ".webp".length)
+    + ".webp";
+  assert.equal(resolvedOverbound.length, PRODUCTION_CHECK_LIMITS.assetUrlCharacters);
+  const cases = [
+    ["off-origin", "https://outside.example/harvest.webp"],
+    ["non-http", "data:image/webp;base64,U0VOVElORUw="],
+    ["query", "/assets/img/recruitment/atmosphere.webp?token=IMAGE_QUERY_SENTINEL"],
+    ["fragment", "/assets/img/recruitment/atmosphere.webp#IMAGE_FRAGMENT_SENTINEL"],
+    ["wrong-shape", "/assets/img/recruitment/atmosphere.png"],
+    ["resolved-overbound", resolvedOverbound],
+  ];
+  for (const [name, value] of cases) {
+    const current = resealFixture({
+      resourcePaths: new Set(["/events"]),
+      bodyTransform(body, url) {
+        if (url.pathname !== "/events") return body;
+        return transformResealFlightStream(body, (stream) => {
+          const mutated = stream.replace("\n1:", `\n${imageHint(value)}1:`);
+          assert.notEqual(mutated, stream, name);
+          return mutated;
+        });
+      },
+    });
+    const messages = [];
+    await assert.rejects(() => checkProductionWithTestFixtures({
+      baseUrl: resealBaseUrl,
+      diagnose: true,
+      fetchImpl: current.fetchImpl,
+      maxAttempts: 1,
+      reportDiagnostic: (message) => messages.push(message),
+    }), { message: "HTML_DOCUMENT_REJECTED" }, name);
+    assert.equal(current.calls.length, 5, name);
+    assert(current.calls.every(({ options }) => options.redirect === "manual"), name);
+    assert.deepEqual(messages.slice(-2), [
+      "HTML namespace parser PAYLOAD_MODEL",
+      "HTML namespace rejected /events",
+    ], name);
+    const diagnostics = messages.join("\n");
+    assert.equal(diagnostics.includes("outside.example"), false, name);
+    assert.equal(diagnostics.includes("IMAGE_QUERY_SENTINEL"), false, name);
+    assert.equal(diagnostics.includes("IMAGE_FRAGMENT_SENTINEL"), false, name);
+    assert.equal(diagnostics.includes(value), false, name);
+  }
+});
+
+test("production namespace rejects active Flight resource near-matches and unknown hints", async () => {
+  const rootLinkPath = "/_next/static/build_a/chunks/3u3ip5izc6gmi.css";
+  const foreignLinkPath = "/_next/static/build_b/chunks/mixed-slot-sentinel.css";
+  const scriptPath = "/_next/static/build_a/chunks/0_kqt9b7hwk8z.js";
+  const foreignScriptPath = "/_next/static/build_b/chunks/mixed-slot-sentinel.js";
+  const fontPath = "/_next/static/build_a/media/noto_serif_sc_latin.p.2xkduggpvd1-n.woff2";
+  const foreignFontPath = "/_next/static/build_b/media/mixed-slot-sentinel.woff2";
+  const styleHintPath = "/_next/static/build_a/chunks/1edizae69s1-8.css";
+  const linkProperties = JSON.stringify({
+    rel: "stylesheet", href: rootLinkPath, precedence: "next",
+    crossOrigin: "$undefined", nonce: "$undefined",
+  });
+  const scriptProperties = JSON.stringify({
+    src: scriptPath, async: true, nonce: "$undefined",
+  });
+  const fontHint = `:HL${JSON.stringify([
+    fontPath, "font", { crossOrigin: "", type: "font/woff2" },
+  ])}\n`;
+  const styleHint = `:HL${JSON.stringify([styleHintPath, "style"])}\n`;
+  const cases = [
+    ["link-reordered", "MIXED_NAMESPACE", (stream) => stream.replace(
+      linkProperties,
+      JSON.stringify({
+        nonce: "$undefined", href: foreignLinkPath, rel: "stylesheet",
+        crossOrigin: "$undefined", precedence: "next",
+      }),
+    )],
+    ["link-extra", "PAYLOAD_MODEL", (stream) => stream.replace(
+      linkProperties,
+      JSON.stringify({
+        rel: "stylesheet", href: foreignLinkPath, precedence: "next",
+        crossOrigin: "$undefined", nonce: "$undefined", integrity: "hostile",
+      }),
+    )],
+    ["link-missing", "PAYLOAD_MODEL", (stream) => stream.replace(
+      linkProperties,
+      JSON.stringify({
+        rel: "stylesheet", href: foreignLinkPath, precedence: "next",
+        crossOrigin: "$undefined",
+      }),
+    )],
+    ["script-reordered", "MIXED_NAMESPACE", (stream) => stream.replace(
+      scriptProperties,
+      JSON.stringify({ nonce: "$undefined", src: foreignScriptPath, async: true }),
+    )],
+    ["script-extra", "PAYLOAD_MODEL", (stream) => stream.replace(
+      scriptProperties,
+      JSON.stringify({
+        src: foreignScriptPath, async: true, nonce: "$undefined", integrity: "hostile",
+      }),
+    )],
+    ["script-missing", "PAYLOAD_MODEL", (stream) => stream.replace(
+      scriptProperties,
+      JSON.stringify({ src: foreignScriptPath, async: true }),
+    )],
+    ["hint-unknown", "PAYLOAD_MODEL", (stream) => stream.replace(
+      styleHint,
+      `:HL${JSON.stringify([foreignScriptPath, "script"])}\n`,
+    )],
+    ["hint-reordered", "PAYLOAD_MODEL", (stream) => stream.replace(
+      styleHint,
+      `:HL${JSON.stringify(["style", foreignLinkPath])}\n`,
+    )],
+    ["font-options-reordered", "MIXED_NAMESPACE", (stream) => stream.replace(
+      fontHint,
+      `:HL${JSON.stringify([
+        foreignFontPath, "font", { type: "font/woff2", crossOrigin: "" },
+      ])}\n`,
+    )],
+    ["font-options-extra", "PAYLOAD_MODEL", (stream) => stream.replace(
+      fontHint,
+      `:HL${JSON.stringify([
+        foreignFontPath, "font", { crossOrigin: "", type: "font/woff2", as: "font" },
+      ])}\n`,
+    )],
+  ];
+  for (const [name, category, transform] of cases) {
+    const current = resealFixture({
+      buildId: "build_a",
+      resourcePaths: new Set(["/events"]),
+      bodyTransform(body, url) {
+        return url.pathname === "/events"
+          ? transformResealFlightStream(body, transform) : body;
+      },
+    });
+    const messages = [];
+    await assert.rejects(() => checkProductionWithTestFixtures({
+      baseUrl: resealBaseUrl,
+      diagnose: true,
+      fetchImpl: current.fetchImpl,
+      maxAttempts: 1,
+      reportDiagnostic: (message) => messages.push(message),
+    }), { message: "HTML_DOCUMENT_REJECTED" }, name);
+    assert.equal(current.calls.length, 5, name);
+    assert(current.calls.every(({ options }) => options.redirect === "manual"), name);
+    assert.deepEqual(messages.slice(-2), [
+      `HTML namespace parser ${category}`,
+      "HTML namespace rejected /events",
+    ], name);
+    const diagnostics = messages.join("\n");
+    assert.equal(diagnostics.includes("build_b"), false, name);
+    assert.equal(diagnostics.includes("mixed-slot-sentinel"), false, name);
+  }
+});
+
 test("production checker rejects publication-envelope drift", async () => {
-  for (const current of [
+  const driftFixtures = [
     resealFixture({ buildId: "build_a", scriptBuildId: "build_b" }),
     resealFixture({ buildId: "bad.id" }),
     resealFixture({
@@ -1042,7 +2199,7 @@ test("production checker rejects publication-envelope drift", async () => {
         const scopedHead = resealStaticResources.head.replaceAll(
           "/_next/static/", "/_next/static/build_a/",
         );
-        const scopedBody = resealStaticResources.body.replaceAll(
+        const scopedBody = '<script async="" src="/_next/static/chunks/3nk76snv1e0rj.js"></script>'.replaceAll(
           "/_next/static/", "/_next/static/build_a/",
         );
         return body.replace(scopedHead, "").replace(scopedBody, "");
@@ -1077,11 +2234,17 @@ test("production checker rejects publication-envelope drift", async () => {
     ...[
       "_next/static/build_b/chunks/evil.js",
       "/_next/ignored/../static/build_b/chunks/evil.js",
+      "/_next/%73tatic/build_b/chunks/evil.js",
+      "/%5fnext/static/build_b/chunks/evil.js",
+      "/%255fnext/%2573tatic/build_b/chunks/evil.js",
+      String.raw`/%5cx5fnext/static/build_b/chunks/evil.js`,
       String.raw`\_next\static\build_b\chunks\evil.js`,
       "_ne\nxt/static/build_b/chunks/evil.js",
       "/_ne\rxt/static/build_b/chunks/evil.js",
       String.raw`\_ne` + "\t" + String.raw`xt\static\build_b\chunks\evil.js`,
       'x:{"dangerouslySetInnerHTML":{"__html":"<img src=&#95;next/static/build_b/media/evil.webp>"}}',
+      'x:{"dangerouslySetInnerHTML":{"__html":"&#60;img src=&#47;&#95;next&#47;static&#47;build_b&#47;media&#47;evil.webp&#62;"}}',
+      'x:{"dangerouslySetInnerHTML":{"__html":"&#x3c;img src=ordinary.webp&#x3e;"}}',
       'x:{"dangerouslySetInnerHTML":{"__html":"<meta http-equiv=refresh content=0;url=https://outside.example/>"}}',
       'x:["$","meta",null,{"httpEquiv":"refresh","content":"0;url=https://outside.example/"}]',
       'x:["$","base",null,{"href":"/_next/"}]\ny:["$","img",null,{"src":"static/build_b/media/evil.webp"}]',
@@ -1103,6 +2266,7 @@ test("production checker rejects publication-envelope drift", async () => {
       ['x:{"dangerouslySetInner', 'HTML":{"__html":"<img src=ordinary.webp>"}}\n'],
       ['x:["$","ba', 'se",null,{"href":"/_next/"}]\n'],
       ["x:{\"style\":{\"backgroundImage\":\"url(\\", '5f next/static/build_b/media/evil.webp)"}}'],
+      ['x:"/%255fne', 'xt/%2573tatic/build_b/chunks/evil.js"\n'],
     ].map(([firstChunk, secondChunk]) => resealFixture({
       buildId: "build_a",
       bodyTransform(body, url) {
@@ -1150,6 +2314,40 @@ test("production checker rejects publication-envelope drift", async () => {
         return body.replace(
           "Audio fallback.</audio>",
           '<base href="/_next/">fallback</audio><img src="static/build_b/media/evil.webp">',
+        );
+      },
+    }),
+    ...[
+      "/_next/%73tatic/build_b/media/evil.webp",
+      "/%5fnext/static/build_b/media/evil.webp",
+      "/%255fnext/%2573tatic/build_b/media/evil.webp",
+    ].map((encodedPath) => resealFixture({
+      buildId: "build_a",
+      bodyTransform: (body, url) => url.pathname === "/events"
+        ? body.replace("<main>", `<main><img src="${encodedPath}">`)
+        : body,
+    })),
+    ...[
+      "%5fnext/static/build_b/media/evil.webp",
+      "%255fnext/%2573tatic/build_b/media/evil.webp",
+    ].map((encodedPath) => resealFixture({
+      buildId: "build_a",
+      bodyTransform(body, url, occurrence) {
+        if (url.pathname !== "/recruitment" || occurrence !== 1) return body;
+        return body.replace(
+          "Audio fallback.</audio>",
+          `<base href="/base/">fallback</audio><img src="${encodedPath}">`,
+        );
+      },
+    })),
+    resealFixture({
+      buildId: "build_a",
+      bodyTransform(body, url, occurrence) {
+        if (url.pathname !== "/recruitment" || occurrence !== 1) return body;
+        return body.replace(
+          "Audio fallback.</audio>",
+          '<base href="https://outside.example/base/">fallback</audio>'
+            + '<img src="../%5fnext/static/build_b/media/evil.webp">',
         );
       },
     }),
@@ -1278,12 +2476,13 @@ test("production checker rejects publication-envelope drift", async () => {
       responseHeaders: (url) => url.pathname === "/"
         ? { link: fontPreload("", "font-a") } : {},
     }),
-  ]) {
+  ];
+  for (const [index, current] of driftFixtures.entries()) {
     await assert.rejects(() => checkProductionWithTestFixtures({
       baseUrl: resealBaseUrl,
       fetchImpl: current.fetchImpl,
       maxAttempts: 1,
-    }), { message: "HTML_DOCUMENT_REJECTED" });
+    }), { message: "HTML_DOCUMENT_REJECTED" }, `drift fixture ${index}`);
   }
 
   for (const responseHeaders of [

@@ -552,37 +552,34 @@ const PRODUCTION_DOCUMENT_POLICIES = Object.freeze({
   deletion: Object.freeze({
     header: "767693EE075EE31FE445A966DBE0BC2823B4353406A94C590DFF787CEED8E5E3",
     resources: Object.freeze([
-      "832FD5580EB0D865D87AF10666019325EC74D60F14ACC93410A3CF732038C95C",
-      "1DA98745B1B04FDC134CDBCFE7373EB73F5852C2B288E420448BE930F5B02D08",
+      "43111FFA05C8E063026126CAC9A90A7C97A28C38CC8F1BD8B3F7398B904DA0CC",
+      "ED2A94A30FFCEF523DAA23935D4327E0782719182CDEAC3EECFA14EEF2452E4E",
     ]),
   }),
   home: Object.freeze({
     variants: Object.freeze([
       Object.freeze({
         header: "675E803BB871598DAD4CE0D1A3A64CB1ED1D30FB7616932CEA63CF25A98530F0",
-        resources: Object.freeze([
-          "970FC2930329F1F9A3F5BF096DE38BC6B09565D0193F29DE307FD160EADECD03",
-          "6E7CF2171ED1F8C1925A8381D56495CE055ADB56639574AA783262EBDA094C67",
-        ]),
+        resources: "3ED2476C6AE21876EADBE86B73FE0615C8FB8E1350C5E8CD9C8B34EF5B971820",
       }),
       Object.freeze({
         header: "767693EE075EE31FE445A966DBE0BC2823B4353406A94C590DFF787CEED8E5E3",
-        resources: "45520DC192632C8BEE18E07AD68379EB76DB2D4FAAC78F712F1574B0F4E9AF91",
+        resources: "AF7841F98846581A218F2CBF97474B61B44F133E70586FE31B59D404416A1A12",
       }),
     ]),
   }),
   privacy: Object.freeze({
     header: "767693EE075EE31FE445A966DBE0BC2823B4353406A94C590DFF787CEED8E5E3",
     resources: Object.freeze([
-      "BC3D51912BF2C0B605D5CE211D79B5F75D790701D984D0CE95C2D1BD1A04ED46",
-      "523ED7FC93A1BDF709B0F7B48CC3F2C521C344B5A3BD55CFEF3E04A6A6BAFE85",
+      "6EA10100B693D0E95B09CBF1F6901F0CC5EEBD853F1A2607BE846A5C7AEF4C7C",
+      "727E4C0D6E5C2A93C57660844BD08264A02643416CE0D63BCE58832DC2A863AA",
     ]),
   }),
   recruitment: Object.freeze({
     header: "179EADA7DAB503C38AD261D71B2301F8DB134C5354ED186BE6ED227C213E5649",
     resources: Object.freeze([
-      "974770A8AF0905682BE5E5CB2D5BB0B93986A1F71E2B1D69570BFA3298F0F9C6",
-      "87D3BD218B75268E4661090DDB2060C5E32C193777ABBE2CBF27215F666BAE77",
+      "6CC57E08D21592A8C637D344931BBB4F508699AE69EA768C3ABC1E920DDFA023",
+      "C92A261DD8F4354A428EFE76BA65AC19DBE81319FAC57762A97D1FB249FA238A",
     ]),
   }),
 });
@@ -593,13 +590,13 @@ const TEST_DOCUMENT_POLICIES = Object.freeze({
   }),
   home: Object.freeze({
     header: "86F4BD56E49D759E1007911F74826C416C2D5038AF3CC00A9F7C818A29F79EE0",
-    resources: "F43FBF53028A2A79C4FE5BF01154FD2E8BB56350C5F53CE8487436394B8B2365",
+    resources: "28E5AAF90A062B6FDB43F973D00186DFB991828200350774561EBDBD303F3D3C",
   }),
   privacy: Object.freeze({
     header: "86F4BD56E49D759E1007911F74826C416C2D5038AF3CC00A9F7C818A29F79EE0",
     resources: Object.freeze([
       "109D7F534B9AEFDC3CC9D65BD6515DDB12EC5E65D28A651FB5248424B7654AD2",
-      "21A94BAEBF6E493A6935E634574D24177E922667382CF37BEF7362E212BA79EE",
+      "71A9CD565A67DAA66C3229917EA748FB776DFB208A21B922647373B6F4BFD969",
     ]),
   }),
   recruitment: Object.freeze({
@@ -1171,19 +1168,815 @@ function canonicalizeProductionNextStaticReferences(value, buildIds) {
   return matchCount === markerCount ? canonical : null;
 }
 
+const PRODUCTION_NEXT_GENERATED_HASH_ALPHABET = "0123456789abcdefghijklmnopqrstuvwxyz_-";
+const PRODUCTION_NEXT_GENERATED_HASH_PREFIX_MAX = "45cn8rw14zvg_";
+
+function productionNextGeneratedHashPrefixIsValid(value) {
+  if (!/^[0-9a-z_-]{13}$/.test(value)) return false;
+  for (let index = 0; index < value.length; index += 1) {
+    const candidateDigit = PRODUCTION_NEXT_GENERATED_HASH_ALPHABET.indexOf(value[index]);
+    const maximumDigit = PRODUCTION_NEXT_GENERATED_HASH_ALPHABET.indexOf(
+      PRODUCTION_NEXT_GENERATED_HASH_PREFIX_MAX[index],
+    );
+    if (candidateDigit < maximumDigit) return true;
+    if (candidateDigit > maximumDigit) return false;
+  }
+  return true;
+}
+
+function canonicalizeProductionResourceEnvelopeShape(value, buildIds) {
+  const canonical = canonicalizeProductionNextStaticReferences(value, buildIds);
+  if (canonical === null) return null;
+  return canonical.replace(
+    /\/_next\/static\/(chunks|media)\/([A-Za-z0-9._\/-]+)/g,
+    (reference, directory, pathname) => {
+      const segments = pathname.split("/");
+      const filename = segments.at(-1) || "";
+      const generated = /^(.*[.-])?([0-9a-z_-]{13})(\.[A-Za-z0-9]{1,16})$/.exec(filename);
+      if (!generated || !productionNextGeneratedHashPrefixIsValid(generated[2])) return reference;
+      segments[segments.length - 1] = (generated[1] || "")
+        + "__NEXT_GENERATED__" + generated[3];
+      return "/_next/static/" + directory + "/" + segments.join("/");
+    },
+  );
+}
+
+const PRODUCTION_FLIGHT_ROOT_KEYS = Object.freeze([
+  "P", "c", "q", "i", "f", "m", "G", "S", "h", "r", "s", "a", "l", "p", "d", "b",
+]);
+const PRODUCTION_FLIGHT_IMAGE_PROPERTY_NAMES = new Set([
+  "alt", "aria-hidden", "className", "decoding", "fetchPriority", "height", "id", "loading",
+  "sizes", "src", "srcSet", "width",
+]);
+const PRODUCTION_FLIGHT_ANCHOR_PROPERTY_NAMES = new Set([
+  "children", "className", "href", "id", "rel", "target",
+]);
+const PRODUCTION_FLIGHT_ACTIVE_PROPERTY_NAMES = new Set([
+  "action", "background", "cite", "dangerouslysetinnerhtml", "data", "formaction", "href",
+  "httpequiv", "imagesrcset", "manifest", "ping", "poster", "profile", "src", "srcdoc", "srcset",
+  "style",
+]);
+
+function parseProductionJsonWithSpans(source) {
+  if (typeof source !== "string" || source.length > PRODUCTION_CHECK_LIMITS.htmlBytes) return null;
+  let cursor = 0;
+  let nodeCount = 0;
+  const numberPattern = /-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?/y;
+
+  function skipWhitespace() {
+    while (cursor < source.length && /[\t\n\r ]/.test(source[cursor])) cursor += 1;
+  }
+
+  function parseString() {
+    if (source[cursor] !== '"') return null;
+    const start = cursor;
+    cursor += 1;
+    while (cursor < source.length) {
+      const code = source.charCodeAt(cursor);
+      if (code === 0x22) {
+        cursor += 1;
+        try {
+          return Object.freeze({
+            end: cursor,
+            start,
+            type: "string",
+            value: JSON.parse(source.slice(start, cursor)),
+          });
+        } catch {
+          return null;
+        }
+      }
+      if (code === 0x5c) {
+        cursor += 1;
+        if (cursor >= source.length) return null;
+        if (source[cursor] === "u") {
+          if (!/^[A-Fa-f0-9]{4}$/.test(source.slice(cursor + 1, cursor + 5))) return null;
+          cursor += 5;
+          continue;
+        }
+        if (!/^["\\/bfnrt]$/.test(source[cursor])) return null;
+        cursor += 1;
+        continue;
+      }
+      if (code < 0x20) return null;
+      cursor += 1;
+    }
+    return null;
+  }
+
+  function parseValue(depth) {
+    if (depth > PRODUCTION_HTML_DEPTH_LIMIT
+      || ++nodeCount > PRODUCTION_CHECK_LIMITS.htmlBytes) return null;
+    skipWhitespace();
+    const start = cursor;
+    if (source[cursor] === '"') return parseString();
+    if (source[cursor] === "[") {
+      cursor += 1;
+      skipWhitespace();
+      const items = [];
+      if (source[cursor] === "]") {
+        cursor += 1;
+        return Object.freeze({ end: cursor, items: Object.freeze(items), start, type: "array" });
+      }
+      while (cursor < source.length) {
+        const item = parseValue(depth + 1);
+        if (item === null) return null;
+        items.push(item);
+        skipWhitespace();
+        if (source[cursor] === "]") {
+          cursor += 1;
+          return Object.freeze({ end: cursor, items: Object.freeze(items), start, type: "array" });
+        }
+        if (source[cursor] !== ",") return null;
+        cursor += 1;
+      }
+      return null;
+    }
+    if (source[cursor] === "{") {
+      cursor += 1;
+      skipWhitespace();
+      const entries = [];
+      const keys = new Set();
+      if (source[cursor] === "}") {
+        cursor += 1;
+        return Object.freeze({ end: cursor, entries: Object.freeze(entries), start, type: "object" });
+      }
+      while (cursor < source.length) {
+        const key = parseString();
+        if (key === null || keys.has(key.value)) return null;
+        keys.add(key.value);
+        skipWhitespace();
+        if (source[cursor] !== ":") return null;
+        cursor += 1;
+        const entryValue = parseValue(depth + 1);
+        if (entryValue === null) return null;
+        entries.push(Object.freeze({ key, value: entryValue }));
+        skipWhitespace();
+        if (source[cursor] === "}") {
+          cursor += 1;
+          return Object.freeze({
+            end: cursor, entries: Object.freeze(entries), start, type: "object",
+          });
+        }
+        if (source[cursor] !== ",") return null;
+        cursor += 1;
+        skipWhitespace();
+      }
+      return null;
+    }
+    for (const [literal, type, literalValue] of [
+      ["true", "boolean", true],
+      ["false", "boolean", false],
+      ["null", "null", null],
+    ]) {
+      if (!source.startsWith(literal, cursor)) continue;
+      cursor += literal.length;
+      return Object.freeze({ end: cursor, start, type, value: literalValue });
+    }
+    numberPattern.lastIndex = cursor;
+    const number = numberPattern.exec(source);
+    if (!number) return null;
+    cursor = numberPattern.lastIndex;
+    return Object.freeze({
+      end: cursor, start, type: "number", value: Number(number[0]),
+    });
+  }
+
+  const root = parseValue(0);
+  skipWhitespace();
+  return root !== null && cursor === source.length ? root : null;
+}
+
+function productionJsonObjectEntry(node, name) {
+  return node?.type === "object"
+    ? node.entries.find((entry) => entry.key.value === name) ?? null : null;
+}
+
+function productionJsonObjectKeysMatch(node, names) {
+  const expected = new Set(names);
+  return node?.type === "object"
+    && node.entries.length === names.length
+    && expected.size === names.length
+    && node.entries.every((entry) => expected.has(entry.key.value));
+}
+
+function productionJsonObjectKeyOrderMatches(node, names) {
+  return node?.type === "object"
+    && node.entries.length === names.length
+    && node.entries.every((entry, index) => entry.key.value === names[index]);
+}
+
+function productionJsonStringIs(node, value) {
+  return node?.type === "string" && node.value === value;
+}
+
+function productionFlightResourceReference(value, kind, buildIds) {
+  if (typeof value !== "string" || !value.startsWith("/_next/static/")) return null;
+  const canonical = canonicalizeProductionResourceEnvelopeShape(value, buildIds);
+  if (canonical === null) return null;
+  const pattern = kind === "script"
+    ? /^\/_next\/static\/chunks\/[A-Za-z0-9._-]+\.js$/
+    : kind === "style"
+      ? /^\/_next\/static\/chunks\/[A-Za-z0-9._-]+\.css$/
+      : /^\/_next\/static\/media\/[A-Za-z0-9._-]+\.woff2$/;
+  return pattern.test(canonical) ? canonical : null;
+}
+
+export function canonicalizeProductionFlightResourceEnvelopeStream(
+  value, buildIds, resourceUrls = null, canonicalDocumentUrl = null,
+) {
+  if (typeof value !== "string" || value.length > PRODUCTION_CHECK_LIMITS.htmlBytes) return null;
+  if (resourceUrls !== null && !Array.isArray(resourceUrls)) return null;
+  const replacements = [];
+  const regularRecordIds = new Set();
+  const openDeferredRecordIds = new Set();
+  const closedDeferredRecordIds = new Set();
+  const deferredReturnRecordIds = new Set();
+  let rootSeen = false;
+
+  function decodeRecordId(recordId) {
+    const canonical = /^(?:0|[1-9a-f][0-9a-f]{0,6}|[1-7][0-9a-f]{7})$/.test(recordId);
+    if (!canonical) return null;
+    const decoded = Number.parseInt(recordId, 16);
+    return Number.isSafeInteger(decoded) && decoded >= 0 && decoded <= 0x7fffffff
+      ? decoded : null;
+  }
+
+  function claimRegularRecordId(decoded) {
+    if (decoded === null
+      || regularRecordIds.has(decoded)
+      || openDeferredRecordIds.has(decoded)
+      || closedDeferredRecordIds.has(decoded)) return false;
+    regularRecordIds.add(decoded);
+    return true;
+  }
+
+  function openDeferredRecordId(decoded) {
+    if (decoded === null
+      || decoded === 0
+      || regularRecordIds.has(decoded)
+      || openDeferredRecordIds.has(decoded)
+      || closedDeferredRecordIds.has(decoded)) return false;
+    openDeferredRecordIds.add(decoded);
+    return true;
+  }
+
+  function closeDeferredRecordId(decoded) {
+    if (decoded === null || decoded === 0 || !openDeferredRecordIds.has(decoded)) return false;
+    openDeferredRecordIds.delete(decoded);
+    closedDeferredRecordIds.add(decoded);
+    return true;
+  }
+
+  function claimValueRecordId(decoded) {
+    return openDeferredRecordIds.has(decoded) || claimRegularRecordId(decoded);
+  }
+
+  function deferredReturnReferenceIsValid(payload, deferredRecordId) {
+    if (payload === "C") return true;
+    const record = parseProductionJsonWithSpans(payload.slice(1));
+    if (record?.type !== "string"
+      || !/^\$(?:[1-9a-f][0-9a-f]{0,6}|[1-7][0-9a-f]{7})$/.test(record.value)) return false;
+    const referencedRecordId = decodeRecordId(record.value.slice(1));
+    if (referencedRecordId === null || referencedRecordId === deferredRecordId) return false;
+    deferredReturnRecordIds.add(referencedRecordId);
+    return true;
+  }
+
+  function replaceResource(node, kind, sourceOffset) {
+    if (node?.type !== "string") return false;
+    const canonical = productionFlightResourceReference(node.value, kind, buildIds);
+    if (canonical === null) return false;
+    if (resourceUrls !== null) {
+      if (resourceUrls.length >= PRODUCTION_HTML_TAG_LIMIT * 8) return false;
+      resourceUrls.push(node.value);
+    }
+    replacements.push(Object.freeze({
+      end: sourceOffset + node.end,
+      start: sourceOffset + node.start,
+      value: JSON.stringify(canonical),
+    }));
+    return true;
+  }
+
+  function collectResourceUrl(node) {
+    if (node?.type !== "string"
+      || node.value.length === 0
+      || node.value.length > PRODUCTION_CHECK_LIMITS.assetUrlCharacters
+      || !/^\/assets(?:\/[A-Za-z0-9_-][A-Za-z0-9._-]*)+\.webp$/.test(node.value)) {
+      return false;
+    }
+    if (canonicalDocumentUrl === null) return true;
+    if (!(canonicalDocumentUrl instanceof URL)) return false;
+    let candidate;
+    try {
+      candidate = new URL(node.value, canonicalDocumentUrl);
+    } catch {
+      return false;
+    }
+    if (!["http:", "https:"].includes(candidate.protocol)
+      || candidate.origin !== canonicalDocumentUrl.origin
+      || candidate.username
+      || candidate.password
+      || candidate.search
+      || candidate.hash
+      || candidate.pathname !== node.value
+      || candidate.href.length > PRODUCTION_CHECK_LIMITS.assetUrlCharacters) {
+      return false;
+    }
+    if (resourceUrls !== null) {
+      if (resourceUrls.length >= PRODUCTION_HTML_TAG_LIMIT * 8) return false;
+      resourceUrls.push(node.value);
+    }
+    return true;
+  }
+
+  function pushReactResourceUrl(value) {
+    if (resourceUrls === null) return true;
+    if (resourceUrls.length >= PRODUCTION_HTML_TAG_LIMIT * 8) return false;
+    resourceUrls.push(value);
+    return true;
+  }
+
+  function productionFlightReactKeyIsSafe(node) {
+    return node?.type === "null"
+      || (node?.type === "string"
+        && node.value.length <= 1024
+        && !/[\\\u0000-\u001f\u007f]/.test(node.value));
+  }
+
+  function productionFlightReactPropertiesAreUnambiguous(node) {
+    if (node?.type !== "object") return false;
+    const names = new Set();
+    for (const entry of node.entries) {
+      const name = entry.key.value;
+      if (!/^[A-Za-z][A-Za-z0-9_.:-]{0,63}$/.test(name) || names.has(name)) return false;
+      names.add(name);
+    }
+    return true;
+  }
+
+  function productionFlightBoundedString(node, limit = 256) {
+    return node?.type === "string"
+      && node.value.length <= limit
+      && !/[\\\u0000-\u001f\u007f]/.test(node.value);
+  }
+
+  function productionFlightImageDimensionIsSafe(node) {
+    const value = node?.type === "number"
+      ? node.value
+      : node?.type === "string" && /^[1-9][0-9]{0,3}$/.test(node.value)
+        ? Number(node.value) : NaN;
+    return Number.isSafeInteger(value) && value > 0 && value <= PRODUCTION_IMAGE_DIMENSION_LIMIT;
+  }
+
+  function productionFlightImageUrl(node, sourceOffset, { allowStaticMedia = true } = {}) {
+    if (node?.type !== "string"
+      || node.value.length === 0
+      || node.value.length > PRODUCTION_CHECK_LIMITS.assetUrlCharacters
+      || /[\\\u0000-\u001f\u007f]/.test(node.value)) return false;
+    let canonical = node.value;
+    if (/^\/assets(?:\/[A-Za-z0-9_-][A-Za-z0-9._-]*)+\.webp$/.test(node.value)) {
+      // Exact public asset surface.
+    } else if (allowStaticMedia
+      && /^\/_next\/static\/(?:[A-Za-z0-9_-]{1,64}\/)?media\/[A-Za-z0-9._-]+\.webp$/.test(node.value)) {
+      canonical = canonicalizeProductionResourceEnvelopeShape(node.value, buildIds);
+      if (canonical === null
+        || !/^\/_next\/static\/media\/[A-Za-z0-9._-]+\.webp$/.test(canonical)) return false;
+    } else {
+      const optimized = /^\/_next\/image\?url=(%2Fassets(?:%2F[A-Za-z0-9_-][A-Za-z0-9._-]*)+\.webp)&w=([1-9][0-9]{0,3})&q=75$/.exec(
+        node.value,
+      );
+      if (!optimized || !PRODUCTION_NEXT_IMAGE_WIDTHS.has(Number(optimized[2]))) return false;
+    }
+    if (canonicalDocumentUrl !== null) {
+      if (!(canonicalDocumentUrl instanceof URL)) return false;
+      let candidate;
+      try {
+        candidate = new URL(node.value, canonicalDocumentUrl);
+      } catch {
+        return false;
+      }
+      if (candidate.origin !== canonicalDocumentUrl.origin
+        || candidate.username
+        || candidate.password
+        || candidate.hash
+        || candidate.href.length > PRODUCTION_CHECK_LIMITS.assetUrlCharacters) return false;
+    }
+    if (!pushReactResourceUrl(node.value)) return false;
+    if (canonical !== node.value) {
+      replacements.push(Object.freeze({
+        end: sourceOffset + node.end,
+        start: sourceOffset + node.start,
+        value: JSON.stringify(canonical),
+      }));
+    }
+    return true;
+  }
+
+  function productionFlightImageSrcset(node) {
+    if (node === null) return true;
+    if (node?.type !== "string") return false;
+    const urls = productionNamespaceSrcsetUrls(node.value);
+    if (urls === null) return false;
+    for (const value of urls) {
+      const candidate = Object.freeze({ end: 0, start: 0, type: "string", value });
+      if (!productionFlightImageUrl(candidate, 0, { allowStaticMedia: false })) return false;
+    }
+    return true;
+  }
+
+  function productionFlightAnchorHrefIsSafe(node) {
+    if (node?.type !== "string"
+      || node.value.length === 0
+      || node.value.length > PRODUCTION_CHECK_LIMITS.assetUrlCharacters
+      || /[&\\\u0000-\u001f\u007f]/.test(node.value)) return false;
+    if (isSafeRoutePath(node.value)) {
+      const routeTarget = new URL(node.value, "https://anchor.invalid");
+      return routeTarget.pathname === node.value
+        && !routeTarget.search
+        && !routeTarget.hash
+        && pushReactResourceUrl(node.value);
+    }
+    if (node.value === "mailto:support@mochirii.com"
+      || node.value === "mailto:support@mochirii.com?subject=M%C5%8Dchir%C4%AB%C4%AB%20data%20deletion%20request") {
+      return pushReactResourceUrl(node.value);
+    }
+    if (!/^https:\/\/[A-Za-z0-9.-]+(?:\/[A-Za-z0-9._~!$'()*+,;=:@%\/-]*)?\/?$/.test(node.value)) {
+      return false;
+    }
+    try {
+      const target = new URL(node.value);
+      return target.protocol === "https:"
+        && !target.username
+        && !target.password
+        && (target.href === node.value || (target.href === node.value + "/" && node.value === target.origin))
+        && pushReactResourceUrl(node.value);
+    } catch {
+      return false;
+    }
+  }
+
+  function productionFlightMetadataLinkIsSafe(properties) {
+    if (!productionJsonObjectKeysMatch(properties, ["href", "rel"])) return false;
+    const href = productionJsonObjectEntry(properties, "href")?.value;
+    const rel = productionJsonObjectEntry(properties, "rel")?.value;
+    if (href?.type !== "string" || rel?.type !== "string") return false;
+    if (rel.value === "icon" || rel.value === "apple-touch-icon") {
+      const expected = rel.value === "icon"
+        ? "/favicon.ico" : "/assets/img/brand/apple-touch-icon.png";
+      return href.value === expected && pushReactResourceUrl(href.value);
+    }
+    if (rel.value !== "canonical"
+      || !/^https:\/\/mochirii\.com(?:\/[a-z0-9-]+)*$/.test(href.value)) return false;
+    try {
+      const target = new URL(href.value);
+      return (!canonicalDocumentUrl || target.pathname === canonicalDocumentUrl.pathname)
+        && !target.search
+        && !target.hash
+        && pushReactResourceUrl(href.value);
+    } catch {
+      return false;
+    }
+  }
+
+  function productionFlightStructuredDataIsSafe(properties) {
+    if (!(productionJsonObjectKeysMatch(properties, ["dangerouslySetInnerHTML", "type"])
+        || productionJsonObjectKeysMatch(properties, ["dangerouslySetInnerHTML", "id", "type"]))
+      || !productionJsonStringIs(
+        productionJsonObjectEntry(properties, "type")?.value, "application/ld+json",
+      )) return false;
+    const inner = productionJsonObjectEntry(properties, "dangerouslySetInnerHTML")?.value;
+    if (!productionJsonObjectKeysMatch(inner, ["__html"])) return false;
+    const html = productionJsonObjectEntry(inner, "__html")?.value;
+    if (html?.type !== "string" || html.value.length > PRODUCTION_CHECK_LIMITS.htmlBytes) return false;
+    const id = productionJsonObjectEntry(properties, "id")?.value;
+    if (id !== undefined && (!productionFlightBoundedString(id, 64)
+      || !/^[A-Za-z][A-Za-z0-9._:-]{0,63}$/.test(id.value))) return false;
+    try {
+      const structuredData = JSON.parse(html.value);
+      return structuredData !== null && typeof structuredData === "object" && !Array.isArray(structuredData);
+    } catch {
+      return false;
+    }
+  }
+
+  function collectReactResources(node, sourceOffset) {
+    if (node?.type === "array") {
+      const [marker, element, key, properties] = node.items;
+      const reactElementMarker = productionJsonStringIs(marker, "$") && element?.type === "string";
+      let intrinsicName = null;
+      if (reactElementMarker && !element.value.startsWith("$")) {
+        if (!/^[a-z][a-z0-9-]*$/.test(element.value)) return false;
+        intrinsicName = element.value;
+      }
+      if (intrinsicName !== null) {
+        if (node.items.length !== 4
+          || !productionFlightReactKeyIsSafe(key)
+          || !productionFlightReactPropertiesAreUnambiguous(properties)
+          || PRODUCTION_REJECTED_ELEMENTS.has(intrinsicName)
+          || PRODUCTION_NAMESPACE_REJECTED_CONTEXT_ELEMENTS.has(intrinsicName)
+          || PRODUCTION_AMBIGUOUS_TREE_ELEMENTS.has(intrinsicName)
+          || intrinsicName === "base") return false;
+        const propertyNames = properties.entries.map((entry) => entry.key.value);
+        if (propertyNames.some((name) => /^on[A-Za-z]/.test(name))) return false;
+
+        if (intrinsicName === "link") {
+          const resourceEntry = productionJsonObjectEntry(properties, "href");
+          if (resourceEntry === null) return false;
+        const exactLink = node.items.length === 4
+          && productionJsonObjectKeysMatch(
+            properties, ["rel", "href", "precedence", "crossOrigin", "nonce"],
+          )
+          && productionJsonStringIs(
+            productionJsonObjectEntry(properties, "rel")?.value, "stylesheet",
+          )
+          && productionJsonStringIs(
+            productionJsonObjectEntry(properties, "precedence")?.value, "next",
+          )
+          && productionJsonStringIs(
+            productionJsonObjectEntry(properties, "crossOrigin")?.value, "$undefined",
+          )
+          && productionJsonStringIs(
+            productionJsonObjectEntry(properties, "nonce")?.value, "$undefined",
+          );
+          if (exactLink) return replaceResource(resourceEntry.value, "style", sourceOffset);
+          return productionFlightMetadataLinkIsSafe(properties);
+        }
+
+        if (intrinsicName === "script") {
+          const source = productionJsonObjectEntry(properties, "src");
+          if (source !== null) {
+            const exactScript = productionJsonObjectKeysMatch(properties, ["src", "async", "nonce"])
+              && productionJsonObjectEntry(properties, "async")?.value.type === "boolean"
+              && productionJsonObjectEntry(properties, "async")?.value.value === true
+              && productionJsonStringIs(
+                productionJsonObjectEntry(properties, "nonce")?.value, "$undefined",
+              );
+            return exactScript && replaceResource(source.value, "script", sourceOffset);
+          }
+          return productionFlightStructuredDataIsSafe(properties);
+        }
+
+        if (intrinsicName === "img") {
+          if (propertyNames.some((name) => !PRODUCTION_FLIGHT_IMAGE_PROPERTY_NAMES.has(name))) return false;
+          const source = productionJsonObjectEntry(properties, "src")?.value;
+          const alternate = productionJsonObjectEntry(properties, "alt")?.value;
+          const sourceSet = productionJsonObjectEntry(properties, "srcSet")?.value ?? null;
+          const ariaHidden = productionJsonObjectEntry(properties, "aria-hidden")?.value;
+          const decoding = productionJsonObjectEntry(properties, "decoding")?.value;
+          const loading = productionJsonObjectEntry(properties, "loading")?.value;
+          const priority = productionJsonObjectEntry(properties, "fetchPriority")?.value;
+          const width = productionJsonObjectEntry(properties, "width")?.value;
+          const height = productionJsonObjectEntry(properties, "height")?.value;
+          if (!productionFlightBoundedString(alternate, 512)
+            || (ariaHidden !== undefined
+              && !(ariaHidden?.type === "boolean" && ariaHidden.value === true)
+              && !productionJsonStringIs(ariaHidden, "true"))
+            || (decoding !== undefined && !productionJsonStringIs(decoding, "async"))
+            || (loading !== undefined
+              && !(productionJsonStringIs(loading, "eager") || productionJsonStringIs(loading, "lazy")))
+            || (priority !== undefined
+              && !(productionJsonStringIs(priority, "high")
+                || productionJsonStringIs(priority, "low")
+                || productionJsonStringIs(priority, "auto")))
+            || (width !== undefined && !productionFlightImageDimensionIsSafe(width))
+            || (height !== undefined && !productionFlightImageDimensionIsSafe(height))
+            || ["className", "id", "sizes"].some((name) => {
+              const entry = productionJsonObjectEntry(properties, name)?.value;
+              return entry !== undefined && !productionFlightBoundedString(entry, 256);
+            })
+            || !productionFlightImageUrl(source, sourceOffset)
+            || !productionFlightImageSrcset(sourceSet)) return false;
+          return true;
+        }
+
+        if (intrinsicName === "a") {
+          if (propertyNames.some((name) => !PRODUCTION_FLIGHT_ANCHOR_PROPERTY_NAMES.has(name))) return false;
+          const href = productionJsonObjectEntry(properties, "href")?.value;
+          const target = productionJsonObjectEntry(properties, "target")?.value;
+          const rel = productionJsonObjectEntry(properties, "rel")?.value;
+          const targetUndefined = target === undefined || productionJsonStringIs(target, "$undefined");
+          const relUndefined = rel === undefined || productionJsonStringIs(rel, "$undefined");
+          if (!productionFlightAnchorHrefIsSafe(href)
+            || ["className", "id"].some((name) => {
+              const entry = productionJsonObjectEntry(properties, name)?.value;
+              return entry !== undefined && !productionFlightBoundedString(entry, 256);
+            })
+            || (!targetUndefined
+              && (!productionJsonStringIs(target, "_blank")
+                || !productionJsonStringIs(rel, "noopener noreferrer")))
+            || (targetUndefined && !relUndefined)) return false;
+        } else if (propertyNames.some((name) =>
+          PRODUCTION_FLIGHT_ACTIVE_PROPERTY_NAMES.has(asciiLower(name)))) {
+          return false;
+        }
+      }
+      return node.items.every((item) => collectReactResources(item, sourceOffset));
+    }
+    if (node?.type === "object") {
+      return node.entries.every((entry) => collectReactResources(entry.value, sourceOffset));
+    }
+    return true;
+  }
+
+  function readFrame(start) {
+    const colon = value.indexOf(":", start);
+    const priorLineFeed = value.indexOf("\n", start);
+    if (colon < 0 || (priorLineFeed >= 0 && priorLineFeed < colon)) return null;
+    const recordId = value.slice(start, colon);
+    const payloadOffset = colon + 1;
+    if (value[payloadOffset] !== "T") {
+      const lineEnd = value.indexOf("\n", payloadOffset);
+      return lineEnd < 0 ? null : Object.freeze({
+        end: lineEnd + 1,
+        kind: "line",
+        payload: value.slice(payloadOffset, lineEnd),
+        payloadOffset,
+        recordId,
+      });
+    }
+
+    const comma = value.indexOf(",", payloadOffset + 1);
+    const headerLineFeed = value.indexOf("\n", payloadOffset + 1);
+    if (comma < 0 || (headerLineFeed >= 0 && headerLineFeed < comma)) return null;
+    const byteLengthText = value.slice(payloadOffset + 1, comma);
+    if (!/^(?:0|[1-9a-f][0-9a-f]{0,7})$/.test(byteLengthText)) return null;
+    const byteLength = Number.parseInt(byteLengthText, 16);
+    if (!Number.isSafeInteger(byteLength)
+      || byteLength < 0
+      || byteLength > PRODUCTION_CHECK_LIMITS.htmlBytes) return null;
+    let bytesRead = 0;
+    let textEnd = comma + 1;
+    while (bytesRead < byteLength && textEnd < value.length) {
+      const first = value.charCodeAt(textEnd);
+      let codeUnits = 1;
+      let utf8Bytes;
+      if (first <= 0x7f) {
+        utf8Bytes = 1;
+      } else if (first <= 0x7ff) {
+        utf8Bytes = 2;
+      } else if (first >= 0xd800 && first <= 0xdbff
+        && textEnd + 1 < value.length
+        && value.charCodeAt(textEnd + 1) >= 0xdc00
+        && value.charCodeAt(textEnd + 1) <= 0xdfff) {
+        codeUnits = 2;
+        utf8Bytes = 4;
+      } else {
+        utf8Bytes = 3;
+      }
+      if (bytesRead > byteLength - utf8Bytes) return null;
+      bytesRead += utf8Bytes;
+      textEnd += codeUnits;
+    }
+    return bytesRead === byteLength ? Object.freeze({
+      end: textEnd,
+      kind: "text",
+      payload: value.slice(payloadOffset, textEnd),
+      payloadOffset,
+      recordId,
+    }) : null;
+  }
+
+  let sourceOffset = 0;
+  let frameCount = 0;
+  while (sourceOffset < value.length) {
+    if (++frameCount > PRODUCTION_CHECK_LIMITS.htmlBytes) return null;
+    const frame = readFrame(sourceOffset);
+    if (frame === null || frame.end <= sourceOffset) return null;
+    const { payload, payloadOffset, recordId } = frame;
+    const hint = payload.startsWith("HL");
+    const decodedRecordId = hint ? null : decodeRecordId(recordId);
+    if ((hint && recordId !== "") || (!hint && decodedRecordId === null)) return null;
+    if (frame.kind === "text") {
+      if (!claimValueRecordId(decodedRecordId)) return null;
+    } else if (payload.startsWith("I")) {
+      if (decodedRecordId === 0 || !claimRegularRecordId(decodedRecordId)) return null;
+      const record = parseProductionJsonWithSpans(payload.slice(1));
+      const recordOffset = payloadOffset + 1;
+      if (record?.type !== "array"
+        || ![3, 4].includes(record.items.length)
+        || record.items[0]?.type !== "number"
+        || !Number.isSafeInteger(record.items[0].value)
+        || record.items[0].value < 0
+        || record.items[1]?.type !== "array"
+        || record.items[1].items.length < 1
+        || record.items[2]?.type !== "string"
+        || (record.items.length === 4
+          && (record.items[3]?.type !== "number" || record.items[3].value !== 1))
+        || !record.items[1].items.every((item) =>
+          replaceResource(item, "script", recordOffset))) return null;
+    } else if (payload.startsWith("HL")) {
+      const record = parseProductionJsonWithSpans(payload.slice(2));
+      const recordOffset = payloadOffset + 2;
+      const style = record?.type === "array"
+        && record.items.length === 2
+        && productionJsonStringIs(record.items[1], "style");
+      const font = record?.type === "array"
+        && record.items.length === 3
+        && productionJsonStringIs(record.items[1], "font")
+        && productionJsonObjectKeysMatch(record.items[2], ["crossOrigin", "type"])
+        && productionJsonStringIs(
+          productionJsonObjectEntry(record.items[2], "crossOrigin")?.value, "",
+        )
+        && productionJsonStringIs(
+          productionJsonObjectEntry(record.items[2], "type")?.value, "font/woff2",
+        );
+      const image = record?.type === "array"
+        && record.items.length === 2
+        && productionJsonStringIs(record.items[1], "image");
+      if (!style && !font && !image) return null;
+      if (image) {
+        if (!collectResourceUrl(record.items[0])) return null;
+      } else if (!replaceResource(record.items[0], style ? "style" : "font", recordOffset)) {
+        return null;
+      }
+    } else if (payload === "X" || payload === "x") {
+      if (!openDeferredRecordId(decodedRecordId)) return null;
+    } else if (payload.startsWith("C")) {
+      if (!deferredReturnReferenceIsValid(payload, decodedRecordId)) return null;
+      if (!closeDeferredRecordId(decodedRecordId)) return null;
+    } else {
+      if (!claimValueRecordId(decodedRecordId)) return null;
+      const record = parseProductionJsonWithSpans(payload);
+      if (record === null) return null;
+      if (decodedRecordId === 0) {
+        if (rootSeen
+          || !productionJsonObjectKeyOrderMatches(record, PRODUCTION_FLIGHT_ROOT_KEYS)) return null;
+        let root;
+        try {
+          root = JSON.parse(payload);
+        } catch {
+          return null;
+        }
+        if (root.P !== null
+          || !Array.isArray(root.c)
+          || typeof root.q !== "string"
+          || typeof root.i !== "boolean"
+          || !Array.isArray(root.f)
+          || typeof root.m !== "string"
+          || !Array.isArray(root.G)
+          || typeof root.S !== "boolean"
+          || root.h !== null
+          || !["r", "s", "a", "l", "p", "d", "b"].every(
+            (keyName) => typeof root[keyName] === "string",
+          )
+          || !/^[A-Za-z0-9_-]{21}$/.test(root.b)) return null;
+        const buildId = productionJsonObjectEntry(record, "b")?.value;
+        replacements.push(Object.freeze({
+          end: payloadOffset + buildId.end,
+          start: payloadOffset + buildId.start,
+          value: '"__NEXT_BUILD_ID__"',
+        }));
+        for (const keyName of ["f", "G"]) {
+          if (!collectReactResources(
+            productionJsonObjectEntry(record, keyName)?.value, payloadOffset,
+          )) return null;
+        }
+        rootSeen = true;
+      } else if (!collectReactResources(record, payloadOffset)) {
+        return null;
+      }
+    }
+    sourceOffset = frame.end;
+  }
+  if (!rootSeen
+    || openDeferredRecordIds.size !== 0
+    || [...deferredReturnRecordIds].some((recordId) =>
+      !regularRecordIds.has(recordId) && !closedDeferredRecordIds.has(recordId))) return null;
+  replacements.sort((left, right) => right.start - left.start);
+  let canonical = value;
+  let priorStart = value.length;
+  for (const replacement of replacements) {
+    if (replacement.end > priorStart || replacement.start < 0 || replacement.end <= replacement.start) {
+      return null;
+    }
+    canonical = canonical.slice(0, replacement.start)
+      + replacement.value + canonical.slice(replacement.end);
+    priorStart = replacement.start;
+  }
+  return canonical;
+}
+
 function productionResourceEnvelopeRow(tag, text = "", context = "", buildIds = new Set()) {
   const parts = [context, tag.name];
   for (const name of [...tag.attributeNames].sort()) {
-    const value = canonicalizeProductionNextStaticReferences(
+    const value = canonicalizeProductionResourceEnvelopeShape(
       tag.attributes.get(name) || "", buildIds,
     );
     if (value === null) return null;
     parts.push(`${name}=${value}`);
   }
   if (tag.name === "script") {
-    const canonicalText = canonicalizeProductionNextStaticReferences(text, buildIds);
-    if (canonicalText === null) return null;
-    parts.push(`text-sha256=${createHash("sha256").update(canonicalText, "utf8").digest("hex").toUpperCase()}`);
+    const payloadText = productionScriptPayloadText(tag, text);
+    if (payloadText === null) return null;
+    if (payloadText !== undefined) {
+      parts.push("text-kind=next-flight");
+    } else {
+      const canonicalText = canonicalizeProductionResourceEnvelopeShape(text, buildIds);
+      if (canonicalText === null) return null;
+      parts.push(`text-sha256=${createHash("sha256").update(canonicalText, "utf8").digest("hex").toUpperCase()}`);
+    }
   }
   return parts.join("|");
 }
@@ -1216,6 +2009,14 @@ export function productionDocumentPolicyMatches(documentPolicy, headerSha256, re
   return variants.length > 0 && variants.some((variant) =>
     productionDocumentDigestMatches(variant.header, headerSha256)
       && productionDocumentDigestMatches(variant.resources, resourcesSha256));
+}
+
+export function productionDocumentProfileMatches(profile, headerSha256, resourcesSha256) {
+  return typeof profile === "string"
+    && Object.hasOwn(PRODUCTION_DOCUMENT_POLICIES, profile)
+    && productionDocumentPolicyMatches(
+      PRODUCTION_DOCUMENT_POLICIES[profile], headerSha256, resourcesSha256,
+    );
 }
 
 function productionFooterLegalLinkAncestryIsExact(elements) {
@@ -1476,22 +2277,52 @@ function decodeProductionCssEscapes(value) {
   return output;
 }
 
-function productionNamespaceUrlIsSafe(value, documentUrl, buildIds) {
+function decodeProductionPercentEscapes(value) {
+  if (typeof value !== "string" || value.length > PRODUCTION_CHECK_LIMITS.htmlBytes) return null;
+  let current = value;
+  for (let pass = 0; pass < 24; pass += 1) {
+    let changed = false;
+    const output = current.replace(/%([A-Fa-f0-9]{2})/g, (_match, digits) => {
+      changed = true;
+      return String.fromCodePoint(Number.parseInt(digits, 16));
+    });
+    if (!changed) return current;
+    current = output;
+  }
+  return /%[A-Fa-f0-9]{2}/.test(current) ? null : current;
+}
+
+function normalizeProductionNamespacePathname(value, canonicalDocumentUrl) {
+  const decoded = decodeProductionPercentEscapes(value);
+  if (decoded === null
+    || !decoded.startsWith("/")
+    || /[\\?#\u0000-\u001f\u007f]/.test(decoded)) return null;
+  try {
+    const normalized = new URL(decoded, canonicalDocumentUrl.origin);
+    return normalized.origin === canonicalDocumentUrl.origin
+      ? normalized.pathname : null;
+  } catch {
+    return null;
+  }
+}
+
+function productionNamespaceUrlIsSafe(value, resolutionBaseUrl, canonicalDocumentUrl, buildIds) {
   if (typeof value !== "string" || value.length > PRODUCTION_CHECK_LIMITS.assetUrlCharacters) {
     return false;
   }
   let candidate;
   try {
-    candidate = new URL(value.replaceAll("&amp;", "&"), documentUrl);
+    candidate = new URL(value.replaceAll("&amp;", "&"), resolutionBaseUrl);
   } catch {
     return false;
   }
   if (candidate.href.length > PRODUCTION_CHECK_LIMITS.assetUrlCharacters
     || candidate.username
     || candidate.password) return false;
-  if (!["http:", "https:"].includes(candidate.protocol)
-    || candidate.origin !== documentUrl.origin) return true;
-  return canonicalizeProductionNextStaticReferences(candidate.pathname, buildIds) !== null;
+  if (!["http:", "https:"].includes(candidate.protocol)) return true;
+  const pathname = normalizeProductionNamespacePathname(candidate.pathname, canonicalDocumentUrl);
+  return pathname !== null
+    && canonicalizeProductionNextStaticReferences(pathname, buildIds) !== null;
 }
 
 function productionNamespaceSrcsetUrls(value) {
@@ -1560,28 +2391,10 @@ function productionNamespaceCssUrls(value) {
   return urls;
 }
 
-function productionNamespaceFlightUrls(value) {
-  if (typeof value !== "string" || value.length > PRODUCTION_CHECK_LIMITS.htmlBytes) return null;
-  const urls = [];
-  const normalizedValue = value.replace(/[\t\n\r]/g, "");
-  for (const token of normalizedValue.split(/[\f "'`<>{}\[\](),;]+/)) {
-    const marker = asciiLower(token).indexOf("_next");
-    if (marker < 0) continue;
-    const assignment = Math.max(token.lastIndexOf("="), token.lastIndexOf(":"));
-    const protocol = token.indexOf("://");
-    const candidate = assignment >= 0 && assignment < marker
-      && (protocol < 0 || assignment < protocol)
-      ? token.slice(assignment + 1) : token;
-    if (!candidate || candidate.length > PRODUCTION_CHECK_LIMITS.assetUrlCharacters
-      || urls.length >= 256) return null;
-    urls.push(candidate);
-  }
-  return urls;
-}
-
 function productionFlightPayloadIsSafe(value) {
   const lower = asciiLower(value);
-  return !(lower.includes("dangerouslysetinnerhtml") && /[<>]/.test(value))
+  const markup = /[<>]|&(?:lt|gt|#(?:0*60|0*62)|#x(?:0*3c|0*3e));?/i;
+  return !(lower.includes("dangerouslysetinnerhtml") && markup.test(value))
     && !/(?:^|[\[,{:])[\t\n\f\r ]*["']base["'](?=[\t\f ]*(?:[,}\]\r\n]|$))/i.test(value)
     && !lower.includes("http-equiv")
     && !lower.includes("httpequiv")
@@ -1641,10 +2454,25 @@ function decodeProductionJavaScriptEscapes(value) {
   return current;
 }
 
+function productionFlightPayloadVariants(value) {
+  const variants = new Set([value]);
+  let current = value;
+  for (let pass = 0; pass < 24; pass += 1) {
+    const javascriptDecoded = decodeProductionJavaScriptEscapes(current);
+    const percentDecoded = decodeProductionPercentEscapes(javascriptDecoded);
+    if (percentDecoded === null) return null;
+    variants.add(javascriptDecoded);
+    variants.add(percentDecoded);
+    if (percentDecoded === current) return variants;
+    current = percentDecoded;
+  }
+  return null;
+}
+
 function productionScriptPayloadText(tag, text) {
   if (productionTagHasExactAttributeNames(tag, PRODUCTION_STRUCTURED_DATA_ATTRIBUTE_NAMES)
     || tag.attributes.get("src")
-    || text === "(self.__next_f=self.__next_f||[]).push([0])") return "";
+    || text === "(self.__next_f=self.__next_f||[]).push([0])") return undefined;
   const prefix = "self.__next_f.push(";
   if (!text.startsWith(prefix) || !text.endsWith(")")) return null;
   try {
@@ -1680,6 +2508,7 @@ function readActiveProductionNextStaticNamespace(html, {
   const deferRecruitmentAudioFallback = canonicalDocumentUrl.pathname === "/recruitment";
   let effectiveDocumentUrl = canonicalDocumentUrl;
   const activeUrlValues = [];
+  let activeFlightInitializerSeen = false;
   let activeFlightPayloadSeen = false;
   let activeFlightPayloadStream = "";
   let deferredAudioBaseSeen = false;
@@ -1703,7 +2532,7 @@ function readActiveProductionNextStaticNamespace(html, {
     if (activeUrlValues.length >= PRODUCTION_HTML_TAG_LIMIT * 8) return false;
     activeUrlValues.push(value);
     const accepted = productionNamespaceUrlIsSafe(
-      value, effectiveDocumentUrl, nextStaticBuildIds,
+      value, effectiveDocumentUrl, canonicalDocumentUrl, nextStaticBuildIds,
     );
     if (!accepted) diagnose("URL");
     return accepted;
@@ -1748,7 +2577,20 @@ function readActiveProductionNextStaticNamespace(html, {
       diagnose("PAYLOAD");
       return false;
     }
-    if (payloadText === "") return recordActive(rawText);
+    if (payloadText === undefined) {
+      if (rawText === "(self.__next_f=self.__next_f||[]).push([0])") {
+        if (activeFlightInitializerSeen || activeFlightPayloadSeen) {
+          diagnose("PAYLOAD_INITIALIZER");
+          return false;
+        }
+        activeFlightInitializerSeen = true;
+      }
+      return recordActive(rawText);
+    }
+    if (!activeFlightInitializerSeen) {
+      diagnose("PAYLOAD_INITIALIZER");
+      return false;
+    }
     activeFlightPayloadSeen = true;
     if (activeFlightPayloadStream.length
       > PRODUCTION_CHECK_LIMITS.htmlBytes - payloadText.length) {
@@ -1856,7 +2698,7 @@ function readActiveProductionNextStaticNamespace(html, {
         effectiveDocumentUrl = candidate;
         deferredAudioBaseSeen = true;
         if (!activeUrlValues.every((value) => productionNamespaceUrlIsSafe(
-          value, effectiveDocumentUrl, nextStaticBuildIds,
+          value, effectiveDocumentUrl, canonicalDocumentUrl, nextStaticBuildIds,
         ))) return null;
       } catch {
         return null;
@@ -1868,19 +2710,24 @@ function readActiveProductionNextStaticNamespace(html, {
     diagnose("INERT_STATE");
     return null;
   }
-  if (activeFlightPayloadStream) {
-    const decodedFlightPayloadStream = decodeProductionJavaScriptEscapes(
+  if (activeFlightPayloadSeen) {
+    const structuralResourceUrls = [];
+    if (canonicalizeProductionFlightResourceEnvelopeStream(
+      activeFlightPayloadStream, nextStaticBuildIds, structuralResourceUrls, canonicalDocumentUrl,
+    ) === null || !structuralResourceUrls.every(recordActiveUrl)) {
+      diagnose("PAYLOAD_MODEL");
+      return null;
+    }
+    const flightPayloadVariants = productionFlightPayloadVariants(
       activeFlightPayloadStream,
     );
-    for (const value of new Set([activeFlightPayloadStream, decodedFlightPayloadStream])) {
-      if (!recordActive(value)) return null;
+    if (flightPayloadVariants === null) {
+      diagnose("PAYLOAD_ENCODING");
+      return null;
+    }
+    for (const value of flightPayloadVariants) {
       if (!productionFlightPayloadIsSafe(value)) {
         diagnose("PAYLOAD_ACTIVE_CONTENT");
-        return null;
-      }
-      const urls = productionNamespaceFlightUrls(value);
-      if (urls === null || !urls.every(recordActiveUrl)) {
-        diagnose("PAYLOAD_URL");
         return null;
       }
     }
@@ -1909,6 +2756,8 @@ function readActiveProductionHtml(html, {
   const visibilityElements = [];
   const footerElements = [];
   const resourceEnvelope = [];
+  let resourceFlightPayloadStream = "";
+  let resourceFlightEnvelopeIndex = -1;
   const nextStaticBuildIds = new Set();
   let footerCount = 0;
   let startTagCount = 0;
@@ -2089,11 +2938,31 @@ function readActiveProductionHtml(html, {
       if (tag.name === "script"
         && (inertContainers.length > 0 || !productionScriptTagIsSafe(tag, rawText))) return null;
       if (tag.name === "script") {
-        const row = productionResourceEnvelopeRow(
-          tag, rawText, headOpen ? "head" : "body", nextStaticBuildIds,
-        );
-        if (row === null) return null;
-        resourceEnvelope.push(row);
+        const payloadText = productionScriptPayloadText(tag, rawText);
+        if (payloadText === null
+          || (payloadText !== undefined
+            && resourceFlightPayloadStream.length
+              > PRODUCTION_CHECK_LIMITS.htmlBytes - payloadText.length)) return null;
+        if (payloadText !== undefined) {
+          const row = productionResourceEnvelopeRow(
+            tag, rawText, headOpen ? "head" : "body", nextStaticBuildIds,
+          );
+          if (row === null) return null;
+          if (resourceFlightEnvelopeIndex < 0) {
+            resourceFlightEnvelopeIndex = resourceEnvelope.length;
+            resourceEnvelope.push(row);
+          } else if (resourceEnvelope.length !== resourceFlightEnvelopeIndex + 1
+            || resourceEnvelope[resourceFlightEnvelopeIndex] !== row) {
+            return null;
+          }
+          resourceFlightPayloadStream += payloadText;
+        } else {
+          const row = productionResourceEnvelopeRow(
+            tag, rawText, headOpen ? "head" : "body", nextStaticBuildIds,
+          );
+          if (row === null) return null;
+          resourceEnvelope.push(row);
+        }
       }
       if (tag.name === "title"
         && headOpen
@@ -2157,6 +3026,17 @@ function readActiveProductionHtml(html, {
     }
   }
 
+  if (resourceFlightEnvelopeIndex >= 0) {
+    const canonicalFlightPayloadStream = canonicalizeProductionFlightResourceEnvelopeStream(
+      resourceFlightPayloadStream, nextStaticBuildIds,
+    );
+    if (canonicalFlightPayloadStream === null) {
+      reportDiagnostic("HTML document parser FLIGHT_STREAM");
+      return null;
+    }
+    resourceEnvelope[resourceFlightEnvelopeIndex] += `|stream-sha256=${createHash("sha256")
+      .update(canonicalFlightPayloadStream, "utf8").digest("hex").toUpperCase()}`;
+  }
   const resourceEnvelopeSha256 = createHash("sha256").update(JSON.stringify(resourceEnvelope), "utf8")
     .digest("hex").toUpperCase();
   const structureAccepted = inertContainers.length === 0
