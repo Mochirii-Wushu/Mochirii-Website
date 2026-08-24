@@ -17,7 +17,7 @@ import {
   validateAppRouteMatrix,
 } from "./app-router-inventory.mjs";
 import {
-  PRODUCTION_SMOKE_HTML_BYTE_LIMIT,
+  PRODUCTION_SMOKE_HTML_BYTE_LIMIT as H,
   assertExpectedRouteUrl,
   assertPermanentRedirectStatus,
   checkBody,
@@ -27,11 +27,19 @@ import {
   resolveSameOriginRedirect,
 } from "../smoke-vercel-production.mjs";
 import {
-  OBSERVABILITY_DIAGNOSTIC_LIMITS,
+  OBSERVABILITY_DIAGNOSTIC_LIMITS as OBS_LIMITS,
   checkLiveIfRequested,
   createObservabilityFailureRecorder,
   resolveSameOriginMetadataImage,
 } from "../check-observability-metadata-smoke.mjs";
+import {
+  PRODUCTION_CHECK_LIMITS as CHECK_LIMITS,
+  checkProductionWithTestFixtures as checkFixture,
+  formatProductionFailure,
+  loadDefaultProductionBaseUrl,
+  normalizeProductionBaseUrl,
+  run as runCheck,
+} from "../check-production.mjs";
 
 function fixture() {
   const root = mkdtempSync(path.join(tmpdir(), "mochirii-route-inventory-"));
@@ -50,15 +58,16 @@ function writeMatrix(file, routes, redirects = []) {
   writeFileSync(file, `${JSON.stringify({ schemaVersion: 1, publicSafe: true, routes, redirects }, null, 2)}\n`);
 }
 
-const productionAppDirectory = fileURLToPath(new URL("../../apps/web/app/", import.meta.url));
-const productionMatrixPath = fileURLToPath(new URL("../../apps/web/config/app-route-matrix.v1.json", import.meta.url));
-const productionNextConfigPath = fileURLToPath(new URL("../../apps/web/next.config.ts", import.meta.url));
+const appDirectory = fileURLToPath(new URL("../../apps/web/app/", import.meta.url));
+const matrixPath = fileURLToPath(new URL("../../apps/web/config/app-route-matrix.v1.json", import.meta.url));
+const nextConfigPath = fileURLToPath(new URL("../../apps/web/next.config.ts", import.meta.url));
 const appRouteCheckerPath = fileURLToPath(new URL("../check-app-route-inventory.mjs", import.meta.url));
+const checkerPath = fileURLToPath(new URL("../check-production.mjs", import.meta.url));
 const contentGuardrailsPath = fileURLToPath(new URL("../check-content-guardrails.mjs", import.meta.url));
 const raffleCheckerPath = fileURLToPath(new URL("../check-raffle-closed-state.mjs", import.meta.url));
 const repositoryRoot = fileURLToPath(new URL("../../", import.meta.url));
-const productionRouteMatrix = readAppRouteMatrix(productionMatrixPath);
-const productionRedirects = parseNextConfigLegacyRedirects(readNextConfigSource(productionNextConfigPath));
+const routeMatrix = readAppRouteMatrix(matrixPath);
+const redirects = parseNextConfigLegacyRedirects(readNextConfigSource(nextConfigPath));
 
 function completeRoutes() {
   return [
@@ -68,7 +77,7 @@ function completeRoutes() {
   ];
 }
 
-test("discovers pages, route groups, dynamic segments, and explicit handler methods", () => {
+test("App routes", () => {
   const current = fixture();
   try {
     mkdirSync(path.join(current.app, "(.staff)", "team"), { recursive: true });
@@ -84,7 +93,7 @@ test("discovers pages, route groups, dynamic segments, and explicit handler meth
   }
 });
 
-test("masks an initial hashbang before discovering handler exports", async () => {
+test("hashbang", async () => {
   const current = fixture();
   try {
     for (const prefix of ["", "\uFEFF"]) {
@@ -104,7 +113,7 @@ test("masks an initial hashbang before discovering handler exports", async () =>
   }
 });
 
-test("ignores method-like text in comments, strings, regex literals, and ASI-boundary regex statements", async () => {
+test("inert methods", async () => {
   const current = fixture();
   try {
     writeFileSync(path.join(current.app, "api", "status", "route.ts"), `
@@ -280,7 +289,7 @@ test("ignores method-like text in comments, strings, regex literals, and ASI-bou
   }
 });
 
-test("matches the runtime HTTP namespace around default-export regex literals", async () => {
+test("export regex", async () => {
   const current = fixture();
   try {
     for (const source of [
@@ -310,7 +319,7 @@ export function GET() {}
   }
 });
 
-test("masks slash-equals regex literals without misclassifying division assignment", async () => {
+test("slash regex", async () => {
   const current = fixture();
   try {
     for (const source of [
@@ -354,7 +363,7 @@ export function GET() {}
   }
 });
 
-test("preserves expression context for contextual identifiers and keyword-named properties", async () => {
+test("lexer", async () => {
   const current = fixture();
   try {
     const sources = [
@@ -393,7 +402,7 @@ export function GET() {}
   }
 });
 
-test("fails closed on ambiguous TypeScript postfix expressions before division", () => {
+test("postfix", () => {
   const current = fixture();
   try {
     const routeFile = path.join(current.app, "api", "status", "route.ts");
@@ -453,7 +462,7 @@ export function GET() { return [result, pattern]; }
   }
 });
 
-test("matches the runtime namespace across an astral identifier export boundary", async () => {
+test("astral ids", async () => {
   const current = fixture();
   try {
     for (const source of [`const 𐐀export = 1;
@@ -481,7 +490,7 @@ export function GET() {}
   }
 });
 
-test("fails closed on exported handler destructuring that the inventory does not parse", async () => {
+test("destructuring", async () => {
   const current = fixture();
   try {
     for (const source of [
@@ -513,7 +522,7 @@ export async function POST() {}
   }
 });
 
-test("fails closed on other runtime export forms outside the supported inventory grammar", async () => {
+test("exports", async () => {
   const current = fixture();
   try {
     for (const source of [
@@ -557,7 +566,7 @@ export function POST() {}
   }
 });
 
-test("fails closed on quoted runtime export names with unsupported JavaScript escapes", async () => {
+test("escapes", async () => {
   const current = fixture();
   try {
     for (const [method, exported] of [
@@ -585,7 +594,7 @@ export function POST() {}
   }
 });
 
-test("fails closed when a property named export could masquerade as a declaration", async () => {
+test("decoys", async () => {
   const current = fixture();
   try {
     for (const source of [
@@ -619,7 +628,7 @@ export function GET() {}
   }
 });
 
-test("fails closed on slash ambiguity after block, class, or function bodies", async () => {
+test("ambiguity", async () => {
   const current = fixture();
   try {
     const regexStatement = `/; export function POST\\b/.test("");`;
@@ -673,7 +682,7 @@ export function GET() { return quotient; }
   }
 });
 
-test("ignores method-like text in nested template literals and interpolations", () => {
+test("templates", () => {
   const current = fixture();
   try {
     for (const source of [
@@ -716,7 +725,7 @@ test("ignores method-like text in nested template literals and interpolations", 
   }
 });
 
-test("counts only depth-zero handler exports and rejects JSX-capable handlers", () => {
+test("depth", () => {
   const current = fixture();
   try {
     for (const nested of [
@@ -763,7 +772,7 @@ test("counts only depth-zero handler exports and rejects JSX-capable handlers", 
   }
 });
 
-test("rejects symlinked App Router entries instead of silently omitting routes", () => {
+test("symlinks", () => {
   const current = fixture();
   try {
     const target = path.join(current.root, "linked-route.ts");
@@ -789,7 +798,7 @@ test("rejects symlinked App Router entries instead of silently omitting routes",
   }
 });
 
-test("rejects symlinked route matrix and Next configuration files", () => {
+test("configs", () => {
   const current = fixture();
   try {
     const matrixTarget = path.join(current.root, "matrix-target.json");
@@ -805,7 +814,7 @@ test("rejects symlinked route matrix and Next configuration files", () => {
     );
 
     const configLink = path.join(current.root, "next.config.ts");
-    symlinkSync(productionNextConfigPath, configLink, "file");
+    symlinkSync(nextConfigPath, configLink, "file");
     assert.throws(
       () => readNextConfigSource(configLink),
       /next\.config\.ts must be a regular non-symbolic file/,
@@ -815,7 +824,7 @@ test("rejects symlinked route matrix and Next configuration files", () => {
   }
 });
 
-test("returns bounded failures for malformed route rows and methods", () => {
+test("bounds", () => {
   const current = fixture();
   try {
     writeMatrix(current.matrix, [
@@ -834,7 +843,7 @@ test("returns bounded failures for malformed route rows and methods", () => {
   }
 });
 
-test("caps hostile matrix sources, rows, fields, failures, and diagnostics", () => {
+test("caps", () => {
   const current = fixture();
   try {
     writeMatrix(current.matrix, Array.from({ length: 2_048 }, () => null));
@@ -864,7 +873,7 @@ test("caps hostile matrix sources, rows, fields, failures, and diagnostics", () 
   }
 });
 
-test("redacts route matrix and App Router input diagnostics", () => {
+test("route logs", () => {
   const current = fixture();
   const sentinel = "MOCHIRII_PRIVATE_MATRIX_SENTINEL";
   try {
@@ -893,7 +902,7 @@ test("redacts route matrix and App Router input diagnostics", () => {
   }
 });
 
-test("repository checkers redact missing Next configuration paths", () => {
+test("paths", () => {
   const sentinel = "MOCHIRII_PRIVATE_CHECKER_SENTINEL";
   const root = mkdtempSync(path.join(tmpdir(), `${sentinel}-`));
   const app = path.join(root, "apps", "web", "app");
@@ -927,7 +936,7 @@ test("repository checkers redact missing Next configuration paths", () => {
   }
 });
 
-test("raffle checker rejects a symlinked Next configuration without leaking its path", () => {
+test("raffle", () => {
   const prefix = path.join(tmpdir(), "mochirii-raffle-symlink-");
   const root = mkdtempSync(prefix);
   const copiedFiles = [
@@ -984,7 +993,7 @@ test("raffle checker rejects a symlinked Next configuration without leaking its 
   }
 });
 
-test("forbids production smoke on private, internal, and not-found surfaces", () => {
+test("smoke surface", () => {
   const current = fixture();
   try {
     const routes = completeRoutes();
@@ -997,7 +1006,7 @@ test("forbids production smoke on private, internal, and not-found surfaces", ()
   }
 });
 
-test("rejects network-path redirect sources", () => {
+test("network path", () => {
   const current = fixture();
   try {
     writeMatrix(current.matrix, completeRoutes(), [
@@ -1010,7 +1019,7 @@ test("rejects network-path redirect sources", () => {
   }
 });
 
-test("rejects redirect sources that collide with a documented handler", () => {
+test("collisions", () => {
   const current = fixture();
   try {
     writeMatrix(current.matrix, completeRoutes(), [
@@ -1023,7 +1032,7 @@ test("rejects redirect sources that collide with a documented handler", () => {
   }
 });
 
-test("rejects non-canonical route, source, and redirect paths", () => {
+test("canon", () => {
   const current = fixture();
   try {
     writeMatrix(current.matrix, [
@@ -1041,22 +1050,22 @@ test("rejects non-canonical route, source, and redirect paths", () => {
   }
 });
 
-test("production smoke loads only a validated bounded route contract", () => {
+test("matrix", () => {
   const current = fixture();
   try {
-    writeMatrix(current.matrix, productionRouteMatrix.routes, productionRedirects);
+    writeMatrix(current.matrix, routeMatrix.routes, redirects);
     assert.equal(loadProductionSmokeContract({
-      appDirectory: productionAppDirectory,
+      appDirectory,
       matrixPath: current.matrix,
-      nextConfigPath: productionNextConfigPath,
-    }).routes.length, productionRouteMatrix.routes.length);
+      nextConfigPath,
+    }).routes.length, routeMatrix.routes.length);
 
-    writeMatrix(current.matrix, productionRouteMatrix.routes, productionRedirects.slice(1));
+    writeMatrix(current.matrix, routeMatrix.routes, redirects.slice(1));
     assert.throws(
       () => loadProductionSmokeContract({
-        appDirectory: productionAppDirectory,
+        appDirectory,
         matrixPath: current.matrix,
-        nextConfigPath: productionNextConfigPath,
+        nextConfigPath,
       }),
       /production smoke redirect contract validation failed: next\.config\.ts contains an undocumented redirect/,
     );
@@ -1064,15 +1073,15 @@ test("production smoke loads only a validated bounded route contract", () => {
     writeFileSync(current.matrix, " ".repeat(APP_ROUTE_MATRIX_LIMITS.bytes + 1));
     assert.throws(
       () => loadProductionSmokeContract({
-        appDirectory: productionAppDirectory,
+        appDirectory,
         matrixPath: current.matrix,
-        nextConfigPath: productionNextConfigPath,
+        nextConfigPath,
       }),
       /production smoke route matrix validation failed: route matrix could not be read/,
     );
 
     const longRoutes = [
-      ...productionRouteMatrix.routes,
+      ...routeMatrix.routes,
       ...Array.from({ length: 8 }, (_, index) => ({
         path: `/${index}-${"x".repeat(470)}`,
         kind: "page",
@@ -1081,17 +1090,17 @@ test("production smoke loads only a validated bounded route contract", () => {
         productionSmoke: false,
       })),
     ].sort((left, right) => (left.path < right.path ? -1 : left.path > right.path ? 1 : 0));
-    writeMatrix(current.matrix, longRoutes, productionRedirects);
+    writeMatrix(current.matrix, longRoutes, redirects);
     const longValidation = validateAppRouteMatrix({
-      appDirectory: productionAppDirectory,
+      appDirectory,
       matrixPath: current.matrix,
     });
     assert(longValidation.failures.slice(0, 8).join("; ").length > APP_ROUTE_MATRIX_LIMITS.diagnosticCharacters);
     assert.throws(
       () => loadProductionSmokeContract({
-        appDirectory: productionAppDirectory,
+        appDirectory,
         matrixPath: current.matrix,
-        nextConfigPath: productionNextConfigPath,
+        nextConfigPath,
       }),
       (error) => {
         assert.match(error.message, /production smoke route matrix validation failed/);
@@ -1100,11 +1109,11 @@ test("production smoke loads only a validated bounded route contract", () => {
       },
     );
 
-    writeMatrix(current.matrix, productionRouteMatrix.routes, productionRedirects);
+    writeMatrix(current.matrix, routeMatrix.routes, redirects);
     const nextConfigSentinel = path.join(current.root, "MOCHIRII_PRIVATE_NEXT_CONFIG_SENTINEL.ts");
     assert.throws(
       () => loadProductionSmokeContract({
-        appDirectory: productionAppDirectory,
+        appDirectory,
         matrixPath: current.matrix,
         nextConfigPath: nextConfigSentinel,
       }),
@@ -1120,7 +1129,7 @@ test("production smoke loads only a validated bounded route contract", () => {
   }
 });
 
-test("resolves only same-origin redirect targets and redacts observed URL details", () => {
+test("redirect redaction", () => {
   const sameOrigin = resolveSameOriginRedirect("https://preview.example", "https://preview.example/legacy", "/target");
   assert.equal(sameOrigin.href, "https://preview.example/target");
   assert.throws(
@@ -1145,14 +1154,14 @@ test("resolves only same-origin redirect targets and redacts observed URL detail
   );
 });
 
-test("binds permanent production redirects to HTTP 308", () => {
+test("redirect status", () => {
   assert.doesNotThrow(() => assertPermanentRedirectStatus(308));
   for (const status of [301, 302, 307]) {
     assert.throws(() => assertPermanentRedirectStatus(status), /expected permanent redirect HTTP 308/);
   }
 });
 
-test("reads only bounded UTF-8 HTML response bodies", async () => {
+test("reader", async () => {
   const html = "<!doctype html><title>Mōchirīī</title>";
   assert.equal(
     await readBoundedHtmlResponse(new Response(html, {
@@ -1162,8 +1171,8 @@ test("reads only bounded UTF-8 HTML response bodies", async () => {
   );
 
   let wrongTypeRead = false;
-  let wrongTypeCancelled = false;
-  const wrongTypeResponse = {
+  let wrongCancelled = false;
+  const wrongResponse = {
     headers: new Headers({ "content-type": "text/plain" }),
     body: {
       getReader() {
@@ -1171,49 +1180,34 @@ test("reads only bounded UTF-8 HTML response bodies", async () => {
         throw new Error("body must not be read");
       },
       async cancel() {
-        wrongTypeCancelled = true;
+        wrongCancelled = true;
       },
     },
   };
   await assert.rejects(
-    () => readBoundedHtmlResponse(wrongTypeResponse),
+    () => readBoundedHtmlResponse(wrongResponse),
     /response body must use an HTML media type/,
   );
   assert.equal(wrongTypeRead, false);
-  assert.equal(wrongTypeCancelled, true);
+  assert.equal(wrongCancelled, true);
 
-  const chunks = [
-    new Uint8Array(PRODUCTION_SMOKE_HTML_BYTE_LIMIT),
-    new Uint8Array([0x21]),
-  ];
-  let chunkIndex = 0;
-  let oversizedCancelled = false;
-  let oversizedReleased = false;
+  const chunks = [new Uint8Array(H), new Uint8Array([0x21])];
+  let chunkIndex = 0, largeCancelled = false, largeReleased = false;
   const oversizedResponse = {
     headers: new Headers({ "content-type": "application/xhtml+xml" }),
-    body: {
-      getReader() {
-        return {
-          async read() {
-            if (chunkIndex === chunks.length) return { done: true, value: undefined };
-            return { done: false, value: chunks[chunkIndex++] };
-          },
-          async cancel() {
-            oversizedCancelled = true;
-          },
-          releaseLock() {
-            oversizedReleased = true;
-          },
-        };
-      },
-    },
+    body: { getReader() { return {
+      async read() { return chunkIndex === chunks.length
+        ? { done: true, value: undefined } : { done: false, value: chunks[chunkIndex++] }; },
+      async cancel() { largeCancelled = true; },
+      releaseLock() { largeReleased = true; },
+    }; } },
   };
   await assert.rejects(
     () => readBoundedHtmlResponse(oversizedResponse),
     /could not be read within the byte limit/,
   );
-  assert.equal(oversizedCancelled, true);
-  assert.equal(oversizedReleased, true);
+  assert.equal(largeCancelled, true);
+  assert.equal(largeReleased, true);
 
   const sentinel = "MOCHIRII_PRIVATE_BODY_SENTINEL";
   await assert.rejects(
@@ -1228,104 +1222,1058 @@ test("reads only bounded UTF-8 HTML response bodies", async () => {
   );
 });
 
-test("production smoke consumers execute bounded HTML ingestion", async () => {
-  let wrongTypeRead = false;
-  let wrongTypeCancelled = false;
-  let brandedSuccessReported = false;
-  const wrongTypeResponse = {
+test("consumers", async () => {
+  let wrongTypeRead = false, wrongCancelled = false, brandReported = false;
+  const wrongResponse = {
     status: 404,
     headers: new Headers({ "content-type": "text/plain" }),
-    body: {
-      getReader() {
-        wrongTypeRead = true;
-        throw new Error("body must not be read");
-      },
-      async cancel() {
-        wrongTypeCancelled = true;
-      },
-    },
+    body: { getReader() {
+      wrongTypeRead = true;
+      throw new Error("body must not be read");
+    }, async cancel() { wrongCancelled = true; } },
   };
-  await assert.rejects(
-    () => checkBrandedNotFound("https://preview.example", {
-      requestImpl: async (_baseUrl, _path, options) => {
-        assert.equal(options.method, "GET");
-        return wrongTypeResponse;
-      },
-      reportSuccess: () => {
-        brandedSuccessReported = true;
-      },
-    }),
-    { message: "response body must use an HTML media type" },
-  );
+  await assert.rejects(() => checkBrandedNotFound("https://preview.example", {
+    requestImpl: async (_baseUrl, _path, options) => {
+      assert.equal(options.method, "GET");
+      return wrongResponse;
+    },
+    reportSuccess: () => { brandReported = true; },
+  }), { message: "response body must use an HTML media type" });
   assert.equal(wrongTypeRead, false);
-  assert.equal(wrongTypeCancelled, true);
-  assert.equal(brandedSuccessReported, false);
+  assert.equal(wrongCancelled, true);
+  assert.equal(brandReported, false);
 
-  const chunks = [
-    new Uint8Array(PRODUCTION_SMOKE_HTML_BYTE_LIMIT),
-    new Uint8Array([0x21]),
-  ];
-  let chunkIndex = 0;
-  let oversizedCancelled = false;
-  let oversizedReleased = false;
-  let bodySuccessReported = false;
+  const chunks = [new Uint8Array(H), new Uint8Array([0x21])];
+  let chunkIndex = 0, largeCancelled = false, largeReleased = false, bodyReported = false;
   const oversizedResponse = {
     status: 200,
     headers: new Headers({ "content-type": "application/xhtml+xml" }),
-    body: {
-      getReader() {
-        return {
-          async read() {
-            if (chunkIndex === chunks.length) return { done: true, value: undefined };
-            return { done: false, value: chunks[chunkIndex++] };
-          },
-          async cancel() {
-            oversizedCancelled = true;
-          },
-          releaseLock() {
-            oversizedReleased = true;
-          },
-        };
-      },
-    },
+    body: { getReader() { return {
+      async read() { return chunkIndex === chunks.length
+        ? { done: true, value: undefined } : { done: false, value: chunks[chunkIndex++] }; },
+      async cancel() { largeCancelled = true; },
+      releaseLock() { largeReleased = true; },
+    }; } },
   };
-  await assert.rejects(
-    () => checkBody("https://preview.example", "/privacy", /privacy/, {
-      requestImpl: async () => oversizedResponse,
-      reportSuccess: () => {
-        bodySuccessReported = true;
-      },
-    }),
-    { message: "HTML response body could not be read within the byte limit" },
-  );
-  assert.equal(oversizedCancelled, true);
-  assert.equal(oversizedReleased, true);
-  assert.equal(bodySuccessReported, false);
+  await assert.rejects(() => checkBody("https://preview.example", "/privacy", /privacy/, {
+    requestImpl: async () => oversizedResponse,
+    reportSuccess: () => { bodyReported = true; },
+  }), { message: "HTML response body could not be read within the byte limit" });
+  assert.equal(largeCancelled, true);
+  assert.equal(largeReleased, true);
+  assert.equal(bodyReported, false);
 });
 
-function observabilityHeaders(contentType = "text/html; charset=utf-8") {
+function obsHeaders(contentType = "text/html; charset=utf-8") {
   return new Headers({
-    "content-type": contentType,
-    server: "Vercel",
-    "content-security-policy": "default-src 'self'",
-    "x-content-type-options": "nosniff",
-    "referrer-policy": "strict-origin-when-cross-origin",
-    "permissions-policy": "camera=()",
-    "cross-origin-opener-policy": "same-origin",
-    "x-frame-options": "DENY",
+    "content-type": contentType, server: "Vercel", "content-security-policy": "default-src 'self'",
+    "x-content-type-options": "nosniff", "referrer-policy": "strict-origin-when-cross-origin",
+    "permissions-policy": "camera=()", "cross-origin-opener-policy": "same-origin", "x-frame-options": "DENY",
   });
 }
 
-function observedResponse(url, body, init) {
+function reply(url, body, init) {
   const response = new Response(body, init);
+  return { status: response.status, headers: response.headers, body: response.body, redirected: false, url };
+}
+
+const safeHeader = `<header id="site-header" class="site-header" data-state="top"><a class="skip-link" href="#main">Skip to content</a></header>`;
+
+function homeHtml(siteOrigin, ogImage) {
+  return `<!doctype html><html><head><title>Mōchirīī • Where Winds Meet Guild</title><meta name="description" content="Mōchirīī guild"><link rel="canonical" href="${siteOrigin}"><meta property="og:title" content="Mōchirīī"><meta property="og:image" content="${ogImage}"><link rel="stylesheet" href="/_next/static/chunks/3jvcxpga865m1.css" data-precedence="next"></head><body>${safeHeader}<script async="" src="/_next/static/chunks/3nk76snv1e0rj.js"></script><footer class="site-footer" role="contentinfo"><div class="footer-wrap"><div class="footer-bottom"><nav class="footer-legal" aria-label="Privacy and support"><a href="/privacy">Privacy</a><a href="/meta-data-deletion">Data Deletion</a><a href="mailto:support@mochirii.com">support@mochirii.com</a></nav></div></div></footer></body></html>`;
+}
+
+function moveHeadTags(body) {
+  const tags = body.match(/<title>[^<]*<\/title>|<(?:link|meta)\b[^>]*>/g) || [];
+  return tags.reduce((value, tag) => value.replace(tag, ""), body)
+    .replace("<body>", "<body>" + tags.join(""));
+}
+
+function recruitmentHtml(siteOrigin, fallback = "Audio fallback.") {
+  return `<!doctype html><html><head><title>Recruitment</title><link rel="canonical" href="${siteOrigin}/recruitment"></head><body>${safeHeader}<main>Recruitment<audio id="recruitmentAudio" src="./assets/audio/mochiriiiiii.mp3" preload="none" class="recruitment-audio-native" aria-labelledby="recruitmentAudioTitle" aria-describedby="recruitmentAudioDesc" controlslist="nodownload">${fallback}</audio></main></body></html>`;
+}
+
+function bodyFor(url, siteOrigin, ogImage) {
+  switch (url.pathname) {
+    case "/":
+      return homeHtml(siteOrigin, ogImage);
+    case "/recruitment":
+      return recruitmentHtml(siteOrigin);
+    case "/privacy":
+      return `<!doctype html><html><head><title>Privacy</title><link rel="canonical" href="${siteOrigin}/privacy"></head><body>${safeHeader}<main>Website scope</main></body></html>`;
+    case "/meta-data-deletion":
+      return `<!doctype html><html><head><title>Data Deletion</title><link rel="canonical" href="${siteOrigin}/meta-data-deletion"></head><body>${safeHeader}<main>Data Deletion Requests</main></body></html>`;
+    case "/robots.txt":
+      return `User-agent: *\nSitemap: ${siteOrigin}/sitemap.xml\n`;
+    case "/sitemap.xml":
+      return `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${siteOrigin}/gallery</loc></url><url><loc>${siteOrigin}/privacy</loc></url><url><loc>${siteOrigin}/meta-data-deletion</loc></url></urlset>`;
+    default:
+      return "<!doctype html><main>Mōchirīī</main>";
+  }
+}
+
+function mediaType(pathname) {
+  if (pathname === "/robots.txt") return "text/plain; charset=utf-8";
+  if (pathname === "/sitemap.xml") return "application/xml; charset=utf-8";
+  if (pathname.startsWith("/assets/")) return "image/webp";
+  return "text/html; charset=utf-8";
+}
+
+function fetchFixture({
+  baseUrl = "https://preview.example",
+  siteOrigin = "https://mochirii.com",
+  ogImage = siteOrigin + "/assets/card.webp",
+  override,
+} = {}) {
+  const calls = [];
   return {
-    status: response.status,
-    headers: response.headers,
-    body: response.body,
-    redirected: false,
-    url,
+    calls,
+    async fetchImpl(input, options) {
+      const url = new URL(input);
+      calls.push({ url: url.href, options });
+      const overridden = await override?.({ url, options, callIndex: calls.length });
+      if (overridden) return overridden;
+      const body = url.pathname.startsWith("/assets/")
+        ? new Uint8Array([0x52, 0x49, 0x46, 0x46])
+        : bodyFor(url, siteOrigin, ogImage);
+      return reply(url.href, body, { status: 200,
+        headers: { "content-type": mediaType(url.pathname) } });
+    },
   };
 }
+
+test("fetch", async () => {
+  const fixture = fetchFixture();
+  assert.deepEqual(await checkFixture({
+    baseUrl: "https://preview.example/", fetchImpl: fixture.fetchImpl, maxAttempts: 1,
+  }), { ok: true });
+  assert.equal(fixture.calls.length, 16);
+  assert(fixture.calls.every(({ url }) => url.startsWith("https://preview.example/")));
+  assert(fixture.calls.every(({ options }) => options.redirect === "manual"));
+  assert(fixture.calls.every(({ options }) => options.signal instanceof AbortSignal));
+});
+
+test("production policy", async () => {
+  const fixture = fetchFixture();
+  const failures = [], successes = [];
+  assert.equal(await runCheck({
+    baseUrl: "https://preview.example/", fetchImpl: fixture.fetchImpl, maxAttempts: 1,
+    reportFailure: (message) => failures.push(message), reportSuccess: (message) => successes.push(message),
+  }), 1);
+  assert.deepEqual(failures, ["Production smoke check failed [HTML_DOCUMENT_REJECTED]."]);
+  assert.deepEqual(successes, []);
+  assert.equal(fixture.calls.filter(({ url }) => url.includes("/assets/")).length, 0);
+});
+
+test("homepage", async () => {
+  const requestBase = "https://preview.example";
+  const siteOrigin = "https://mochirii.com";
+  const markup = homeHtml(siteOrigin, "/assets/inert.webp");
+  const footerStart = "<footer class=\"site-footer\" role=\"contentinfo\">";
+  const privacyLink = "<a href=\"/privacy\">Privacy</a>";
+  const privacySwap = (replacement) => markup.replace(privacyLink, replacement);
+  const afterFooter = (content) => markup.replace("</footer></body>", "</footer>" + content + "</body>");
+  const inHead = (content) => markup.replace("</head>", content + "</head>");
+  const footerSibling = (content) => markup.replace(
+    "</nav></div></div></footer>", "</nav></div>" + content + "</div></footer>",
+  );
+  const wrapFooter = (open, close) => markup
+    .replace("<body>" + footerStart, "<body>" + open + footerStart)
+    .replace("</footer></body>", "</footer>" + close + "</body>");
+  const fillImage = `<img alt="" class="bg-photo__image" data-nimg="fill" decoding="async" loading="eager" sizes="100vw" src="/assets/card.webp" srcset="/assets/card.webp 1x" style="position:absolute;height:100%;width:100%;left:0;top:0;right:0;bottom:0;color:transparent">`;
+  const imageWidths = [32, 48, 64, 96, 128, 256, 384, 640, 750, 828, 1080, 1200, 1920, 2048, 3840];
+  const imageAsset = "%2Fassets%2Fimg%2Fbrand%2Femblem.webp";
+  const imageUrl = (asset, width) => `/_next/image?url=${asset}&amp;w=${width}&amp;q=75`;
+  const footerImage = `<img alt="" class="footer-emblem" data-nimg="1" decoding="async" height="56" loading="lazy" sizes="56px" src="${imageUrl(imageAsset, 3840)}" srcset="${imageWidths.map((width) => `${imageUrl(imageAsset, width)} ${width}w`).join(", ")}" style="color:transparent" width="56">`;
+  const giantImage = footerImage.replace('height="56"', 'height="4097"').replace('width="56"', 'width="1"');
+  const traversalImage = footerImage.replaceAll(imageAsset, "%2Fassets%2F..%2Fsecret.webp");
+  const missingImage = footerImage.replaceAll(imageAsset, "%2Fassets%2Fmissing.webp");
+  const partialImage = footerImage.replace(/srcset="[^"]+"/, `srcset="${imageUrl(imageAsset, 32)} 32w"`);
+  const unsupportedImage = footerImage.replace(/src="[^"]+"/, `src="${imageUrl(imageAsset, 1)}"`)
+    .replace(/srcset="[^"]+"/, `srcset="${imageUrl(imageAsset, 1)} 1w"`);
+  const offOriginBackground = `<div class="bg-photo" aria-hidden="true"><img alt="" class="bg-photo__image" data-nimg="fill" decoding="async" loading="eager" sizes="100vw" src="https://outside.example/bg.webp" srcset="https://outside.example/bg.webp 640w" style="position:absolute;height:100%;width:100%;left:0;top:0;right:0;bottom:0;color:transparent"></div>`;
+  async function assertHomeRejected(body, matcher) {
+    const fixture = fetchFixture({ override: async ({ url }) => url.pathname === "/"
+      ? reply(url.href, body, { status: 200, headers: { "content-type": "text/html; charset=utf-8" } })
+      : undefined });
+    await assert.rejects(() => checkFixture({
+      baseUrl: requestBase + "/", fetchImpl: fixture.fetchImpl, maxAttempts: 1,
+    }), matcher);
+    assert.equal(fixture.calls.filter(({ url }) => url.includes("/assets/")).length, 0);
+  }
+  const unlabeledFooter = markup
+    .replace(">Privacy</a>", "></a>")
+    .replace(">Data Deletion</a>", "></a>")
+    .replace(">support@mochirii.com</a>", "></a>");
+  const footerBodies = [
+    unlabeledFooter,
+    ...[
+      "hidden inert aria-hidden=\"true\"", "popover", "aria-hidden=\"tr&#117;e\"",
+      "style=\"display/**/: none !important\"", "style=\"d\\\\69splay:none\"",
+      "style=\"d&#x69;splay:none\"", "style=\"transform:scale(0)\"",
+    ].map((attributes) => markup.replace(
+      footerStart,
+      "<footer class=\"site-footer\" " + attributes + ">",
+    )),
+    ...["class=\"footer-legal-link\"", "download", "tabindex=\"-1\"", "aria-label=\"Private notice\"", "role=\"button\""]
+      .map((attribute) => privacySwap("<a href=\"/privacy\" " + attribute + ">Privacy</a>")),
+    privacySwap("<a href=\"/privacy\"><button>Privacy</button></a>"),
+    markup.replace("class=\"footer-wrap\"", "class=\"footer-wrap mobile-scrim\""),
+    markup
+      .replace("<nav class=\"footer-legal\"", "<div class=\"mobile-scrim\"><nav class=\"footer-legal\"")
+      .replace("</nav>", "</nav></div>"),
+    markup.replace("</nav>", "<a href=\"javascript:location.reload()\">Reload</a></nav>"),
+    markup.replace("</nav>", "</nav><a href=\"javascript:location.reload()\">Reload</a>"),
+    markup.replace("</nav>", "</nav><a href=\"java&#115;cript:location.reload()\">Reload</a>"),
+    ...[
+      "<a hidden href=\"/privacy\">Privacy</a>",
+      "<a class=\"sr-only\" href=\"/privacy\">Privacy</a>",
+      "<a aria-hidden=\"true\" href=\"/privacy\">Privacy</a>",
+      "<a hidden href=\"/privacy\">Private notice</a>",
+      "<a hidden href=\"/private\">Privacy</a>",
+    ].map((duplicate) => privacySwap(privacyLink + duplicate)),
+  ];
+  for (const body of footerBodies) {
+    await assertHomeRejected(body, /(?:HTML_DOCUMENT|CONTENT_HOMEPAGE_FOOTER)_REJECTED/);
+  }
+
+  const structuralBodies = [
+    markup.replace("<!doctype html>", ""),
+    markup.replace(footerStart, "<footer class=\"sr-only\">"),
+    markup.replace(footerStart, "<footer class=\"s&#114;-only\">"),
+    wrapFooter("<div aria-hidden=\"true\">", "</div>"),
+    wrapFooter("<div style=\"position:absolute;left:-10000px\">", "</div>"),
+    wrapFooter("<div class=\"bg-ink\">", "</div>"),
+    wrapFooter("<div id=\"lightbox\" class=\"hidden\">", "</div>"),
+    ...["audio", "canvas", "datalist", "math", "meter", "object", "progress", "select", "svg", "video"]
+      .map((name) => wrapFooter("<" + name + ">", "</" + name + ">")),
+    markup.replace("<html>", "<html onload=0>"),
+    markup.replace("<body>", "<body onload=0>"),
+    markup.replace(footerStart, "<footer class=site-footer onload=0>"),
+    privacySwap("<a href=\"/privacy\" onclick=\"return false\">Privacy</a>"),
+    markup.replace("<body>", "<body><template shadowrootmode=open></template>"),
+    ...["<script>document.currentScript.parentElement.removeAttribute(\"href\")</script>",
+      "<iframe></iframe>", "<textarea></textarea>", "<template></template>"]
+      .map((child) => privacySwap("<a href=\"/privacy\">" + child + "Privacy</a>")),
+    markup.replace(
+      "</head>",
+      "<base href=\"https://outside.example/\"></head>",
+    ),
+    afterFooter("<body hidden></body>"),
+    markup.replace(
+      "<a href=\"/privacy\">Privacy</a><a href=\"/meta-data-deletion\">Data Deletion</a>",
+      "<a href=\"/meta-data-deletion\"><a href=\"/privacy\">Privacy</a>Data Deletion</a>",
+    ),
+    ...[
+      "<audio><body hidden></body></audio>",
+      "<audio><html style=\"display:none\"></html></audio>",
+      "<audio><base href=\"https://outside.example/\"></audio>",
+      "<audio><b hidden></b></audio>",
+      "<select><input><body hidden></body></select>",
+      "<select><html style=\"display:none\"></html></select>",
+      "<svg><foreignObject><body hidden></body></foreignObject></svg>",
+      "<svg><foreignObject><base href=\"https://outside.example/\"></foreignObject></svg>",
+      "<math><annotation-xml encoding=\"text/html\"><body hidden></body></annotation-xml></math>",
+      "<math><mtext><body hidden></body></mtext></math>",
+    ].map(afterFooter),
+    privacySwap("<a href=\"/privacy\"><canvas></a></canvas>Privacy</a>"),
+    privacySwap("<a href=\"/privacy\"><audio></a></audio>Privacy</a>"),
+  ];
+  for (const body of structuralBodies) {
+    await assertHomeRejected(body, { message: "HTML_DOCUMENT_REJECTED" });
+  }
+
+  for (const fallback of [
+    "<body hidden></body>",
+    "<html style=\"display:none\"></html>",
+    "<base href=\"https://outside.example/\">",
+    "<b hidden></b>",
+  ]) {
+    const fixture = fetchFixture({ override: async ({ url }) => url.pathname === "/recruitment"
+      ? reply(url.href, recruitmentHtml(siteOrigin, fallback), {
+        status: 200, headers: { "content-type": "text/html; charset=utf-8" },
+      }) : undefined });
+    await assert.rejects(() => checkFixture({
+      baseUrl: requestBase + "/", fetchImpl: fixture.fetchImpl, maxAttempts: 1,
+    }), { message: "HTML_DOCUMENT_REJECTED" });
+    assert.equal(fixture.calls.filter(({ url }) => url.endsWith("/recruitment")).length, 2);
+  }
+
+  const documentBodies = [
+    "<!doctype html><html><body><!--" + markup + "--></body></html>",
+    "<!doctype html><html><body><template>" + markup + "</template></body></html>",
+    "<!doctype html><html><body><script>" + markup + "</script></body></html>",
+    markup.replace('<link rel="stylesheet" href="/_next/static/chunks/3jvcxpga865m1.css" data-precedence="next">', (tag) => "<template>" + tag + "</template>"),
+    markup.replace('<script async="" src="/_next/static/chunks/3nk76snv1e0rj.js"></script>', (tag) => "<template>" + tag + "</template>"),
+    markup.replace(footerStart, "<style>footer a{display:none}</style>" + footerStart),
+    ...[
+      "<!--x--!><style>.site-footer{display:none}</style><!-- -->",
+      "<!--><style>.site-footer{display:none}</style><!-- -->",
+      "<!---><style>.site-footer{display:none}</style><!-- -->",
+      "<!bogus \"><style>.site-footer{display:none}</style>\">",
+      "<?bogus \"><style>.site-footer{display:none}</style>\">",
+      "<!doctype bogus \"><style>.site-footer{display:none}</style>\">",
+      "<meta http-equiv=\"refresh\" content=\"0;url=https://outside.example/harvest\">",
+      "<meta property=\"og&#58;image\" content=\"https://outside.example/e.webp\">",
+      "<meta property=\"og&#58;title\" content=\"entity\">",
+      "<meta name=\"descr&#105;ption\" content=\"entity\">",
+      "<script>self.__next_f.push([1,\"MOCHIRII_INLINE_SENTINEL\"])</script>",
+      "<script async=\"\" src=\"/_next/static/chunks/MOCHIRII_SENTINEL.js\"></script>",
+      "<script id=\"home-structured-data\" type=\"application/ld+json\">{\"name\":\"MOCHIRII_INLINE_SENTINEL\"}</script>",
+      "<link rel=\"stylesheet\" href=\"https://outside.example/hide.css\">",
+      "<link rel=\"stylesheet\" href=\"/_next/static/chunks/MOCHIRII_SENTINEL.css\" data-precedence=\"next\">",
+    ].map(inHead),
+    markup.replace(/\/_next\/static\/chunks\/[^\"]+\.css/, "/_next/static/chunks/MOCHIRII_REPLACED.css"),
+    markup.replace(/\/_next\/static\/chunks\/[^\"]+\.js/, "/_next/static/chunks/MOCHIRII_REPLACED.js"),
+    markup.replace(/(<meta name="description" content=")[^"]+/, "$1&#x20;"),
+    markup.replace(/(<meta property="og:title" content=")[^"]+/, "$1&#x20;"),
+    afterFooter("<div style=\"position:fixed;inset:0;z-index:2147483647\"></div>"),
+    afterFooter("<div class=\"skip-link page-hero__img\"></div>"),
+    afterFooter("<div class=\"nav-menu responsive-gallery-media\"></div>"),
+    ...["nav-menu", "overlay-card__scrim", "spotify-embed__placeholder", "bg-photo", "mobile-top"]
+      .map((name) => afterFooter(`<div class="${name}">${"<br>".repeat(40)}BLOCK</div>`)),
+    afterFooter(`<button autofocus class="skip-link">${"<br>".repeat(40)}BLOCK</button>`),
+    markup.replace(footerStart, `<header class="site-header">${"<br>".repeat(40)}BLOCK</header>${footerStart}`),
+    afterFooter("<iframe style=\"position:fixed;inset:0\"></iframe>"),
+    markup.replace("</nav>", fillImage + "</nav>"),
+    afterFooter(fillImage),
+    markup.replace(footerStart, giantImage + footerStart),
+    ...[missingImage, partialImage, unsupportedImage]
+      .map((image) => markup.replace(footerStart, image + footerStart)),
+    markup.replace(footerStart, traversalImage + footerStart),
+    markup.replace(footerStart, offOriginBackground + footerStart),
+    markup.replace(footerStart, "<img width=\"1\" height=\"2147483647\" src=\"https://outside.example/raw.webp\">" + footerStart),
+    ...[
+      "<a class=\"home-spotlight__surface-link\" href=\"/join\"></a>",
+      "<div class=\"home-spotlight__surface-link\"></div>",
+      "<div class=\"responsive-gallery-media\"></div>",
+      "<dialog open>BLOCK</dialog>",
+    ].map(footerSibling),
+    afterFooter("<a href=\"javascript:location.reload()\">Reload</a>"),
+    afterFooter("<a href=\"java&#115;cript:location.reload()\">Reload</a>"),
+    ...[
+      "<a href=\"/privacy\" ping=\"https://outside.example/harvest\">Ping</a>",
+      "<a href=\"/safe/../privacy\">Plain traversal</a>",
+      "<a href=\"/safe/%2e%2e/privacy\">Encoded traversal</a>",
+      "<a href=\"https://discord.com/safe/../api/harvest\">External traversal</a>",
+      "<a href=\"mailto:support@mochirii.com?subject=%0D%0ABcc%3Aoutside%40example.com\">Mail</a>",
+      "<link rel=\"preload\" as=\"image\" href=\"https://outside.example/harvest.webp\">",
+      "<link rel=\"pre&#108;oad\" as=\"image\" href=\"https://outside.example/entity.webp\">",
+      "<picture><source srcset=\"https://outside.example/harvest.webp\"><img></picture>",
+      "<embed src=\"https://outside.example/harvest\">",
+      "<input type=\"image\" src=\"https://outside.example/harvest.webp\">",
+      "<image src=\"https://outside.example/harvest.webp\">",
+      "<hr size=\"2147483647\">",
+      "<marquee height=\"2147483647\">Wide</marquee>",
+    ].map(afterFooter),
+    markup.replace(footerStart, "<br>".repeat(513) + footerStart),
+    ...[
+      "<div id=\"lightbox\"></div>", "<div id=\"modalRoot\"></div>",
+      "<div id=\"lightboxBackdrop\"></div>", "<div id=\"modalBackdrop\"></div>",
+      "<div class=\"lightbox-backdrop\"></div>",
+      "<div id=\"light&#98;ox\" aria-hidden=\"f&#97;lse\"><div class=\"lightbox&#45;backdrop\"></div></div>",
+    ].map(afterFooter),
+    markup.replace("</head><body>", "<div hidden></head><body>"),
+    markup.replace("<head>", "<head>< "),
+    moveHeadTags(markup),
+    markup.replace("</head><body>", "</head><div class=\"recruitment-audio-native\"><body data-page=\"recruitment\">")
+      .replace("</body></html>", "</body></div></html>"),
+    markup
+      .replace("<body>" + footerStart, "<body><form hidden><div></form>" + footerStart)
+      .replace("</footer></body>", "</footer></div></body>"),
+    markup
+      .replace("<meta name=", "<meta data-name=")
+      .replaceAll("<meta property=", "<meta data-property=")
+      .replace("<link rel=", "<link data-rel=")
+      .replaceAll(" content=", " data-content=")
+      .replaceAll(" href=", " data-href="),
+    markup
+      .replace("<body>" + footerStart, "<body><table>" + footerStart)
+      .replace("</footer></body>", "</footer></table></body>"),
+    markup
+      .replace("<body>" + footerStart, "<body><div>" + footerStart)
+      .replace("</footer></body>", "</div></footer></body>"),
+  ];
+
+  for (const body of documentBodies) {
+    await assertHomeRejected(body, /(?:HTML_DOCUMENT_REJECTED|CONTENT_HOMEPAGE_[A-Z_]+_REJECTED)/);
+  }
+});
+
+test("discovery", async () => {
+  const siteOrigin = "https://mochirii.com";
+  const activeSitemap = "<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">"
+    + "<url><loc>" + siteOrigin + "/gallery</loc></url><url><loc>"
+    + siteOrigin + "/privacy</loc></url><url><loc>" + siteOrigin
+    + "/meta-data-deletion</loc></url></urlset>";
+  const noNamespaceSitemap = activeSitemap.replace(
+    " xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\"",
+    "",
+  );
+  const cases = [
+    {
+      path: "/sitemap.xml",
+      body: "<?xml version=\"1.0\" encoding=\"UTF-8\"?><not-sitemap><!--"
+        + activeSitemap + "--></not-sitemap>",
+      expected: "CONTENT_SITEMAP_DOCUMENT_REJECTED",
+    },
+    {
+      path: "/sitemap.xml",
+      body: "<url<!-- split -->set>" + activeSitemap + "</urlset>",
+      expected: "CONTENT_SITEMAP_DOCUMENT_REJECTED",
+    },
+    {
+      path: "/sitemap.xml",
+      body: "<urlset><![CDATA[" + activeSitemap + "]]></urlset>",
+      expected: "CONTENT_SITEMAP_DOCUMENT_REJECTED",
+    },
+    {
+      path: "/sitemap.xml",
+      body: "<!--invalid-comment--->" + activeSitemap,
+      expected: "CONTENT_SITEMAP_DOCUMENT_REJECTED",
+    },
+    {
+      path: "/sitemap.xml",
+      body: "<!--prolog--><?xml version=\"1.0\" encoding=\"UTF-8\"?>" + activeSitemap,
+      expected: "CONTENT_SITEMAP_DOCUMENT_REJECTED",
+    },
+    {
+      path: "/sitemap.xml",
+      body: noNamespaceSitemap,
+      expected: "CONTENT_SITEMAP_DOCUMENT_REJECTED",
+    },
+    {
+      path: "/sitemap.xml",
+      body: activeSitemap.replace(
+        "http://www.sitemaps.org/schemas/sitemap/0.9",
+        "https://www.sitemaps.org/schemas/sitemap/0.9",
+      ),
+      expected: "CONTENT_SITEMAP_DOCUMENT_REJECTED",
+    },
+    {
+      path: "/robots.txt",
+      body: "User-agent: *\nAllow: /\n# Sitemap: " + siteOrigin + "/sitemap.xml\n",
+      expected: "CONTENT_ROBOTS_SITEMAP_REJECTED",
+    },
+    {
+      path: "/robots.txt",
+      body: "User-agent: *\nNotSitemap: " + siteOrigin + "/sitemap.xml\n",
+      expected: "CONTENT_ROBOTS_SITEMAP_REJECTED",
+    },
+    {
+      path: "/robots.txt",
+      body: "Sitemap: " + siteOrigin + "/sitemap.xml\nSitemap: "
+        + siteOrigin + "/sitemap.xml\n",
+      expected: "CONTENT_ROBOTS_SITEMAP_REJECTED",
+    },
+  ];
+
+  for (const current of cases) {
+    const fixture = fetchFixture({
+      override: async ({ url }) => url.pathname === current.path
+        ? reply(url.href, current.body, {
+          status: 200,
+          headers: { "content-type": mediaType(url.pathname) },
+        })
+        : undefined,
+    });
+    await assert.rejects(
+      () => checkFixture({
+        baseUrl: "https://preview.example/",
+        fetchImpl: fixture.fetchImpl,
+        maxAttempts: 1,
+      }),
+      { message: current.expected },
+    );
+  }
+});
+
+test("head", async () => {
+  const baseUrl = "https://preview.example";
+  for (const route of ["/recruitment", "/privacy", "/meta-data-deletion"]) {
+    const body = moveHeadTags(bodyFor(new URL(baseUrl + route), baseUrl, ""));
+    const fixture = fetchFixture({
+      override: async ({ url }) => url.pathname === route
+        ? reply(url.href, body, {
+          status: 200,
+          headers: { "content-type": "text/html; charset=utf-8" },
+        })
+        : undefined,
+    });
+    await assert.rejects(
+      () => checkFixture({
+        baseUrl: baseUrl + "/",
+        fetchImpl: fixture.fetchImpl,
+        maxAttempts: 1,
+      }),
+      /(?:HTML_DOCUMENT|CONTENT_(?:RECRUITMENT|PRIVACY|DELETION)_(?:PAGE|CANONICAL))_REJECTED/,
+    );
+  }
+});
+
+test("bases", async () => {
+  const sentinel = "MOCHIRII_PRODUCTION_BASE_SENTINEL";
+  assert.throws(() => normalizeProductionBaseUrl(), { message: "BASE_URL_REJECTED" });
+  let fetchCalled = false;
+  for (const baseUrl of [
+    "https://user:" + sentinel + "@preview.example/",
+    "https://preview.example/nested",
+    "https://preview.example/ignored/..",
+    " https://preview.example/",
+    "HTTPS://preview.example/",
+    "https://preview.example/?token=" + sentinel,
+    "https://preview.example/#" + sentinel,
+    "https://preview.example/?",
+    "https://preview.example/#",
+    "file:///" + sentinel,
+    "x".repeat(CHECK_LIMITS.baseUrlCharacters + 1),
+  ]) {
+    await assert.rejects(
+      () => checkFixture({
+        baseUrl,
+        fetchImpl: async () => {
+          fetchCalled = true;
+          throw new Error("must not fetch");
+        },
+        maxAttempts: 1,
+      }),
+      (error) => {
+        assert.equal(error.message, "BASE_URL_REJECTED");
+        assert(!formatProductionFailure(error).includes(sentinel));
+        return true;
+      },
+    );
+  }
+  assert.equal(fetchCalled, false);
+});
+
+test("origin", async () => {
+  const sentinel = "MOCHIRII_PRODUCTION_CONFIG_SENTINEL";
+  assert.equal(loadDefaultProductionBaseUrl(), "https://mochirii.com");
+
+  let fetchCalled = false;
+  await assert.rejects(
+    () => checkFixture({
+      defaultBaseUrlLoader: () => {
+        throw new Error(sentinel);
+      },
+      fetchImpl: async () => {
+        fetchCalled = true;
+        throw new Error("must not fetch");
+      },
+      maxAttempts: 1,
+    }),
+    (error) => {
+      assert.equal(error.message, "BASE_URL_REJECTED");
+      assert(!formatProductionFailure(error).includes(sentinel));
+      return true;
+    },
+  );
+  assert.equal(fetchCalled, false);
+
+  const failures = [];
+  assert.equal(
+    await runCheck({
+      defaultBaseUrlLoader: () => {
+        throw new Error(sentinel);
+      },
+      fetchImpl: async () => {
+        fetchCalled = true;
+        throw new Error("must not fetch");
+      },
+      maxAttempts: 1,
+      reportFailure: (message) => failures.push(message),
+      reportSuccess: () => undefined,
+    }),
+    1,
+  );
+  assert.deepEqual(failures, ["Production smoke check failed [BASE_URL_REJECTED]."]);
+  assert(!JSON.stringify(failures).includes(sentinel));
+  assert.equal(fetchCalled, false);
+});
+
+test("response", async () => {
+  for (const current of [
+    { status: 302, responseUrl: "https://preview.example/", expected: "REDIRECT_REJECTED" },
+    { status: 200, responseUrl: "https://preview.example/", expected: "RESPONSE_HEADER_REJECTED", header: { refresh: "0;url=https://outside.example/MOCHIRII_REFRESH_SENTINEL" } },
+    { status: 200, responseUrl: "https://preview.example/", expected: "RESPONSE_HEADER_REJECTED", header: { "content-disposition": "attachment; filename=MOCHIRII_DISPOSITION_SENTINEL.html" } },
+    { status: 200, responseUrl: "https://preview.example/", expected: "RESPONSE_HEADER_REJECTED", header: { link: "<https://outside.example/MOCHIRII_LINK_SENTINEL.webp>; rel=preload; as=image" } },
+    { status: 200, responseUrl: "https://outside.example/harvest", expected: "RESPONSE_URL_REJECTED" },
+    { status: 200, responseUrl: "https://user:placeholder@preview.example/", expected: "RESPONSE_URL_REJECTED" },
+    { status: 200, responseUrl: "https://preview.example/wrong", expected: "RESPONSE_URL_REJECTED" },
+    { status: 200, responseUrl: "https://preview.example/?", expected: "RESPONSE_URL_REJECTED" },
+    { status: 200, responseUrl: "https://preview.example/#", expected: "RESPONSE_URL_REJECTED" },
+    { status: 200, redirected: true, responseUrl: "https://preview.example/", expected: "RESPONSE_URL_REJECTED" },
+  ]) {
+    let bodyRead = false;
+    let bodyCancelled = false;
+    const requestOptions = [];
+    await assert.rejects(
+      () => checkFixture({
+        baseUrl: "https://preview.example/",
+        maxAttempts: 1,
+        fetchImpl: async (_input, options) => {
+          requestOptions.push(options);
+          return {
+            status: current.status,
+            redirected: current.redirected ?? false,
+            url: current.responseUrl,
+            headers: new Headers({
+              "content-type": "text/html; charset=utf-8",
+              location: "https://outside.example/harvest",
+              ...current.header,
+            }),
+            body: {
+              getReader() {
+                bodyRead = true;
+                throw new Error("body must not be read");
+              },
+              async cancel() {
+                bodyCancelled = true;
+              },
+            },
+          };
+        },
+      }),
+      (error) => {
+        assert.equal(error.message, current.expected);
+        assert(!formatProductionFailure(error).includes("outside.example"));
+        assert(!formatProductionFailure(error).includes("MOCHIRII_"));
+        return true;
+      },
+    );
+    assert.equal(requestOptions.length, 1);
+    assert.equal(requestOptions[0].redirect, "manual");
+    assert.equal(bodyRead, false);
+    assert.equal(bodyCancelled, true);
+  }
+});
+
+test("media", async () => {
+  const sentinel = "MOCHIRII_PRODUCTION_BODY_SENTINEL";
+  for (const contentType of [
+    "text/plain; charset=utf-8",
+    "application/xhtml+xml; charset=utf-8",
+    "text/html",
+    "text/html; charset=iso-8859-1",
+    "text/html; charset =utf-8",
+    "text/html; charset= \"utf-8\"",
+    "\u00a0text/html; charset=utf-8",
+    "text/html; charset=utf-8\u000b",
+    "text/html; charset=utf-8; token=" + sentinel,
+  ]) {
+    let bodyRead = false;
+    let bodyCancelled = false;
+    const fixture = fetchFixture({
+      override: async ({ url }) => {
+        if (url.pathname !== "/privacy") return undefined;
+        return {
+          status: 200,
+          redirected: false,
+          url: url.href,
+          headers: new Headers({ "content-type": contentType }),
+          body: {
+            getReader() {
+              bodyRead = true;
+              throw new Error(sentinel);
+            },
+            async cancel() {
+              bodyCancelled = true;
+            },
+          },
+        };
+      },
+    });
+    await assert.rejects(
+      () => checkFixture({
+        baseUrl: "https://preview.example/",
+        fetchImpl: fixture.fetchImpl,
+        maxAttempts: 1,
+      }),
+      (error) => {
+        assert.equal(error.message, "MEDIA_TYPE_REJECTED");
+        assert(!formatProductionFailure(error).includes(sentinel));
+        return true;
+      },
+    );
+    assert.equal(bodyRead, false);
+    assert.equal(bodyCancelled, true);
+    assert.equal(fixture.calls.at(-1).url, "https://preview.example/privacy");
+  }
+});
+
+test("legal bounds", async () => {
+  let chunkIndex = 0;
+  let readerCancelled = false;
+  let readerReleased = false;
+  const chunks = [
+    new Uint8Array(CHECK_LIMITS.htmlBytes),
+    new Uint8Array([0x21]),
+  ];
+  const fixture = fetchFixture({
+    override: async ({ url }) => {
+      if (url.pathname !== "/privacy") return undefined;
+      return {
+        status: 200,
+        redirected: false,
+        url: url.href,
+        headers: new Headers({ "content-type": "text/html; charset=utf-8" }),
+        body: {
+          getReader() {
+            return {
+              async read() {
+                if (chunkIndex === chunks.length) return { done: true, value: undefined };
+                return { done: false, value: chunks[chunkIndex++] };
+              },
+              async cancel() {
+                readerCancelled = true;
+              },
+              releaseLock() {
+                readerReleased = true;
+              },
+            };
+          },
+        },
+      };
+    },
+  });
+  await assert.rejects(
+    () => checkFixture({
+      baseUrl: "https://preview.example/",
+      fetchImpl: fixture.fetchImpl,
+      maxAttempts: 1,
+    }),
+    { message: "BODY_LIMIT_REJECTED" },
+  );
+  assert.equal(readerCancelled, true);
+  assert.equal(readerReleased, true);
+});
+
+test("overflow", async () => {
+  let bodyRead = false;
+  let bodyCancelled = false;
+  const fixture = fetchFixture({
+    override: async ({ url }) => {
+      if (url.pathname !== "/privacy") return undefined;
+      return {
+        status: 200,
+        redirected: false,
+        url: url.href,
+        headers: new Headers({
+          "content-type": "text/html; charset=utf-8",
+          "content-length": String(CHECK_LIMITS.htmlBytes + 1),
+        }),
+        body: {
+          getReader() {
+            bodyRead = true;
+            throw new Error("body must not be read");
+          },
+          async cancel() {
+            bodyCancelled = true;
+          },
+        },
+      };
+    },
+  });
+  await assert.rejects(
+    () => checkFixture({
+      baseUrl: "https://preview.example/",
+      fetchImpl: fixture.fetchImpl,
+      maxAttempts: 1,
+    }),
+    { message: "BODY_LIMIT_REJECTED" },
+  );
+  assert.equal(bodyRead, false);
+  assert.equal(bodyCancelled, true);
+});
+
+test("body", async () => {
+  const sentinel = "MOCHIRII_PRODUCTION_READER_SENTINEL";
+  for (const current of [
+    {
+      expected: "BODY_READ_REJECTED",
+      read: async () => ({ done: false, value: sentinel }),
+    },
+    {
+      expected: "BODY_READ_REJECTED",
+      read: async () => { throw new Error(sentinel); },
+    },
+    {
+      expected: "BODY_UTF8_REJECTED",
+      read: (() => {
+        let emitted = false;
+        return async () => {
+          if (emitted) return { done: true, value: undefined };
+          emitted = true;
+          return { done: false, value: new Uint8Array([0xff]) };
+        };
+      })(),
+    },
+  ]) {
+    let readerCancelled = false;
+    let readerReleased = false;
+    const fixture = fetchFixture({
+      override: async ({ url }) => {
+        if (url.pathname !== "/privacy") return undefined;
+        return {
+          status: 200,
+          redirected: false,
+          url: url.href,
+          headers: new Headers({ "content-type": "text/html; charset=utf-8" }),
+          body: {
+            getReader() {
+              return {
+                read: current.read,
+                async cancel() {
+                  readerCancelled = true;
+                },
+                releaseLock() {
+                  readerReleased = true;
+                },
+              };
+            },
+          },
+        };
+      },
+    });
+    await assert.rejects(
+      () => checkFixture({
+        baseUrl: "https://preview.example/",
+        fetchImpl: fixture.fetchImpl,
+        maxAttempts: 1,
+      }),
+      (error) => {
+        assert.equal(error.message, current.expected);
+        assert(!formatProductionFailure(error).includes(sentinel));
+        return true;
+      },
+    );
+    if (current.expected === "BODY_READ_REJECTED") assert.equal(readerCancelled, true);
+    assert.equal(readerReleased, true);
+  }
+});
+
+test("targets", async () => {
+  const sentinel = "MOCHIRII_PRODUCTION_IMAGE_SENTINEL";
+  for (const ogImage of [
+    "https://outside.example/" + sentinel + ".webp",
+    "https://user:" + sentinel + "@preview.example/assets/card.webp",
+    "//outside.example/" + sentinel + ".webp",
+    "javascript:" + sentinel,
+    "/assets/card.webp",
+    "https://preview.example/assets/card.webp",
+    "/assets/card.webp?token=" + sentinel,
+    "/assets/card.webp?",
+    "/assets/card.webp#",
+    "https://preview.example/assets/card.webp?",
+    "https://preview.example/assets/card.webp#",
+    "/assets/%2f" + sentinel + ".webp",
+    "/assets/%2e%2e/" + sentinel + ".webp",
+    "/assets/" + "é".repeat(2035) + ".webp",
+  ]) {
+    const fixture = fetchFixture({ ogImage });
+    await assert.rejects(
+      () => checkFixture({
+        baseUrl: "https://preview.example/",
+        fetchImpl: fixture.fetchImpl,
+        maxAttempts: 1,
+      }),
+      (error) => {
+        assert.equal(error.message, "ASSET_URL_REJECTED");
+        assert(!formatProductionFailure(error).includes(sentinel));
+        return true;
+      },
+    );
+    assert(fixture.calls.every(({ url }) => url.startsWith("https://preview.example/")));
+    assert.equal(fixture.calls.filter(({ url }) => url.includes("/assets/")).length, 0);
+  }
+});
+
+test("OG image", async () => {
+  let imageBodyRead = false;
+  let imageBodyCancelled = false;
+  let imageOptions;
+  const fixture = fetchFixture({
+    override: async ({ url, options }) => {
+      if (url.pathname !== "/assets/card.webp") return undefined;
+      imageOptions = options;
+      return {
+        status: 200,
+        redirected: false,
+        url: url.href,
+        headers: new Headers({ "content-type": "image/webp" }),
+        body: {
+          getReader() {
+            imageBodyRead = true;
+            throw new Error("image body must not be read");
+          },
+          async cancel() {
+            imageBodyCancelled = true;
+          },
+        },
+      };
+    },
+  });
+  assert.deepEqual(
+    await checkFixture({
+      baseUrl: "https://preview.example/",
+      fetchImpl: fixture.fetchImpl,
+      maxAttempts: 1,
+    }),
+    { ok: true },
+  );
+  assert.equal(imageOptions.redirect, "manual");
+  assert.equal(imageBodyRead, false);
+  assert.equal(imageBodyCancelled, true);
+});
+
+test("OG", async () => {
+  for (const current of [
+    { status: 302, redirected: false, url: "https://preview.example/assets/card.webp", type: "image/webp", expected: "REDIRECT_REJECTED" },
+    { status: 200, redirected: true, url: "https://preview.example/assets/card.webp", type: "image/webp", expected: "RESPONSE_URL_REJECTED" },
+    { status: 200, redirected: false, url: "https://outside.example/card.webp", type: "image/webp", expected: "RESPONSE_URL_REJECTED" },
+    { status: 200, redirected: false, url: "https://preview.example/assets/card.webp?", type: "image/webp", expected: "RESPONSE_URL_REJECTED" },
+    { status: 200, redirected: false, url: "https://preview.example/assets/card.webp", type: "image/webp; charset=utf-8", expected: "MEDIA_TYPE_REJECTED" },
+    { status: 200, redirected: false, url: "https://preview.example/assets/card.webp", type: "text/html; charset=utf-8", expected: "MEDIA_TYPE_REJECTED" },
+  ]) {
+    let bodyRead = false;
+    let bodyCancelled = false;
+    const fixture = fetchFixture({
+      override: async ({ url }) => {
+        if (url.pathname !== "/assets/card.webp") return undefined;
+        return {
+          status: current.status,
+          redirected: current.redirected,
+          url: current.url,
+          headers: new Headers({ "content-type": current.type }),
+          body: {
+            getReader() {
+              bodyRead = true;
+              throw new Error("image body must not be read");
+            },
+            async cancel() {
+              bodyCancelled = true;
+            },
+          },
+        };
+      },
+    });
+    await assert.rejects(
+      () => checkFixture({
+        baseUrl: "https://preview.example/",
+        fetchImpl: fixture.fetchImpl,
+        maxAttempts: 1,
+      }),
+      { message: current.expected },
+    );
+    assert.equal(bodyRead, false);
+    assert.equal(bodyCancelled, true);
+  }
+});
+
+test("network", async () => {
+  const sentinel = "MOCHIRII_PRODUCTION_DIAGNOSTIC_SENTINEL";
+  const diagnostics = [];
+  let networkError;
+  try {
+    await checkFixture({
+      baseUrl: "https://preview.example/",
+      maxAttempts: 1,
+      diagnose: true,
+      reportDiagnostic: (message) => diagnostics.push(message),
+      fetchImpl: async () => {
+        throw new Error(sentinel);
+      },
+    });
+  } catch (error) {
+    networkError = error;
+  }
+  assert(networkError);
+  assert.equal(networkError.message, "NETWORK_REJECTED");
+  assert.equal(diagnostics.length, 0);
+  assert(!formatProductionFailure(networkError).includes(sentinel));
+
+  let bodyCancelled = false;
+  const headerFixture = fetchFixture({
+    override: async ({ url }) => ({
+      status: 500,
+      redirected: false,
+      url: url.href,
+      headers: new Headers({
+        "content-type": "text/html; charset=utf-8",
+        server: sentinel,
+      }),
+      body: {
+        getReader() {
+          throw new Error("body must not be read");
+        },
+        async cancel() {
+          bodyCancelled = true;
+        },
+      },
+    }),
+  });
+  await assert.rejects(
+    () => checkFixture({
+      baseUrl: "https://preview.example/",
+      fetchImpl: headerFixture.fetchImpl,
+      maxAttempts: 1,
+    }),
+    (error) => {
+      assert.equal(error.message, "HTTP_STATUS_REJECTED");
+      const diagnostic = formatProductionFailure(error);
+      assert.match(diagnostic, /HTTP 500/);
+      assert(!diagnostic.includes(sentinel));
+      return true;
+    },
+  );
+  assert.equal(bodyCancelled, true);
+});
+
+test("CLI", async () => {
+  const sentinel = "MOCHIRII_PRODUCTION_CLI_SENTINEL";
+  const diagnostics = [];
+  const failures = [];
+  const successes = [];
+  assert.equal(
+    await runCheck({
+      baseUrl: "https://preview.example/",
+      fetchImpl: async () => {
+        const error = new Error(sentinel);
+        error.stack = sentinel;
+        throw error;
+      },
+      maxAttempts: 1,
+      diagnose: true,
+      reportDiagnostic: (message) => diagnostics.push(message),
+      reportFailure: (message) => failures.push(message),
+      reportSuccess: (message) => successes.push(message),
+    }),
+    1,
+  );
+  assert.deepEqual(diagnostics, []);
+  assert.deepEqual(successes, []);
+  assert.deepEqual(failures, ["Production smoke check failed [NETWORK_REJECTED]."]);
+  assert(!JSON.stringify({ diagnostics, failures, successes }).includes(sentinel));
+});
+
+test("OS", () => {
+  const sentinel = "MOCHIRII_PRODUCTION_ENTRYPOINT_SENTINEL";
+  const result = spawnSync(process.execPath, [checkerPath], {
+    cwd: repositoryRoot,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      MOCHIRII_PRODUCTION_BASE_URL: "https://user:" + sentinel + "@preview.example/",
+    },
+  });
+  assert.equal(result.status, 1);
+  assert.equal(result.signal, null);
+  assert.equal(result.stdout, "");
+  assert.equal(result.stderr.trim(), "Production smoke check failed [BASE_URL_REJECTED].");
+  assert(!JSON.stringify(result).includes(sentinel));
+  assert(!/ProductionSmokeError|\bat\s+.*check-production\.mjs/.test(result.stderr));
+});
 
 function publicMetadataHtml({ canonical, ogUrl, ogImage, twitterImage }) {
   return `<!doctype html>
@@ -1342,13 +2290,13 @@ function publicMetadataHtml({ canonical, ogUrl, ogImage, twitterImage }) {
 </head><body>Mochirii</body></html>`;
 }
 
-test("observability live consumer executes bounded HTML ingestion", async () => {
+test("meta HTML", async () => {
   let bodyRead = false;
   let bodyCancelled = false;
   const requestOptions = [];
   const response = {
     status: 200,
-    headers: observabilityHeaders("text/plain"),
+    headers: obsHeaders("text/plain"),
     redirected: false,
     url: "https://preview.example/",
     body: {
@@ -1379,15 +2327,15 @@ test("observability live consumer executes bounded HTML ingestion", async () => 
   assert.deepEqual(recorder.messages, ["live /: UTF-8 HTML media type rejected"]);
 
   const chunks = [
-    new Uint8Array(PRODUCTION_SMOKE_HTML_BYTE_LIMIT),
+    new Uint8Array(H),
     new Uint8Array([0x21]),
   ];
   let chunkIndex = 0;
-  let oversizedCancelled = false;
-  let oversizedReleased = false;
+  let largeCancelled = false;
+  let largeReleased = false;
   const oversizedResponse = {
     status: 200,
-    headers: observabilityHeaders(),
+    headers: obsHeaders(),
     redirected: false,
     url: "https://preview.example/",
     body: {
@@ -1398,10 +2346,10 @@ test("observability live consumer executes bounded HTML ingestion", async () => 
             return { done: false, value: chunks[chunkIndex++] };
           },
           async cancel() {
-            oversizedCancelled = true;
+            largeCancelled = true;
           },
           releaseLock() {
-            oversizedReleased = true;
+            largeReleased = true;
           },
         };
       },
@@ -1418,12 +2366,12 @@ test("observability live consumer executes bounded HTML ingestion", async () => 
     },
     recordFailure: oversizedRecorder.record,
   });
-  assert.equal(oversizedCancelled, true);
-  assert.equal(oversizedReleased, true);
+  assert.equal(largeCancelled, true);
+  assert.equal(largeReleased, true);
   assert.deepEqual(oversizedRecorder.messages, ["live /: HTML response rejected"]);
 });
 
-test("observability rejects non-HTML and non-UTF-8 media contracts before body parsing", async () => {
+test("meta media", async () => {
   const sentinel = "MOCHIRII_XHTML_CDATA_SENTINEL";
   const validMetadata = publicMetadataHtml({
     canonical: "https://preview.example/",
@@ -1461,7 +2409,7 @@ test("observability rejects non-HTML and non-UTF-8 media contracts before body p
   for (const current of cases) {
     const source = new Response(current.body, {
       status: 200,
-      headers: observabilityHeaders(current.contentType),
+      headers: obsHeaders(current.contentType),
     });
     let bodyRead = false;
     let bodyCancelled = false;
@@ -1503,7 +2451,7 @@ test("observability rejects non-HTML and non-UTF-8 media contracts before body p
   }
 });
 
-test("observability rejects invalid bases before fetch and normalizes a valid origin", async () => {
+test("meta origins", async () => {
   for (const baseUrl of [
     "https://user:placeholder@preview.example/",
     "https://preview.example/private/path",
@@ -1534,10 +2482,10 @@ test("observability rejects invalid bases before fetch and normalizes a valid or
     routes: ["/auth"],
     fetchImpl: async (url, options) => {
       normalizedRequests.push({ url: new URL(url), options });
-      return observedResponse(
+      return reply(
         "https://preview.example/auth",
         '<html><head><meta name="robots" content="noindex, follow"></head></html>',
-        { status: 200, headers: observabilityHeaders() },
+        { status: 200, headers: obsHeaders() },
       );
     },
     recordFailure: normalizedRecorder.record,
@@ -1547,7 +2495,7 @@ test("observability rejects invalid bases before fetch and normalizes a valid or
   assert.deepEqual(normalizedRecorder.messages, []);
 });
 
-test("observability rejects route redirects and exact-response URL drift before reading", async () => {
+test("meta redirect", async () => {
   const sentinel = "MOCHIRII_PRIVATE_ROUTE_REDIRECT_SENTINEL";
   const cases = [
     {
@@ -1571,7 +2519,7 @@ test("observability rejects route redirects and exact-response URL drift before 
     let bodyRead = false;
     let bodyCancelled = false;
     let requests = 0;
-    const headers = observabilityHeaders();
+    const headers = obsHeaders();
     headers.set("location", `https://outside.example/${sentinel}`);
     const response = {
       status: current.status,
@@ -1609,7 +2557,7 @@ test("observability rejects route redirects and exact-response URL drift before 
   }
 });
 
-test("observability rejects response-controlled image targets without diagnostic leakage", async () => {
+test("meta images", async () => {
   const sentinel = "MOCHIRII_PRIVATE_METADATA_SENTINEL";
   const html = publicMetadataHtml({
     canonical: `https://preview.example/?code=${sentinel}`,
@@ -1626,7 +2574,7 @@ test("observability rejects response-controlled image targets without diagnostic
     fetchImpl: async (url, options) => {
       requests.push({ url: new URL(url), options });
       if (requests.length === 1) {
-        return observedResponse("https://preview.example/", html, { status: 200, headers: observabilityHeaders() });
+        return reply("https://preview.example/", html, { status: 200, headers: obsHeaders() });
       }
       throw new Error("response-controlled image target must not be requested");
     },
@@ -1640,11 +2588,11 @@ test("observability rejects response-controlled image targets without diagnostic
   assert(recorder.messages.includes("live /: og:url metadata mismatch"));
   assert.equal(recorder.messages.filter((message) => message === "live /: social image URL rejected").length, 2);
   assert(recorder.messages.every((message) => !message.includes(sentinel)));
-  assert(recorder.messages.every((message) => message.length <= OBSERVABILITY_DIAGNOSTIC_LIMITS.messageCharacters));
-  assert(recorder.messages.join("").length <= OBSERVABILITY_DIAGNOSTIC_LIMITS.aggregateCharacters);
+  assert(recorder.messages.every((message) => message.length <= OBS_LIMITS.messageCharacters));
+  assert(recorder.messages.join("").length <= OBS_LIMITS.aggregateCharacters);
 });
 
-test("observability accepts only credential-free same-origin asset image URLs", async () => {
+test("meta assets", async () => {
   const page = new URL("https://preview.example/");
   assert.equal(
     resolveSameOriginMetadataImage(page, "/assets/social-card.webp")?.href,
@@ -1676,9 +2624,9 @@ test("observability accepts only credential-free same-origin asset image URLs", 
     fetchImpl: async (url, options) => {
       requests.push({ url: new URL(url), options });
       if (requests.length === 1) {
-        return observedResponse("https://preview.example/", html, { status: 200, headers: observabilityHeaders() });
+        return reply("https://preview.example/", html, { status: 200, headers: obsHeaders() });
       }
-      return observedResponse("https://preview.example/assets/social-card.webp", new Uint8Array([0x00]), {
+      return reply("https://preview.example/assets/social-card.webp", new Uint8Array([0x00]), {
         status: 200,
         headers: { "content-type": "image/webp" },
       });
@@ -1693,7 +2641,7 @@ test("observability accepts only credential-free same-origin asset image URLs", 
   assert.deepEqual(recorder.messages, []);
 });
 
-test("observability rejects image redirects and final-response URL drift", async () => {
+test("meta image", async () => {
   const sentinel = "MOCHIRII_PRIVATE_IMAGE_REDIRECT_SENTINEL";
   const html = publicMetadataHtml({
     canonical: "https://preview.example/",
@@ -1731,7 +2679,7 @@ test("observability rejects image redirects and final-response URL drift", async
       fetchImpl: async (url, options) => {
         requests.push({ url: new URL(url), options });
         if (requests.length === 1) {
-          return observedResponse("https://preview.example/", html, { status: 200, headers: observabilityHeaders() });
+          return reply("https://preview.example/", html, { status: 200, headers: obsHeaders() });
         }
         const headers = new Headers({
           "content-type": "image/webp",
@@ -1767,9 +2715,9 @@ test("observability rejects image redirects and final-response URL drift", async
   }
 });
 
-test("observability bounds canonical image targets before fetch and rejects empty delimiters", async () => {
+test("meta bounds", async () => {
   const unicodeImage = "/assets/" + "é".repeat(2_040);
-  assert.equal(unicodeImage.length, OBSERVABILITY_DIAGNOSTIC_LIMITS.metadataUrlCharacters);
+  assert.equal(unicodeImage.length, OBS_LIMITS.metadataUrlCharacters);
   const cases = [
     {
       html: publicMetadataHtml({
@@ -1810,9 +2758,9 @@ test("observability bounds canonical image targets before fetch and rejects empt
       fetchImpl: async (url, options) => {
         requests.push({ url: new URL(url), options });
         if (requests.length > 1) throw new Error("rejected image URL must not reach fetch");
-        return observedResponse("https://preview.example/", current.html, {
+        return reply("https://preview.example/", current.html, {
           status: 200,
-          headers: observabilityHeaders(),
+          headers: obsHeaders(),
         });
       },
       recordFailure: recorder.record,
@@ -1826,7 +2774,7 @@ test("observability bounds canonical image targets before fetch and rejects empt
   }
 });
 
-test("observability ignores inactive, foreign, select-mode, malformed, and duplicate metadata", async () => {
+test("inert meta", async () => {
   const sentinel = "MOCHIRII_INERT_METADATA_SENTINEL";
   const suffixMetadata = [
     '<link data-rel="canonical" data-href="https://preview.example/">',
@@ -1883,9 +2831,9 @@ test("observability ignores inactive, foreign, select-mode, malformed, and dupli
       fetchImpl: async (url, options) => {
         requests.push({ url: new URL(url), options });
         if (requests.length > 1) throw new Error("inactive or ambiguous metadata must not trigger an image request");
-        return observedResponse("https://preview.example/", html, {
+        return reply("https://preview.example/", html, {
           status: 200,
-          headers: observabilityHeaders(),
+          headers: obsHeaders(),
         });
       },
       recordFailure: recorder.record,
@@ -1897,7 +2845,7 @@ test("observability ignores inactive, foreign, select-mode, malformed, and dupli
   }
 });
 
-test("observability handles a boundary-valid raw-text close candidate without suffix rescans", async () => {
+test("meta raw", async () => {
   const requests = [];
   const recorder = createObservabilityFailureRecorder();
   const originalIndexOf = String.prototype.indexOf;
@@ -1915,10 +2863,10 @@ test("observability handles a boundary-valid raw-text close candidate without su
       fetchImpl: async (url, options) => {
         requests.push({ url: new URL(url), options });
         if (requests.length > 1) throw new Error("rejected raw-text metadata must not trigger an image request");
-        return observedResponse(
+        return reply(
           "https://preview.example/",
           "<script>" + "</script x ".repeat(256),
-          { status: 200, headers: observabilityHeaders() },
+          { status: 200, headers: obsHeaders() },
         );
       },
       recordFailure: recorder.record,
@@ -1932,7 +2880,7 @@ test("observability handles a boundary-valid raw-text close candidate without su
   assert(recorder.messages.includes("live /: expected og:image metadata"));
 });
 
-test("observability keeps tag folding ASCII-only and preserves malformed tag boundaries", async () => {
+test("ASCII", async () => {
   const validHtml = publicMetadataHtml({
     canonical: "https://preview.example/",
     ogUrl: "https://preview.example/",
@@ -1963,12 +2911,12 @@ test("observability keeps tag folding ASCII-only and preserves malformed tag bou
       fetchImpl: async (url, options) => {
         requests.push({ url: new URL(url), options });
         if (requests.length === 1) {
-          return observedResponse("https://preview.example/", current.html, {
+          return reply("https://preview.example/", current.html, {
             status: 200,
-            headers: observabilityHeaders(),
+            headers: obsHeaders(),
           });
         }
-        return observedResponse("https://preview.example/assets/social-card.webp", new Uint8Array([0]), {
+        return reply("https://preview.example/assets/social-card.webp", new Uint8Array([0]), {
           status: 200,
           headers: { "content-type": "image/webp" },
         });
@@ -1983,7 +2931,7 @@ test("observability keeps tag folding ASCII-only and preserves malformed tag bou
   }
 });
 
-test("observability accepts active metadata streamed outside head", async () => {
+test("active meta", async () => {
   const headHtml = publicMetadataHtml({
     canonical: "https://preview.example/",
     ogUrl: "https://preview.example/",
@@ -2002,12 +2950,12 @@ test("observability accepts active metadata streamed outside head", async () => 
     fetchImpl: async (url, options) => {
       requests.push({ url: new URL(url), options });
       if (requests.length === 1) {
-        return observedResponse("https://preview.example/", html, {
+        return reply("https://preview.example/", html, {
           status: 200,
-          headers: observabilityHeaders(),
+          headers: obsHeaders(),
         });
       }
-      return observedResponse("https://preview.example/assets/social-card.webp", new Uint8Array([0]), {
+      return reply("https://preview.example/assets/social-card.webp", new Uint8Array([0]), {
         status: 200,
         headers: { "content-type": "image/webp" },
       });
@@ -2021,7 +2969,7 @@ test("observability accepts active metadata streamed outside head", async () => 
   assert.deepEqual(recorder.messages, []);
 });
 
-test("observability ignores commented noindex metadata", async () => {
+test("noindex", async () => {
   const recorder = createObservabilityFailureRecorder();
   await checkLiveIfRequested({
     liveEnabled: true,
@@ -2030,10 +2978,10 @@ test("observability ignores commented noindex metadata", async () => {
     fetchImpl: async (url, options) => {
       assert.equal(new URL(url).href, "https://preview.example/auth");
       assert.equal(options.redirect, "manual");
-      return observedResponse(
+      return reply(
         "https://preview.example/auth",
         '<html><head><!--<meta name="robots" content="noindex, follow">--></head></html>',
-        { status: 200, headers: observabilityHeaders() },
+        { status: 200, headers: obsHeaders() },
       );
     },
     recordFailure: recorder.record,
@@ -2041,18 +2989,18 @@ test("observability ignores commented noindex metadata", async () => {
   assert.deepEqual(recorder.messages, ["live /auth: expected noindex robots meta"]);
 });
 
-test("observability diagnostics have per-message, count, and aggregate bounds", () => {
+test("meta logs", () => {
   const recorder = createObservabilityFailureRecorder();
   for (let index = 0; index < 1_000; index += 1) {
     recorder.record(`failure ${index}: ${"x".repeat(2_000)}`);
   }
-  assert(recorder.messages.length <= OBSERVABILITY_DIAGNOSTIC_LIMITS.messages);
-  assert(recorder.messages.every((message) => message.length <= OBSERVABILITY_DIAGNOSTIC_LIMITS.messageCharacters));
-  assert(recorder.messages.join("").length <= OBSERVABILITY_DIAGNOSTIC_LIMITS.aggregateCharacters);
+  assert(recorder.messages.length <= OBS_LIMITS.messages);
+  assert(recorder.messages.every((message) => message.length <= OBS_LIMITS.messageCharacters));
+  assert(recorder.messages.join("").length <= OBS_LIMITS.aggregateCharacters);
   assert.equal(recorder.messages.at(-1), "additional observability failures were suppressed");
 });
 
-test("fails closed when an App Router entry is undocumented", () => {
+test("inventory", () => {
   const current = fixture();
   try {
     writeMatrix(current.matrix, [
@@ -2066,7 +3014,7 @@ test("fails closed when an App Router entry is undocumented", () => {
   }
 });
 
-test("fails closed when handler method exports drift", () => {
+test("handlers", () => {
   const current = fixture();
   try {
     writeMatrix(current.matrix, [
@@ -2081,7 +3029,7 @@ test("fails closed when handler method exports drift", () => {
   }
 });
 
-test("parses and compares the depth-one Next redirect literal contract", () => {
+test("redirects", () => {
   const parsed = parseRedirectFixture(`
     const nextConfig: NextConfig = {
       async redirects() {
@@ -2104,7 +3052,7 @@ test("parses and compares the depth-one Next redirect literal contract", () => {
   );
 });
 
-test("ignores commented redirect declarations and checks the one live contract", () => {
+test("comments", () => {
   const parsed = parseRedirectFixture(`
     /*
       const nextConfig: NextConfig = {
@@ -2129,7 +3077,7 @@ test("ignores commented redirect declarations and checks the one live contract",
   ], parsed), ["Next redirect /safe.html does not match the route matrix"]);
 });
 
-test("rejects a canonical mapping decoy outside the exported nextConfig", () => {
+test("mapping", () => {
   for (const alternateMember of [
     `redirects() { return []; }`,
     `async redirects() { return []; }`,
@@ -2149,7 +3097,7 @@ test("rejects a canonical mapping decoy outside the exported nextConfig", () => 
   }
 });
 
-test("rejects a canonical redirects method nested below nextConfig depth one", () => {
+test("nesting", () => {
   assert.throws(
     () => parseRedirectFixture(`
       const nextConfig: NextConfig = {
@@ -2168,7 +3116,7 @@ test("rejects a canonical redirects method nested below nextConfig depth one", (
   );
 });
 
-test("rejects preceding runtime mutation and requires a direct literal return", () => {
+test("mutation", () => {
   for (const mutation of [
     `Array.prototype.map = () => [];`,
     `Object.prototype.then = (resolve) => resolve([{ source: "/safe.html", destination: "https://outside.example/safe", permanent: true }]);`,
@@ -2237,7 +3185,7 @@ test("rejects preceding runtime mutation and requires a direct literal return", 
   );
 });
 
-test("rejects a top-level nextConfig spread that can override redirects", () => {
+test("spreads", () => {
   assert.throws(
     () => parseRedirectFixture(`
       const alternate = { redirects: async () => [] };
@@ -2253,7 +3201,7 @@ test("rejects a top-level nextConfig spread that can override redirects", () => 
   );
 });
 
-test("rejects a computed nextConfig member that can override redirects", () => {
+test("computed", () => {
   assert.throws(
     () => parseRedirectFixture(`
       const nextConfig: NextConfig = {
@@ -2268,7 +3216,7 @@ test("rejects a computed nextConfig member that can override redirects", () => {
   );
 });
 
-test("rejects a template interpolation that can mutate redirects before export", () => {
+test("interpolation", () => {
   assert.throws(
     () => parseRedirectFixture(`
       const nextConfig: NextConfig = {
@@ -2283,7 +3231,7 @@ test("rejects a template interpolation that can mutate redirects before export",
   );
 });
 
-test("rejects eval even when the redirect literal remains structurally direct", () => {
+test("eval", () => {
   assert.throws(
     () => parseRedirectFixture(`
       eval("Array.prototype.map = () => []");
@@ -2298,7 +3246,7 @@ test("rejects eval even when the redirect literal remains structurally direct", 
   );
 });
 
-test("rejects quoted, shorthand, and escaped redirect member overrides", () => {
+test("members", () => {
   for (const { setup = "", member, expected } of [
     {
       member: `"redirects": async () => [{ source: "/safe.html", destination: "https://outside.example/safe", permanent: true }]`,
@@ -2330,7 +3278,7 @@ test("rejects quoted, shorthand, and escaped redirect member overrides", () => {
   }
 });
 
-test("binds production redirects to the exact reviewed non-redirect next.config skeleton", () => {
+test("binding", () => {
   const nextConfigPath = path.resolve("apps/web/next.config.ts");
   const source = readFileSync(nextConfigPath, "utf8");
   assert.equal(parseNextConfigLegacyRedirects(source).length, 19);
@@ -2367,7 +3315,7 @@ test("binds production redirects to the exact reviewed non-redirect next.config 
   }
 });
 
-test("redacts untrusted actual redirect values from bounded comparison diagnostics", () => {
+test("values", () => {
   const sentinel = `MOCHIRII_PRIVATE_REDIRECT_SENTINEL_${"X".repeat(600)}`;
   const failures = compareRedirectContracts([
     { source: "/safe.html", destination: "/safe", permanent: true },

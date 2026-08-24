@@ -1,232 +1,1849 @@
-import { SITE_ORIGIN } from "./lib/public-urls.mjs";
+import { closeSync, fstatSync, openSync, readSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { pathToFileURL } from "node:url";
 
-const BASE_URL = (process.env.MOCHIRII_PRODUCTION_BASE_URL || SITE_ORIGIN).replace(/\/+$/, "");
+const DEFAULT_PUBLIC_URLS_CONFIG = new URL("../apps/web/config/public-urls.json", import.meta.url);
+const DEFAULT_PUBLIC_URLS_BYTE_LIMIT = 16 * 1024;
 const TIMEOUT_MS = 30000;
 const MAX_ATTEMPTS = 3;
-const DIAGNOSE = process.argv.includes("--diagnose");
+const DEFAULT_DIAGNOSE = process.argv.includes("--diagnose");
 
-const REQUEST_HEADERS = {
+export const PRODUCTION_CHECK_LIMITS = Object.freeze({
+  baseUrlCharacters: 2048,
+  responseHeaderCharacters: 256,
+  htmlBytes: 1024 * 1024,
+  textBytes: 256 * 1024,
+  xmlBytes: 256 * 1024,
+  assetUrlCharacters: 2048,
+  publicUrlsConfigBytes: DEFAULT_PUBLIC_URLS_BYTE_LIMIT,
+});
+
+const REQUEST_HEADERS = Object.freeze({
   "User-Agent":
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36 MochiriiProductionSmoke/1.0",
   Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,text/plain;q=0.8,*/*;q=0.7",
   "Accept-Language": "en-US,en;q=0.9",
   "Cache-Control": "no-cache",
   Pragma: "no-cache",
-};
+});
 
-const DIAGNOSTIC_HEADERS = [
-  "content-type",
-  "date",
-  "server",
-  "cache-control",
-  "cf-cache-status",
-  "cf-ray",
-  "x-cache",
-  "x-github-request-id",
-  "x-served-by",
-];
+const MEDIA_CONTRACTS = Object.freeze({
+  html: Object.freeze({
+    mediaTypes: Object.freeze(["text/html"]),
+    byteLimit: PRODUCTION_CHECK_LIMITS.htmlBytes,
+    requireUtf8: true,
+  }),
+  text: Object.freeze({
+    mediaTypes: Object.freeze(["text/plain"]),
+    byteLimit: PRODUCTION_CHECK_LIMITS.textBytes,
+    requireUtf8: true,
+  }),
+  xml: Object.freeze({
+    mediaTypes: Object.freeze(["application/xml", "text/xml"]),
+    byteLimit: PRODUCTION_CHECK_LIMITS.xmlBytes,
+    requireUtf8: false,
+  }),
+});
 
-const pageUrls = [
-  "/",
-  "/gallery",
-  "/recruitment",
-  "/join",
-  "/events",
-  "/privacy",
-  "/meta-data-deletion",
-  "/robots.txt",
-  "/sitemap.xml",
-];
+const PAGE_CONTRACTS = Object.freeze([
+  Object.freeze({ path: "/", media: "html" }),
+  Object.freeze({ path: "/gallery", media: "html" }),
+  Object.freeze({ path: "/recruitment", media: "html" }),
+  Object.freeze({ path: "/join", media: "html" }),
+  Object.freeze({ path: "/events", media: "html" }),
+  Object.freeze({ path: "/privacy", media: "html" }),
+  Object.freeze({ path: "/meta-data-deletion", media: "html" }),
+  Object.freeze({ path: "/robots.txt", media: "text" }),
+  Object.freeze({ path: "/sitemap.xml", media: "xml" }),
+]);
 
-function absoluteUrl(path) {
-  return new URL(path, BASE_URL).href;
+class ProductionSmokeError extends Error {
+  constructor(code, status) {
+    super(code);
+    this.name = "ProductionSmokeError";
+    this.code = code;
+    this.status = Number.isSafeInteger(status) ? status : null;
+  }
+}
+
+function failure(code, status) {
+  return new ProductionSmokeError(code, status);
 }
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function selectedHeaders(response) {
-  const headers = {};
-  for (const name of DIAGNOSTIC_HEADERS) {
-    const value = response.headers.get(name);
-    if (value) headers[name] = value;
+export function loadDefaultProductionBaseUrl({
+  configUrl = DEFAULT_PUBLIC_URLS_CONFIG,
+  openImpl = openSync,
+  fstatImpl = fstatSync,
+  readImpl = readSync,
+  closeImpl = closeSync,
+} = {}) {
+  let descriptor;
+  try {
+    descriptor = openImpl(configUrl, "r");
+    const before = fstatImpl(descriptor);
+    if (!before?.isFile?.()
+      || !Number.isSafeInteger(before.size)
+      || before.size < 1
+      || before.size > DEFAULT_PUBLIC_URLS_BYTE_LIMIT) {
+      throw failure("BASE_URL_REJECTED");
+    }
+
+    const bytes = new Uint8Array(before.size);
+    let offset = 0;
+    while (offset < bytes.byteLength) {
+      const count = readImpl(descriptor, bytes, offset, bytes.byteLength - offset, null);
+      if (!Number.isSafeInteger(count) || count < 1) throw failure("BASE_URL_REJECTED");
+      offset += count;
+    }
+    const overflowProbe = new Uint8Array(1);
+    if (readImpl(descriptor, overflowProbe, 0, 1, null) !== 0) throw failure("BASE_URL_REJECTED");
+
+    const after = fstatImpl(descriptor);
+    if (!after?.isFile?.() || after.size !== before.size) throw failure("BASE_URL_REJECTED");
+    const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    if (text.charCodeAt(0) === 0xfeff) throw failure("BASE_URL_REJECTED");
+    const parsed = JSON.parse(text);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)
+      || typeof parsed.siteOrigin !== "string") {
+      throw failure("BASE_URL_REJECTED");
+    }
+    return normalizeProductionBaseUrl(parsed.siteOrigin);
+  } catch {
+    throw failure("BASE_URL_REJECTED");
+  } finally {
+    if (descriptor !== undefined) {
+      try {
+        closeImpl(descriptor);
+      } catch {
+        // Closing failure is contained by the same fixed input category.
+      }
+    }
   }
-  return headers;
 }
 
-function bodySnippet(text) {
-  return String(text || "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 800);
+function isSafeRoutePath(value) {
+  return typeof value === "string"
+    && value.length > 0
+    && value.length <= PRODUCTION_CHECK_LIMITS.assetUrlCharacters
+    && value.startsWith("/")
+    && !value.startsWith("//")
+    && !/[\\?#\s\u0000-\u001f\u007f]/.test(value);
 }
 
-class ProductionHttpError extends Error {
-  constructor(message, details) {
-    super(message);
-    this.name = "ProductionHttpError";
-    this.details = details;
+export function normalizeProductionBaseUrl(value) {
+  if (typeof value !== "string"
+    || value.length === 0
+    || value.length > PRODUCTION_CHECK_LIMITS.baseUrlCharacters) {
+    throw failure("BASE_URL_REJECTED");
+  }
+
+  let parsed;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw failure("BASE_URL_REJECTED");
+  }
+
+  if (!["http:", "https:"].includes(parsed.protocol)
+    || parsed.username
+    || parsed.password
+    || parsed.pathname !== "/"
+    || parsed.search
+    || parsed.hash
+    || (value !== parsed.origin && value !== parsed.origin + "/")
+    || /[?#]/.test(parsed.href)) {
+    throw failure("BASE_URL_REJECTED");
+  }
+
+  return parsed.origin;
+}
+
+function requestUrl(baseUrl, value, { asset = false } = {}) {
+  if (typeof value !== "string"
+    || value.length === 0
+    || value.length > PRODUCTION_CHECK_LIMITS.assetUrlCharacters) {
+    throw failure(asset ? "ASSET_URL_REJECTED" : "REQUEST_URL_REJECTED");
+  }
+  let candidate;
+  try {
+    candidate = isSafeRoutePath(value) ? new URL(value, baseUrl) : new URL(value);
+  } catch {
+    throw failure(asset ? "ASSET_URL_REJECTED" : "REQUEST_URL_REJECTED");
+  }
+
+  if (!["http:", "https:"].includes(candidate.protocol)
+    || candidate.origin !== baseUrl
+    || candidate.username
+    || candidate.password
+    || candidate.search
+    || candidate.hash
+    || /[?#]/.test(candidate.href)
+    || candidate.href.length > PRODUCTION_CHECK_LIMITS.assetUrlCharacters) {
+    throw failure(asset ? "ASSET_URL_REJECTED" : "REQUEST_URL_REJECTED");
+  }
+
+  if (asset) {
+    if (!candidate.pathname.startsWith("/assets/")
+      || !candidate.pathname.toLowerCase().endsWith(".webp")
+      || /[%\\]/.test(candidate.pathname)) {
+      throw failure("ASSET_URL_REJECTED");
+    }
+  } else if (!isSafeRoutePath(candidate.pathname)) {
+    throw failure("REQUEST_URL_REJECTED");
+  }
+
+  return candidate;
+}
+
+function responseMatchesRequest(response, target) {
+  if (response?.redirected !== false
+    || typeof response?.url !== "string"
+    || response.url.length === 0
+    || response.url.length > PRODUCTION_CHECK_LIMITS.assetUrlCharacters) {
+    return false;
+  }
+  try {
+    const observed = new URL(response.url);
+    return !observed.username
+      && !observed.password
+      && !observed.search
+      && !observed.hash
+      && observed.href === target.href;
+  } catch {
+    return false;
   }
 }
 
-async function fetchProduction(input) {
-  const url = input.startsWith("http") ? input : absoluteUrl(input);
-  let lastError;
+function productionLinkResponseHeaderIsSafe(value) {
+  if (typeof value !== "string" || value.length === 0
+    || value.length > PRODUCTION_CHECK_LIMITS.responseHeaderCharacters) return false;
+  const fontPreload = /^<\/_next\/static\/media\/[A-Za-z0-9._-]+\.woff2>; rel=preload; as="font"; crossorigin=""; type="font\/woff2"$/;
+  const entries = value.split(", ");
+  return entries.length <= 2 && entries.every((entry) => fontPreload.test(entry));
+}
 
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+async function cancelResponseBody(response) {
+  try {
+    await response?.body?.cancel?.();
+  } catch {
+    // Cancellation failure must not replace the fixed fail-closed category.
+  }
+}
+
+function parseMediaType(response) {
+  const value = response?.headers?.get?.("content-type");
+  if (typeof value !== "string"
+    || value.length === 0
+    || value.length > PRODUCTION_CHECK_LIMITS.responseHeaderCharacters) {
+    throw failure("MEDIA_TYPE_REJECTED");
+  }
+
+  const match = /^[ \t]*([a-z0-9!#$&^_.+-]+\/[a-z0-9!#$&^_.+-]+)(?:[ \t]*;[ \t]*charset=(utf-8|"utf-8"))?[ \t]*$/i.exec(value);
+  if (!match) throw failure("MEDIA_TYPE_REJECTED");
+  return { mediaType: match[1].toLowerCase(), utf8: Boolean(match[2]) };
+}
+
+async function assertMediaType(response, allowedMediaTypes, {
+  requireUtf8 = false,
+  allowUtf8 = true,
+} = {}) {
+  let parsed;
+  try {
+    parsed = parseMediaType(response);
+  } catch (error) {
+    await cancelResponseBody(response);
+    throw error;
+  }
+  if (!allowedMediaTypes.includes(parsed.mediaType)
+    || (requireUtf8 && !parsed.utf8)
+    || (!allowUtf8 && parsed.utf8)) {
+    await cancelResponseBody(response);
+    throw failure("MEDIA_TYPE_REJECTED");
+  }
+  return parsed.mediaType;
+}
+
+async function readBoundedUtf8Response(response, contract) {
+  await assertMediaType(response, contract.mediaTypes, { requireUtf8: contract.requireUtf8 });
+
+  const declaredLengthText = response.headers.get("content-length");
+  if (declaredLengthText !== null) {
+    if (!/^\d+$/.test(declaredLengthText.trim())) {
+      await cancelResponseBody(response);
+      throw failure("BODY_LIMIT_REJECTED");
+    }
+    const declaredLength = Number(declaredLengthText);
+    if (!Number.isSafeInteger(declaredLength) || declaredLength > contract.byteLimit) {
+      await cancelResponseBody(response);
+      throw failure("BODY_LIMIT_REJECTED");
+    }
+  }
+
+  if (!response.body) return "";
+  let reader;
+  try {
+    reader = response.body.getReader();
+  } catch {
+    await cancelResponseBody(response);
+    throw failure("BODY_READ_REJECTED");
+  }
+  const chunks = [];
+  let byteLength = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!(value instanceof Uint8Array)) throw failure("BODY_READ_REJECTED");
+      byteLength += value.byteLength;
+      if (!Number.isSafeInteger(byteLength) || byteLength > contract.byteLimit) {
+        throw failure("BODY_LIMIT_REJECTED");
+      }
+      chunks.push(value);
+    }
+  } catch (error) {
+    await reader.cancel().catch(() => undefined);
+    if (error instanceof ProductionSmokeError) throw error;
+    throw failure("BODY_READ_REJECTED");
+  } finally {
     try {
-      const response = await fetch(url, {
+      reader.releaseLock();
+    } catch {
+      // Lock-release failure must not replace a fixed read category.
+    }
+  }
+
+  const body = new Uint8Array(byteLength);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(body);
+  } catch {
+    throw failure("BODY_UTF8_REJECTED");
+  }
+}
+
+async function fetchProductionResponse(client, value, { asset = false, label = "route" } = {}) {
+  const target = requestUrl(client.baseUrl, value, { asset });
+  let lastNetworkFailure = failure("NETWORK_REJECTED");
+
+  for (let attempt = 1; attempt <= client.maxAttempts; attempt += 1) {
+    let response;
+    try {
+      response = await client.fetchImpl(target.href, {
         headers: REQUEST_HEADERS,
-        redirect: "follow",
+        redirect: "manual",
         signal: AbortSignal.timeout(TIMEOUT_MS),
       });
-
-      if (DIAGNOSE) {
-        console.log(`${response.ok ? "OK" : "WARN"} ${response.status} ${response.url}`);
-      }
-
-      if (response.ok) return response;
-
-      const text = await response.text().catch(() => "");
-      lastError = new ProductionHttpError(`${url} returned HTTP ${response.status}`, {
-        url,
-        finalUrl: response.url,
-        status: response.status,
-        headers: selectedHeaders(response),
-        bodySnippet: bodySnippet(text),
-      });
-    } catch (error) {
-      lastError = error;
-      if (DIAGNOSE) {
-        console.log(`WARN ${url} attempt ${attempt} failed: ${error?.message || error}`);
-      }
+    } catch {
+      lastNetworkFailure = failure("NETWORK_REJECTED");
+      if (attempt < client.maxAttempts) await client.waitImpl(500 * attempt);
+      continue;
     }
 
-    if (attempt < MAX_ATTEMPTS) {
-      await wait(500 * attempt);
+    if (!responseMatchesRequest(response, target)) {
+      await cancelResponseBody(response);
+      throw failure("RESPONSE_URL_REJECTED");
     }
+    let rejectedResponseHeader = false;
+    try {
+      const linkHeader = response?.headers?.get?.("link");
+      rejectedResponseHeader = response?.headers?.has?.("content-disposition") === true
+        || response?.headers?.has?.("refresh") === true
+        || (linkHeader !== null && !productionLinkResponseHeaderIsSafe(linkHeader));
+    } catch {
+      rejectedResponseHeader = true;
+    }
+    if (rejectedResponseHeader) {
+      await cancelResponseBody(response);
+      throw failure("RESPONSE_HEADER_REJECTED");
+    }
+    if (response.status >= 300 && response.status < 400) {
+      await cancelResponseBody(response);
+      throw failure("REDIRECT_REJECTED", response.status);
+    }
+    if (response.status !== 200) {
+      await cancelResponseBody(response);
+      throw failure("HTTP_STATUS_REJECTED", response.status);
+    }
+
+    if (client.diagnose) client.reportDiagnostic("OK " + label + " 200");
+    return response;
   }
 
-  throw lastError;
+  throw lastNetworkFailure;
 }
 
-async function fetchText(path) {
-  const response = await fetchProduction(path);
-
-  return {
-    url: response.url,
-    contentType: response.headers.get("content-type") || "",
-    text: await response.text(),
-  };
+async function fetchText(client, path, media) {
+  const response = await fetchProductionResponse(client, path, { label: path });
+  return readBoundedUtf8Response(response, MEDIA_CONTRACTS[media]);
 }
 
 function assertIncludes(text, pattern, label) {
-  if (!pattern.test(text)) throw new Error(`Missing ${label}`);
+  if (!pattern.test(text)) throw failure("CONTENT_" + label + "_REJECTED");
 }
 
-function escapeRegExp(value) {
-  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const PRODUCTION_RAW_TEXT_ELEMENTS = new Set([
+  "script",
+  "title",
+]);
+const PRODUCTION_INERT_CONTAINERS = new Set(["template"]);
+const PRODUCTION_HEAD_ELEMENTS = new Set(["link", "meta", "script", "title"]);
+const PRODUCTION_DOCTYPE = "<!doctype html>";
+const PRODUCTION_SAFE_COMMENT_BODIES = new Set(["", " ", "$", "/$", "$!", "$?"]);
+const PRODUCTION_REJECTED_ELEMENTS = new Set([
+  "area", "audio", "canvas", "datalist", "dialog", "embed", "iframe", "image", "math", "meter", "noembed",
+  "marquee", "noframes", "noscript", "object", "picture", "plaintext", "progress", "select", "source", "style",
+  "svg", "textarea", "track", "video", "xmp",
+]);
+const PRODUCTION_SAFE_AUDIO_ATTRIBUTE_NAMES = new Set([
+  "aria-describedby", "aria-labelledby", "class", "controlslist", "id", "preload", "src",
+]);
+const PRODUCTION_HIDDEN_CLASS_NAMES = new Set([
+  "bg-grain", "bg-ink", "bg-ink-2", "burger", "col-divider", "hidden", "nav",
+  "official-profiles--header", "page-hero__atmos", "page-hero__fade",
+  "page-hero__scrim", "responsive-gallery-media__fallback", "sr-only",
+]);
+const PRODUCTION_HTML_ATTRIBUTES = new Set([
+  "alt", "aria-describedby", "aria-disabled", "aria-hidden", "aria-label", "aria-labelledby", "aria-modal",
+  "as", "async", "class", "content", "controlslist", "crossorigin", "data-auth-signed-out", "data-caption",
+  "data-close", "data-custom-recruitment-audio-player", "data-dropdown", "data-dropdown-menu", "data-full",
+  "data-has-mark", "data-image-state", "data-nav", "data-nimg", "data-official-profile", "data-open",
+  "data-precedence", "data-state",
+  "decoding", "fetchpriority", "height", "hidden", "href", "id", "inert", "loading", "name", "nomodule",
+  "imagesizes", "imagesrcset", "open", "popover", "preload", "property", "referrerpolicy", "rel", "role",
+  "sizes", "src", "srcset", "style", "tabindex", "target", "type", "width",
+]);
+const PRODUCTION_VOID_ELEMENTS = new Set([
+  "area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta",
+  "param", "source", "track", "wbr",
+]);
+const PRODUCTION_AMBIGUOUS_TREE_ELEMENTS = new Set([
+  "caption", "col", "colgroup", "table", "tbody", "td", "tfoot", "th", "thead", "tr",
+]);
+const PRODUCTION_HTML_DEPTH_LIMIT = 64;
+const PRODUCTION_HTML_TAG_LIMIT = 512;
+const PRODUCTION_FOOTER_ATTRIBUTE_NAMES = new Set(["class", "role"]);
+const PRODUCTION_FOOTER_WRAPPER_ATTRIBUTE_NAMES = new Set(["class"]);
+const PRODUCTION_FOOTER_LEGAL_ATTRIBUTE_NAMES = new Set(["aria-label", "class"]);
+const PRODUCTION_FOOTER_DESCENDANT_CLASS_NAMES = new Set([
+  "", "brand-name", "brand-sub", "brand-text", "dot", "footer-actions", "footer-bottom", "footer-brand",
+  "footer-brand-link", "footer-brand-text", "footer-col", "footer-col-title",
+  "footer-col-title official-profiles-title", "footer-cols", "footer-cta", "footer-cta-glint", "footer-desc",
+  "footer-dim", "footer-emblem", "footer-legal", "footer-link", "footer-meta", "footer-nav", "footer-top",
+  "footer-wrap", "official-profile-account", "official-profile-copy", "official-profile-external",
+  "official-profile-link", "official-profile-list", "official-profile-platform",
+  "official-profiles official-profiles--footer", "sr-only",
+]);
+const PRODUCTION_FOOTER_DESCENDANT_ID_NAMES = new Set(["", "copyright-text"]);
+const PRODUCTION_SAFE_COMPOUND_CLASS_NAMES = new Set([
+  "brand brand--mobile", "col-12 glass-card glass-card--primary glass-pad",
+  "col-12 glass-card glass-card--soft glass-pad", "col-4 glass-card glass-card--soft glass-pad",
+  "col-8 glass-card glass-card--primary glass-pad", "container hero-overlap",
+  "displayfont_12184ccb-module__YUH9_a__variable bodyfont_24fec695-module__4PpgrG__variable",
+  "footer-col-title official-profiles-title", "glass-card glass-card--primary glass-pad",
+  "glass-card glass-card--primary glass-pad u-mt-24", "glass-card glass-card--soft glass-pad center-stack",
+  "glass-card glass-card--strong glass-pad hero-intro",
+  "glass-card glass-card--strong glass-pad hero-intro center-stack", "grid-12 grid-gap",
+  "hero-cta hero-cta--primary", "hero-cta-row u-mt-18", "home-seal-verse muted",
+  "home-thumb responsive-gallery-frame", "list-stack legal-steps", "meta-text u-mt-10",
+  "mobile-link is-active", "nav-item is-active", "nav-link is-active", "nav-link nav-auth-link",
+  "nav-link nav-trigger", "official-profiles official-profiles--footer",
+  "official-profiles official-profiles--header", "official-profiles official-profiles--mobile",
+  "page-hero page-hero--tall", "page-main legal-page",
+  "recruitment-audio-button recruitment-audio-button--mute",
+  "recruitment-audio-button recruitment-audio-button--play",
+  "recruitment-audio-shell u-full-width u-mt-12", "section-title section-title--sm",
+]);
+const PRODUCTION_GEOMETRY_CLASS_NAMES = new Set([
+  "bg-photo", "home-bulletin__scrim", "home-door__scrim", "home-featured__scrim",
+  "home-spotlight__scrim", "home-spotlight__surface-link", "home-thumb__scrim", "mobile-top",
+  "nav-menu", "overlay-card__content", "overlay-card__image", "overlay-card__scrim",
+  "responsive-gallery-media", "site-header", "skip-link", "spotify-embed__placeholder",
+]);
+const PRODUCTION_DOCUMENT_POLICIES = Object.freeze({
+  deletion: Object.freeze({
+    header: "767693EE075EE31FE445A966DBE0BC2823B4353406A94C590DFF787CEED8E5E3",
+    resources: "832FD5580EB0D865D87AF10666019325EC74D60F14ACC93410A3CF732038C95C",
+  }),
+  home: Object.freeze({
+    header: "675E803BB871598DAD4CE0D1A3A64CB1ED1D30FB7616932CEA63CF25A98530F0",
+    resources: "970FC2930329F1F9A3F5BF096DE38BC6B09565D0193F29DE307FD160EADECD03",
+  }),
+  privacy: Object.freeze({
+    header: "767693EE075EE31FE445A966DBE0BC2823B4353406A94C590DFF787CEED8E5E3",
+    resources: "BC3D51912BF2C0B605D5CE211D79B5F75D790701D984D0CE95C2D1BD1A04ED46",
+  }),
+  recruitment: Object.freeze({
+    header: "179EADA7DAB503C38AD261D71B2301F8DB134C5354ED186BE6ED227C213E5649",
+    resources: "974770A8AF0905682BE5E5CB2D5BB0B93986A1F71E2B1D69570BFA3298F0F9C6",
+  }),
+});
+const TEST_DOCUMENT_POLICIES = Object.freeze({
+  deletion: Object.freeze({
+    header: "86F4BD56E49D759E1007911F74826C416C2D5038AF3CC00A9F7C818A29F79EE0",
+    resources: "2354AEB6C7E3F5FE93409CE57430E49F75D64FC5CCF672F3CA537469A6472F3F",
+  }),
+  home: Object.freeze({
+    header: "86F4BD56E49D759E1007911F74826C416C2D5038AF3CC00A9F7C818A29F79EE0",
+    resources: "F43FBF53028A2A79C4FE5BF01154FD2E8BB56350C5F53CE8487436394B8B2365",
+  }),
+  privacy: Object.freeze({
+    header: "86F4BD56E49D759E1007911F74826C416C2D5038AF3CC00A9F7C818A29F79EE0",
+    resources: "109D7F534B9AEFDC3CC9D65BD6515DDB12EC5E65D28A651FB5248424B7654AD2",
+  }),
+  recruitment: Object.freeze({
+    header: "86F4BD56E49D759E1007911F74826C416C2D5038AF3CC00A9F7C818A29F79EE0",
+    resources: "F37509273DC50F357AD2A76818C9C9E174B42A2AB092EB006A6E339B88BD3DEA",
+  }),
+});
+const PRODUCTION_SITE_HEADER_ATTRIBUTE_NAMES = new Set(["class", "data-state", "id"]);
+const PRODUCTION_NAV_GROUP_ATTRIBUTE_NAMES = new Set(["class", "data-dropdown", "data-open"]);
+const PRODUCTION_NAV_MENU_ATTRIBUTE_NAMES = new Set(["class", "data-dropdown-menu", "hidden", "id"]);
+const PRODUCTION_NAV_MENU_IDS = new Set(["nav-menu-culture", "nav-menu-guild", "nav-menu-updates"]);
+const PRODUCTION_GALLERY_MEDIA_ATTRIBUTE_NAMES = new Set(["class", "data-image-state"]);
+const PRODUCTION_SPOTLIGHT_LINK_ATTRIBUTE_NAMES = new Set(["aria-label", "class", "href"]);
+const PRODUCTION_SCRIM_ATTRIBUTE_NAMES = new Set(["aria-hidden", "class"]);
+const PRODUCTION_NEXT_SCRIPT_ATTRIBUTE_NAMES = Object.freeze([
+  new Set(["async", "src"]),
+  new Set(["async", "crossorigin", "src"]),
+  new Set(["nomodule", "src"]),
+]);
+const PRODUCTION_NEXT_ROOT_SCRIPT_ATTRIBUTE_NAMES = new Set(["async", "id", "src"]);
+const PRODUCTION_STRUCTURED_DATA_ATTRIBUTE_NAMES = new Set(["id", "type"]);
+const PRODUCTION_STYLESHEET_ATTRIBUTE_NAMES = new Set(["data-precedence", "href", "rel"]);
+const PRODUCTION_STYLE_PRELOAD_ATTRIBUTE_NAMES = new Set(["as", "href", "rel"]);
+const PRODUCTION_CANONICAL_LINK_ATTRIBUTE_NAMES = new Set(["href", "rel"]);
+const PRODUCTION_FONT_PRELOAD_ATTRIBUTE_NAMES = new Set(["as", "crossorigin", "href", "rel", "type"]);
+const PRODUCTION_SCRIPT_PRELOAD_ATTRIBUTE_NAMES = new Set(["as", "fetchpriority", "href", "rel"]);
+const PRODUCTION_IMAGE_PRELOAD_ATTRIBUTE_NAMES = new Set(["as", "imagesizes", "imagesrcset", "rel"]);
+const PRODUCTION_PRIORITY_IMAGE_PRELOAD_ATTRIBUTE_NAMES = new Set([
+  "as", "fetchpriority", "imagesizes", "imagesrcset", "rel",
+]);
+const PRODUCTION_DIRECT_IMAGE_PRELOAD_ATTRIBUTE_NAMES = new Set(["as", "href", "rel"]);
+const PRODUCTION_BACKGROUND_IMAGE_ATTRIBUTE_NAMES = new Set([
+  "alt", "class", "data-nimg", "decoding", "loading", "sizes", "src", "srcset", "style",
+]);
+const PRODUCTION_NEXT_IMAGE_ATTRIBUTE_NAMES = new Set([
+  "alt", "class", "data-nimg", "decoding", "fetchpriority", "height", "id", "loading", "sizes",
+  "src", "srcset", "style", "width",
+]);
+const PRODUCTION_NEXT_IMAGE_REQUIRED_ATTRIBUTE_NAMES = new Set([
+  "alt", "data-nimg", "decoding", "height", "loading", "sizes", "src", "srcset", "style", "width",
+]);
+const PRODUCTION_GALLERY_IMAGE_ATTRIBUTE_NAMES = new Set([
+  "alt", "class", "data-caption", "data-full", "decoding", "height", "loading", "src", "width",
+]);
+const PRODUCTION_ATMOSPHERE_IMAGE_ATTRIBUTE_NAMES = new Set([
+  "alt", "aria-hidden", "class", "decoding", "id", "src",
+]);
+const PRODUCTION_BACKGROUND_WRAPPER_ATTRIBUTE_NAMES = new Set(["aria-hidden", "class"]);
+const PRODUCTION_AUDIO_PLAYER_ATTRIBUTE_NAMES = new Set([
+  "aria-describedby", "class", "data-custom-recruitment-audio-player", "data-state", "style",
+]);
+const PRODUCTION_SAFE_IMAGE_CLASS_NAMES = new Set([
+  "", "brand-emblem", "footer-emblem", "home-bulletin__img", "home-door__img", "home-featured__img",
+  "home-spotlight__img", "page-hero__img",
+]);
+const PRODUCTION_ANCHOR_ATTRIBUTE_NAMES = new Set([
+  "aria-current", "aria-label", "class", "data-auth-signed-out", "data-has-mark", "data-nav",
+  "data-official-profile", "href", "id", "referrerpolicy", "rel", "target",
+]);
+const PRODUCTION_SAFE_ANCHOR_CLASS_NAMES = new Set([
+  "", "brand", "brand brand--mobile", "cta", "footer-brand-link", "footer-cta", "footer-link", "footer-nav",
+  "hero-cta", "hero-cta hero-cta--primary", "home-bulletin", "home-door", "home-featured",
+  "home-spotlight__surface-link", "mobile-link", "mobile-link is-active", "nav-item", "nav-item is-active",
+  "nav-link", "nav-link is-active", "nav-link nav-auth-link", "official-profile-link", "skip-link",
+]);
+const PRODUCTION_UNREVIEWED_RESOURCE_ATTRIBUTE_NAMES = new Set([
+  "action", "background", "cite", "data", "formaction", "manifest", "ping", "poster", "profile", "srcdoc",
+]);
+const PRODUCTION_MOBILE_SHELL_ATTRIBUTE_NAMES = new Set([
+  "aria-label", "aria-modal", "class", "data-open", "hidden", "id", "role",
+]);
+const PRODUCTION_MOBILE_SCRIM_ATTRIBUTE_NAMES = new Set(["aria-hidden", "class", "data-close"]);
+const PRODUCTION_MOBILE_SHEET_ATTRIBUTE_NAMES = new Set(["class", "role"]);
+const PRODUCTION_OVERLAY_ROOT_IDS = new Set([
+  "lightbox", "lightboxbackdrop", "modalbackdrop", "modalroot",
+]);
+const PRODUCTION_BACKGROUND_IMAGE_STYLE =
+  "position:absolute;height:100%;width:100%;left:0;top:0;right:0;bottom:0;color:transparent";
+const PRODUCTION_AUDIO_PLAYER_STYLE = "--audio-progress:0%;--audio-volume:100%";
+const PRODUCTION_BACKGROUND_IMAGE_ASSET = "%2Fassets%2Fbg%2Fwuxia-bg.webp";
+const PRODUCTION_BACKGROUND_IMAGE_WIDTHS = Object.freeze([640, 750, 828, 1080, 1200, 1920, 2048, 3840]);
+const PRODUCTION_NEXT_IMAGE_WIDTH_LIST = Object.freeze([
+  32, 48, 64, 96, 128, 256, 384, ...PRODUCTION_BACKGROUND_IMAGE_WIDTHS,
+]);
+const PRODUCTION_NEXT_IMAGE_WIDTHS = new Set(PRODUCTION_NEXT_IMAGE_WIDTH_LIST);
+const PRODUCTION_NEXT_IMAGE_SIGNATURES = new Set([
+  "|sealImage|%2Fassets%2Fimg%2Fbrand%2Femblem.webp|1024|1024|(max-width: 640px) 128px, 116px|lazy|",
+  "brand-emblem||%2Fassets%2Fimg%2Fbrand%2Femblem.webp|44|44|44px|lazy|",
+  "brand-emblem||%2Fassets%2Fimg%2Fbrand%2Femblem.webp|56|56|56px|eager|low",
+  "footer-emblem||%2Fassets%2Fimg%2Fbrand%2Femblem.webp|56|56|56px|lazy|",
+  "home-bulletin__img||%2Fassets%2Fimg%2Fbulletins%2Fannouncement.webp|960|600|(max-width: 900px) calc(100vw - 68px), 320px|lazy|",
+  "home-bulletin__img||%2Fassets%2Fimg%2Fbulletins%2Fraffle.webp|960|600|(max-width: 900px) calc(100vw - 68px), 320px|lazy|",
+  "home-door__img||%2Fassets%2Fimg%2Ftiles%2Fjoin.webp|960|600|(max-width: 900px) calc(100vw - 68px), 280px|lazy|",
+  "home-door__img||%2Fassets%2Fimg%2Ftiles%2Fleaders.webp|960|600|(max-width: 900px) calc(100vw - 68px), 280px|lazy|",
+  "home-door__img||%2Fassets%2Fimg%2Ftiles%2Franks.webp|960|600|(max-width: 900px) calc(100vw - 68px), 280px|lazy|",
+  "home-door__img||%2Fassets%2Fimg%2Ftiles%2Ftome.webp|960|600|(max-width: 900px) calc(100vw - 68px), 280px|lazy|",
+  "home-featured__img|featuredBulletinImage|%2Fassets%2Fimg%2Fbulletins%2Ffeatured.webp|1280|720|(max-width: 1232px) calc(100vw - 68px), 1120px|lazy|",
+  "home-spotlight__img|spotlightImage|%2Fassets%2Fimg%2Ffeatured%2Fspotlight.webp|1536|1024|(max-width: 1232px) calc(100vw - 68px), 1120px|lazy|",
+  "page-hero__img|heroImage|%2Fassets%2Fimg%2Fhero%2Fhero.webp|1536|1024|(max-width: 1232px) calc(100vw - 32px), 1200px|eager|high",
+  "page-hero__img|meta-data-deletionHeroImage|%2Fassets%2Fimg%2Fgallery%2Fhero.webp|1536|1024|(max-width: 1232px) calc(100vw - 32px), 1200px|eager|high",
+  "page-hero__img|privacyHeroImage|%2Fassets%2Fimg%2Fgallery%2Fhero.webp|1536|1024|(max-width: 1232px) calc(100vw - 32px), 1200px|eager|high",
+  "page-hero__img|recruitmentHeroImage|%2Fassets%2Fimg%2Frecruitment%2Fhero.webp|1536|1024|(max-width: 1232px) calc(100vw - 32px), 1200px|eager|high",
+]);
+const PRODUCTION_IMAGE_DIMENSION_LIMIT = 4096;
+const PRODUCTION_IMAGE_VALUE_LIMIT = 8192;
+
+function asciiLower(value) {
+  return value.replace(/[A-Z]/g, (character) => character.toLowerCase());
 }
 
-function extractMetaContent(html, selector) {
-  const match = html.match(selector);
-  return match?.[1] || "";
+function isHtmlSpace(character) {
+  return character === "\t" || character === "\n" || character === "\f"
+    || character === "\r" || character === " ";
 }
 
-async function checkUrlAvailability() {
-  for (const path of pageUrls) {
-    const result = await fetchText(path);
-    if (path.endsWith(".html") || path === "/") {
-      assertIncludes(result.contentType, /text\/html/i, `${path} HTML content type`);
-    }
-    if (path.endsWith(".xml")) {
-      assertIncludes(result.contentType, /xml/i, `${path} XML content type`);
-    }
-    if (path.endsWith(".txt")) {
-      assertIncludes(result.contentType, /text\/plain/i, `${path} text content type`);
-    }
+function trimHtmlSpace(value) {
+  return value.replace(/^[\t\n\f\r ]+|[\t\n\f\r ]+$/g, "");
+}
+
+function normalizeProductionElementText(value) {
+  return trimHtmlSpace(value).replace(/[\t\n\f\r ]+/g, " ");
+}
+
+function productionTagHasEventHandler(tag) {
+  return [...tag.attributeNames].some((name) => /^on[a-z]/.test(name));
+}
+
+function productionTagHasExactAttributeNames(tag, expectedNames) {
+  if (tag.duplicates.size !== 0 || tag.attributeNames.size !== expectedNames.size) return false;
+  return [...expectedNames].every((name) => tag.attributeNames.has(name));
+}
+
+function productionAnchorTagIsSafe(tag) {
+  if (!tag.attributeNames.has("href")
+    || tag.duplicates.size !== 0
+    || [...tag.attributeNames].some((name) => !PRODUCTION_ANCHOR_ATTRIBUTE_NAMES.has(name))) return false;
+  const href = tag.attributes.get("href") || "";
+  if (href.length === 0
+    || href.length > PRODUCTION_CHECK_LIMITS.assetUrlCharacters
+    || /[&\\\u0000-\u001f\u007f]/.test(href)) return false;
+  const target = tag.attributes.get("target");
+  const rel = tag.attributes.get("rel");
+  const referrerPolicy = tag.attributes.get("referrerpolicy");
+  const className = tag.attributes.get("class") || "";
+  if (!PRODUCTION_SAFE_ANCHOR_CLASS_NAMES.has(className)
+    || (tag.attributes.has("id") && tag.attributes.get("id") !== "featuredBulletin")
+    || (tag.attributes.has("aria-current") && tag.attributes.get("aria-current") !== "page")
+    || (tag.attributes.has("data-auth-signed-out") && tag.attributes.get("data-auth-signed-out") !== "true")
+    || (tag.attributes.has("data-has-mark") && tag.attributes.get("data-has-mark") !== "false")
+    || (tag.attributes.has("data-nav") && !/^[a-z0-9/-]{1,64}$/.test(tag.attributes.get("data-nav") || ""))
+    || (tag.attributes.has("data-official-profile")
+      && !["facebook-page", "instagram", "tiktok", "twitch", "youtube"]
+        .includes(tag.attributes.get("data-official-profile")))
+    || (target !== undefined && (target !== "_blank" || rel !== "noopener noreferrer"))
+    || (target === undefined && rel !== undefined)
+    || (referrerPolicy !== undefined && referrerPolicy !== "no-referrer")) return false;
+  if (isSafeRoutePath(href)) {
+    const routeTarget = new URL(href, "https://anchor.invalid");
+    return routeTarget.pathname === href && !routeTarget.search && !routeTarget.hash;
+  }
+  if (/^#[A-Za-z][A-Za-z0-9._:-]*$/.test(href)
+    || href === "mailto:support@mochirii.com"
+    || href === "mailto:support@mochirii.com?subject=M%C5%8Dchir%C4%AB%C4%AB%20data%20deletion%20request") {
+    return true;
+  }
+  if (!/^https:\/\/[A-Za-z0-9.-]+(?:\/[A-Za-z0-9._~!$'()*+,;=:@%/-]*)?\/?$/.test(href)) return false;
+  try {
+    const target = new URL(href);
+    return target.protocol === "https:"
+      && !target.username
+      && !target.password
+      && (target.href === href || (target.href === href + "/" && href === target.origin));
+  } catch {
+    return false;
   }
 }
 
-async function checkMetadata() {
-  const home = await fetchText("/");
-  assertIncludes(home.text, /<title>[^<]*Where Winds Meet/i, "homepage title");
-  assertIncludes(home.text, /<meta\s+name="description"\s+content="[^"]+"/i, "homepage description");
-  assertIncludes(home.text, new RegExp(`<link\\s+rel="canonical"\\s+href="${escapeRegExp(BASE_URL)}/?"`, "i"), "homepage canonical");
-  assertIncludes(home.text, /property="og:title"/i, "homepage OG title");
-  assertIncludes(home.text, /property="og:image"/i, "homepage OG image");
-  assertIncludes(home.text, /href="\/privacy"/i, "homepage footer Privacy link");
-  assertIncludes(home.text, /href="\/meta-data-deletion"/i, "homepage footer Data Deletion link");
-  assertIncludes(home.text, /href="mailto:support@mochirii\.com"/i, "homepage footer support link");
-
-  const ogImage = extractMetaContent(home.text, /property="og:image"\s+content="([^"]+)"/i);
-  if (!ogImage) throw new Error("Homepage OG image URL was not found");
-
-  const ogResponse = await fetchProduction(ogImage);
-  const ogContentType = ogResponse.headers.get("content-type") || "";
-  assertIncludes(ogContentType, /^image\//i, "homepage OG image content type");
-
-  const recruitment = await fetchText("/recruitment");
-  assertIncludes(recruitment.text, /Recruitment/i, "recruitment page content");
-  assertIncludes(
-    recruitment.text,
-    new RegExp(`<link\\s+rel="canonical"\\s+href="${escapeRegExp(BASE_URL)}/recruitment"`, "i"),
-    "recruitment canonical"
-  );
-
-  const privacy = await fetchText("/privacy");
-  assertIncludes(privacy.text, /Website scope|privacy questions/i, "privacy page content");
-  assertIncludes(
-    privacy.text,
-    new RegExp(`<link\\s+rel="canonical"\\s+href="${escapeRegExp(BASE_URL)}/privacy"`, "i"),
-    "privacy canonical"
-  );
-
-  const deletion = await fetchText("/meta-data-deletion");
-  assertIncludes(deletion.text, /Data Deletion Requests|How to make a request/i, "data deletion page content");
-  assertIncludes(
-    deletion.text,
-    new RegExp(`<link\\s+rel="canonical"\\s+href="${escapeRegExp(BASE_URL)}/meta-data-deletion"`, "i"),
-    "data deletion canonical"
-  );
+function productionElementResourceAttributesAreSafe(tag) {
+  if ([...tag.attributeNames].some((name) => PRODUCTION_UNREVIEWED_RESOURCE_ATTRIBUTE_NAMES.has(name))) {
+    return false;
+  }
+  if (tag.attributeNames.has("src") && !["audio", "img", "script"].includes(tag.name)) return false;
+  if (tag.attributeNames.has("srcset") && tag.name !== "img") return false;
+  if (tag.attributeNames.has("href") && !["a", "link"].includes(tag.name)) return false;
+  if ((tag.attributeNames.has("imagesrcset") || tag.attributeNames.has("imagesizes")) && tag.name !== "link") {
+    return false;
+  }
+  if (tag.name !== "img" && ["height", "size", "width"].some((name) => tag.attributeNames.has(name))) {
+    return false;
+  }
+  return !(tag.name === "input" && asciiLower(tag.attributes.get("type") || "") === "image");
 }
 
-async function checkDiscoveryFiles() {
-  const sitemap = await fetchText("/sitemap.xml");
-  assertIncludes(sitemap.text, /<urlset[\s>]/i, "sitemap urlset");
-  assertIncludes(sitemap.text, new RegExp(`${escapeRegExp(BASE_URL)}/gallery`, "i"), "gallery sitemap entry");
-  assertIncludes(sitemap.text, new RegExp(`${escapeRegExp(BASE_URL)}/privacy`, "i"), "privacy sitemap entry");
-  assertIncludes(sitemap.text, new RegExp(`${escapeRegExp(BASE_URL)}/meta-data-deletion`, "i"), "data deletion sitemap entry");
-
-  const robots = await fetchText("/robots.txt");
-  assertIncludes(robots.text, new RegExp(`Sitemap:\\s*${escapeRegExp(BASE_URL)}/sitemap\\.xml`, "i"), "robots sitemap entry");
+function parseProductionNextImageUrl(value) {
+  if (typeof value !== "string" || value.length > PRODUCTION_CHECK_LIMITS.assetUrlCharacters) return null;
+  const match = /^\/_next\/image\?url=(%2Fassets(?:%2F[A-Za-z0-9_-][A-Za-z0-9._-]*)+\.webp)&amp;w=([1-9][0-9]{0,3})&amp;q=75$/.exec(value);
+  if (!match) return null;
+  const width = Number(match[2]);
+  return PRODUCTION_NEXT_IMAGE_WIDTHS.has(width) ? Object.freeze({ asset: match[1], width }) : null;
 }
 
-function printFailure(error) {
-  console.error(`Production smoke check failed: ${error?.message || error}`);
+function productionNextImageSrcsetIsSafe(value, asset, expectedWidths = null) {
+  if (typeof value !== "string" || value.length === 0 || value.length > PRODUCTION_IMAGE_VALUE_LIMIT) return false;
+  const candidates = value.split(", ");
+  if (candidates.length > 32 || (expectedWidths && candidates.length !== expectedWidths.length)) return false;
+  let previousWidth = 0;
+  for (let index = 0; index < candidates.length; index += 1) {
+    const separator = candidates[index].lastIndexOf(" ");
+    const parsed = separator > 0 ? parseProductionNextImageUrl(candidates[index].slice(0, separator)) : null;
+    const width = parsed?.width || 0;
+    if (!parsed
+      || parsed.asset !== asset
+      || candidates[index].slice(separator + 1) !== `${width}w`
+      || width <= previousWidth
+      || (expectedWidths && width !== expectedWidths[index])) return false;
+    previousWidth = width;
+  }
+  return candidates.length > 0;
+}
 
-  if (error?.name !== "ProductionHttpError") return;
+function productionNextImageTagIsSafe(tag) {
+  if (tag.duplicates.size !== 0
+    || [...tag.attributeNames].some((name) => !PRODUCTION_NEXT_IMAGE_ATTRIBUTE_NAMES.has(name))
+    || [...PRODUCTION_NEXT_IMAGE_REQUIRED_ATTRIBUTE_NAMES].some((name) => !tag.attributeNames.has(name))) return false;
+  const width = tag.attributes.get("width") || "";
+  const height = tag.attributes.get("height") || "";
+  const sizes = tag.attributes.get("sizes") || "";
+  const source = parseProductionNextImageUrl(tag.attributes.get("src") || "");
+  const priority = tag.attributes.get("fetchpriority");
+  const signature = [
+    tag.attributes.get("class") || "", tag.attributes.get("id") || "", source?.asset || "",
+    width, height, sizes, tag.attributes.get("loading") || "", priority || "",
+  ].join("|");
+  return /^[1-9][0-9]{0,3}$/.test(width)
+    && /^[1-9][0-9]{0,3}$/.test(height)
+    && Number(width) <= PRODUCTION_IMAGE_DIMENSION_LIMIT
+    && Number(height) <= PRODUCTION_IMAGE_DIMENSION_LIMIT
+    && sizes.length > 0
+    && sizes.length <= 256
+    && !/[&<>"'\\\u0000-\u001f\u007f]/.test(sizes)
+    && tag.attributes.get("data-nimg") === "1"
+    && tag.attributes.get("decoding") === "async"
+    && ["eager", "lazy"].includes(tag.attributes.get("loading"))
+    && (priority === undefined || priority === "high" || priority === "low")
+    && PRODUCTION_SAFE_IMAGE_CLASS_NAMES.has(tag.attributes.get("class") || "")
+    && source?.width === 3840
+    && PRODUCTION_NEXT_IMAGE_SIGNATURES.has(signature)
+    && productionNextImageSrcsetIsSafe(
+      tag.attributes.get("srcset") || "", source.asset, PRODUCTION_NEXT_IMAGE_WIDTH_LIST,
+    );
+}
 
-  const details = error.details || {};
-  console.error(`Status: ${details.status ?? "unknown"}`);
-  console.error(`Requested URL: ${details.url ?? "unknown"}`);
-  console.error(`Final URL: ${details.finalUrl ?? "unknown"}`);
-  console.error(`Selected headers: ${JSON.stringify(details.headers || {}, null, 2)}`);
-  if (details.bodySnippet) console.error(`Body snippet: ${details.bodySnippet}`);
-  if (details.status === 403) {
-    console.error(
-      "HTTP 403 can mean GitHub Actions runner traffic is blocked or challenged even when local production checks pass."
+function productionRawImageTagIsSafe(tag) {
+  if (productionTagHasExactAttributeNames(tag, PRODUCTION_GALLERY_IMAGE_ATTRIBUTE_NAMES)) {
+    const sourceMatch = /^\/assets\/img\/gallery\/thumbs\/shot-([0-9]{2})\.webp$/.exec(
+      tag.attributes.get("src") || "",
+    );
+    return sourceMatch !== null
+      && tag.attributes.get("class") === "responsive-gallery-media__image"
+      && tag.attributes.get("width") === "16"
+      && tag.attributes.get("height") === "10"
+      && tag.attributes.get("loading") === "lazy"
+      && tag.attributes.get("decoding") === "async"
+      && tag.attributes.get("data-full") === `/assets/img/gallery/shot-${sourceMatch[1]}.webp`
+      && (tag.attributes.get("alt") || "").length <= 256
+      && (tag.attributes.get("data-caption") || "").length <= 512;
+  }
+  return productionTagHasExactAttributeNames(tag, PRODUCTION_ATMOSPHERE_IMAGE_ATTRIBUTE_NAMES)
+    && tag.attributes.get("id") === "recruitmentAtmosphere"
+    && tag.attributes.get("src") === "/assets/img/recruitment/atmosphere.webp"
+    && tag.attributes.get("alt") === ""
+    && tag.attributes.get("class") === "page-hero__atmos"
+    && tag.attributes.get("decoding") === "async"
+    && tag.attributes.get("aria-hidden") === "true";
+}
+
+function productionAudioTagIsSafe(tag) {
+  if (!productionTagHasExactAttributeNames(tag, PRODUCTION_SAFE_AUDIO_ATTRIBUTE_NAMES)) return false;
+  const source = tag.attributes.get("src") || "";
+  return tag.attributes.get("id") === "recruitmentAudio"
+    && tag.attributes.get("class") === "recruitment-audio-native"
+    && tag.attributes.get("preload") === "none"
+    && tag.attributes.get("controlslist") === "nodownload"
+    && tag.attributes.get("aria-labelledby") === "recruitmentAudioTitle"
+    && tag.attributes.get("aria-describedby") === "recruitmentAudioDesc"
+    && /^(?:\.\/|\/)assets\/audio\/[A-Za-z0-9._-]+$/.test(source);
+}
+
+function productionInlineStyleIsSafe(tag, { footerCount, insideFooter, parentTag }) {
+  if (!tag.attributeNames.has("style")) return tag.name !== "img" || productionRawImageTagIsSafe(tag);
+  const style = tag.attributes.get("style") || "";
+  if (tag.duplicates.has("style") || style.includes("&")) return false;
+  if (tag.name === "div" && style === PRODUCTION_AUDIO_PLAYER_STYLE) {
+    return productionTagHasExactAttributeNames(tag, PRODUCTION_AUDIO_PLAYER_ATTRIBUTE_NAMES)
+      && tag.attributes.get("class") === "recruitment-audio-player"
+      && tag.attributes.get("data-custom-recruitment-audio-player") === "true"
+      && tag.attributes.get("data-state") === "paused"
+      && tag.attributes.get("aria-describedby") === "recruitmentAudioDesc";
+  }
+  if (tag.name !== "img") return false;
+  if (style === "color:transparent") {
+    return productionNextImageTagIsSafe(tag);
+  }
+  const backgroundSource = parseProductionNextImageUrl(tag.attributes.get("src") || "");
+  return style === PRODUCTION_BACKGROUND_IMAGE_STYLE
+    && footerCount === 0
+    && !insideFooter
+    && productionTagHasExactAttributeNames(tag, PRODUCTION_BACKGROUND_IMAGE_ATTRIBUTE_NAMES)
+    && tag.attributes.get("alt") === ""
+    && tag.attributes.get("class") === "bg-photo__image"
+    && tag.attributes.get("data-nimg") === "fill"
+    && tag.attributes.get("decoding") === "async"
+    && tag.attributes.get("loading") === "eager"
+    && tag.attributes.get("sizes") === "100vw"
+    && backgroundSource?.asset === PRODUCTION_BACKGROUND_IMAGE_ASSET
+    && backgroundSource.width === 3840
+    && productionNextImageSrcsetIsSafe(
+      tag.attributes.get("srcset") || "",
+      PRODUCTION_BACKGROUND_IMAGE_ASSET,
+      PRODUCTION_BACKGROUND_IMAGE_WIDTHS,
+    )
+    && parentTag?.name === "div"
+    && productionTagHasExactAttributeNames(parentTag, PRODUCTION_BACKGROUND_WRAPPER_ATTRIBUTE_NAMES)
+    && parentTag.attributes.get("class") === "bg-photo"
+    && parentTag.attributes.get("aria-hidden") === "true";
+}
+
+function productionOverlayElementIsSafe(tag, parentTag, {
+  ancestorTags = [], insideFooter = false,
+} = {}) {
+  const id = tag.attributes.get("id") || "";
+  const className = tag.attributes.get("class") || "";
+  if (id.includes("&") || className.includes("&")) return false;
+  if (PRODUCTION_OVERLAY_ROOT_IDS.has(asciiLower(id))) return false;
+  const classTokens = asciiLower(trimHtmlSpace(className)).split(/[\t\n\f\r ]+/).filter(Boolean);
+  if ((classTokens.length > 1 && !PRODUCTION_SAFE_COMPOUND_CLASS_NAMES.has(className))
+    || (insideFooter && classTokens.includes("home-spotlight__surface-link"))
+    || classTokens.some((token) => token.startsWith("birthday-splash") || token.startsWith("lightbox"))) {
+    return false;
+  }
+  const parentClass = parentTag?.attributes.get("class") || "";
+  const hasMainAncestor = ancestorTags.some((ancestor) => ancestor.name === "main"
+    && ["page-main", "page-main legal-page"].includes(ancestor.attributes.get("class") || ""));
+  const hasSiteHeaderAncestor = ancestorTags.some((ancestor) => ancestor.name === "header"
+    && ancestor.attributes.get("class") === "site-header");
+  const hasMobileShellAncestor = ancestorTags.some((ancestor) => ancestor.name === "div"
+    && ancestor.attributes.get("class") === "mobile-shell");
+  if (PRODUCTION_GEOMETRY_CLASS_NAMES.has(className)) {
+    if (className === "site-header") {
+      return tag.name === "header"
+        && productionTagHasExactAttributeNames(tag, PRODUCTION_SITE_HEADER_ATTRIBUTE_NAMES)
+        && tag.attributes.get("id") === "site-header"
+        && tag.attributes.get("data-state") === "top"
+        && parentTag?.name === "body";
+    }
+    if (className === "skip-link") {
+      return tag.name === "a"
+        && productionTagHasExactAttributeNames(tag, new Set(["class", "href"]))
+        && tag.attributes.get("href") === "#main"
+        && parentTag?.name === "header"
+        && parentClass === "site-header";
+    }
+    if (className === "bg-photo") {
+      return tag.name === "div"
+        && productionTagHasExactAttributeNames(tag, PRODUCTION_BACKGROUND_WRAPPER_ATTRIBUTE_NAMES)
+        && tag.attributes.get("aria-hidden") === "true"
+        && parentTag?.name === "body";
+    }
+    if (className === "nav-menu") {
+      return tag.name === "div"
+        && productionTagHasExactAttributeNames(tag, PRODUCTION_NAV_MENU_ATTRIBUTE_NAMES)
+        && PRODUCTION_NAV_MENU_IDS.has(tag.attributes.get("id"))
+        && tag.attributes.get("data-dropdown-menu") === "true"
+        && tag.attributes.has("hidden")
+        && parentTag?.name === "div"
+        && productionTagHasExactAttributeNames(parentTag, PRODUCTION_NAV_GROUP_ATTRIBUTE_NAMES)
+        && parentClass === "nav-group"
+        && parentTag.attributes.get("data-dropdown") === "true"
+        && parentTag.attributes.get("data-open") === "false"
+        && hasSiteHeaderAncestor;
+    }
+    if (className === "mobile-top") {
+      return tag.name === "div"
+        && productionTagHasExactAttributeNames(tag, new Set(["class"]))
+        && parentTag?.name === "div"
+        && parentClass === "mobile-sheet"
+        && hasMobileShellAncestor;
+    }
+    if (className === "responsive-gallery-media") {
+      return tag.name === "span"
+        && productionTagHasExactAttributeNames(tag, PRODUCTION_GALLERY_MEDIA_ATTRIBUTE_NAMES)
+        && tag.attributes.get("data-image-state") === "loading"
+        && parentTag?.name === "button"
+        && parentClass === "home-thumb responsive-gallery-frame"
+        && ancestorTags.some((ancestor) => ancestor.name === "div"
+          && ancestor.attributes.get("class") === "home-gallery"
+          && ancestor.attributes.get("id") === "galleryGrid")
+        && hasMainAncestor;
+    }
+    if (className === "home-spotlight__surface-link") {
+      return tag.name === "a"
+        && productionTagHasExactAttributeNames(tag, PRODUCTION_SPOTLIGHT_LINK_ATTRIBUTE_NAMES)
+        && tag.attributes.get("href") === "/spotlight"
+        && parentTag?.name === "div"
+        && parentClass === "home-spotlight"
+        && parentTag.attributes.get("id") === "spotlightCard"
+        && hasMainAncestor;
+    }
+    const scrimProfiles = {
+      "home-bulletin__scrim": ["div", "home-bulletin__media"],
+      "home-door__scrim": ["div", "home-door__media"],
+      "home-featured__scrim": ["div", "home-featured"],
+      "home-spotlight__scrim": ["div", "home-spotlight"],
+      "home-thumb__scrim": ["span", "home-thumb responsive-gallery-frame"],
+    };
+    const scrimProfile = scrimProfiles[className];
+    if (scrimProfile) {
+      return tag.name === scrimProfile[0]
+        && productionTagHasExactAttributeNames(tag, PRODUCTION_SCRIM_ATTRIBUTE_NAMES)
+        && tag.attributes.get("aria-hidden") === "true"
+        && parentClass === scrimProfile[1]
+        && hasMainAncestor;
+    }
+    return false;
+  }
+  if (classTokens.includes("mobile-shell")) {
+    return productionTagHasExactAttributeNames(tag, PRODUCTION_MOBILE_SHELL_ATTRIBUTE_NAMES)
+      && className === "mobile-shell"
+      && tag.attributes.get("id") === "mobile-menu"
+      && tag.attributes.get("role") === "dialog"
+      && tag.attributes.get("aria-modal") === "true"
+      && tag.attributes.get("aria-label") === "Menu"
+      && tag.attributes.has("hidden")
+      && tag.attributes.get("data-open") === "false"
+      && parentTag?.name === "header"
+      && parentTag.attributes.get("class") === "site-header";
+  }
+  if (classTokens.includes("mobile-scrim")) {
+    return productionTagHasExactAttributeNames(tag, PRODUCTION_MOBILE_SCRIM_ATTRIBUTE_NAMES)
+      && className === "mobile-scrim"
+      && tag.attributes.get("data-close") === "true"
+      && tag.attributes.get("aria-hidden") === "true"
+      && parentTag?.attributes.get("class") === "mobile-shell";
+  }
+  if (classTokens.includes("mobile-sheet")) {
+    return productionTagHasExactAttributeNames(tag, PRODUCTION_MOBILE_SHEET_ATTRIBUTE_NAMES)
+      && className === "mobile-sheet"
+      && tag.attributes.get("role") === "document"
+      && parentTag?.attributes.get("class") === "mobile-shell";
+  }
+  return true;
+}
+
+function productionLinkTagIsSafe(tag) {
+  const rel = tag.attributes.get("rel") || "";
+  const as = tag.attributes.get("as") || "";
+  if (rel.includes("&") || as.includes("&")) return false;
+  const normalizedRel = asciiLower(trimHtmlSpace(rel));
+  const normalizedAs = asciiLower(trimHtmlSpace(as));
+  const href = tag.attributes.get("href") || "";
+  const nextStylesheet = /^\/_next\/static\/chunks\/[A-Za-z0-9._-]+\.css$/;
+  if (normalizedRel === "canonical") {
+    return productionTagHasExactAttributeNames(tag, PRODUCTION_CANONICAL_LINK_ATTRIBUTE_NAMES)
+      && /^https:\/\/mochirii\.com(?:\/[a-z0-9-]+)?$/.test(href);
+  }
+  if (normalizedRel === "icon" || normalizedRel === "apple-touch-icon") {
+    return productionTagHasExactAttributeNames(tag, PRODUCTION_CANONICAL_LINK_ATTRIBUTE_NAMES)
+      && href === (normalizedRel === "icon" ? "/favicon.ico" : "/assets/img/brand/apple-touch-icon.png");
+  }
+  if (normalizedRel === "stylesheet") {
+    return productionTagHasExactAttributeNames(tag, PRODUCTION_STYLESHEET_ATTRIBUTE_NAMES)
+      && tag.attributes.get("data-precedence") === "next"
+      && nextStylesheet.test(href);
+  }
+  if (normalizedRel !== "preload") return false;
+  if (normalizedAs === "style") {
+    return productionTagHasExactAttributeNames(tag, PRODUCTION_STYLE_PRELOAD_ATTRIBUTE_NAMES)
+      && nextStylesheet.test(href);
+  }
+  if (normalizedAs === "font") {
+    return productionTagHasExactAttributeNames(tag, PRODUCTION_FONT_PRELOAD_ATTRIBUTE_NAMES)
+      && tag.attributes.get("crossorigin") === ""
+      && tag.attributes.get("type") === "font/woff2"
+      && /^\/_next\/static\/media\/[A-Za-z0-9._-]+\.woff2$/.test(href);
+  }
+  if (normalizedAs === "script") {
+    return productionTagHasExactAttributeNames(tag, PRODUCTION_SCRIPT_PRELOAD_ATTRIBUTE_NAMES)
+      && tag.attributes.get("fetchpriority") === "low"
+      && /^\/_next\/static\/chunks\/[A-Za-z0-9._-]+\.js$/.test(href);
+  }
+  if (normalizedAs !== "image") return false;
+  if (tag.attributeNames.has("href")) {
+    return productionTagHasExactAttributeNames(tag, PRODUCTION_DIRECT_IMAGE_PRELOAD_ATTRIBUTE_NAMES)
+      && href === "/assets/img/recruitment/atmosphere.webp";
+  }
+  const expectedNames = tag.attributeNames.has("fetchpriority")
+    ? PRODUCTION_PRIORITY_IMAGE_PRELOAD_ATTRIBUTE_NAMES
+    : PRODUCTION_IMAGE_PRELOAD_ATTRIBUTE_NAMES;
+  const imageSizes = tag.attributes.get("imagesizes") || "";
+  const imageSrcset = tag.attributes.get("imagesrcset") || "";
+  const firstCandidate = imageSrcset.split(", ")[0] || "";
+  const separator = firstCandidate.lastIndexOf(" ");
+  const firstSource = separator > 0 ? parseProductionNextImageUrl(firstCandidate.slice(0, separator)) : null;
+  return productionTagHasExactAttributeNames(tag, expectedNames)
+    && (!tag.attributeNames.has("fetchpriority") || tag.attributes.get("fetchpriority") === "high")
+    && imageSizes.length > 0
+    && imageSizes.length <= 256
+    && !/[&<>"'\\\u0000-\u001f\u007f]/.test(imageSizes)
+    && firstSource !== null
+    && productionNextImageSrcsetIsSafe(imageSrcset, firstSource.asset);
+}
+
+function productionScriptTagIsSafe(tag, text) {
+  if (productionTagHasExactAttributeNames(tag, PRODUCTION_STRUCTURED_DATA_ATTRIBUTE_NAMES)) {
+    if (tag.attributes.get("id") !== "home-structured-data"
+      || asciiLower(tag.attributes.get("type") || "") !== "application/ld+json") return false;
+    try {
+      const structuredData = JSON.parse(text);
+      return structuredData !== null && typeof structuredData === "object" && !Array.isArray(structuredData);
+    } catch {
+      return false;
+    }
+  }
+
+  const source = tag.attributes.get("src") || "";
+  if (source) {
+    if (text !== "" || !/^\/_next\/static\/chunks\/[A-Za-z0-9._-]+\.js$/.test(source)) return false;
+    if (productionTagHasExactAttributeNames(tag, PRODUCTION_NEXT_ROOT_SCRIPT_ATTRIBUTE_NAMES)) {
+      return tag.attributes.get("id") === "_R_";
+    }
+    return PRODUCTION_NEXT_SCRIPT_ATTRIBUTE_NAMES.some(
+      (attributeNames) => productionTagHasExactAttributeNames(tag, attributeNames),
     );
   }
+
+  if (tag.attributeNames.size !== 0 || tag.duplicates.size !== 0) return false;
+  if (text === "(self.__next_f=self.__next_f||[]).push([0])") return true;
+  const prefix = "self.__next_f.push(";
+  if (!text.startsWith(prefix) || !text.endsWith(")")) return false;
+  try {
+    const payload = JSON.parse(text.slice(prefix.length, -1));
+    return Array.isArray(payload)
+      && payload.length === 2
+      && payload[0] === 1
+      && typeof payload[1] === "string";
+  } catch {
+    return false;
+  }
 }
 
-try {
-  await checkUrlAvailability();
-  await checkMetadata();
-  await checkDiscoveryFiles();
-  console.log("Production smoke check OK.");
-} catch (error) {
-  printFailure(error);
-  process.exit(1);
+function productionResourceEnvelopeRow(tag, text = "", context = "") {
+  const parts = [context, tag.name];
+  for (const name of [...tag.attributeNames].sort()) {
+    parts.push(`${name}=${tag.attributes.get(name) || ""}`);
+  }
+  if (tag.name === "script") {
+    parts.push(`text-sha256=${createHash("sha256").update(text, "utf8").digest("hex").toUpperCase()}`);
+  }
+  return parts.join("|");
+}
+
+function productionFooterLegalLinkAncestryIsExact(elements) {
+  if (elements.length !== 5) return false;
+  const [footer, wrapper, bottom, legal, link] = elements;
+  return footer.name === "footer"
+    && productionTagHasExactAttributeNames(footer.tag, PRODUCTION_FOOTER_ATTRIBUTE_NAMES)
+    && footer.tag.attributes.get("class") === "site-footer"
+    && footer.tag.attributes.get("role") === "contentinfo"
+    && wrapper.name === "div"
+    && productionTagHasExactAttributeNames(wrapper.tag, PRODUCTION_FOOTER_WRAPPER_ATTRIBUTE_NAMES)
+    && wrapper.tag.attributes.get("class") === "footer-wrap"
+    && bottom.name === "div"
+    && productionTagHasExactAttributeNames(bottom.tag, PRODUCTION_FOOTER_WRAPPER_ATTRIBUTE_NAMES)
+    && bottom.tag.attributes.get("class") === "footer-bottom"
+    && legal.name === "nav"
+    && productionTagHasExactAttributeNames(legal.tag, PRODUCTION_FOOTER_LEGAL_ATTRIBUTE_NAMES)
+    && legal.tag.attributes.get("class") === "footer-legal"
+    && legal.tag.attributes.get("aria-label") === "Privacy and support"
+    && link.name === "a";
+}
+
+function productionElementIsHidden(tag, parentHidden) {
+  if (parentHidden
+    || tag.attributes.has("hidden")
+    || tag.attributes.has("inert")
+    || tag.attributes.has("popover")) return true;
+  const ariaHidden = tag.attributes.get("aria-hidden") || "";
+  if (ariaHidden.includes("&") || asciiLower(trimHtmlSpace(ariaHidden)) === "true") return true;
+  const ariaDisabled = tag.attributes.get("aria-disabled") || "";
+  if (tag.name === "a"
+    && (ariaDisabled.includes("&")
+      || asciiLower(trimHtmlSpace(ariaDisabled)) === "true")) {
+    return true;
+  }
+  if ((tag.name === "details" || tag.name === "dialog") && !tag.attributes.has("open")) return true;
+
+  const className = tag.attributes.get("class") || "";
+  const classTokens = asciiLower(trimHtmlSpace(className)).split(/[\t\n\f\r ]+/).filter(Boolean);
+  if (tag.duplicates.has("class")
+    || className.includes("&")
+    || classTokens.some((token) => PRODUCTION_HIDDEN_CLASS_NAMES.has(token))) {
+    return true;
+  }
+
+  const rawStyle = tag.attributes.get("style") || "";
+  if (!rawStyle) return false;
+  // Inline CSS can suppress, clip, transform, or move content through many
+  // equivalent declarations. Treat every non-empty inline style as unproven
+  // on the visibility path instead of maintaining a bypassable property list.
+  return true;
+}
+
+function productionMetadataContent(value) {
+  if (typeof value !== "string" || value.length > PRODUCTION_IMAGE_VALUE_LIMIT) return "";
+  if (value.replaceAll("&amp;", "").includes("&")) return "";
+  const decoded = value.replaceAll("&amp;", "&");
+  return normalizeProductionElementText(decoded) === "" ? "" : decoded;
+}
+
+function findHtmlTagEnd(html, start) {
+  let state = "before-name";
+  let quote = "";
+  for (let index = start; index < html.length; index += 1) {
+    const character = html[index];
+    if (state === "quoted-value") {
+      if (character === quote) {
+        quote = "";
+        state = "before-name";
+      }
+      continue;
+    }
+    if (character === ">") return index;
+    if (state === "before-name") {
+      if (isHtmlSpace(character) || character === "/") continue;
+      state = "name";
+      continue;
+    }
+    if (state === "name") {
+      if (isHtmlSpace(character)) state = "after-name";
+      else if (character === "/") state = "before-name";
+      else if (character === "=") state = "before-value";
+      continue;
+    }
+    if (state === "after-name") {
+      if (isHtmlSpace(character)) continue;
+      if (character === "/") state = "before-name";
+      else if (character === "=") state = "before-value";
+      else state = "name";
+      continue;
+    }
+    if (state === "before-value") {
+      if (isHtmlSpace(character)) continue;
+      if (character === '"' || character === "'") {
+        quote = character;
+        state = "quoted-value";
+      } else {
+        state = "unquoted-value";
+      }
+      continue;
+    }
+    if (state === "unquoted-value" && isHtmlSpace(character)) state = "before-name";
+  }
+  return -1;
+}
+
+function parseHtmlTagAt(html, start) {
+  let cursor = start + 1;
+  let closing = false;
+  if (html[cursor] === "/") {
+    closing = true;
+    cursor += 1;
+  }
+  const nameStart = cursor;
+  while (cursor < html.length && !/[\t\n\f\r />]/.test(html[cursor])) cursor += 1;
+  if (cursor === nameStart) return null;
+  const name = asciiLower(html.slice(nameStart, cursor));
+  const end = findHtmlTagEnd(html, cursor);
+  if (end < 0) {
+    return {
+      attributeNames: new Set(),
+      attributes: new Map(),
+      closing,
+      duplicates: new Set(),
+      end: html.length,
+      malformed: true,
+      name,
+    };
+  }
+  if (closing) {
+    return {
+      attributeNames: new Set(),
+      attributes: new Map(),
+      closing,
+      duplicates: new Set(),
+      end,
+      malformed: false,
+      name,
+    };
+  }
+
+  const attributeNames = new Set();
+  const attributes = new Map();
+  const duplicates = new Set();
+  while (cursor < end) {
+    while (cursor < end && /[\t\n\f\r ]/.test(html[cursor])) cursor += 1;
+    if (cursor >= end || html[cursor] === "/") {
+      cursor += 1;
+      continue;
+    }
+    const attributeStart = cursor;
+    if (html[cursor] === "=") cursor += 1;
+    while (cursor < end && !/[\t\n\f\r />=]/.test(html[cursor])) cursor += 1;
+    if (cursor === attributeStart) {
+      cursor += 1;
+      continue;
+    }
+    const attributeName = asciiLower(html.slice(attributeStart, cursor));
+    while (cursor < end && /[\t\n\f\r ]/.test(html[cursor])) cursor += 1;
+    let value = "";
+    if (html[cursor] === "=") {
+      cursor += 1;
+      while (cursor < end && /[\t\n\f\r ]/.test(html[cursor])) cursor += 1;
+      const quote = html[cursor] === '"' || html[cursor] === "'" ? html[cursor] : "";
+      if (quote) {
+        cursor += 1;
+        const valueStart = cursor;
+        while (cursor < end && html[cursor] !== quote) cursor += 1;
+        if (cursor >= end) {
+          return { attributeNames, attributes, closing, duplicates, end, malformed: true, name };
+        }
+        value = html.slice(valueStart, cursor);
+        cursor += 1;
+      } else {
+        const valueStart = cursor;
+        while (cursor < end && !/[\t\n\f\r >]/.test(html[cursor])) cursor += 1;
+        value = html.slice(valueStart, cursor);
+      }
+    }
+    if (attributeNames.has(attributeName)) duplicates.add(attributeName);
+    else attributeNames.add(attributeName);
+    if (PRODUCTION_HTML_ATTRIBUTES.has(attributeName) && !attributes.has(attributeName)) {
+      attributes.set(attributeName, value);
+    }
+  }
+  return { attributeNames, attributes, closing, duplicates, end, malformed: false, name };
+}
+
+function findPlainTextElementClose(html, asciiLowerHtml, start, name) {
+  const closingStart = asciiLowerHtml.indexOf("</" + name, start);
+  if (closingStart < 0 || html.indexOf("<", start) !== closingStart) return null;
+  const closingTag = parseHtmlTagAt(html, closingStart);
+  if (!closingTag?.closing || closingTag.malformed || closingTag.name !== name) return null;
+  return { closingStart, end: closingTag.end + 1 };
+}
+
+function findRawTextClose(html, asciiLowerHtml, start, name) {
+  const needle = "</" + name;
+  const scriptEscapeStart = name === "script" ? html.indexOf("<!--", start) : -1;
+  let cursor = start;
+  while (cursor < html.length) {
+    const closingStart = asciiLowerHtml.indexOf(needle, cursor);
+    if (closingStart < 0) return null;
+    const boundary = html[closingStart + needle.length];
+    if (scriptEscapeStart >= 0 && scriptEscapeStart < closingStart) return null;
+    if (boundary === ">" || boundary === "/" || isHtmlSpace(boundary)) {
+      const closingTag = parseHtmlTagAt(html, closingStart);
+      if (closingTag?.closing && !closingTag.malformed && closingTag.name === name) {
+        return { closingStart, end: closingTag.end + 1 };
+      }
+      return null;
+    }
+    cursor = closingStart + needle.length;
+  }
+  return null;
+}
+
+function readActiveProductionHtml(html, {
+  allowPlainAudio = false, documentPolicies, resourceProfile = "",
+} = {}) {
+  if (typeof html !== "string") return null;
+  const documentPolicy = documentPolicies?.[resourceProfile];
+  if (!documentPolicy) return null;
+  const asciiLowerHtml = asciiLower(html);
+  if (!asciiLowerHtml.startsWith(PRODUCTION_DOCTYPE)) return null;
+  const tags = [];
+  const titles = [];
+  const activeText = [];
+  const inertContainers = [];
+  const visibilityElements = [];
+  const footerElements = [];
+  const resourceEnvelope = [];
+  let footerCount = 0;
+  let startTagCount = 0;
+  let htmlElementSeen = false;
+  let headElementSeen = false;
+  let headElementClosed = false;
+  let bodyElementSeen = false;
+  let bodyElementClosed = false;
+  let htmlElementClosed = false;
+  let siteHeaderCount = 0;
+  let siteHeaderStart = -1;
+  let siteHeaderSha256 = "";
+  let cursor = PRODUCTION_DOCTYPE.length;
+
+  function appendText(value) {
+    if (trimHtmlSpace(value) !== ""
+      && !visibilityElements.some((element) => element.name === "body")) return false;
+    const inert = inertContainers.length > 0;
+    const hidden = visibilityElements.at(-1)?.hidden === true;
+    if (!inert) {
+      for (let index = footerElements.length - 1; index >= 0; index -= 1) {
+        const anchor = footerElements[index].anchor;
+        if (anchor) {
+          anchor.rawText += value;
+          if (!hidden) anchor.text += value;
+          break;
+        }
+      }
+    }
+    if (inert || hidden) return true;
+    activeText.push(value);
+    return true;
+  }
+
+  function closeVisibilityElement(name) {
+    if (visibilityElements.at(-1)?.name !== name) return false;
+    visibilityElements.pop();
+    return true;
+  }
+
+  while (cursor < html.length) {
+    const start = html.indexOf("<", cursor);
+    if (start < 0) {
+      if (!appendText(html.slice(cursor))) return null;
+      break;
+    }
+    if (start > cursor && !appendText(html.slice(cursor, start))) return null;
+    if (html.startsWith("<!--", start)) {
+      const commentEnd = html.indexOf("-->", start + 4);
+      if (commentEnd < 0) return null;
+      const commentBody = html.slice(start + 4, commentEnd);
+      if (!PRODUCTION_SAFE_COMMENT_BODIES.has(commentBody)) return null;
+      cursor = commentEnd + 3;
+      continue;
+    }
+    if (html[start + 1] === "!" || html[start + 1] === "?") return null;
+
+    const tag = parseHtmlTagAt(html, start);
+    if (!tag) {
+      if (!appendText("<")) return null;
+      cursor = start + 1;
+      continue;
+    }
+    if (tag.malformed) return null;
+    cursor = tag.end + 1;
+    if (PRODUCTION_AMBIGUOUS_TREE_ELEMENTS.has(tag.name)) return null;
+    if (!tag.closing && ++startTagCount > PRODUCTION_HTML_TAG_LIMIT) return null;
+    if (!tag.closing && productionTagHasEventHandler(tag)) return null;
+    if (!tag.closing && !productionElementResourceAttributesAreSafe(tag)) return null;
+    if (!tag.closing && footerElements.length > 0
+      && (!PRODUCTION_FOOTER_DESCENDANT_CLASS_NAMES.has(tag.attributes.get("class") || "")
+        || !PRODUCTION_FOOTER_DESCENDANT_ID_NAMES.has(tag.attributes.get("id") || ""))) return null;
+    if (!tag.closing && tag.name === "a" && !productionAnchorTagIsSafe(tag)) return null;
+    const parentTag = visibilityElements.at(-1)?.tag;
+    if (!tag.closing && !productionInlineStyleIsSafe(tag, {
+      footerCount,
+      insideFooter: footerElements.length > 0,
+      parentTag,
+    })) return null;
+    if (!tag.closing && !productionOverlayElementIsSafe(
+      tag, parentTag, {
+        ancestorTags: visibilityElements.map((element) => element.tag),
+        insideFooter: footerElements.length > 0,
+      },
+    )) return null;
+    if (!tag.closing && tag.name === "link") {
+      if (inertContainers.length > 0 || !productionLinkTagIsSafe(tag)) return null;
+      const context = visibilityElements.some((element) => element.name === "head") ? "head" : "body";
+      resourceEnvelope.push(productionResourceEnvelopeRow(tag, "", context));
+    }
+    if (!tag.closing && tag.name === "meta" && tag.attributeNames.has("http-equiv")) return null;
+    if (!tag.closing && tag.name === "meta"
+      && ["name", "property"].some((name) => (tag.attributes.get(name) || "").includes("&"))) {
+      return null;
+    }
+    if (!tag.closing && tag.name === "audio" && allowPlainAudio) {
+      if (inertContainers.length > 0
+        || footerElements.length > 0
+        || !bodyElementSeen
+        || !visibilityElements.some((element) => element.name === "body")
+        || !productionAudioTagIsSafe(tag)) return null;
+      const audioClose = findPlainTextElementClose(html, asciiLowerHtml, cursor, "audio");
+      if (!audioClose) return null;
+      cursor = audioClose.end;
+      continue;
+    }
+    if (!tag.closing && PRODUCTION_REJECTED_ELEMENTS.has(tag.name)) return null;
+    if (!tag.closing
+      && footerElements.at(-1)?.name === "nav"
+      && footerElements.at(-1)?.tag.attributes.get("class") === "footer-legal"
+      && tag.name !== "a") return null;
+
+    if (tag.closing) {
+      if (inertContainers.at(-1) === tag.name) {
+        inertContainers.pop();
+        continue;
+      } else if (inertContainers.length > 0) {
+        continue;
+      } else if (footerElements.length > 0) {
+        if (footerElements.at(-1).name !== tag.name) return null;
+        footerElements.pop();
+      }
+      const structuralTop = visibilityElements.at(-1)?.name;
+      const closingElement = visibilityElements.at(-1);
+      if (tag.name === "header" && closingElement?.tag.attributes.get("class") === "site-header") {
+        if (siteHeaderStart < 0 || siteHeaderSha256) return null;
+        siteHeaderSha256 = createHash("sha256").update(html.slice(siteHeaderStart, cursor), "utf8")
+          .digest("hex").toUpperCase();
+      }
+      if (tag.name === "head") {
+        if (!headElementSeen || headElementClosed || structuralTop !== "head") return null;
+        headElementClosed = true;
+      } else if (tag.name === "body") {
+        if (!bodyElementSeen || bodyElementClosed || structuralTop !== "body") return null;
+        bodyElementClosed = true;
+      } else if (tag.name === "html") {
+        if (!htmlElementSeen || htmlElementClosed || !bodyElementClosed || structuralTop !== "html") return null;
+        htmlElementClosed = true;
+      }
+      if (!closeVisibilityElement(tag.name)) return null;
+      continue;
+    }
+
+    const structuralParent = visibilityElements.at(-1)?.name;
+    const headOpen = visibilityElements.some((element) => element.name === "head");
+    const bodyOpen = visibilityElements.some((element) => element.name === "body");
+    if (tag.name === "html") {
+      if (htmlElementSeen || visibilityElements.length !== 0) return null;
+      htmlElementSeen = true;
+    } else if (tag.name === "head") {
+      if (!htmlElementSeen || headElementSeen || bodyElementSeen
+        || htmlElementClosed || structuralParent !== "html") return null;
+      headElementSeen = true;
+    } else if (tag.name === "body") {
+      if (!htmlElementSeen || !headElementSeen || !headElementClosed || bodyElementSeen
+        || htmlElementClosed || structuralParent !== "html" || tag.attributes.has("class")) return null;
+      bodyElementSeen = true;
+    } else if (headOpen) {
+      if (headElementClosed || structuralParent !== "head" || !PRODUCTION_HEAD_ELEMENTS.has(tag.name)) return null;
+    } else if (!bodyOpen || bodyElementClosed || htmlElementClosed) {
+      return null;
+    }
+
+    if (tag.name === "header" && tag.attributes.get("class") === "site-header") {
+      if (siteHeaderCount !== 0 || structuralParent !== "body") return null;
+      siteHeaderCount += 1;
+      siteHeaderStart = start;
+    }
+
+    if (tag.name === "frameset") return null;
+    if (PRODUCTION_RAW_TEXT_ELEMENTS.has(tag.name)) {
+      if (footerElements.length > 0) return null;
+      const rawTextClose = findRawTextClose(html, asciiLowerHtml, cursor, tag.name);
+      if (!rawTextClose) return null;
+      const rawText = html.slice(cursor, rawTextClose.closingStart);
+      if (tag.name === "script"
+        && (inertContainers.length > 0 || !productionScriptTagIsSafe(tag, rawText))) return null;
+      if (tag.name === "script") {
+        resourceEnvelope.push(productionResourceEnvelopeRow(tag, rawText, headOpen ? "head" : "body"));
+      }
+      if (tag.name === "title"
+        && headOpen
+        && inertContainers.length === 0
+        && !visibilityElements.at(-1)?.hidden) {
+        titles.push(rawText);
+      }
+      cursor = rawTextClose.end;
+      continue;
+    }
+    if (PRODUCTION_INERT_CONTAINERS.has(tag.name)) {
+      if ([...tag.attributeNames].some((name) => name.startsWith("shadowroot"))) return null;
+      if (footerElements.length > 0) return null;
+      if (inertContainers.length >= PRODUCTION_HTML_DEPTH_LIMIT) return null;
+      inertContainers.push(tag.name);
+      continue;
+    }
+    if (inertContainers.length > 0) continue;
+    if (tag.name === "base") return null;
+    const hidden = productionElementIsHidden(tag, visibilityElements.at(-1)?.hidden === true);
+    const insideFooter = footerElements.length > 0 || tag.name === "footer";
+    for (let index = footerElements.length - 1; index >= 0; index -= 1) {
+      const anchor = footerElements[index].anchor;
+      if (anchor) {
+        anchor.hasElementChild = true;
+        break;
+      }
+    }
+    let tagRecord = null;
+    if (tag.name === "footer") {
+      if (footerElements.length > 0
+        || visibilityElements.at(-1)?.name !== "body"
+        || tag.duplicates.has("class")
+        || tag.attributes.get("class") !== "site-footer") return null;
+      footerCount += 1;
+      footerElements.push({ anchor: null, hidden, name: "footer", tag });
+    } else if (footerElements.length > 0 && !PRODUCTION_VOID_ELEMENTS.has(tag.name)) {
+      if (tag.name === "a" && footerElements.some((element) => element.anchor !== null)) return null;
+      footerElements.push({ anchor: null, hidden, name: tag.name, tag });
+    }
+    if (tag.name === "link" || tag.name === "meta" || tag.name === "a") {
+      if (tags.length >= PRODUCTION_HTML_TAG_LIMIT) return null;
+      tagRecord = {
+        ...tag,
+        footerLegalLinkAncestryExact: tag.name === "a"
+          && productionFooterLegalLinkAncestryIsExact(footerElements),
+        hasElementChild: false,
+        hidden,
+        insideHead: headOpen,
+        insideFooter,
+        rawText: "",
+        text: "",
+      };
+      tags.push(tagRecord);
+      if (tag.name === "a" && footerElements.length > 0) {
+        footerElements.at(-1).anchor = tagRecord;
+      }
+    }
+    if (!PRODUCTION_VOID_ELEMENTS.has(tag.name)) {
+      visibilityElements.push({ hidden, name: tag.name, tag });
+    }
+  }
+
+  const resourceEnvelopeSha256 = createHash("sha256").update(JSON.stringify(resourceEnvelope), "utf8")
+    .digest("hex").toUpperCase();
+  if (inertContainers.length > 0 || footerElements.length > 0 || visibilityElements.length > 0
+    || !htmlElementSeen || !headElementSeen || !headElementClosed
+    || !bodyElementSeen || !bodyElementClosed || !htmlElementClosed
+    || siteHeaderCount !== 1 || siteHeaderSha256 !== documentPolicy.header
+    || resourceEnvelopeSha256 !== documentPolicy.resources) return null;
+  return Object.freeze({
+    activeText: activeText.join(" "),
+    footerCount,
+    footerLegalLinkCount: tags.filter((tag) => tag.footerLegalLinkAncestryExact).length,
+    title() {
+      return titles.length === 1 ? titles[0] : "";
+    },
+    link(rel) {
+      const matches = [];
+      for (const tag of tags) {
+        if (tag.name !== "link" || !tag.insideHead || tag.hidden) continue;
+        if (tag.duplicates.has("rel") || tag.duplicates.has("href")) return "";
+        const relTokens = asciiLower(tag.attributes.get("rel") || "")
+          .split(/[\t\n\f\r ]+/)
+          .filter(Boolean);
+        if (relTokens.includes(asciiLower(rel))) matches.push(tag.attributes.get("href") || "");
+      }
+      return matches.length === 1 ? matches[0] : "";
+    },
+    meta(attribute, value) {
+      const matches = [];
+      for (const tag of tags) {
+        if (tag.name !== "meta" || !tag.insideHead || tag.hidden) continue;
+        if (tag.duplicates.has(attribute) || tag.duplicates.has("content")) return "";
+        if (asciiLower(tag.attributes.get(attribute) || "") === asciiLower(value)) {
+          const content = productionMetadataContent(tag.attributes.get("content") || "");
+          if (!content) return "";
+          matches.push(content);
+        }
+      }
+      return matches.length === 1 ? matches[0] : "";
+    },
+    footerLinkCount(href, label) {
+      let count = 0;
+      for (const tag of tags) {
+        if (tag.name !== "a" || !tag.insideFooter) continue;
+        const observedHref = tag.attributes.get("href") || "";
+        const observedLabel = normalizeProductionElementText(tag.text);
+        const observedRawLabel = normalizeProductionElementText(tag.rawText);
+        if (observedHref !== href && observedLabel !== label && observedRawLabel !== label) continue;
+        if (tag.hidden
+          || !tag.footerLegalLinkAncestryExact
+          || !productionTagHasExactAttributeNames(tag, new Set(["href"]))
+          || tag.hasElementChild
+          || observedHref !== href
+          || observedLabel !== label
+          || observedRawLabel !== label) return 0;
+        count += 1;
+      }
+      return count;
+    },
+  });
+}
+
+async function checkUrlAvailability(client) {
+  for (const contract of PAGE_CONTRACTS) {
+    await fetchText(client, contract.path, contract.media);
+  }
+}
+
+async function checkMetadata(client, documentPolicies) {
+  const home = await fetchText(client, "/", "html");
+  const homeDocument = readActiveProductionHtml(home, { documentPolicies, resourceProfile: "home" });
+  if (!homeDocument) throw failure("HTML_DOCUMENT_REJECTED");
+  assertIncludes(homeDocument.title(), /Where Winds Meet/i, "HOMEPAGE_TITLE");
+  if (!homeDocument.meta("name", "description")) throw failure("CONTENT_HOMEPAGE_DESCRIPTION_REJECTED");
+  if (homeDocument.link("canonical") !== client.siteOrigin) {
+    throw failure("CONTENT_HOMEPAGE_CANONICAL_REJECTED");
+  }
+  if (!homeDocument.meta("property", "og:title")) throw failure("CONTENT_HOMEPAGE_OG_TITLE_REJECTED");
+  if (homeDocument.footerCount !== 1
+    || homeDocument.footerLegalLinkCount !== 3
+    || homeDocument.footerLinkCount("/privacy", "Privacy") !== 1
+    || homeDocument.footerLinkCount("/meta-data-deletion", "Data Deletion") !== 1
+    || homeDocument.footerLinkCount("mailto:support@mochirii.com", "support@mochirii.com") !== 1) {
+    throw failure("CONTENT_HOMEPAGE_FOOTER_REJECTED");
+  }
+
+  const ogImage = homeDocument.meta("property", "og:image");
+  if (!ogImage) throw failure("CONTENT_HOMEPAGE_OG_IMAGE_REJECTED");
+  const canonicalOgImage = requestUrl(client.siteOrigin, ogImage, { asset: true });
+  if (canonicalOgImage.href !== ogImage) throw failure("ASSET_URL_REJECTED");
+  const ogResponse = await fetchProductionResponse(client, canonicalOgImage.pathname, {
+    asset: true,
+    label: "homepage OG image",
+  });
+  await assertMediaType(ogResponse, ["image/webp"], { allowUtf8: false });
+  await cancelResponseBody(ogResponse);
+
+  const recruitment = await fetchText(client, "/recruitment", "html");
+  const recruitmentDocument = readActiveProductionHtml(recruitment, {
+    allowPlainAudio: true, documentPolicies, resourceProfile: "recruitment",
+  });
+  if (!recruitmentDocument) throw failure("HTML_DOCUMENT_REJECTED");
+  assertIncludes(recruitmentDocument.activeText, /Recruitment/i, "RECRUITMENT_PAGE");
+  if (recruitmentDocument.link("canonical") !== client.siteOrigin + "/recruitment") {
+    throw failure("CONTENT_RECRUITMENT_CANONICAL_REJECTED");
+  }
+
+  const privacy = await fetchText(client, "/privacy", "html");
+  const privacyDocument = readActiveProductionHtml(privacy, { documentPolicies, resourceProfile: "privacy" });
+  if (!privacyDocument) throw failure("HTML_DOCUMENT_REJECTED");
+  assertIncludes(privacyDocument.activeText, /Website scope|privacy questions/i, "PRIVACY_PAGE");
+  if (privacyDocument.link("canonical") !== client.siteOrigin + "/privacy") {
+    throw failure("CONTENT_PRIVACY_CANONICAL_REJECTED");
+  }
+
+  const deletion = await fetchText(client, "/meta-data-deletion", "html");
+  const deletionDocument = readActiveProductionHtml(deletion, { documentPolicies, resourceProfile: "deletion" });
+  if (!deletionDocument) throw failure("HTML_DOCUMENT_REJECTED");
+  assertIncludes(deletionDocument.activeText, /Data Deletion Requests|How to make a request/i, "DELETION_PAGE");
+  if (deletionDocument.link("canonical") !== client.siteOrigin + "/meta-data-deletion") {
+    throw failure("CONTENT_DELETION_CANONICAL_REJECTED");
+  }
+}
+
+function replaceXmlComments(value) {
+  let output = "";
+  let cursor = 0;
+  let insideTag = false;
+  let quote = "";
+  while (cursor < value.length) {
+    if (!insideTag && value.startsWith("<!--", cursor)) {
+      const end = value.indexOf("-->", cursor + 4);
+      const comment = end < 0 ? "" : value.slice(cursor + 4, end);
+      if (end < 0 || comment.includes("--") || comment.endsWith("-")) return null;
+      output += " ";
+      cursor = end + 3;
+      continue;
+    }
+    if (insideTag && value.startsWith("<!--", cursor)) return null;
+
+    const character = value[cursor];
+    output += character;
+    cursor += 1;
+    if (!insideTag) {
+      if (character === "<") insideTag = true;
+      continue;
+    }
+    if (quote) {
+      if (character === quote) quote = "";
+      continue;
+    }
+    if (character === '"' || character === "'") {
+      quote = character;
+    } else if (character === ">") {
+      insideTag = false;
+    }
+  }
+  return insideTag || quote ? null : output;
+}
+
+function productionSitemapLocations(value, siteOrigin) {
+  if (typeof value !== "string") return null;
+  const xml = replaceXmlComments(value);
+  if (xml === null) return null;
+
+  const whitespace = "[\\t\\n\\r ]*";
+  const entry = "<url>" + whitespace + "<loc>[^<>&]{1,2048}</loc>" + whitespace + "</url>";
+  const documentPattern = new RegExp(
+    "^(?:"
+      + "<\\?xml[\\t\\n\\r ]+version=\\\"1\\.0\\\"[\\t\\n\\r ]+encoding=\\\"UTF-8\\\"\\?>" + whitespace
+      + "|" + whitespace + ")"
+      + "<urlset[\\t\\n\\r ]+xmlns=\\\"http://www\\.sitemaps\\.org/schemas/sitemap/0\\.9\\\">"
+      + whitespace + "(?:" + entry + whitespace + ")+</urlset>" + whitespace + "$",
+  );
+  if (!documentPattern.test(xml)) return null;
+
+  const entryPattern = new RegExp(
+    "<url>" + whitespace + "<loc>([^<>&]{1,2048})</loc>" + whitespace + "</url>",
+    "g",
+  );
+  const locations = [];
+  for (const match of xml.matchAll(entryPattern)) {
+    let candidate;
+    try {
+      candidate = requestUrl(siteOrigin, match[1]);
+    } catch {
+      return null;
+    }
+    if (candidate.href !== match[1]) return null;
+    locations.push(match[1]);
+  }
+  if (locations.length === 0 || new Set(locations).size !== locations.length) return null;
+  return new Set(locations);
+}
+
+function productionRobotsSitemaps(value) {
+  if (typeof value !== "string" || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(value)) return null;
+  const sitemaps = [];
+  for (const rawLine of value.split(/\r\n|\n|\r/)) {
+    const comment = rawLine.indexOf("#");
+    const line = trimHtmlSpace(comment < 0 ? rawLine : rawLine.slice(0, comment));
+    if (!line) continue;
+    const directive = /^([A-Za-z][A-Za-z-]*):[\t ]*(.*)$/.exec(line);
+    if (!directive || asciiLower(directive[1]) !== "sitemap") continue;
+    sitemaps.push(trimHtmlSpace(directive[2]));
+  }
+  return sitemaps;
+}
+
+async function checkDiscoveryFiles(client) {
+  const sitemap = await fetchText(client, "/sitemap.xml", "xml");
+  const locations = productionSitemapLocations(sitemap, client.siteOrigin);
+  if (!locations) throw failure("CONTENT_SITEMAP_DOCUMENT_REJECTED");
+  if (!locations.has(client.siteOrigin + "/gallery")) throw failure("CONTENT_SITEMAP_GALLERY_REJECTED");
+  if (!locations.has(client.siteOrigin + "/privacy")) throw failure("CONTENT_SITEMAP_PRIVACY_REJECTED");
+  if (!locations.has(client.siteOrigin + "/meta-data-deletion")) {
+    throw failure("CONTENT_SITEMAP_DELETION_REJECTED");
+  }
+
+  const robots = await fetchText(client, "/robots.txt", "text");
+  const sitemaps = productionRobotsSitemaps(robots);
+  if (!sitemaps
+    || sitemaps.length !== 1
+    || sitemaps[0] !== client.siteOrigin + "/sitemap.xml") {
+    throw failure("CONTENT_ROBOTS_SITEMAP_REJECTED");
+  }
+}
+
+async function checkProductionWithDocumentPolicies({
+  baseUrl = process.env.MOCHIRII_PRODUCTION_BASE_URL || undefined,
+  defaultBaseUrlLoader = loadDefaultProductionBaseUrl,
+  fetchImpl = globalThis.fetch,
+  waitImpl = wait,
+  maxAttempts = MAX_ATTEMPTS,
+  diagnose = false,
+  reportDiagnostic = () => undefined,
+} = {}, documentPolicies) {
+  if (typeof defaultBaseUrlLoader !== "function"
+    || typeof fetchImpl !== "function"
+    || typeof waitImpl !== "function"
+    || !Number.isInteger(maxAttempts)
+    || maxAttempts < 1
+    || maxAttempts > MAX_ATTEMPTS
+    || typeof reportDiagnostic !== "function") {
+    throw failure("CLIENT_CONTRACT_REJECTED");
+  }
+  let siteOrigin;
+  try {
+    siteOrigin = normalizeProductionBaseUrl(defaultBaseUrlLoader());
+  } catch {
+    throw failure("BASE_URL_REJECTED");
+  }
+  const selectedBaseUrl = baseUrl === undefined ? siteOrigin : baseUrl;
+  const normalizedBaseUrl = normalizeProductionBaseUrl(selectedBaseUrl);
+
+  const client = {
+    baseUrl: normalizedBaseUrl,
+    siteOrigin,
+    fetchImpl,
+    waitImpl,
+    maxAttempts,
+    diagnose: diagnose === true,
+    reportDiagnostic,
+  };
+  await checkUrlAvailability(client);
+  await checkMetadata(client, documentPolicies);
+  await checkDiscoveryFiles(client);
+  return Object.freeze({ ok: true });
+}
+
+export async function checkProduction(options = {}) {
+  return checkProductionWithDocumentPolicies(options, PRODUCTION_DOCUMENT_POLICIES);
+}
+
+export async function checkProductionWithTestFixtures(options = {}) {
+  return checkProductionWithDocumentPolicies(options, TEST_DOCUMENT_POLICIES);
+}
+
+export function formatProductionFailure(error) {
+  const code = error instanceof ProductionSmokeError ? error.code : "UNEXPECTED_REJECTED";
+  const status = error instanceof ProductionSmokeError ? error.status : null;
+  return status === null
+    ? "Production smoke check failed [" + code + "]."
+    : "Production smoke check failed [" + code + "] (HTTP " + status + ").";
+}
+
+export async function run({
+  baseUrl = process.env.MOCHIRII_PRODUCTION_BASE_URL || undefined,
+  defaultBaseUrlLoader = loadDefaultProductionBaseUrl,
+  fetchImpl = globalThis.fetch,
+  waitImpl = wait,
+  maxAttempts = MAX_ATTEMPTS,
+  diagnose = DEFAULT_DIAGNOSE,
+  reportDiagnostic = (message) => console.log(message),
+  reportFailure = (message) => console.error(message),
+  reportSuccess = (message) => console.log(message),
+} = {}) {
+  try {
+    await checkProduction({
+      baseUrl,
+      defaultBaseUrlLoader,
+      fetchImpl,
+      waitImpl,
+      maxAttempts,
+      diagnose,
+      reportDiagnostic,
+    });
+    reportSuccess("Production smoke check OK.");
+    return 0;
+  } catch (error) {
+    reportFailure(formatProductionFailure(error));
+    return 1;
+  }
+}
+
+const invokedUrl = process.argv[1] ? pathToFileURL(process.argv[1]).href : "";
+if (invokedUrl === import.meta.url) {
+  process.exitCode = await run();
 }

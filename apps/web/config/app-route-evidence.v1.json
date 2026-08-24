@@ -80,8 +80,8 @@
       "id": "app-route-inventory-tests",
       "path": "scripts/lib/app-router-inventory.test.mjs",
       "scope": "hostile source-only App Router inventory controls",
-      "bytes": 94604,
-      "sha256": "7CC03CBB3A12BAAB5FDAA4378E4D3F422A3F1A415260D4DBBEBE5818B9EE3F3D",
+      "bytes": 131054,
+      "sha256": "FFE3EAEF7494357908C2F0F7A8EDB436D430E81078C1DABFD211056E104A0093",
       "status": "verified_source"
     },
     {
@@ -112,8 +112,8 @@
       "id": "package-route-evidence-wiring",
       "path": "package.json",
       "scope": "exact npm commands for route-evidence checking and hostile tests",
-      "bytes": 16727,
-      "sha256": "C38A6A093F55582C2430D8B1CC17771EACC8CC1C460E166BDA3AE3FE933A6C80",
+      "bytes": 16924,
+      "sha256": "91044708FCA9339CCB32E1DDF3D93D2B02B5B938568F82EBA5B2253A7D9C9C2E",
       "status": "verified_source"
     },
     {
@@ -136,8 +136,8 @@
       "id": "repository-check-runner",
       "path": "scripts/check-all.mjs",
       "scope": "full-repository execution wiring for route-evidence checks",
-      "bytes": 11738,
-      "sha256": "3EEC12E326FB39A184D69FA10263CD8A283CE81009D4F7D6652743EC56CA7449",
+      "bytes": 11832,
+      "sha256": "70030278FC72A39F0CE11FB7687AF5804DDDD020034A63F103985CF30F83305F",
       "status": "verified_source"
     },
     {
