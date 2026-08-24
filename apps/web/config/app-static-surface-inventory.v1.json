@@ -235,8 +235,8 @@
     },
     {
       "path": "scripts/lib/app-static-surface-inventory.test.mjs",
-      "bytes": 29918,
-      "sha256": "65E6B50915E25BDE9C4B360C3C9CD978E1B5E423C3DC4DB6E41DC2763FDD48EC"
+      "bytes": 52634,
+      "sha256": "71E24F3AAD5C40D8A624392BBC9EE24A829888C52F416ABE9365782FA567EA38"
     }
   ],
   "metadataRoutes": [

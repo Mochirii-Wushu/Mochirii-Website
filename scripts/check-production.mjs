@@ -11,9 +11,13 @@ const DEFAULT_DIAGNOSE = process.argv.includes("--diagnose");
 export const PRODUCTION_CHECK_LIMITS = Object.freeze({
   baseUrlCharacters: 2048,
   responseHeaderCharacters: 256,
+  linkHeaderCharacters: 512,
+  contentDispositionCharacters: 160,
+  contentLengthCharacters: 16,
   htmlBytes: 1024 * 1024,
   textBytes: 256 * 1024,
   xmlBytes: 256 * 1024,
+  assetBytes: 4 * 1024 * 1024,
   assetUrlCharacters: 2048,
   publicUrlsConfigBytes: DEFAULT_PUBLIC_URLS_BYTE_LIMIT,
 });
@@ -218,12 +222,63 @@ function responseMatchesRequest(response, target) {
   }
 }
 
-function productionLinkResponseHeaderIsSafe(value) {
+function productionLinkResponseHeaderRecord(value) {
   if (typeof value !== "string" || value.length === 0
-    || value.length > PRODUCTION_CHECK_LIMITS.responseHeaderCharacters) return false;
-  const fontPreload = /^<\/_next\/static\/media\/[A-Za-z0-9._-]+\.woff2>; rel=preload; as="font"; crossorigin=""; type="font\/woff2"$/;
+    || value.length > PRODUCTION_CHECK_LIMITS.linkHeaderCharacters) return null;
+  const fontPreload = /^<\/_next\/static\/(?:([A-Za-z0-9_-]{1,64})\/)?media\/[A-Za-z0-9._-]+\.woff2>; rel=preload; as="font"; crossorigin=""; type="font\/woff2"$/;
   const entries = value.split(", ");
-  return entries.length <= 2 && entries.every((entry) => fontPreload.test(entry));
+  if (entries.length < 1 || entries.length > 2 || new Set(entries).size !== entries.length) return null;
+  let nextStaticBuildId = null;
+  for (const entry of entries) {
+    const match = fontPreload.exec(entry);
+    if (!match) return null;
+    const entryBuildId = match[1] || "";
+    if (nextStaticBuildId !== null && nextStaticBuildId !== entryBuildId) return null;
+    nextStaticBuildId = entryBuildId;
+  }
+  return Object.freeze({ nextStaticBuildId });
+}
+
+function productionNextStaticBuildIdMatchesRun(client, observed) {
+  if (typeof observed !== "string") return false;
+  if (client.nextStaticBuildId === null) {
+    client.nextStaticBuildId = observed;
+    return true;
+  }
+  return client.nextStaticBuildId === observed;
+}
+
+function productionNextStaticNamespaceMatchesPath(client, path, observed) {
+  if (typeof path !== "string" || (observed !== null && typeof observed !== "string")) return false;
+  if (!client.htmlNextStaticNamespaces.has(path)) {
+    client.htmlNextStaticNamespaces.set(path, observed);
+  } else if (client.htmlNextStaticNamespaces.get(path) !== observed) {
+    return false;
+  }
+  return observed === null || productionNextStaticBuildIdMatchesRun(client, observed);
+}
+
+function productionContentDispositionHeaderIsSafe(value, target, { asset = false } = {}) {
+  if (value === null) return true;
+  if (typeof value !== "string" || value.length === 0
+    || value.length > PRODUCTION_CHECK_LIMITS.contentDispositionCharacters) return false;
+  if (!asset && target.pathname !== "/robots.txt" && target.pathname !== "/sitemap.xml") {
+    return value === "inline";
+  }
+  const filename = target.pathname.split("/").at(-1) || "";
+  return /^[A-Za-z0-9._-]{1,128}$/.test(filename)
+    && value === `inline; filename="${filename}"`;
+}
+
+function productionContentLengthHeaderRecord(value) {
+  if (value === null) return Object.freeze({ declaredLength: null });
+  if (typeof value !== "string"
+    || value.length < 1
+    || value.length > PRODUCTION_CHECK_LIMITS.contentLengthCharacters
+    || !/^\d+$/.test(value)) return null;
+  const declaredLength = Number(value);
+  return Number.isSafeInteger(declaredLength)
+    ? Object.freeze({ declaredLength }) : null;
 }
 
 async function cancelResponseBody(response) {
@@ -272,12 +327,12 @@ async function readBoundedUtf8Response(response, contract) {
 
   const declaredLengthText = response.headers.get("content-length");
   if (declaredLengthText !== null) {
-    if (!/^\d+$/.test(declaredLengthText.trim())) {
+    const contentLengthRecord = productionContentLengthHeaderRecord(declaredLengthText);
+    if (!contentLengthRecord) {
       await cancelResponseBody(response);
       throw failure("BODY_LIMIT_REJECTED");
     }
-    const declaredLength = Number(declaredLengthText);
-    if (!Number.isSafeInteger(declaredLength) || declaredLength > contract.byteLimit) {
+    if (contentLengthRecord.declaredLength > contract.byteLimit) {
       await cancelResponseBody(response);
       throw failure("BODY_LIMIT_REJECTED");
     }
@@ -355,9 +410,21 @@ async function fetchProductionResponse(client, value, { asset = false, label = "
     let rejectedResponseHeader = false;
     try {
       const linkHeader = response?.headers?.get?.("link");
-      rejectedResponseHeader = response?.headers?.has?.("content-disposition") === true
+      const linkHeaderRecord = linkHeader === null
+        ? null : productionLinkResponseHeaderRecord(linkHeader);
+      const contentDisposition = response?.headers?.get?.("content-disposition");
+      const contentLength = response?.headers?.get?.("content-length");
+      const contentLengthRecord = productionContentLengthHeaderRecord(contentLength);
+      rejectedResponseHeader = !productionContentDispositionHeaderIsSafe(
+        contentDisposition, target, { asset },
+      )
+        || contentLengthRecord === null
+        || (asset && contentLengthRecord.declaredLength !== null
+          && contentLengthRecord.declaredLength > PRODUCTION_CHECK_LIMITS.assetBytes)
         || response?.headers?.has?.("refresh") === true
-        || (linkHeader !== null && !productionLinkResponseHeaderIsSafe(linkHeader));
+        || (linkHeader !== null && linkHeaderRecord === null)
+        || (linkHeaderRecord !== null
+          && !productionNextStaticBuildIdMatchesRun(client, linkHeaderRecord.nextStaticBuildId));
     } catch {
       rejectedResponseHeader = true;
     }
@@ -393,6 +460,19 @@ function assertIncludes(text, pattern, label) {
 const PRODUCTION_RAW_TEXT_ELEMENTS = new Set([
   "script",
   "title",
+]);
+const PRODUCTION_NAMESPACE_RAW_TEXT_ELEMENTS = new Set([
+  "iframe", "noembed", "noframes", "noscript", "script", "style", "textarea", "title", "xmp",
+]);
+const PRODUCTION_NAMESPACE_INERT_CONTAINERS = new Set(["select", "template"]);
+const PRODUCTION_NAMESPACE_SELECT_CHILD_ELEMENTS = new Set(["hr", "optgroup", "option"]);
+const PRODUCTION_NAMESPACE_RESOURCE_ATTRIBUTE_NAMES = new Set([
+  "data-full", "href", "imagesrcset", "src", "srcset", "style",
+]);
+const PRODUCTION_NAMESPACE_SINGLE_URL_ATTRIBUTE_NAMES = new Set(["data-full", "href", "src"]);
+const PRODUCTION_NAMESPACE_SRCSET_ATTRIBUTE_NAMES = new Set(["imagesrcset", "srcset"]);
+const PRODUCTION_NAMESPACE_REJECTED_CONTEXT_ELEMENTS = new Set([
+  "frameset", "math", "plaintext", "svg",
 ]);
 const PRODUCTION_INERT_CONTAINERS = new Set(["template"]);
 const PRODUCTION_HEAD_ELEMENTS = new Set(["link", "meta", "script", "title"]);
@@ -471,19 +551,39 @@ const PRODUCTION_GEOMETRY_CLASS_NAMES = new Set([
 const PRODUCTION_DOCUMENT_POLICIES = Object.freeze({
   deletion: Object.freeze({
     header: "767693EE075EE31FE445A966DBE0BC2823B4353406A94C590DFF787CEED8E5E3",
-    resources: "832FD5580EB0D865D87AF10666019325EC74D60F14ACC93410A3CF732038C95C",
+    resources: Object.freeze([
+      "832FD5580EB0D865D87AF10666019325EC74D60F14ACC93410A3CF732038C95C",
+      "1DA98745B1B04FDC134CDBCFE7373EB73F5852C2B288E420448BE930F5B02D08",
+    ]),
   }),
   home: Object.freeze({
-    header: "675E803BB871598DAD4CE0D1A3A64CB1ED1D30FB7616932CEA63CF25A98530F0",
-    resources: "970FC2930329F1F9A3F5BF096DE38BC6B09565D0193F29DE307FD160EADECD03",
+    variants: Object.freeze([
+      Object.freeze({
+        header: "675E803BB871598DAD4CE0D1A3A64CB1ED1D30FB7616932CEA63CF25A98530F0",
+        resources: Object.freeze([
+          "970FC2930329F1F9A3F5BF096DE38BC6B09565D0193F29DE307FD160EADECD03",
+          "6E7CF2171ED1F8C1925A8381D56495CE055ADB56639574AA783262EBDA094C67",
+        ]),
+      }),
+      Object.freeze({
+        header: "767693EE075EE31FE445A966DBE0BC2823B4353406A94C590DFF787CEED8E5E3",
+        resources: "45520DC192632C8BEE18E07AD68379EB76DB2D4FAAC78F712F1574B0F4E9AF91",
+      }),
+    ]),
   }),
   privacy: Object.freeze({
     header: "767693EE075EE31FE445A966DBE0BC2823B4353406A94C590DFF787CEED8E5E3",
-    resources: "BC3D51912BF2C0B605D5CE211D79B5F75D790701D984D0CE95C2D1BD1A04ED46",
+    resources: Object.freeze([
+      "BC3D51912BF2C0B605D5CE211D79B5F75D790701D984D0CE95C2D1BD1A04ED46",
+      "523ED7FC93A1BDF709B0F7B48CC3F2C521C344B5A3BD55CFEF3E04A6A6BAFE85",
+    ]),
   }),
   recruitment: Object.freeze({
     header: "179EADA7DAB503C38AD261D71B2301F8DB134C5354ED186BE6ED227C213E5649",
-    resources: "974770A8AF0905682BE5E5CB2D5BB0B93986A1F71E2B1D69570BFA3298F0F9C6",
+    resources: Object.freeze([
+      "974770A8AF0905682BE5E5CB2D5BB0B93986A1F71E2B1D69570BFA3298F0F9C6",
+      "87D3BD218B75268E4661090DDB2060C5E32C193777ABBE2CBF27215F666BAE77",
+    ]),
   }),
 });
 const TEST_DOCUMENT_POLICIES = Object.freeze({
@@ -497,7 +597,10 @@ const TEST_DOCUMENT_POLICIES = Object.freeze({
   }),
   privacy: Object.freeze({
     header: "86F4BD56E49D759E1007911F74826C416C2D5038AF3CC00A9F7C818A29F79EE0",
-    resources: "109D7F534B9AEFDC3CC9D65BD6515DDB12EC5E65D28A651FB5248424B7654AD2",
+    resources: Object.freeze([
+      "109D7F534B9AEFDC3CC9D65BD6515DDB12EC5E65D28A651FB5248424B7654AD2",
+      "21A94BAEBF6E493A6935E634574D24177E922667382CF37BEF7362E212BA79EE",
+    ]),
   }),
   recruitment: Object.freeze({
     header: "86F4BD56E49D759E1007911F74826C416C2D5038AF3CC00A9F7C818A29F79EE0",
@@ -957,7 +1060,7 @@ function productionLinkTagIsSafe(tag) {
   const normalizedRel = asciiLower(trimHtmlSpace(rel));
   const normalizedAs = asciiLower(trimHtmlSpace(as));
   const href = tag.attributes.get("href") || "";
-  const nextStylesheet = /^\/_next\/static\/chunks\/[A-Za-z0-9._-]+\.css$/;
+  const nextStylesheet = /^\/_next\/static\/(?:[A-Za-z0-9_-]{1,64}\/)?chunks\/[A-Za-z0-9._-]+\.css$/;
   if (normalizedRel === "canonical") {
     return productionTagHasExactAttributeNames(tag, PRODUCTION_CANONICAL_LINK_ATTRIBUTE_NAMES)
       && /^https:\/\/mochirii\.com(?:\/[a-z0-9-]+)?$/.test(href);
@@ -980,12 +1083,12 @@ function productionLinkTagIsSafe(tag) {
     return productionTagHasExactAttributeNames(tag, PRODUCTION_FONT_PRELOAD_ATTRIBUTE_NAMES)
       && tag.attributes.get("crossorigin") === ""
       && tag.attributes.get("type") === "font/woff2"
-      && /^\/_next\/static\/media\/[A-Za-z0-9._-]+\.woff2$/.test(href);
+      && /^\/_next\/static\/(?:[A-Za-z0-9_-]{1,64}\/)?media\/[A-Za-z0-9._-]+\.woff2$/.test(href);
   }
   if (normalizedAs === "script") {
     return productionTagHasExactAttributeNames(tag, PRODUCTION_SCRIPT_PRELOAD_ATTRIBUTE_NAMES)
       && tag.attributes.get("fetchpriority") === "low"
-      && /^\/_next\/static\/chunks\/[A-Za-z0-9._-]+\.js$/.test(href);
+      && /^\/_next\/static\/(?:[A-Za-z0-9_-]{1,64}\/)?chunks\/[A-Za-z0-9._-]+\.js$/.test(href);
   }
   if (normalizedAs !== "image") return false;
   if (tag.attributeNames.has("href")) {
@@ -1023,7 +1126,8 @@ function productionScriptTagIsSafe(tag, text) {
 
   const source = tag.attributes.get("src") || "";
   if (source) {
-    if (text !== "" || !/^\/_next\/static\/chunks\/[A-Za-z0-9._-]+\.js$/.test(source)) return false;
+    if (text !== ""
+      || !/^\/_next\/static\/(?:[A-Za-z0-9_-]{1,64}\/)?chunks\/[A-Za-z0-9._-]+\.js$/.test(source)) return false;
     if (productionTagHasExactAttributeNames(tag, PRODUCTION_NEXT_ROOT_SCRIPT_ATTRIBUTE_NAMES)) {
       return tag.attributes.get("id") === "_R_";
     }
@@ -1047,15 +1151,71 @@ function productionScriptTagIsSafe(tag, text) {
   }
 }
 
-function productionResourceEnvelopeRow(tag, text = "", context = "") {
+function canonicalizeProductionNextStaticReferences(value, buildIds) {
+  let markerCount = 0;
+  for (let cursor = 0; cursor < value.length;) {
+    const marker = value.indexOf("/_next/static/", cursor);
+    if (marker < 0) break;
+    markerCount += 1;
+    cursor = marker + 14;
+  }
+  let matchCount = 0;
+  const canonical = value.replace(
+    /\/_next\/static\/(?:([A-Za-z0-9_-]{1,64})\/)?(chunks|media)\//g,
+    (_match, buildId, directory) => {
+      matchCount += 1;
+      buildIds.add(buildId || "");
+      return `/_next/static/${directory}/`;
+    },
+  );
+  return matchCount === markerCount ? canonical : null;
+}
+
+function productionResourceEnvelopeRow(tag, text = "", context = "", buildIds = new Set()) {
   const parts = [context, tag.name];
   for (const name of [...tag.attributeNames].sort()) {
-    parts.push(`${name}=${tag.attributes.get(name) || ""}`);
+    const value = canonicalizeProductionNextStaticReferences(
+      tag.attributes.get(name) || "", buildIds,
+    );
+    if (value === null) return null;
+    parts.push(`${name}=${value}`);
   }
   if (tag.name === "script") {
-    parts.push(`text-sha256=${createHash("sha256").update(text, "utf8").digest("hex").toUpperCase()}`);
+    const canonicalText = canonicalizeProductionNextStaticReferences(text, buildIds);
+    if (canonicalText === null) return null;
+    parts.push(`text-sha256=${createHash("sha256").update(canonicalText, "utf8").digest("hex").toUpperCase()}`);
   }
   return parts.join("|");
+}
+
+function productionDocumentDigestMatches(expected, observed) {
+  const values = Array.isArray(expected) ? expected : [expected];
+  return values.length >= 1
+    && values.length <= 2
+    && new Set(values).size === values.length
+    && values.every((value) => /^[A-F0-9]{64}$/.test(value))
+    && values.includes(observed);
+}
+
+function productionDocumentPolicyVariants(documentPolicy) {
+  const variants = Array.isArray(documentPolicy?.variants)
+    ? documentPolicy.variants : [documentPolicy];
+  return variants.length >= 1
+    && variants.length <= 2
+    && variants.every((variant) => variant !== null
+      && typeof variant === "object"
+      && !Array.isArray(variant)
+      && Object.keys(variant).length === 2
+      && Object.hasOwn(variant, "header")
+      && Object.hasOwn(variant, "resources"))
+    ? variants : [];
+}
+
+export function productionDocumentPolicyMatches(documentPolicy, headerSha256, resourcesSha256) {
+  const variants = productionDocumentPolicyVariants(documentPolicy);
+  return variants.length > 0 && variants.some((variant) =>
+    productionDocumentDigestMatches(variant.header, headerSha256)
+      && productionDocumentDigestMatches(variant.resources, resourcesSha256));
 }
 
 function productionFooterLegalLinkAncestryIsExact(elements) {
@@ -1273,8 +1433,469 @@ function findRawTextClose(html, asciiLowerHtml, start, name) {
   return null;
 }
 
+function productionNamespaceTagHasUnsafeCharacterReference(tag) {
+  return [...PRODUCTION_NAMESPACE_RESOURCE_ATTRIBUTE_NAMES].some((name) =>
+    tag.attributeNames.has(name) && /&(?!amp;)/.test(tag.attributes.get(name) || ""));
+}
+
+function decodeProductionCssEscapes(value) {
+  let output = "";
+  for (let cursor = 0; cursor < value.length;) {
+    if (value[cursor] !== "\\") {
+      output += value[cursor];
+      cursor += 1;
+      continue;
+    }
+    cursor += 1;
+    if (cursor >= value.length) {
+      output += "\\";
+      break;
+    }
+    if (value[cursor] === "\r" || value[cursor] === "\n" || value[cursor] === "\f") {
+      if (value[cursor] === "\r" && value[cursor + 1] === "\n") cursor += 1;
+      cursor += 1;
+      continue;
+    }
+    const hexStart = cursor;
+    while (cursor < value.length && cursor - hexStart < 6 && /[A-Fa-f0-9]/.test(value[cursor])) {
+      cursor += 1;
+    }
+    if (cursor > hexStart) {
+      const codePoint = Number.parseInt(value.slice(hexStart, cursor), 16);
+      if (value[cursor] === "\r" && value[cursor + 1] === "\n") cursor += 2;
+      else if (isHtmlSpace(value[cursor])) cursor += 1;
+      output += codePoint === 0
+        || codePoint > 0x10ffff
+        || (codePoint >= 0xd800 && codePoint <= 0xdfff)
+        ? "\uFFFD" : String.fromCodePoint(codePoint);
+      continue;
+    }
+    output += value[cursor];
+    cursor += 1;
+  }
+  return output;
+}
+
+function productionNamespaceUrlIsSafe(value, documentUrl, buildIds) {
+  if (typeof value !== "string" || value.length > PRODUCTION_CHECK_LIMITS.assetUrlCharacters) {
+    return false;
+  }
+  let candidate;
+  try {
+    candidate = new URL(value.replaceAll("&amp;", "&"), documentUrl);
+  } catch {
+    return false;
+  }
+  if (candidate.href.length > PRODUCTION_CHECK_LIMITS.assetUrlCharacters
+    || candidate.username
+    || candidate.password) return false;
+  if (!["http:", "https:"].includes(candidate.protocol)
+    || candidate.origin !== documentUrl.origin) return true;
+  return canonicalizeProductionNextStaticReferences(candidate.pathname, buildIds) !== null;
+}
+
+function productionNamespaceSrcsetUrls(value) {
+  if (typeof value !== "string" || value.length === 0
+    || value.length > PRODUCTION_IMAGE_VALUE_LIMIT) return null;
+  const candidates = value.split(",");
+  if (candidates.length < 1 || candidates.length > 32) return null;
+  const urls = [];
+  for (const candidate of candidates) {
+    const parts = trimHtmlSpace(candidate).split(/[\t\n\f\r ]+/);
+    if (parts.length < 1 || parts.length > 2 || !parts[0]) return null;
+    if (parts.length === 2
+      && !/^(?:[1-9][0-9]{0,4}w|(?:0|[1-9][0-9]{0,3})(?:\.[0-9]+)?x)$/.test(parts[1])) {
+      return null;
+    }
+    urls.push(parts[0]);
+  }
+  return urls;
+}
+
+function productionNamespaceCssUrls(value) {
+  if (typeof value !== "string" || value.length > PRODUCTION_CHECK_LIMITS.htmlBytes) return null;
+  const urls = [];
+  const spans = [];
+  const lower = asciiLower(value);
+  let cursor = 0;
+  while (cursor < value.length) {
+    const marker = lower.indexOf("url(", cursor);
+    if (marker < 0) break;
+    if (marker > 0 && /[A-Za-z0-9_-]/.test(value[marker - 1])) {
+      cursor = marker + 4;
+      continue;
+    }
+    let valueCursor = marker + 4;
+    while (isHtmlSpace(value[valueCursor])) valueCursor += 1;
+    let urlValue = "";
+    if (value[valueCursor] === '"' || value[valueCursor] === "'") {
+      const quote = value[valueCursor];
+      valueCursor += 1;
+      const closeQuote = value.indexOf(quote, valueCursor);
+      if (closeQuote < 0) return null;
+      urlValue = value.slice(valueCursor, closeQuote);
+      valueCursor = closeQuote + 1;
+      while (isHtmlSpace(value[valueCursor])) valueCursor += 1;
+      if (value[valueCursor] !== ")") return null;
+    } else {
+      const close = value.indexOf(")", valueCursor);
+      if (close < 0) return null;
+      urlValue = trimHtmlSpace(value.slice(valueCursor, close));
+      if (/[\t\n\f\r ()'\"]/.test(urlValue)) return null;
+      valueCursor = close;
+    }
+    urls.push(urlValue);
+    spans.push([marker, valueCursor + 1]);
+    cursor = valueCursor + 1;
+  }
+
+  let remainder = "";
+  let remainderCursor = 0;
+  for (const [start, end] of spans) {
+    remainder += value.slice(remainderCursor, start);
+    remainderCursor = end;
+  }
+  remainder += value.slice(remainderCursor);
+  if (remainder.includes("\\") || asciiLower(remainder).includes("_next")) return null;
+  return urls;
+}
+
+function productionNamespaceFlightUrls(value) {
+  if (typeof value !== "string" || value.length > PRODUCTION_CHECK_LIMITS.htmlBytes) return null;
+  const urls = [];
+  const normalizedValue = value.replace(/[\t\n\r]/g, "");
+  for (const token of normalizedValue.split(/[\f "'`<>{}\[\](),;]+/)) {
+    const marker = asciiLower(token).indexOf("_next");
+    if (marker < 0) continue;
+    const assignment = Math.max(token.lastIndexOf("="), token.lastIndexOf(":"));
+    const protocol = token.indexOf("://");
+    const candidate = assignment >= 0 && assignment < marker
+      && (protocol < 0 || assignment < protocol)
+      ? token.slice(assignment + 1) : token;
+    if (!candidate || candidate.length > PRODUCTION_CHECK_LIMITS.assetUrlCharacters
+      || urls.length >= 256) return null;
+    urls.push(candidate);
+  }
+  return urls;
+}
+
+function productionFlightPayloadIsSafe(value) {
+  const lower = asciiLower(value);
+  return !(lower.includes("dangerouslysetinnerhtml") && /[<>]/.test(value))
+    && !/(?:^|[\[,{:])[\t\n\f\r ]*["']base["'](?=[\t\f ]*(?:[,}\]\r\n]|$))/i.test(value)
+    && !lower.includes("http-equiv")
+    && !lower.includes("httpequiv")
+    && !lower.includes("srcdoc")
+    && !/\\[0-9A-Fa-f]/.test(value);
+}
+
+function decodeProductionJavaScriptEscapes(value) {
+  let current = value;
+  for (let pass = 0; pass < 24; pass += 1) {
+    let output = "";
+    for (let cursor = 0; cursor < current.length;) {
+      if (current[cursor] !== "\\") {
+        output += current[cursor];
+        cursor += 1;
+        continue;
+      }
+      cursor += 1;
+      if (cursor >= current.length) {
+        output += "\\";
+        break;
+      }
+      if (current[cursor] === "\r" || current[cursor] === "\n") {
+        if (current[cursor] === "\r" && current[cursor + 1] === "\n") cursor += 1;
+        cursor += 1;
+        continue;
+      }
+      if (current[cursor] === "x" && /^[A-Fa-f0-9]{2}/.test(current.slice(cursor + 1))) {
+        output += String.fromCodePoint(Number.parseInt(current.slice(cursor + 1, cursor + 3), 16));
+        cursor += 3;
+        continue;
+      }
+      if (current[cursor] === "u" && current[cursor + 1] === "{") {
+        const close = current.indexOf("}", cursor + 2);
+        const digits = close < 0 ? "" : current.slice(cursor + 2, close);
+        const codePoint = /^[A-Fa-f0-9]{1,6}$/.test(digits) ? Number.parseInt(digits, 16) : -1;
+        if (codePoint >= 0 && codePoint <= 0x10ffff
+          && !(codePoint >= 0xd800 && codePoint <= 0xdfff)) {
+          output += String.fromCodePoint(codePoint);
+          cursor = close + 1;
+          continue;
+        }
+      }
+      if (current[cursor] === "u" && /^[A-Fa-f0-9]{4}/.test(current.slice(cursor + 1))) {
+        output += String.fromCodePoint(Number.parseInt(current.slice(cursor + 1, cursor + 5), 16));
+        cursor += 5;
+        continue;
+      }
+      const escaped = current[cursor];
+      const controls = { b: "\b", f: "\f", n: "\n", r: "\r", t: "\t", v: "\v" };
+      output += controls[escaped] ?? escaped;
+      cursor += 1;
+    }
+    if (output === current) break;
+    current = output;
+  }
+  return current;
+}
+
+function productionScriptPayloadText(tag, text) {
+  if (productionTagHasExactAttributeNames(tag, PRODUCTION_STRUCTURED_DATA_ATTRIBUTE_NAMES)
+    || tag.attributes.get("src")
+    || text === "(self.__next_f=self.__next_f||[]).push([0])") return "";
+  const prefix = "self.__next_f.push(";
+  if (!text.startsWith(prefix) || !text.endsWith(")")) return null;
+  try {
+    const payload = JSON.parse(text.slice(prefix.length, -1));
+    return Array.isArray(payload)
+      && payload.length === 2
+      && payload[0] === 1
+      && typeof payload[1] === "string"
+      ? payload[1] : null;
+  } catch {
+    return null;
+  }
+}
+
+function readActiveProductionNextStaticNamespace(html, {
+  documentUrl, reportDiagnostic = () => undefined,
+} = {}) {
+  if (typeof html !== "string") return null;
+  const asciiLowerHtml = asciiLower(html);
+  if (!asciiLowerHtml.startsWith(PRODUCTION_DOCTYPE)) return null;
+  let canonicalDocumentUrl;
+  try {
+    canonicalDocumentUrl = new URL(documentUrl);
+  } catch {
+    return null;
+  }
+  if (!["http:", "https:"].includes(canonicalDocumentUrl.protocol)
+    || canonicalDocumentUrl.username
+    || canonicalDocumentUrl.password
+    || canonicalDocumentUrl.search
+    || canonicalDocumentUrl.hash
+    || canonicalDocumentUrl.href.length > PRODUCTION_CHECK_LIMITS.assetUrlCharacters) return null;
+  const deferRecruitmentAudioFallback = canonicalDocumentUrl.pathname === "/recruitment";
+  let effectiveDocumentUrl = canonicalDocumentUrl;
+  const activeUrlValues = [];
+  let activeFlightPayloadSeen = false;
+  let activeFlightPayloadStream = "";
+  let deferredAudioBaseSeen = false;
+  const inertContainers = [];
+  const nextStaticBuildIds = new Set();
+  let cursor = PRODUCTION_DOCTYPE.length;
+  let activeAudioDepth = 0;
+  let startTagCount = 0;
+
+  function diagnose(category) {
+    reportDiagnostic("HTML namespace parser " + category);
+  }
+
+  function recordActive(value) {
+    const accepted = canonicalizeProductionNextStaticReferences(value, nextStaticBuildIds) !== null;
+    if (!accepted) diagnose("REFERENCE");
+    return accepted;
+  }
+
+  function recordActiveUrl(value) {
+    if (activeUrlValues.length >= PRODUCTION_HTML_TAG_LIMIT * 8) return false;
+    activeUrlValues.push(value);
+    const accepted = productionNamespaceUrlIsSafe(
+      value, effectiveDocumentUrl, nextStaticBuildIds,
+    );
+    if (!accepted) diagnose("URL");
+    return accepted;
+  }
+
+  function recordActiveCss(value) {
+    const decoded = decodeProductionCssEscapes(value.replaceAll("&amp;", "&"));
+    if (!recordActive(decoded)) return false;
+    const urls = productionNamespaceCssUrls(decoded);
+    if (urls === null || !urls.every(recordActiveUrl)) {
+      diagnose("CSS");
+      return false;
+    }
+    return true;
+  }
+
+  function recordActiveTag(tag, rawTag) {
+    if (productionNamespaceTagHasUnsafeCharacterReference(tag)) {
+      diagnose("CHARACTER_REFERENCE");
+      return false;
+    }
+    if (!recordActive(rawTag)) return false;
+    for (const name of PRODUCTION_NAMESPACE_SINGLE_URL_ATTRIBUTE_NAMES) {
+      if (tag.attributeNames.has(name) && !recordActiveUrl(tag.attributes.get(name) || "")) return false;
+    }
+    for (const name of PRODUCTION_NAMESPACE_SRCSET_ATTRIBUTE_NAMES) {
+      if (!tag.attributeNames.has(name)) continue;
+      const urls = productionNamespaceSrcsetUrls(tag.attributes.get(name));
+      if (urls === null || !urls.every(recordActiveUrl)) return false;
+    }
+    const style = tag.attributes.get("style");
+    return style === undefined || recordActiveCss(style);
+  }
+
+  function recordActiveScript(tag, rawText) {
+    if (!productionScriptTagIsSafe(tag, rawText)) {
+      diagnose("SCRIPT");
+      return false;
+    }
+    const payloadText = productionScriptPayloadText(tag, rawText);
+    if (payloadText === null) {
+      diagnose("PAYLOAD");
+      return false;
+    }
+    if (payloadText === "") return recordActive(rawText);
+    activeFlightPayloadSeen = true;
+    if (activeFlightPayloadStream.length
+      > PRODUCTION_CHECK_LIMITS.htmlBytes - payloadText.length) {
+      diagnose("PAYLOAD_BOUND");
+      return false;
+    }
+    activeFlightPayloadStream += payloadText;
+    if (deferredAudioBaseSeen) {
+      diagnose("PAYLOAD_BASE");
+      return false;
+    }
+    return true;
+  }
+
+  while (cursor < html.length) {
+    const start = html.indexOf("<", cursor);
+    if (start < 0) {
+      if (inertContainers.length === 0 && !recordActive(html.slice(cursor))) return null;
+      break;
+    }
+    if (start > cursor
+      && inertContainers.length === 0
+      && !recordActive(html.slice(cursor, start))) return null;
+    if (html.startsWith("<!--", start)) {
+      const commentEnd = html.indexOf("-->", start + 4);
+      if (commentEnd < 0
+        || !PRODUCTION_SAFE_COMMENT_BODIES.has(html.slice(start + 4, commentEnd))) return null;
+      cursor = commentEnd + 3;
+      continue;
+    }
+    if (html[start + 1] === "!" || html[start + 1] === "?") return null;
+
+    const tag = parseHtmlTagAt(html, start);
+    if (!tag) {
+      if (inertContainers.length === 0 && !recordActive("<")) return null;
+      cursor = start + 1;
+      continue;
+    }
+    if (tag.malformed) return null;
+    const rawTag = html.slice(start, tag.end + 1);
+    cursor = tag.end + 1;
+
+    if (tag.closing) {
+      if (tag.name === "audio" && activeAudioDepth === 1) activeAudioDepth = 0;
+      if (PRODUCTION_NAMESPACE_INERT_CONTAINERS.has(tag.name)) {
+        if (inertContainers.at(-1) !== tag.name) return null;
+        inertContainers.pop();
+      }
+      continue;
+    }
+    if (++startTagCount > PRODUCTION_HTML_TAG_LIMIT
+      || productionTagHasEventHandler(tag)
+      || (!productionElementResourceAttributesAreSafe(tag)
+        && !(deferRecruitmentAudioFallback && activeAudioDepth === 1 && tag.name === "base"))
+      || PRODUCTION_AMBIGUOUS_TREE_ELEMENTS.has(tag.name)
+      || PRODUCTION_NAMESPACE_REJECTED_CONTEXT_ELEMENTS.has(tag.name)) return null;
+
+    if (inertContainers.at(-1) === "select") {
+      if (!PRODUCTION_NAMESPACE_SELECT_CHILD_ELEMENTS.has(tag.name)) return null;
+      continue;
+    }
+
+    if (PRODUCTION_NAMESPACE_INERT_CONTAINERS.has(tag.name)) {
+      if ((tag.name === "template"
+          && [...tag.attributeNames].some((name) => name.startsWith("shadowroot")))
+        || inertContainers.length >= PRODUCTION_HTML_DEPTH_LIMIT
+        || (tag.name === "select" && !recordActiveTag(tag, rawTag))) return null;
+      inertContainers.push(tag.name);
+      continue;
+    }
+
+    if (PRODUCTION_NAMESPACE_RAW_TEXT_ELEMENTS.has(tag.name)) {
+      const rawTextClose = findRawTextClose(html, asciiLowerHtml, cursor, tag.name);
+      if (!rawTextClose) return null;
+      if (inertContainers.length === 0) {
+        const rawText = html.slice(cursor, rawTextClose.closingStart);
+        if (!recordActiveTag(tag, rawTag)
+          || (tag.name === "script"
+            ? !recordActiveScript(tag, rawText)
+            : (!recordActive(rawText)
+              || (tag.name === "style"
+                && !recordActiveCss(rawText))))) return null;
+      }
+      cursor = rawTextClose.end;
+      continue;
+    }
+    if (inertContainers.length > 0) continue;
+    if (tag.name === "audio") {
+      if (activeAudioDepth !== 0) return null;
+      activeAudioDepth = 1;
+    }
+    if ((tag.name === "base" && !(deferRecruitmentAudioFallback && activeAudioDepth === 1))
+      || (tag.name === "meta" && tag.attributeNames.has("http-equiv"))
+      || !recordActiveTag(tag, rawTag)
+      || (tag.name === "link" && !productionLinkTagIsSafe(tag))) return null;
+    if (tag.name === "base") {
+      const href = tag.attributes.get("href") || "";
+      if (activeFlightPayloadSeen || deferredAudioBaseSeen || !href) return null;
+      try {
+        const candidate = new URL(href.replaceAll("&amp;", "&"), effectiveDocumentUrl);
+        if (!["http:", "https:"].includes(candidate.protocol)
+          || candidate.username
+          || candidate.password
+          || candidate.href.length > PRODUCTION_CHECK_LIMITS.assetUrlCharacters) return null;
+        effectiveDocumentUrl = candidate;
+        deferredAudioBaseSeen = true;
+        if (!activeUrlValues.every((value) => productionNamespaceUrlIsSafe(
+          value, effectiveDocumentUrl, nextStaticBuildIds,
+        ))) return null;
+      } catch {
+        return null;
+      }
+    }
+  }
+
+  if (inertContainers.length > 0 || activeAudioDepth !== 0) {
+    diagnose("INERT_STATE");
+    return null;
+  }
+  if (activeFlightPayloadStream) {
+    const decodedFlightPayloadStream = decodeProductionJavaScriptEscapes(
+      activeFlightPayloadStream,
+    );
+    for (const value of new Set([activeFlightPayloadStream, decodedFlightPayloadStream])) {
+      if (!recordActive(value)) return null;
+      if (!productionFlightPayloadIsSafe(value)) {
+        diagnose("PAYLOAD_ACTIVE_CONTENT");
+        return null;
+      }
+      const urls = productionNamespaceFlightUrls(value);
+      if (urls === null || !urls.every(recordActiveUrl)) {
+        diagnose("PAYLOAD_URL");
+        return null;
+      }
+    }
+  }
+  if (nextStaticBuildIds.size > 1) {
+    diagnose("MIXED_NAMESPACE");
+    return null;
+  }
+  return Object.freeze({
+    nextStaticBuildId: nextStaticBuildIds.size === 1 ? [...nextStaticBuildIds][0] : null,
+  });
+}
+
 function readActiveProductionHtml(html, {
-  allowPlainAudio = false, documentPolicies, resourceProfile = "",
+  allowPlainAudio = false, documentPolicies, reportDiagnostic = () => undefined, resourceProfile = "",
 } = {}) {
   if (typeof html !== "string") return null;
   const documentPolicy = documentPolicies?.[resourceProfile];
@@ -1288,6 +1909,7 @@ function readActiveProductionHtml(html, {
   const visibilityElements = [];
   const footerElements = [];
   const resourceEnvelope = [];
+  const nextStaticBuildIds = new Set();
   let footerCount = 0;
   let startTagCount = 0;
   let htmlElementSeen = false;
@@ -1375,7 +1997,9 @@ function readActiveProductionHtml(html, {
     if (!tag.closing && tag.name === "link") {
       if (inertContainers.length > 0 || !productionLinkTagIsSafe(tag)) return null;
       const context = visibilityElements.some((element) => element.name === "head") ? "head" : "body";
-      resourceEnvelope.push(productionResourceEnvelopeRow(tag, "", context));
+      const row = productionResourceEnvelopeRow(tag, "", context, nextStaticBuildIds);
+      if (row === null) return null;
+      resourceEnvelope.push(row);
     }
     if (!tag.closing && tag.name === "meta" && tag.attributeNames.has("http-equiv")) return null;
     if (!tag.closing && tag.name === "meta"
@@ -1465,7 +2089,11 @@ function readActiveProductionHtml(html, {
       if (tag.name === "script"
         && (inertContainers.length > 0 || !productionScriptTagIsSafe(tag, rawText))) return null;
       if (tag.name === "script") {
-        resourceEnvelope.push(productionResourceEnvelopeRow(tag, rawText, headOpen ? "head" : "body"));
+        const row = productionResourceEnvelopeRow(
+          tag, rawText, headOpen ? "head" : "body", nextStaticBuildIds,
+        );
+        if (row === null) return null;
+        resourceEnvelope.push(row);
       }
       if (tag.name === "title"
         && headOpen
@@ -1531,15 +2159,32 @@ function readActiveProductionHtml(html, {
 
   const resourceEnvelopeSha256 = createHash("sha256").update(JSON.stringify(resourceEnvelope), "utf8")
     .digest("hex").toUpperCase();
-  if (inertContainers.length > 0 || footerElements.length > 0 || visibilityElements.length > 0
-    || !htmlElementSeen || !headElementSeen || !headElementClosed
-    || !bodyElementSeen || !bodyElementClosed || !htmlElementClosed
-    || siteHeaderCount !== 1 || siteHeaderSha256 !== documentPolicy.header
-    || resourceEnvelopeSha256 !== documentPolicy.resources) return null;
+  const structureAccepted = inertContainers.length === 0
+    && footerElements.length === 0
+    && visibilityElements.length === 0
+    && htmlElementSeen && headElementSeen && headElementClosed
+    && bodyElementSeen && bodyElementClosed && htmlElementClosed
+    && siteHeaderCount === 1 && nextStaticBuildIds.size <= 1;
+  const policyVariants = productionDocumentPolicyVariants(documentPolicy);
+  const headerAccepted = policyVariants.some((variant) =>
+    productionDocumentDigestMatches(variant.header, siteHeaderSha256));
+  const resourcesAccepted = policyVariants.some((variant) =>
+    productionDocumentDigestMatches(variant.resources, resourceEnvelopeSha256));
+  const envelopeAccepted = productionDocumentPolicyMatches(
+    documentPolicy, siteHeaderSha256, resourceEnvelopeSha256,
+  );
+  if (!structureAccepted || !envelopeAccepted) {
+    if (!structureAccepted) reportDiagnostic("HTML document parser STRUCTURE");
+    else if (!headerAccepted) reportDiagnostic("HTML document parser HEADER_DIGEST");
+    else if (!resourcesAccepted) reportDiagnostic("HTML document parser RESOURCE_DIGEST");
+    else reportDiagnostic("HTML document parser ENVELOPE_PAIR");
+    return null;
+  }
   return Object.freeze({
     activeText: activeText.join(" "),
     footerCount,
     footerLegalLinkCount: tags.filter((tag) => tag.footerLegalLinkAncestryExact).length,
+    nextStaticBuildId: nextStaticBuildIds.size === 1 ? [...nextStaticBuildIds][0] : null,
     title() {
       return titles.length === 1 ? titles[0] : "";
     },
@@ -1590,16 +2235,49 @@ function readActiveProductionHtml(html, {
   });
 }
 
+function productionHtmlNamespaceMatchesPath(client, path, html) {
+  const document = readActiveProductionNextStaticNamespace(html, {
+    documentUrl: new URL(path, client.baseUrl).href,
+    reportDiagnostic: client.diagnose ? client.reportDiagnostic : () => undefined,
+  });
+  return document !== null
+    && productionNextStaticNamespaceMatchesPath(client, path, document.nextStaticBuildId);
+}
+
 async function checkUrlAvailability(client) {
   for (const contract of PAGE_CONTRACTS) {
-    await fetchText(client, contract.path, contract.media);
+    const body = await fetchText(client, contract.path, contract.media);
+    if (contract.media === "html") {
+      if (!productionHtmlNamespaceMatchesPath(client, contract.path, body)) {
+        if (client.diagnose) client.reportDiagnostic("HTML namespace rejected " + contract.path);
+        throw failure("HTML_DOCUMENT_REJECTED");
+      }
+    }
   }
 }
 
 async function checkMetadata(client, documentPolicies) {
   const home = await fetchText(client, "/", "html");
-  const homeDocument = readActiveProductionHtml(home, { documentPolicies, resourceProfile: "home" });
-  if (!homeDocument) throw failure("HTML_DOCUMENT_REJECTED");
+  if (!productionHtmlNamespaceMatchesPath(client, "/", home)) {
+    if (client.diagnose) client.reportDiagnostic("HTML metadata namespace rejected /");
+    throw failure("HTML_DOCUMENT_REJECTED");
+  }
+  const homeDocument = readActiveProductionHtml(home, {
+    documentPolicies,
+    reportDiagnostic: client.diagnose ? client.reportDiagnostic : () => undefined,
+    resourceProfile: "home",
+  });
+  if (!homeDocument
+    || !productionNextStaticNamespaceMatchesPath(client, "/", homeDocument.nextStaticBuildId)) {
+    if (client.diagnose) {
+      const prior = client.htmlNextStaticNamespaces.get("/");
+      const comparison = !homeDocument ? "DOCUMENT_REJECTED"
+        : prior === homeDocument.nextStaticBuildId ? "MATCH"
+          : `${prior === null ? "ABSENT" : "PRESENT"}_${homeDocument.nextStaticBuildId === null ? "ABSENT" : "PRESENT"}`;
+      client.reportDiagnostic("HTML metadata namespace rejected / " + comparison);
+    }
+    throw failure("HTML_DOCUMENT_REJECTED");
+  }
   assertIncludes(homeDocument.title(), /Where Winds Meet/i, "HOMEPAGE_TITLE");
   if (!homeDocument.meta("name", "description")) throw failure("CONTENT_HOMEPAGE_DESCRIPTION_REJECTED");
   if (homeDocument.link("canonical") !== client.siteOrigin) {
@@ -1626,26 +2304,71 @@ async function checkMetadata(client, documentPolicies) {
   await cancelResponseBody(ogResponse);
 
   const recruitment = await fetchText(client, "/recruitment", "html");
+  if (!productionHtmlNamespaceMatchesPath(client, "/recruitment", recruitment)) {
+    if (client.diagnose) client.reportDiagnostic("HTML metadata namespace rejected /recruitment");
+    throw failure("HTML_DOCUMENT_REJECTED");
+  }
   const recruitmentDocument = readActiveProductionHtml(recruitment, {
-    allowPlainAudio: true, documentPolicies, resourceProfile: "recruitment",
+    allowPlainAudio: true,
+    documentPolicies,
+    reportDiagnostic: client.diagnose ? client.reportDiagnostic : () => undefined,
+    resourceProfile: "recruitment",
   });
-  if (!recruitmentDocument) throw failure("HTML_DOCUMENT_REJECTED");
+  if (!recruitmentDocument
+    || !productionNextStaticNamespaceMatchesPath(
+      client, "/recruitment", recruitmentDocument.nextStaticBuildId,
+    )) {
+    if (client.diagnose) client.reportDiagnostic("HTML metadata namespace rejected /recruitment");
+    throw failure("HTML_DOCUMENT_REJECTED");
+  }
   assertIncludes(recruitmentDocument.activeText, /Recruitment/i, "RECRUITMENT_PAGE");
   if (recruitmentDocument.link("canonical") !== client.siteOrigin + "/recruitment") {
     throw failure("CONTENT_RECRUITMENT_CANONICAL_REJECTED");
   }
 
   const privacy = await fetchText(client, "/privacy", "html");
-  const privacyDocument = readActiveProductionHtml(privacy, { documentPolicies, resourceProfile: "privacy" });
-  if (!privacyDocument) throw failure("HTML_DOCUMENT_REJECTED");
+  if (!productionHtmlNamespaceMatchesPath(client, "/privacy", privacy)) {
+    if (client.diagnose) client.reportDiagnostic("HTML metadata namespace rejected /privacy");
+    throw failure("HTML_DOCUMENT_REJECTED");
+  }
+  const privacyDocument = readActiveProductionHtml(privacy, {
+    documentPolicies,
+    reportDiagnostic: client.diagnose ? client.reportDiagnostic : () => undefined,
+    resourceProfile: "privacy",
+  });
+  if (!privacyDocument
+    || !productionNextStaticNamespaceMatchesPath(
+      client, "/privacy", privacyDocument.nextStaticBuildId,
+    )) {
+    if (client.diagnose) client.reportDiagnostic("HTML metadata namespace rejected /privacy");
+    throw failure("HTML_DOCUMENT_REJECTED");
+  }
   assertIncludes(privacyDocument.activeText, /Website scope|privacy questions/i, "PRIVACY_PAGE");
   if (privacyDocument.link("canonical") !== client.siteOrigin + "/privacy") {
     throw failure("CONTENT_PRIVACY_CANONICAL_REJECTED");
   }
 
   const deletion = await fetchText(client, "/meta-data-deletion", "html");
-  const deletionDocument = readActiveProductionHtml(deletion, { documentPolicies, resourceProfile: "deletion" });
-  if (!deletionDocument) throw failure("HTML_DOCUMENT_REJECTED");
+  if (!productionHtmlNamespaceMatchesPath(client, "/meta-data-deletion", deletion)) {
+    if (client.diagnose) {
+      client.reportDiagnostic("HTML metadata namespace rejected /meta-data-deletion");
+    }
+    throw failure("HTML_DOCUMENT_REJECTED");
+  }
+  const deletionDocument = readActiveProductionHtml(deletion, {
+    documentPolicies,
+    reportDiagnostic: client.diagnose ? client.reportDiagnostic : () => undefined,
+    resourceProfile: "deletion",
+  });
+  if (!deletionDocument
+    || !productionNextStaticNamespaceMatchesPath(
+      client, "/meta-data-deletion", deletionDocument.nextStaticBuildId,
+    )) {
+    if (client.diagnose) {
+      client.reportDiagnostic("HTML metadata namespace rejected /meta-data-deletion");
+    }
+    throw failure("HTML_DOCUMENT_REJECTED");
+  }
   assertIncludes(deletionDocument.activeText, /Data Deletion Requests|How to make a request/i, "DELETION_PAGE");
   if (deletionDocument.link("canonical") !== client.siteOrigin + "/meta-data-deletion") {
     throw failure("CONTENT_DELETION_CANONICAL_REJECTED");
@@ -1790,6 +2513,8 @@ async function checkProductionWithDocumentPolicies({
     waitImpl,
     maxAttempts,
     diagnose: diagnose === true,
+    htmlNextStaticNamespaces: new Map(),
+    nextStaticBuildId: null,
     reportDiagnostic,
   };
   await checkUrlAvailability(client);
