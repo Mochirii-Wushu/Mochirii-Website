@@ -1,10 +1,11 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { parseNextConfigLegacyRedirects, readNextConfigSource } from "./lib/app-router-inventory.mjs";
 
 const root = process.cwd();
 const webPublicRoot = path.join(root, "apps", "web", "public");
 const dataDir = path.join(root, "apps", "web", "public", "data");
-const nextConfig = readFileSync(path.join(root, "apps", "web", "next.config.ts"), "utf8");
+const nextConfigPath = path.join(root, "apps", "web", "next.config.ts");
 
 const topLevelManifest = {
   "announcements.json": ["meta", "items"],
@@ -46,6 +47,13 @@ const allowedGalleryItemKeys = new Set(requiredGalleryItemKeys);
 const spotifyTypes = new Set(["album", "artist", "track"]);
 const failures = [];
 const warnings = [];
+let nextRedirectSources = new Set();
+try {
+  const nextConfig = readNextConfigSource(nextConfigPath);
+  nextRedirectSources = new Set(parseNextConfigLegacyRedirects(nextConfig).map((redirect) => redirect.source));
+} catch {
+  failures.push("apps/web/next.config.ts: redirect contract could not be read or parsed [NEXT_REDIRECT_INPUT]");
+}
 
 function rel(file) {
   return path.relative(root, file).split(path.sep).join("/");
@@ -174,7 +182,7 @@ function validateHref(filePath, valuePath, value) {
   }
 
   const target = text.replace(/^\.\//, "").split(/[?#]/)[0];
-  if (!nextConfig.includes(`["/${target}",`)) {
+  if (!nextRedirectSources.has(`/${target}`)) {
     addFailure(`${filePath}.${valuePath}: missing Next redirect for ${text}.`);
   }
 }

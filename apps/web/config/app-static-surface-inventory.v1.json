@@ -1,0 +1,2615 @@
+{
+  "schemaVersion": 1,
+  "sourceBaseCommit": "3a59633a9ba9319f35be8ec7de758e9238032a96",
+  "publicSafe": true,
+  "coverage": {
+    "appRouterPageMetadata": "matrix_complete_source_only",
+    "publicDirectory": "inventory_complete_source_only",
+    "storefrontSurfaces": "pending_separate_decision_record",
+    "runtimeValidation": "not_claimed",
+    "phase4Exit": "not_claimed"
+  },
+  "summary": {
+    "metadataRoutes": 29,
+    "indexedMetadataRoutes": 18,
+    "nonindexedMetadataRoutes": 11,
+    "publicFiles": 249,
+    "publicBytes": 38482392,
+    "sourceFiles": 44
+  },
+  "sourceCatalog": [
+    {
+      "path": "apps/web/app/[...not-found]/page.tsx",
+      "bytes": 306,
+      "sha256": "F5867393F7A424F932B6DC28FC2B794DA6A8CDB85099047D2450FB51F9497D6F"
+    },
+    {
+      "path": "apps/web/app/account/page.tsx",
+      "bytes": 2167,
+      "sha256": "864D56813DC16654CAEB71536FD40F07878DC90AD53D66B65EB79BDD8B66CF70"
+    },
+    {
+      "path": "apps/web/app/announcements/page.tsx",
+      "bytes": 337,
+      "sha256": "0A91C73EE7548423E54986033EE95201A6A2EF7DBD83AEE90169BE30E9787CC8"
+    },
+    {
+      "path": "apps/web/app/auth/page.tsx",
+      "bytes": 2441,
+      "sha256": "711C10AEFEAD66E717C449EE7D25D68A8E5E99460E404F500091BF4DDB9D02BA"
+    },
+    {
+      "path": "apps/web/app/events/page.tsx",
+      "bytes": 537,
+      "sha256": "C70AAAB25566B5C32710507F2B4DE74157F76848E27E7576F488D914D3ED8AED"
+    },
+    {
+      "path": "apps/web/app/forums/connect/page.tsx",
+      "bytes": 1543,
+      "sha256": "826AECCC3C88B706D614D565A49149590F13B1674F8A5AE7148F7FDAE3F58650"
+    },
+    {
+      "path": "apps/web/app/gallery-submit/page.tsx",
+      "bytes": 2200,
+      "sha256": "61239B6431CFABB0C8CC6E53F4490BB5FD4D58A5DA9203EF11002D2CC3F290F6"
+    },
+    {
+      "path": "apps/web/app/gallery/page.tsx",
+      "bytes": 393,
+      "sha256": "EBC4AC7204A897A65B2A6FF1B8AEA1AF5902B521FD44518E40EB9FB343552D56"
+    },
+    {
+      "path": "apps/web/app/games/mochi-pets/layout.tsx",
+      "bytes": 191,
+      "sha256": "EE029E2C421FBFA28FCCFD38A8F1F4B51B49984820F60D1894BB0B4BE4F11661"
+    },
+    {
+      "path": "apps/web/app/games/mochi-pets/page.tsx",
+      "bytes": 908,
+      "sha256": "E485125CDE3CC89F8894703F9A878656820E0BD9AE800213B15324D3EA9DE316"
+    },
+    {
+      "path": "apps/web/app/join/page.tsx",
+      "bytes": 295,
+      "sha256": "70B7C58A2ADF0F69B41B4ED633A18CDD629A5B0E1B3323C1895D703620989104"
+    },
+    {
+      "path": "apps/web/app/layout.tsx",
+      "bytes": 2300,
+      "sha256": "165BFCC391E66DE222B3150BAF8E4DA967A23231E888183EC3FD89FE1AFD5801"
+    },
+    {
+      "path": "apps/web/app/leader-dashboard/page.tsx",
+      "bytes": 2191,
+      "sha256": "3622890780C5142787CAFE3F7EFF3B4E57DC85B593D43D4ABBFA24EE4401A95F"
+    },
+    {
+      "path": "apps/web/app/leaders/page.tsx",
+      "bytes": 396,
+      "sha256": "934CF6630374C1DE988AF5B0855472293B66E5821E29918042E348B1937A2B73"
+    },
+    {
+      "path": "apps/web/app/meta-data-deletion/page.tsx",
+      "bytes": 344,
+      "sha256": "222CAD3C66B232555794A9ED40EE6782C8F75F4212E4175FB2EA95E0F1FAF114"
+    },
+    {
+      "path": "apps/web/app/not-found.tsx",
+      "bytes": 1505,
+      "sha256": "320C91E523BC616F2FF18D5D99E329FA6FDC5FBCF63864D552A24A4891C03ABC"
+    },
+    {
+      "path": "apps/web/app/oauth/consent/page.tsx",
+      "bytes": 1466,
+      "sha256": "B34D25AF31B0C8E06D46C7BE6623216FC0D11EAE4363DC9D679AD3AA0DE14B33"
+    },
+    {
+      "path": "apps/web/app/page.tsx",
+      "bytes": 19169,
+      "sha256": "987C2A989C96AD13657ADC44A207727BD76EEE34C9DFFC83AF76D8EE0D0E9502"
+    },
+    {
+      "path": "apps/web/app/privacy/page.tsx",
+      "bytes": 308,
+      "sha256": "914DC353EFDBAADE39DFFE3C16F74881DAB093BBF15BE6E651D53726F3518995"
+    },
+    {
+      "path": "apps/web/app/raffle-render-fixtures-internal/[scenario]/page.tsx",
+      "bytes": 1272,
+      "sha256": "E86AC2CC2DDB4BB911C95FC4E879B6578B185BA4E228A7BF00AAC0E8FE0C1A28"
+    },
+    {
+      "path": "apps/web/app/raffle/page.tsx",
+      "bytes": 527,
+      "sha256": "FC60522AC93675000AEE1A6FC33B0673D56380D7290F164D0E65C6B5487FE1E0"
+    },
+    {
+      "path": "apps/web/app/raffle/rules/[version]/page.tsx",
+      "bytes": 3385,
+      "sha256": "C01788B12E79C5704C78E28C0E7CEEEC446F6F1E39DDA386A25A61DE77996FA3"
+    },
+    {
+      "path": "apps/web/app/raffle/rules/page.tsx",
+      "bytes": 6070,
+      "sha256": "7393534F994539E2BC2887E0878B922024F736DF395E5BB89B3CD2F391FB64D4"
+    },
+    {
+      "path": "apps/web/app/ranks/page.tsx",
+      "bytes": 303,
+      "sha256": "21931DC332BF2F2EFD30A4D283877E61BAD579D4CBF0F4FAC6AB6381F3AA2D9F"
+    },
+    {
+      "path": "apps/web/app/recruitment/page.tsx",
+      "bytes": 327,
+      "sha256": "0884C3138848C31D9CB44A616F7266C44543DE83A3C43C24523BB83EDE076E4D"
+    },
+    {
+      "path": "apps/web/app/social/page.tsx",
+      "bytes": 1234,
+      "sha256": "517B0EAFD9295893A61AD103FCB3E46263D015EB376D613C026C444641406C82"
+    },
+    {
+      "path": "apps/web/app/spinner/[...not-found]/page.tsx",
+      "bytes": 113,
+      "sha256": "74C5F1B978C6821F5531D4CC9C2C9F59FBDC30070BEF461ADDFE2D962F3C4201"
+    },
+    {
+      "path": "apps/web/app/spinner/layout.tsx",
+      "bytes": 563,
+      "sha256": "381BA27DF9F71EAB8D6EF24424688CD5306FC1D183158B3A2885189BBF4470C1"
+    },
+    {
+      "path": "apps/web/app/spinner/page.tsx",
+      "bytes": 1245,
+      "sha256": "C71A1F2A90830E9B0CB6B421E2549B30CACCB04F7D1F4F02BB7AC8A13820CEA9"
+    },
+    {
+      "path": "apps/web/app/spotify/page.tsx",
+      "bytes": 352,
+      "sha256": "9F7C03A1CAF83DD331C8C39C3025981573B05739771321202B80D9C6CF9FB551"
+    },
+    {
+      "path": "apps/web/app/spotlight/page.tsx",
+      "bytes": 438,
+      "sha256": "B7D34299CDB5597CAEC8E1A1A1EC864524A63293FEC0ED5C7EA42F8F6B92D49E"
+    },
+    {
+      "path": "apps/web/app/tome/page.tsx",
+      "bytes": 299,
+      "sha256": "A824222D4488115AA7E8CFDD18FB1D3B541852DEB4BB88BD6C015341872FD850"
+    },
+    {
+      "path": "apps/web/app/twills/page.tsx",
+      "bytes": 307,
+      "sha256": "B9D972F9C7A8A1367B3C7B6238B06D7B5A6057E66462931522F052B17C3EC41E"
+    },
+    {
+      "path": "apps/web/components/public-pages/metadata.ts",
+      "bytes": 5706,
+      "sha256": "B99FC79E2BB683F709E080741D44251C14BE3DBB04D411418820156BA611BF3F"
+    },
+    {
+      "path": "apps/web/config/app-route-evidence.v1.json",
+      "bytes": 68506,
+      "sha256": "69CE113ED4C58337F5C1CF1641BFAA2765606897235EDA2312C857B1392BA582"
+    },
+    {
+      "path": "apps/web/config/app-route-matrix.v1.json",
+      "bytes": 9336,
+      "sha256": "7E694D6AD1F8DA8E0B5B0F3753AF6544731D685A675F47F77A38C673C930A1C5"
+    },
+    {
+      "path": "package.json",
+      "bytes": 16924,
+      "sha256": "91044708FCA9339CCB32E1DDF3D93D2B02B5B938568F82EBA5B2253A7D9C9C2E"
+    },
+    {
+      "path": "scripts/check-all.mjs",
+      "bytes": 11832,
+      "sha256": "70030278FC72A39F0CE11FB7687AF5804DDDD020034A63F103985CF30F83305F"
+    },
+    {
+      "path": "scripts/check-app-static-surface-inventory.mjs",
+      "bytes": 13000,
+      "sha256": "1B15785CAAD38240ADE40BB1C4909C5174D6A73DF7B215540A9FAAC3332B7AA0"
+    },
+    {
+      "path": "scripts/check-assets.mjs",
+      "bytes": 2007,
+      "sha256": "57FD280C4B557B6B110D71279C0C2AA8B77C548272DE27B6FEAF52DEC8AC7C35"
+    },
+    {
+      "path": "scripts/check-observability-metadata-smoke.mjs",
+      "bytes": 29882,
+      "sha256": "C5E4CD83EDF225A43E95A889A240433D81D3BB3ABCA2176992D57A1F67803913"
+    },
+    {
+      "path": "scripts/lib/app-router-inventory.mjs",
+      "bytes": 59423,
+      "sha256": "5051994396F6B0EAC3033F13CF2DC41BD2DCD8FF3102CF11DC49F8B53F780D84"
+    },
+    {
+      "path": "scripts/lib/app-static-surface-inventory.mjs",
+      "bytes": 24956,
+      "sha256": "AF6A2D5632582D56B92C8E7CD0D7ED0A004712BFCF51091DE2A1AFB50BD63C0A"
+    },
+    {
+      "path": "scripts/lib/app-static-surface-inventory.test.mjs",
+      "bytes": 29918,
+      "sha256": "65E6B50915E25BDE9C4B360C3C9CD978E1B5E423C3DC4DB6E41DC2763FDD48EC"
+    }
+  ],
+  "metadataRoutes": [
+    {
+      "path": "/",
+      "source": "apps/web/app/page.tsx",
+      "surface": "public",
+      "productionSmoke": true,
+      "metadataSource": "apps/web/app/layout.tsx",
+      "profile": "indexed_public_static",
+      "canonicalPolicy": "exact_route",
+      "robotsPolicy": "default_index_follow",
+      "sitemapPolicy": "included",
+      "previewPolicy": "root_public_image",
+      "terminalStatus": "in_progress"
+    },
+    {
+      "path": "/[...not-found]",
+      "source": "apps/web/app/[...not-found]/page.tsx",
+      "surface": "not-found",
+      "productionSmoke": false,
+      "metadataSource": "apps/web/app/[...not-found]/page.tsx",
+      "profile": "not_found",
+      "canonicalPolicy": "none",
+      "robotsPolicy": "not_declared",
+      "sitemapPolicy": "excluded",
+      "previewPolicy": "not_asserted",
+      "terminalStatus": "in_progress"
+    },
+    {
+      "path": "/account",
+      "source": "apps/web/app/account/page.tsx",
+      "surface": "member",
+      "productionSmoke": true,
+      "metadataSource": "apps/web/app/account/page.tsx",
+      "profile": "noindex_member",
+      "canonicalPolicy": "exact_route",
+      "robotsPolicy": "noindex_follow",
+      "sitemapPolicy": "excluded",
+      "previewPolicy": "explicit_image",
+      "terminalStatus": "in_progress"
+    },
+    {
+      "path": "/announcements",
+      "source": "apps/web/app/announcements/page.tsx",
+      "surface": "public",
+      "productionSmoke": true,
+      "metadataSource": "apps/web/components/public-pages/metadata.ts",
+      "profile": "indexed_public_static",
+      "canonicalPolicy": "exact_route",
+      "robotsPolicy": "default_index_follow",
+      "sitemapPolicy": "included",
+      "previewPolicy": "shared_public_image",
+      "terminalStatus": "in_progress"
+    },
+    {
+      "path": "/auth",
+      "source": "apps/web/app/auth/page.tsx",
+      "surface": "public",
+      "productionSmoke": true,
+      "metadataSource": "apps/web/app/auth/page.tsx",
+      "profile": "noindex_access",
+      "canonicalPolicy": "exact_route",
+      "robotsPolicy": "noindex_follow",
+      "sitemapPolicy": "excluded",
+      "previewPolicy": "explicit_image",
+      "terminalStatus": "in_progress"
+    },
+    {
+      "path": "/events",
+      "source": "apps/web/app/events/page.tsx",
+      "surface": "public",
+      "productionSmoke": true,
+      "metadataSource": "apps/web/components/public-pages/metadata.ts",
+      "profile": "indexed_public_static",
+      "canonicalPolicy": "exact_route",
+      "robotsPolicy": "default_index_follow",
+      "sitemapPolicy": "included",
+      "previewPolicy": "shared_public_image",
+      "terminalStatus": "in_progress"
+    },
+    {
+      "path": "/forums/connect",
+      "source": "apps/web/app/forums/connect/page.tsx",
+      "surface": "member",
+      "productionSmoke": false,
+      "metadataSource": "apps/web/app/forums/connect/page.tsx",
+      "profile": "noindex_member",
+      "canonicalPolicy": "exact_route",
+      "robotsPolicy": "noindex_nofollow",
+      "sitemapPolicy": "excluded",
+      "previewPolicy": "not_asserted",
+      "terminalStatus": "in_progress"
+    },
+    {
+      "path": "/gallery",
+      "source": "apps/web/app/gallery/page.tsx",
+      "surface": "public",
+      "productionSmoke": true,
+      "metadataSource": "apps/web/components/public-pages/metadata.ts",
+      "profile": "indexed_public_static",
+      "canonicalPolicy": "exact_route",
+      "robotsPolicy": "default_index_follow",
+      "sitemapPolicy": "included",
+      "previewPolicy": "shared_public_image",
+      "terminalStatus": "in_progress"
+    },
+    {
+      "path": "/gallery-submit",
+      "source": "apps/web/app/gallery-submit/page.tsx",
+      "surface": "member",
+      "productionSmoke": true,
+      "metadataSource": "apps/web/app/gallery-submit/page.tsx",
+      "profile": "noindex_member",
+      "canonicalPolicy": "exact_route",
+      "robotsPolicy": "noindex_follow",
+      "sitemapPolicy": "excluded",
+      "previewPolicy": "explicit_image",
+      "terminalStatus": "in_progress"
+    },
+    {
+      "path": "/games/mochi-pets",
+      "source": "apps/web/app/games/mochi-pets/page.tsx",
+      "surface": "public",
+      "productionSmoke": true,
+      "metadataSource": "apps/web/components/public-pages/metadata.ts",
+      "profile": "indexed_public_static",
+      "canonicalPolicy": "exact_route",
+      "robotsPolicy": "default_index_follow",
+      "sitemapPolicy": "included",
+      "previewPolicy": "shared_public_image",
+      "terminalStatus": "in_progress"
+    },
+    {
+      "path": "/join",
+      "source": "apps/web/app/join/page.tsx",
+      "surface": "public",
+      "productionSmoke": true,
+      "metadataSource": "apps/web/components/public-pages/metadata.ts",
+      "profile": "indexed_public_static",
+      "canonicalPolicy": "exact_route",
+      "robotsPolicy": "default_index_follow",
+      "sitemapPolicy": "included",
+      "previewPolicy": "shared_public_image",
+      "terminalStatus": "in_progress"
+    },
+    {
+      "path": "/leader-dashboard",
+      "source": "apps/web/app/leader-dashboard/page.tsx",
+      "surface": "moderator",
+      "productionSmoke": true,
+      "metadataSource": "apps/web/app/leader-dashboard/page.tsx",
+      "profile": "noindex_moderator",
+      "canonicalPolicy": "exact_route",
+      "robotsPolicy": "noindex_follow",
+      "sitemapPolicy": "excluded",
+      "previewPolicy": "explicit_image",
+      "terminalStatus": "in_progress"
+    },
+    {
+      "path": "/leaders",
+      "source": "apps/web/app/leaders/page.tsx",
+      "surface": "public",
+      "productionSmoke": true,
+      "metadataSource": "apps/web/components/public-pages/metadata.ts",
+      "profile": "indexed_public_static",
+      "canonicalPolicy": "exact_route",
+      "robotsPolicy": "default_index_follow",
+      "sitemapPolicy": "included",
+      "previewPolicy": "shared_public_image",
+      "terminalStatus": "in_progress"
+    },
+    {
+      "path": "/meta-data-deletion",
+      "source": "apps/web/app/meta-data-deletion/page.tsx",
+      "surface": "public",
+      "productionSmoke": true,
+      "metadataSource": "apps/web/components/public-pages/metadata.ts",
+      "profile": "indexed_public_static",
+      "canonicalPolicy": "exact_route",
+      "robotsPolicy": "default_index_follow",
+      "sitemapPolicy": "included",
+      "previewPolicy": "shared_public_image",
+      "terminalStatus": "in_progress"
+    },
+    {
+      "path": "/oauth/consent",
+      "source": "apps/web/app/oauth/consent/page.tsx",
+      "surface": "member",
+      "productionSmoke": false,
+      "metadataSource": "apps/web/app/oauth/consent/page.tsx",
+      "profile": "noindex_member",
+      "canonicalPolicy": "exact_route",
+      "robotsPolicy": "noindex_nofollow",
+      "sitemapPolicy": "excluded",
+      "previewPolicy": "not_asserted",
+      "terminalStatus": "in_progress"
+    },
+    {
+      "path": "/privacy",
+      "source": "apps/web/app/privacy/page.tsx",
+      "surface": "public",
+      "productionSmoke": true,
+      "metadataSource": "apps/web/components/public-pages/metadata.ts",
+      "profile": "indexed_public_static",
+      "canonicalPolicy": "exact_route",
+      "robotsPolicy": "default_index_follow",
+      "sitemapPolicy": "included",
+      "previewPolicy": "shared_public_image",
+      "terminalStatus": "in_progress"
+    },
+    {
+      "path": "/raffle",
+      "source": "apps/web/app/raffle/page.tsx",
+      "surface": "public",
+      "productionSmoke": true,
+      "metadataSource": "apps/web/components/public-pages/metadata.ts",
+      "profile": "indexed_public_static",
+      "canonicalPolicy": "exact_route",
+      "robotsPolicy": "default_index_follow",
+      "sitemapPolicy": "included",
+      "previewPolicy": "shared_public_image",
+      "terminalStatus": "in_progress"
+    },
+    {
+      "path": "/raffle-render-fixtures-internal/[scenario]",
+      "source": "apps/web/app/raffle-render-fixtures-internal/[scenario]/page.tsx",
+      "surface": "internal",
+      "productionSmoke": false,
+      "metadataSource": "apps/web/app/raffle-render-fixtures-internal/[scenario]/page.tsx",
+      "profile": "excluded_internal",
+      "canonicalPolicy": "none",
+      "robotsPolicy": "noindex_nofollow",
+      "sitemapPolicy": "excluded",
+      "previewPolicy": "suppressed",
+      "terminalStatus": "excluded_internal"
+    },
+    {
+      "path": "/raffle/rules",
+      "source": "apps/web/app/raffle/rules/page.tsx",
+      "surface": "public",
+      "productionSmoke": true,
+      "metadataSource": "apps/web/components/public-pages/metadata.ts",
+      "profile": "indexed_public_static",
+      "canonicalPolicy": "exact_route",
+      "robotsPolicy": "default_index_follow",
+      "sitemapPolicy": "included",
+      "previewPolicy": "shared_public_image",
+      "terminalStatus": "in_progress"
+    },
+    {
+      "path": "/raffle/rules/[version]",
+      "source": "apps/web/app/raffle/rules/[version]/page.tsx",
+      "surface": "public",
+      "productionSmoke": false,
+      "metadataSource": "apps/web/app/raffle/rules/[version]/page.tsx",
+      "profile": "indexed_public_dynamic",
+      "canonicalPolicy": "dynamic_route",
+      "robotsPolicy": "index_follow",
+      "sitemapPolicy": "excluded",
+      "previewPolicy": "not_asserted",
+      "terminalStatus": "in_progress"
+    },
+    {
+      "path": "/ranks",
+      "source": "apps/web/app/ranks/page.tsx",
+      "surface": "public",
+      "productionSmoke": true,
+      "metadataSource": "apps/web/components/public-pages/metadata.ts",
+      "profile": "indexed_public_static",
+      "canonicalPolicy": "exact_route",
+      "robotsPolicy": "default_index_follow",
+      "sitemapPolicy": "included",
+      "previewPolicy": "shared_public_image",
+      "terminalStatus": "in_progress"
+    },
+    {
+      "path": "/recruitment",
+      "source": "apps/web/app/recruitment/page.tsx",
+      "surface": "public",
+      "productionSmoke": true,
+      "metadataSource": "apps/web/components/public-pages/metadata.ts",
+      "profile": "indexed_public_static",
+      "canonicalPolicy": "exact_route",
+      "robotsPolicy": "default_index_follow",
+      "sitemapPolicy": "included",
+      "previewPolicy": "shared_public_image",
+      "terminalStatus": "in_progress"
+    },
+    {
+      "path": "/social",
+      "source": "apps/web/app/social/page.tsx",
+      "surface": "public",
+      "productionSmoke": true,
+      "metadataSource": "apps/web/app/social/page.tsx",
+      "profile": "noindex_access",
+      "canonicalPolicy": "exact_route",
+      "robotsPolicy": "noindex_nofollow",
+      "sitemapPolicy": "excluded",
+      "previewPolicy": "not_asserted",
+      "terminalStatus": "in_progress"
+    },
+    {
+      "path": "/spinner",
+      "source": "apps/web/app/spinner/page.tsx",
+      "surface": "private",
+      "productionSmoke": false,
+      "metadataSource": "apps/web/app/spinner/layout.tsx",
+      "profile": "private_isolated",
+      "canonicalPolicy": "none",
+      "robotsPolicy": "noindex_nofollow",
+      "sitemapPolicy": "excluded",
+      "previewPolicy": "suppressed",
+      "terminalStatus": "in_progress"
+    },
+    {
+      "path": "/spinner/[...not-found]",
+      "source": "apps/web/app/spinner/[...not-found]/page.tsx",
+      "surface": "private",
+      "productionSmoke": false,
+      "metadataSource": "apps/web/app/spinner/layout.tsx",
+      "profile": "private_isolated",
+      "canonicalPolicy": "none",
+      "robotsPolicy": "noindex_nofollow",
+      "sitemapPolicy": "excluded",
+      "previewPolicy": "suppressed",
+      "terminalStatus": "in_progress"
+    },
+    {
+      "path": "/spotify",
+      "source": "apps/web/app/spotify/page.tsx",
+      "surface": "public",
+      "productionSmoke": true,
+      "metadataSource": "apps/web/components/public-pages/metadata.ts",
+      "profile": "indexed_public_static",
+      "canonicalPolicy": "exact_route",
+      "robotsPolicy": "default_index_follow",
+      "sitemapPolicy": "included",
+      "previewPolicy": "shared_public_image",
+      "terminalStatus": "in_progress"
+    },
+    {
+      "path": "/spotlight",
+      "source": "apps/web/app/spotlight/page.tsx",
+      "surface": "public",
+      "productionSmoke": true,
+      "metadataSource": "apps/web/components/public-pages/metadata.ts",
+      "profile": "indexed_public_static",
+      "canonicalPolicy": "exact_route",
+      "robotsPolicy": "default_index_follow",
+      "sitemapPolicy": "included",
+      "previewPolicy": "shared_public_image",
+      "terminalStatus": "in_progress"
+    },
+    {
+      "path": "/tome",
+      "source": "apps/web/app/tome/page.tsx",
+      "surface": "public",
+      "productionSmoke": true,
+      "metadataSource": "apps/web/components/public-pages/metadata.ts",
+      "profile": "indexed_public_static",
+      "canonicalPolicy": "exact_route",
+      "robotsPolicy": "default_index_follow",
+      "sitemapPolicy": "included",
+      "previewPolicy": "shared_public_image",
+      "terminalStatus": "in_progress"
+    },
+    {
+      "path": "/twills",
+      "source": "apps/web/app/twills/page.tsx",
+      "surface": "public",
+      "productionSmoke": true,
+      "metadataSource": "apps/web/components/public-pages/metadata.ts",
+      "profile": "indexed_public_static",
+      "canonicalPolicy": "exact_route",
+      "robotsPolicy": "default_index_follow",
+      "sitemapPolicy": "included",
+      "previewPolicy": "shared_public_image",
+      "terminalStatus": "in_progress"
+    }
+  ],
+  "publicFiles": [
+    {
+      "url": "/.well-known/security.txt",
+      "source": "apps/web/public/.well-known/security.txt",
+      "bytes": 246,
+      "sha256": "B82439BB859A7069C98BBEFBE58C9492A796F09AFEA9690F531AE340F8B3D19C",
+      "category": "discovery",
+      "format": "txt"
+    },
+    {
+      "url": "/assets/audio/mochiriiiiii.mp3",
+      "source": "apps/web/public/assets/audio/mochiriiiiii.mp3",
+      "bytes": 5455239,
+      "sha256": "9BEF7D693D953424FEB4C7A932F381FAA994C3A6FBBC297978619CF49FBAAF89",
+      "category": "asset",
+      "format": "mp3"
+    },
+    {
+      "url": "/assets/bg/wuxia-bg-winter.webp",
+      "source": "apps/web/public/assets/bg/wuxia-bg-winter.webp",
+      "bytes": 341322,
+      "sha256": "1477AEB7A61AFF0A412ED1ED6CB226EB36C4456F8F462BA5C00AFF56B5878A97",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/bg/wuxia-bg.webp",
+      "source": "apps/web/public/assets/bg/wuxia-bg.webp",
+      "bytes": 263170,
+      "sha256": "043E3C355A0A62BCB09E917015201083121E4027D9DD3F8E676DE30FF32D63AA",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/css/member-spinner.css",
+      "source": "apps/web/public/assets/css/member-spinner.css",
+      "bytes": 33760,
+      "sha256": "12AAEED77967D0842F02ABDD242E8D6B4238605A804457EACE8F37AD04753D56",
+      "category": "asset",
+      "format": "css"
+    },
+    {
+      "url": "/assets/img/announcements/hero.webp",
+      "source": "apps/web/public/assets/img/announcements/hero.webp",
+      "bytes": 218464,
+      "sha256": "4778A31CC4A005DF00258BA7F9B91DE63520CA8F1402C3394F3863CF7F43E816",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/backgrounds/main.webp",
+      "source": "apps/web/public/assets/img/backgrounds/main.webp",
+      "bytes": 224076,
+      "sha256": "31712236DED54969C9C62ED0C39B4343E86C323903423BD9EC0DE802F082BA12",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/brand/apple-touch-icon.png",
+      "source": "apps/web/public/assets/img/brand/apple-touch-icon.png",
+      "bytes": 58034,
+      "sha256": "742422603499F5033E6B0AADBD25383E3DB8814734AE7E5FA5C997050BA71409",
+      "category": "asset",
+      "format": "png"
+    },
+    {
+      "url": "/assets/img/brand/emblem.webp",
+      "source": "apps/web/public/assets/img/brand/emblem.webp",
+      "bytes": 286382,
+      "sha256": "ED9FE4C522BC2B0D1C2072C1C098F241EE52F0CEEC0307CB531CE440E730BB60",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/brand/social-card.png",
+      "source": "apps/web/public/assets/img/brand/social-card.png",
+      "bytes": 390912,
+      "sha256": "039A3356756542ED351D87A6756D5F7C769BDAEC6A1A0FCA58F486149455878B",
+      "category": "asset",
+      "format": "png"
+    },
+    {
+      "url": "/assets/img/bulletins/announcement.webp",
+      "source": "apps/web/public/assets/img/bulletins/announcement.webp",
+      "bytes": 218464,
+      "sha256": "4778A31CC4A005DF00258BA7F9B91DE63520CA8F1402C3394F3863CF7F43E816",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/bulletins/featured.webp",
+      "source": "apps/web/public/assets/img/bulletins/featured.webp",
+      "bytes": 266686,
+      "sha256": "8A1965A31028C33B77BF2CFD572BF6DD0021845DEED0B941A9C4319BDB49D95C",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/bulletins/raffle.webp",
+      "source": "apps/web/public/assets/img/bulletins/raffle.webp",
+      "bytes": 219722,
+      "sha256": "0550437EF91259E18CC7019A300D28D7C98778F9331FC2DF23A2339B2448832F",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/discord-events/breaking-army.png",
+      "source": "apps/web/public/assets/img/discord-events/breaking-army.png",
+      "bytes": 426101,
+      "sha256": "81318E370E5FB5FF50E59D2E3FC8A4370DB050A16D4ADBBB24BC8B5555C2A0AA",
+      "category": "asset",
+      "format": "png"
+    },
+    {
+      "url": "/assets/img/discord-events/guild-heros-realm.png",
+      "source": "apps/web/public/assets/img/discord-events/guild-heros-realm.png",
+      "bytes": 438319,
+      "sha256": "0D66DBB2B4A52909AA718B09DD756F9B910E2359DED52A9E63628BE2750BDF52",
+      "category": "asset",
+      "format": "png"
+    },
+    {
+      "url": "/assets/img/discord-events/guild-party.png",
+      "source": "apps/web/public/assets/img/discord-events/guild-party.png",
+      "bytes": 444376,
+      "sha256": "01EEF38A5EEDFE29EE0F4EEA47BC708042F1664DD738B935F300C72922FF2178",
+      "category": "asset",
+      "format": "png"
+    },
+    {
+      "url": "/assets/img/discord-events/guild-wars.png",
+      "source": "apps/web/public/assets/img/discord-events/guild-wars.png",
+      "bytes": 433241,
+      "sha256": "678BA46C68FBE9D5D182916FFAC3CB3388E2336539DE55E50115C958D116F617",
+      "category": "asset",
+      "format": "png"
+    },
+    {
+      "url": "/assets/img/discord-events/monthly-gathering.png",
+      "source": "apps/web/public/assets/img/discord-events/monthly-gathering.png",
+      "bytes": 420022,
+      "sha256": "7ED90FF1E25E7F95E2B88CCE72CEB3A2355AF36EA6AF47FB0A3742CDA5CE9846",
+      "category": "asset",
+      "format": "png"
+    },
+    {
+      "url": "/assets/img/discord-events/monthly-raffle.png",
+      "source": "apps/web/public/assets/img/discord-events/monthly-raffle.png",
+      "bytes": 432249,
+      "sha256": "21C4E9D4D00A435B726126E6D59B089CEB2A4BC733E0EE040D25C5C4C012AF0E",
+      "category": "asset",
+      "format": "png"
+    },
+    {
+      "url": "/assets/img/discord-events/showdown.png",
+      "source": "apps/web/public/assets/img/discord-events/showdown.png",
+      "bytes": 405952,
+      "sha256": "CA37FB4FE3505D42835458E4B846CA320FD166CD2099A7BB06DE9E6AB70F8FE9",
+      "category": "asset",
+      "format": "png"
+    },
+    {
+      "url": "/assets/img/discord-events/united-resolve.png",
+      "source": "apps/web/public/assets/img/discord-events/united-resolve.png",
+      "bytes": 394120,
+      "sha256": "76488A120FB120E3D36A116F4416B75A8825316951F3A6E7C0B2A2195B48E234",
+      "category": "asset",
+      "format": "png"
+    },
+    {
+      "url": "/assets/img/events/featured.webp",
+      "source": "apps/web/public/assets/img/events/featured.webp",
+      "bytes": 154142,
+      "sha256": "81795C3272B0610F7F553A1A526F2875B17275DE5BE767759A1CE1AAB657121F",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/events/hero.webp",
+      "source": "apps/web/public/assets/img/events/hero.webp",
+      "bytes": 266686,
+      "sha256": "8A1965A31028C33B77BF2CFD572BF6DD0021845DEED0B941A9C4319BDB49D95C",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/events/upcoming-01.webp",
+      "source": "apps/web/public/assets/img/events/upcoming-01.webp",
+      "bytes": 241500,
+      "sha256": "F39F96E8181C17C1E2EC80F9CF319416F7C8F3C94942F258EB2668744E8663BE",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/featured/spotlight.webp",
+      "source": "apps/web/public/assets/img/featured/spotlight.webp",
+      "bytes": 127260,
+      "sha256": "7830E402B2C18226732ECC970696F2A5D0B36B6B56585535F6FF562B1BBA09F4",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/hero.webp",
+      "source": "apps/web/public/assets/img/gallery/hero.webp",
+      "bytes": 205256,
+      "sha256": "5FD9B38AFA4F3C9B27D20520D5A3033FFF03130BEDB2C9EF5EAEA80384680279",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-01.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-01.webp",
+      "bytes": 327666,
+      "sha256": "2BEFFA94A7C70258489C6663EB4C19CCBBA08EACDA343643859CE7DD20A255E6",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-02.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-02.webp",
+      "bytes": 50060,
+      "sha256": "CC748CDB8E7018759F037DAE914E38941F3209308369CDFACC87894AAB030798",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-03.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-03.webp",
+      "bytes": 190538,
+      "sha256": "D384732AAD604B5D17ABC34FE10611BECF93B1F6CF66620D57906DFDF026C3D2",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-04.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-04.webp",
+      "bytes": 54408,
+      "sha256": "71E41C9383DF343033E0768DDE84A782EBA5434D06D9C1F448D4759100C7059E",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-05.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-05.webp",
+      "bytes": 27890,
+      "sha256": "3C42CF53865468B6E3024129DFD7E28FE7BBF422D7F1B437E14291C88E1E473E",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-06.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-06.webp",
+      "bytes": 88378,
+      "sha256": "5E781D210F8E67527BA7EB0255F0F13B710D853693B3666DEA3FC326B881A082",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-07.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-07.webp",
+      "bytes": 287236,
+      "sha256": "3B75E7B9BAE583D80C1B03140DCC9A0E36656EFBAD1D697098108D78D4864D3B",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-08.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-08.webp",
+      "bytes": 281718,
+      "sha256": "A2154D2B2F219BDB49B303651A475B4FD583560FBB2667CB495F2F677D93983C",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-09.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-09.webp",
+      "bytes": 220282,
+      "sha256": "011ED9754ACB39DE1465DCBE94B1792203720B04BF8903E146D6E51019765346",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-10.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-10.webp",
+      "bytes": 250612,
+      "sha256": "9C2964AC64B42FAC62319EE506754F73EC88ABB88550210686F9B075CE282C9D",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-11.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-11.webp",
+      "bytes": 80078,
+      "sha256": "1F09CBA7BD7F2374A73FD7694E2505CD20DE72D7C7BD91D27CCDCB517E396B90",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-12.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-12.webp",
+      "bytes": 94360,
+      "sha256": "685C13A78BCCF8DA46BB75B0239CAFEFCEB02FFAF0001E177A783151F509A151",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-13.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-13.webp",
+      "bytes": 141550,
+      "sha256": "926AEE7B72B01826725C13324B32E2AA91C2E0E43B20F7C0FF0C764A47C07CE6",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-14.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-14.webp",
+      "bytes": 110114,
+      "sha256": "7F0F8CEFD696FE34272E1077D1EA55C3087F97BB5EB477062014EEAACCB963C5",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-15.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-15.webp",
+      "bytes": 266578,
+      "sha256": "2A863DA912A9882500284D11C05FEA259EAFAC6600C47801EB63FFAC46518A39",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-16.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-16.webp",
+      "bytes": 48364,
+      "sha256": "16E8B30489E56C8B9E5AA0F8A9E1F67B945EEE9EA71834CAE683C745FF84F14E",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-17.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-17.webp",
+      "bytes": 82174,
+      "sha256": "2CC2978123D9540830D817FD92F629F545E60EE5D337EB980FC98D423E00DB45",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-18.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-18.webp",
+      "bytes": 63506,
+      "sha256": "FDE60FD7B961C4DE35CC4EBD6012033F1686E98BA24B2D16E9C3D50C03E9F176",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-19.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-19.webp",
+      "bytes": 383694,
+      "sha256": "0F9C16753A88785708DA951D4446DC33F002E61001CF31057F9264370B8D400F",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-20.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-20.webp",
+      "bytes": 423322,
+      "sha256": "421454326673860A7D2447879C5EE3C9F77B9BAB50317B24259827DC15D40D0D",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-21.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-21.webp",
+      "bytes": 132714,
+      "sha256": "B90773F4464186344963A8B9F0FCD7B8B00538A9094D31E7F2F38962267C847B",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-22.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-22.webp",
+      "bytes": 374950,
+      "sha256": "827D018BD1AF8F70F239726EDC0B6CB480E20267B5D5FA2304B922CBE02B9CDA",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-23.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-23.webp",
+      "bytes": 292904,
+      "sha256": "55FE6DDEC843E07F433196BEA9B5A2B628CDD40E3E55DACB50E8DAD42C575552",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-24.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-24.webp",
+      "bytes": 450806,
+      "sha256": "F18F48E43CF0E3C4BFEAB261B59D04B7E230F4C5A59247178AC75661DA4C5469",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-25.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-25.webp",
+      "bytes": 403910,
+      "sha256": "1F6C10044A80B634918D2F1751BABADDB52D29241F38A6E0E8BE4E52A4DF229A",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-26.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-26.webp",
+      "bytes": 374246,
+      "sha256": "F3ECB8214A15D95125F9BA87E6ECA340D9C9636D73542285DEEA424EDE6BEAFC",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-27.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-27.webp",
+      "bytes": 237926,
+      "sha256": "694CE78ABFCB1244EAC2F23AEF7D3BA1DFC54B524015422193E780088C2102DB",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-28.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-28.webp",
+      "bytes": 168560,
+      "sha256": "D1716DF1CECB10E360D064A15DFC0372C319DDABF3DD182C5EF678281924F62C",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-29.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-29.webp",
+      "bytes": 365304,
+      "sha256": "0C011D5B96A4C254E4BEC3FF75D12C07EEEA482AE0E93E655E9894FAE4E3BF94",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-30.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-30.webp",
+      "bytes": 127772,
+      "sha256": "74543E3DF261BB310110D3CA4874A3B9CE9EF1E1D0703CCE0D0FD4892E4F5411",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-31.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-31.webp",
+      "bytes": 159990,
+      "sha256": "29A9C39F00B0CCE96B25ACDAF2CDC6E8BB1DF30E070316FD0136BA9BD59ED9A3",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-32.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-32.webp",
+      "bytes": 122040,
+      "sha256": "1A10406914C6D711EC33F597791C21464CEE62B698B270A3735CF7FC96FE4DB1",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-33.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-33.webp",
+      "bytes": 51764,
+      "sha256": "17D611DC1AC908BBC196976B3C6C0DF9DFC5881E08B2F4EC4A21B1669E264B84",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-34.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-34.webp",
+      "bytes": 60546,
+      "sha256": "A30BA0D2884B0031AF226CEC883325BE80977C596179680D9418DD52C71F90EA",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-35.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-35.webp",
+      "bytes": 86984,
+      "sha256": "3C37CF92125A553C68C2CB5B5DC9E006E2F941C5E31699D87F5D7BCC7E408714",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-36.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-36.webp",
+      "bytes": 70484,
+      "sha256": "880892653A5BEB226BB8CBAC4A67B4782DB94C0F884336574E0AFDCED73ED4AC",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-37.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-37.webp",
+      "bytes": 93386,
+      "sha256": "77F0A2AA69451AC8B8D431B7AC61BEF5AAA808A8D7812CFB0DD6984EB34B5E16",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-38.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-38.webp",
+      "bytes": 70316,
+      "sha256": "3A6032693F4E9BCBC7A154483A27A2B6C1B72BD925E74824FC89C6440B6DDC13",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-39.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-39.webp",
+      "bytes": 102904,
+      "sha256": "F6EA7493C053B955B63042E8BD3F9D05754BB07097D44DA1A9700A8A6A1A6675",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-40.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-40.webp",
+      "bytes": 222638,
+      "sha256": "96D9886C24A054AC0FB9ABF0CDF1495248FB512D86FCBD55CE1873F304E3F23D",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-41.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-41.webp",
+      "bytes": 296404,
+      "sha256": "DA392C3CA77F95F324F5755A29A6C053C7AD1B7F1545E6FB947ADA7669398C7F",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-42.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-42.webp",
+      "bytes": 310280,
+      "sha256": "32A9A713584DDFA9EA2BAB7C92A82DCD1D087E95D1030107C5474A7CF6EC1B6B",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-43.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-43.webp",
+      "bytes": 253632,
+      "sha256": "F8A867865204AFFE8DA1F09897B059110DD1755989089911430CB2DDC5893683",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-44.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-44.webp",
+      "bytes": 391068,
+      "sha256": "04A13D57F08C9BAA926117B971713169AB2873BAD850C03D9D5442096DC45556",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-45.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-45.webp",
+      "bytes": 202266,
+      "sha256": "4C8BEA64A8EEEA6296CBDCED8FA1B06A71362BF66643160D7EA1A5C8C02F6AF2",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-46.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-46.webp",
+      "bytes": 324334,
+      "sha256": "5A3C55EF94BB3CB8D68B6319DDF6F34E383B6F1E76B1FE05C47523025159521E",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-47.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-47.webp",
+      "bytes": 142894,
+      "sha256": "A792C22FB77AB461B0CD35BA866FD2DB1646474122E4FFE377C9572D3C443095",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-48.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-48.webp",
+      "bytes": 90684,
+      "sha256": "3FBB64B43CA57B8F7E84DC6E6B1FB5291E0F1BA71AB484B768C536AD873883B9",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-49.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-49.webp",
+      "bytes": 76442,
+      "sha256": "0BFE5342F73F3C3BB34210D18B6A2BBE7AC42E9EB3489679FB924ADE041A0C3A",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-50.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-50.webp",
+      "bytes": 260228,
+      "sha256": "83E96ED338AAF4D28DD1C2438B9B12A8E34946833E1A35D605F8776558EA6B80",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-51.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-51.webp",
+      "bytes": 130686,
+      "sha256": "DB997E858C5BD8C4A6785B0C4214E1D0163C490F548456F9D3A82401D8649CD5",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-52.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-52.webp",
+      "bytes": 281146,
+      "sha256": "19AF9E086392294E193A1D469B0287835B2D575E0D2C97A51B3B08F4C976A793",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-53.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-53.webp",
+      "bytes": 75190,
+      "sha256": "FAE5A383889453312FADA0DBBD4ECA0DE63904CAFA55A8BCCAFBA227C55C196B",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-54.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-54.webp",
+      "bytes": 143934,
+      "sha256": "7029C0726CB20F05C8F80FBF20836E23FEE6959C0EF9D6EFF9D60952F4942A02",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-55.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-55.webp",
+      "bytes": 173136,
+      "sha256": "3533D58415223AD865C51E7CB07F253D4EEF87BED9E738EFE42327D8925F0776",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-56.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-56.webp",
+      "bytes": 80174,
+      "sha256": "8F5F28BFA80BB5618EFB71A4D854D5E59A2543A19D27FBF37BBE567AB483E132",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-57.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-57.webp",
+      "bytes": 235934,
+      "sha256": "42CB7875515E8506E1FCAD7CEED0B4E12D408924B45FA448A30E3737AB306FE8",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-58.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-58.webp",
+      "bytes": 103220,
+      "sha256": "8B2BFC5572A5256D420542CD007AC551DBB0E4A23F444810383094DA2041A3D2",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-59.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-59.webp",
+      "bytes": 180668,
+      "sha256": "D1863F93E5607D31C908948ECFDD85200BCD9E23387E72B9B3BD17C3CF7A345A",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-60.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-60.webp",
+      "bytes": 99632,
+      "sha256": "BA234347EDA88C07620A9303F3D48C52A19A9CAE85CDF6CE77E4B6A737CAA54F",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-61.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-61.webp",
+      "bytes": 72174,
+      "sha256": "48391D314E7FD6CA8308EAB918B63FDD98D660CA5B62B7A0A93D09C867AA56A5",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-62.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-62.webp",
+      "bytes": 171540,
+      "sha256": "18F6B8A3ADF11A2E7AB75FD5B48D80AEA532906EB9BC2E53973ECC96D2C217CA",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-63.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-63.webp",
+      "bytes": 134658,
+      "sha256": "506D14DEBFA099F1DBFE2658B8F1720062563DD6E609AC13B49E49D2456514D4",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-64.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-64.webp",
+      "bytes": 152090,
+      "sha256": "52CC875506C1FD39616068A6935451CDDD21A949107DDD8B4A7005A5B7696A01",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-65.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-65.webp",
+      "bytes": 79372,
+      "sha256": "6B16BAC331465604B8F3658A4862EB5921590B5F25823E91576646F6FBE59975",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-66.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-66.webp",
+      "bytes": 25556,
+      "sha256": "BAF537F8D0DF11EAB7135261DF02AC2F272CD52AD0FA79B224BCB4B084D7E11A",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-67.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-67.webp",
+      "bytes": 240446,
+      "sha256": "928247F64BF45EF7D913A7120817D82EF195F2B4016EF3B7FF76FBAA58C2CBF0",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-68.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-68.webp",
+      "bytes": 117634,
+      "sha256": "354ED8E2EA13F09F7F64AC84133FD05BE7D2F2B808070C9ED71086F1F697DA2B",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-69.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-69.webp",
+      "bytes": 154948,
+      "sha256": "91B54E40C7E1A2E22DAFF41A78FADE08ECDA4732C2C5D17C99E9F1A7E018B206",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-70.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-70.webp",
+      "bytes": 381870,
+      "sha256": "4A2B30428862B09AE8D8921581F52F82D153FE21B23CD8A7026D9AE133CC9BD0",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-71.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-71.webp",
+      "bytes": 272508,
+      "sha256": "17F842D9DC693172470D55C0DCC333ABE85C06FB9DBA124602120F6126204C86",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-72.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-72.webp",
+      "bytes": 77662,
+      "sha256": "0199F558E39ACFC454E2BC323F9E11024D779D7BBC5AE2A0958CE47CA5FAF6AC",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/shot-73.webp",
+      "source": "apps/web/public/assets/img/gallery/shot-73.webp",
+      "bytes": 64150,
+      "sha256": "FAED1E3874CF0CFBEE96AAD14CC504D7674094C653E568AF19B7E6A7756B7CFB",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-01.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-01.webp",
+      "bytes": 86980,
+      "sha256": "CEB371AA9FA6BF8D6D297BF984675DA7F8F97CD1EAD2B9D8E6E670F74FD0B961",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-02.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-02.webp",
+      "bytes": 14286,
+      "sha256": "155A1E579DB98ED3705675A2746485CBA35097973B6245D08F3C69D631739838",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-03.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-03.webp",
+      "bytes": 42852,
+      "sha256": "5CC4DD08FAAA3088AB848D2F41228157CFF9DDD37B0CDD80D96215D059F23ED8",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-04.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-04.webp",
+      "bytes": 12282,
+      "sha256": "60C3ABC232542402F95F71C8A50414714C2EAFDDFEC1C7ED7CBDA80D8647ADEF",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-05.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-05.webp",
+      "bytes": 6626,
+      "sha256": "BEE2B72340814030D7534C1C65945073D0D7E394E0FC2F52D1FE304D18A15841",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-06.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-06.webp",
+      "bytes": 19708,
+      "sha256": "BA89DA42E7F623A5F4C02AAE4E89CB5649F64D6B56A8967ECC3B0D69F65A28BF",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-07.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-07.webp",
+      "bytes": 50650,
+      "sha256": "2E2E989585C3706E79482E75285715C39096D9EC7C1EC680E40A85799B387668",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-08.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-08.webp",
+      "bytes": 50708,
+      "sha256": "875F7CB857D1F677816BB4CD75495C6BCCAAFDACD3AB1C531956126C3B4669F4",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-09.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-09.webp",
+      "bytes": 41604,
+      "sha256": "C7F38A9F2C22CC863FA7F8EA4B895842667ABE15D1B04452AE86B0AC39CFDBB5",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-10.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-10.webp",
+      "bytes": 48364,
+      "sha256": "06C63A484F2CF7BB11AFC8C275814D10FEF46273C9065DCD74462A88BE21733B",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-11.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-11.webp",
+      "bytes": 23200,
+      "sha256": "60F133CFAFFD895F8A1911CA79461B8886ACED22E428230254A3FF39458107C2",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-12.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-12.webp",
+      "bytes": 22442,
+      "sha256": "4B168CD88088E2E24E13B67BD0731617EB4A89B9EFFAFC1D3778A71AF3C71B12",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-13.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-13.webp",
+      "bytes": 36442,
+      "sha256": "64695CEF28ACFC336D1CE85572010CFB83C26EDFA23C4A762F5AF0C78172C506",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-14.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-14.webp",
+      "bytes": 22008,
+      "sha256": "EAED83EFE7DF3794307F0B4F323E167716F919ECFCF388E9C1F5FACB39634309",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-15.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-15.webp",
+      "bytes": 50910,
+      "sha256": "229BE5DB146F85CF584E6EB74324FBC78E10357EC833ADC6ACFEB76F5D38312F",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-16.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-16.webp",
+      "bytes": 14434,
+      "sha256": "D59CD2274270CCBFF8AC50A9F838194E3C494248B9278E80E596C4822A3FC9F4",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-17.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-17.webp",
+      "bytes": 14422,
+      "sha256": "30D1E9FA79CFB1AC98B1088843C9143D8A5D84368255A4973EDAC63A7E134CB4",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-18.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-18.webp",
+      "bytes": 12144,
+      "sha256": "BBCF7B22B7C6F84F64CCB2AC3E3383185B3E174B05D92445FECCB0C09C132D36",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-19.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-19.webp",
+      "bytes": 59690,
+      "sha256": "470C055948CEDEF141F97AB2E317D933EE20A3E931EF5576456955694940BC14",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-20.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-20.webp",
+      "bytes": 72674,
+      "sha256": "1E8770495D95831F12F3401B2485A3DC5AEBF95BCF8A8BBF06203F649CE58A0A",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-21.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-21.webp",
+      "bytes": 28702,
+      "sha256": "FA6870EFBC1C0CF43A17C4A06AD1168439F0E5483DA660C3BDF12049D208260D",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-22.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-22.webp",
+      "bytes": 58884,
+      "sha256": "559C527FDC8A999101B290D8C610350826D8E53D3EFD52EF5A6E62E53893C889",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-23.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-23.webp",
+      "bytes": 49210,
+      "sha256": "BEA36F6A42D045C0F0FB2BD1741A400BD4EA1C16862F92FF0D106EE3BB6A145A",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-24.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-24.webp",
+      "bytes": 81166,
+      "sha256": "F6785D3E4CC4E98D453F4CED4B3688CF91EAA1E2DF98637C1735C8179F8A9154",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-25.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-25.webp",
+      "bytes": 71232,
+      "sha256": "5F03FCCA69C08B1B53CAD00E047DCF4D5E9E8DD92EB63E326AC785A3E081BD26",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-26.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-26.webp",
+      "bytes": 51954,
+      "sha256": "03B440F4D890B8B167309E8E60B66DBA308934810A2E4506DF86124A4870EF96",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-27.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-27.webp",
+      "bytes": 35136,
+      "sha256": "DC07236C8AF9A7890E7433CD06D17737F9258824F93D343986830491E4B02220",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-28.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-28.webp",
+      "bytes": 23876,
+      "sha256": "6A1CC65F4050753C27FB800100D7742294EA77FA5B4B80D058D6B9EB8B7BE53A",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-29.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-29.webp",
+      "bytes": 51136,
+      "sha256": "AE513B2C837C85FD97347917B6D3C4630683316F44CA3E15AF2F1868A7EFFD86",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-30.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-30.webp",
+      "bytes": 21160,
+      "sha256": "9D2662E591BE520A85796AC6FB069A3AE69455106F9113416AAFFEB92CC6DA31",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-31.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-31.webp",
+      "bytes": 25456,
+      "sha256": "B9450AD0DC629AAF7476B3868669C759639B0080608B31986B8509D23CF1F76C",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-32.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-32.webp",
+      "bytes": 31130,
+      "sha256": "CFB3EB40865C263179B4642F0E2211B06187B752E0703A759ED27DC939F6AE48",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-33.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-33.webp",
+      "bytes": 15338,
+      "sha256": "C2E888251B0F5E426F1D05EC15CD8EEC14C6412C87D27B67B5E41D2BF4F7BC36",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-34.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-34.webp",
+      "bytes": 17682,
+      "sha256": "75D3307E9211FF2717DC305DD9C7E10E37619BA6C8D49E84569E0A29F4827A86",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-35.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-35.webp",
+      "bytes": 24312,
+      "sha256": "A90EC065D4F87F95C104B2C758BD61041C33B5447FCCB482486B6753B8820D4D",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-36.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-36.webp",
+      "bytes": 20028,
+      "sha256": "4BD3AC7E4EDAFD37F9F66A2BD7CB7EEB8179AD5E2B12E4008A6CAEE03C4B70E7",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-37.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-37.webp",
+      "bytes": 24546,
+      "sha256": "6C6EDA2B6E88E9520454026854C48E963CD884CF7DF437F0D2A94F23B4CED125",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-38.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-38.webp",
+      "bytes": 19562,
+      "sha256": "13B0CA0EAB1D49D03BF09C729161DC2652780B9D0E4CBE2E5817EDDDBB6436DE",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-39.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-39.webp",
+      "bytes": 30360,
+      "sha256": "2579B6037710AC34B3C373C9334BD9DA3142584B992752A228BBE95172CD5FFD",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-40.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-40.webp",
+      "bytes": 64278,
+      "sha256": "E7427E279021E25CBF1A03F8313F3C3D075E45FA8AA569E0FC6C282FD39E801F",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-41.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-41.webp",
+      "bytes": 67946,
+      "sha256": "CA5A64C5D95C003BFFEE6B7BF76BFCDE6AD26D5711C826B1D288D1EFCE1FA5C6",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-42.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-42.webp",
+      "bytes": 78112,
+      "sha256": "887C6FB683120675659CBB7D5082ABCFBD2D4C897AC9EC55E477D84F698699D1",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-43.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-43.webp",
+      "bytes": 71140,
+      "sha256": "974BA05ABAA5663B39D8130B38C4F9AA90CCF052A4ABEC48F2F590CDF8D17684",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-44.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-44.webp",
+      "bytes": 92340,
+      "sha256": "597E36513B0954BCA012DE05FFD982682C311BCBDE30E6AECD9FFAB7A6FC1274",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-45.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-45.webp",
+      "bytes": 52646,
+      "sha256": "57FE48EE5D662D2CDDD9A7CF312E008D2384BAC0F6992ED15C4F570195587E94",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-46.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-46.webp",
+      "bytes": 76976,
+      "sha256": "C0FB651DA993DD900717102288FA4364A8C6D889943633BAE3805FDD5290C3B7",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-47.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-47.webp",
+      "bytes": 34180,
+      "sha256": "5969731E6933CF0266603123DD84C17ED11B40AAA298D617A65080430FC4F018",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-48.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-48.webp",
+      "bytes": 22242,
+      "sha256": "F9EBCEF5807DEAD5FF607A663A4BCCDA2B42D6F6893D0AA2F0B0005A473249CA",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-49.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-49.webp",
+      "bytes": 26974,
+      "sha256": "4A178B35370284115CAC640808F606A2A2632E50EB119CF77D0E77CBE99F58DD",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-50.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-50.webp",
+      "bytes": 53194,
+      "sha256": "0E55C4A798E4F43D3754919752E39F4C52C710FCF108CB7814188FEF637E4DDF",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-51.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-51.webp",
+      "bytes": 30948,
+      "sha256": "004BA5B953FA78B6EDBB25706AD58C32C5F13F2D5570565D48373ACC9AB25524",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-52.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-52.webp",
+      "bytes": 67242,
+      "sha256": "49B206A08CCDBB7B5C532610D34442C89ECE2CAEBCC1AD414E0EBFC56DD7DF94",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-53.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-53.webp",
+      "bytes": 20978,
+      "sha256": "D7A88DE10547029B7A81777C13D54279718120BDE91659B29095B752159FEF8A",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-54.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-54.webp",
+      "bytes": 38126,
+      "sha256": "BBB62B9675D3579A0D908A0E9929DE26700868DA52CEBA350CC0209BD3EC9DE7",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-55.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-55.webp",
+      "bytes": 36346,
+      "sha256": "C0148C99F76AA3C9E11A9734A1CC244163D2ACCEFFDE5BA735500D5EE34009B5",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-56.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-56.webp",
+      "bytes": 22980,
+      "sha256": "635C7B41D7A17FDB46BC056F32810B0F67E9973F830B70B4744990A8D09D09D3",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-57.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-57.webp",
+      "bytes": 59162,
+      "sha256": "59FE89BE93D773A376C4922E13826A3A9E34470B491F544088BC5D069266EA34",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-58.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-58.webp",
+      "bytes": 28332,
+      "sha256": "FD21D261682DDF6076BA1EF66D6839B26C5DBF6F60E34E2632C8A6621ECF0F3D",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-59.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-59.webp",
+      "bytes": 52386,
+      "sha256": "888A2F2D577EB1CB6D93C38CE26686F0E73DD455E415086C3A57DD580098D14D",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-60.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-60.webp",
+      "bytes": 49158,
+      "sha256": "AFD73B5104CE47AF0F16B64389A6C624CF1DEDB2602B9F8EB78A92380448A83C",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-61.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-61.webp",
+      "bytes": 19798,
+      "sha256": "14BDA52D4338B406D90603F9F568D2F2C5F62104DC9FB88FCEA6C52FEF220C04",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-62.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-62.webp",
+      "bytes": 36990,
+      "sha256": "6BD832E0156DF9D70C4608482240404FC451C1B75A68D625E5FC8125751E056F",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-63.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-63.webp",
+      "bytes": 56574,
+      "sha256": "0419E34D29A35B12AAC76270C1613CF79868A8D7B274E283AC7278A2486AE006",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-64.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-64.webp",
+      "bytes": 41972,
+      "sha256": "8AF201465F52434EF716C47E428FEF201EB33262044FE770354B2A1A4D416554",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-65.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-65.webp",
+      "bytes": 21396,
+      "sha256": "EDB887F4AD9A38DE0C052FA3D3DDB6691779764353DEE2EE4E2C366038ECEF90",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-66.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-66.webp",
+      "bytes": 7884,
+      "sha256": "0FB70ADB1BEECD2C63244B2B67B1FF09A287193845EC3B0B8545BC539DD3D6FB",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-67.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-67.webp",
+      "bytes": 47570,
+      "sha256": "1A59042356840741C8A8098C8893C728CD5D88C572392EF93E0A16B131A73510",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-68.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-68.webp",
+      "bytes": 31324,
+      "sha256": "467ED783C74EE6111F0E3184BFEEC7B32A04FA2713CECCAF0F02AAF087714B17",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-69.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-69.webp",
+      "bytes": 36480,
+      "sha256": "F7E1A8EB7DBCCF5E64BB28A6BE9899526C01B9D3253941E4FCC50B37C05E7332",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-70.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-70.webp",
+      "bytes": 76592,
+      "sha256": "490D1C3F94A0A84A1730211D46E2E086D430278EA67899FE7B09F10FEEECD771",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-71.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-71.webp",
+      "bytes": 67000,
+      "sha256": "6386B92AF4AAE2AE2C48EB404655AAC0008D0D411BA5AF58221E48172B0D2B00",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-72.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-72.webp",
+      "bytes": 22144,
+      "sha256": "8C64083461DF1BF05E37E3293F0B0F432F8AA484695B66249B78AD0C5A79A278",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-73.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-73.webp",
+      "bytes": 20230,
+      "sha256": "9107764164370227E0FAC13A47E4A629807F3D6BE535124B3FFCCF75CF2E7900",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/hero/atmosphere.webp",
+      "source": "apps/web/public/assets/img/hero/atmosphere.webp",
+      "bytes": 243024,
+      "sha256": "6994352F2164608E03AB3B62D971E2D2E9FF14544C990761DAF9AF0ED9F4157E",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/hero/hero.webp",
+      "source": "apps/web/public/assets/img/hero/hero.webp",
+      "bytes": 190830,
+      "sha256": "70A977C5840DA9508064D243191E4D1842FCDBB4D4A32B76899A70F668F25431",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/join/expectations.webp",
+      "source": "apps/web/public/assets/img/join/expectations.webp",
+      "bytes": 294372,
+      "sha256": "98F7DAA5D80C4945A8DBDC328398564B560E254B2A51E5CA23FD963CCC595F48",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/join/hero.webp",
+      "source": "apps/web/public/assets/img/join/hero.webp",
+      "bytes": 177010,
+      "sha256": "E6FD78470D64B142C09632EE68BC67DE3B39211BB8AD4383DFAC4A33B2B48F08",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/join/steps.webp",
+      "source": "apps/web/public/assets/img/join/steps.webp",
+      "bytes": 337086,
+      "sha256": "DC9E7A93D77336DB70D9D5B8552C43E307BD1F71711B9069AAF8C7FF12EBA17A",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/leaders/dharmapala.webp",
+      "source": "apps/web/public/assets/img/leaders/dharmapala.webp",
+      "bytes": 62550,
+      "sha256": "F593B97472100E4EC687F2F8C267AD2CA5DC890465210532E6F1A1C2783B4330",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/leaders/hero.webp",
+      "source": "apps/web/public/assets/img/leaders/hero.webp",
+      "bytes": 209298,
+      "sha256": "98BA3447642B4B0F2ADBA5A30BC67025D83B89C55A140DCE495AFE97BEC98D58",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/leaders/leader-silhouette.webp",
+      "source": "apps/web/public/assets/img/leaders/leader-silhouette.webp",
+      "bytes": 137376,
+      "sha256": "731EF028E6789C02050568F86B157F398981D35F3819DABAC50E6043EF0AF2B9",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/leaders/leader.webp",
+      "source": "apps/web/public/assets/img/leaders/leader.webp",
+      "bytes": 117130,
+      "sha256": "E182D9D6D97F101E2D2DF08F98ECC6FA223254B40AA493891A1651C54D1BCF64",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/leaders/lotus_warden.webp",
+      "source": "apps/web/public/assets/img/leaders/lotus_warden.webp",
+      "bytes": 170972,
+      "sha256": "EC9919609CEA639BB8C33EC6EB53243ED17B3BAE1813BF66421270DA612A7665",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/leaders/panel.webp",
+      "source": "apps/web/public/assets/img/leaders/panel.webp",
+      "bytes": 170322,
+      "sha256": "A48D40C15DDD837DFC349B4017176149EE7B1BA838D8219386DDC510D7848E87",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/leaders/petal_keeper.webp",
+      "source": "apps/web/public/assets/img/leaders/petal_keeper.webp",
+      "bytes": 111032,
+      "sha256": "1635632BDAE6FA25AF645A07779873C954E3196F41675B0152F66F1F99E045CF",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/leaders/responsibilities-01.webp",
+      "source": "apps/web/public/assets/img/leaders/responsibilities-01.webp",
+      "bytes": 169674,
+      "sha256": "1316700E0B7137780A43F19A2609729A66C29ADD74BD17FBEE02FE061CDCB8C1",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/leaders/responsibilities-02.webp",
+      "source": "apps/web/public/assets/img/leaders/responsibilities-02.webp",
+      "bytes": 175718,
+      "sha256": "22EC24C500AE659AF0FD1F300293DB08007CDE584F9C15B1CA8C9F6CDD3FE482",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/leaders/responsibilities-03.webp",
+      "source": "apps/web/public/assets/img/leaders/responsibilities-03.webp",
+      "bytes": 182388,
+      "sha256": "4BD6AABD84E616B27882F8CD16D40977C75F01EE5FF3399A74F71C324ACE951F",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/leaders/twills.webp",
+      "source": "apps/web/public/assets/img/leaders/twills.webp",
+      "bytes": 61144,
+      "sha256": "C0D664601CB73B178440EB3192B18612789EB60EBB32F0B81B47557033E8B730",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/mochi-pets/gate-arrival.webp",
+      "source": "apps/web/public/assets/img/mochi-pets/gate-arrival.webp",
+      "bytes": 256074,
+      "sha256": "E09128D5FCE9CF0520FDCF795EAD2E2B4249C034766D8F374B7DC2FF5AC24E42",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/profiles/twills/avatar.webp",
+      "source": "apps/web/public/assets/img/profiles/twills/avatar.webp",
+      "bytes": 117130,
+      "sha256": "E182D9D6D97F101E2D2DF08F98ECC6FA223254B40AA493891A1651C54D1BCF64",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/profiles/twills/hero.webp",
+      "source": "apps/web/public/assets/img/profiles/twills/hero.webp",
+      "bytes": 205242,
+      "sha256": "C0940B87B8479FC47DDFB6AE16DE1B762BBC7715BDA05B38F5CAD31BCC09AB36",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/raffles/hero.webp",
+      "source": "apps/web/public/assets/img/raffles/hero.webp",
+      "bytes": 219722,
+      "sha256": "0550437EF91259E18CC7019A300D28D7C98778F9331FC2DF23A2339B2448832F",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/ranks/hero.webp",
+      "source": "apps/web/public/assets/img/ranks/hero.webp",
+      "bytes": 179532,
+      "sha256": "C078630FFBCCB3A3B9E6234083B0E6DF467FF4A4773156873FF6286D331D0318",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/ranks/ladder.webp",
+      "source": "apps/web/public/assets/img/ranks/ladder.webp",
+      "bytes": 254950,
+      "sha256": "ABCA230E8CD0377009EE883E2FCFBD9F929B0ECA597F53D84305C0C3FDFB0F30",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/ranks/members.webp",
+      "source": "apps/web/public/assets/img/ranks/members.webp",
+      "bytes": 186106,
+      "sha256": "7B445825E6E7BCA57DA0C6081E9C51936B824E8B91FD6C672B0E7397C1CE8ABE",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/ranks/middle.webp",
+      "source": "apps/web/public/assets/img/ranks/middle.webp",
+      "bytes": 176356,
+      "sha256": "005ED444A3430C837A2BCDFE322E4980054FD7AFCF27C7A5E178B75B45A7302A",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/ranks/senior.webp",
+      "source": "apps/web/public/assets/img/ranks/senior.webp",
+      "bytes": 218500,
+      "sha256": "13893374EF379FFDCEC72F610B0D7BF77A7016BA326A357B33BB18EB08F67CE6",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/recruitment/atmosphere.webp",
+      "source": "apps/web/public/assets/img/recruitment/atmosphere.webp",
+      "bytes": 252414,
+      "sha256": "3FFFB7A54E398078949FC1C88496A400F21F0DCDC137F1D390E89773F6E1415F",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/recruitment/benefits.webp",
+      "source": "apps/web/public/assets/img/recruitment/benefits.webp",
+      "bytes": 205088,
+      "sha256": "6B6ABB48722505185254F8CA00376BCB86E38ACFF2932F6D9095F785A08C542F",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/recruitment/fit.webp",
+      "source": "apps/web/public/assets/img/recruitment/fit.webp",
+      "bytes": 198174,
+      "sha256": "C9550A3C494066E25B472189DB8C037AD9A1F7639325FB29423144B370899C7E",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/recruitment/hero.webp",
+      "source": "apps/web/public/assets/img/recruitment/hero.webp",
+      "bytes": 169158,
+      "sha256": "990E2AF42D31A52121472567C9ED00693750B3095D08FBA78B901EA3FDACB7B8",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/recruitment/openings.webp",
+      "source": "apps/web/public/assets/img/recruitment/openings.webp",
+      "bytes": 242074,
+      "sha256": "3F5373655219AE8484BFFA2B48005B4A086944B730DC887AC72C76BE072F6DE3",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/spinner/mochirii-banner.webp",
+      "source": "apps/web/public/assets/img/spinner/mochirii-banner.webp",
+      "bytes": 389686,
+      "sha256": "DEA33D89A11A2D58DF8B50D08A25598542EE7B90F58551F120973677B807A7BB",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/spotify/hero.webp",
+      "source": "apps/web/public/assets/img/spotify/hero.webp",
+      "bytes": 117194,
+      "sha256": "3105C1C07E8A5F0B8331A68A39D92D1C0E6D4F0FC4270C70FEFDB84600C8F671",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/spotlight/hero.webp",
+      "source": "apps/web/public/assets/img/spotlight/hero.webp",
+      "bytes": 127260,
+      "sha256": "7830E402B2C18226732ECC970696F2A5D0B36B6B56585535F6FF562B1BBA09F4",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/tiles/join.webp",
+      "source": "apps/web/public/assets/img/tiles/join.webp",
+      "bytes": 177010,
+      "sha256": "E6FD78470D64B142C09632EE68BC67DE3B39211BB8AD4383DFAC4A33B2B48F08",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/tiles/leaders.webp",
+      "source": "apps/web/public/assets/img/tiles/leaders.webp",
+      "bytes": 209298,
+      "sha256": "98BA3447642B4B0F2ADBA5A30BC67025D83B89C55A140DCE495AFE97BEC98D58",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/tiles/ranks.webp",
+      "source": "apps/web/public/assets/img/tiles/ranks.webp",
+      "bytes": 179532,
+      "sha256": "C078630FFBCCB3A3B9E6234083B0E6DF467FF4A4773156873FF6286D331D0318",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/tiles/tome.webp",
+      "source": "apps/web/public/assets/img/tiles/tome.webp",
+      "bytes": 163688,
+      "sha256": "E99830BA51041DF364942A8E48E913765E846F2BD19A9827BDC05EE6E6D30DB2",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/tome/etiquette.webp",
+      "source": "apps/web/public/assets/img/tome/etiquette.webp",
+      "bytes": 167308,
+      "sha256": "15B6FC2A70997281615406FEC46AC35A8DCF254764E23399E39D818CD5D46938",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/tome/hero.webp",
+      "source": "apps/web/public/assets/img/tome/hero.webp",
+      "bytes": 163688,
+      "sha256": "E99830BA51041DF364942A8E48E913765E846F2BD19A9827BDC05EE6E6D30DB2",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/tome/recognition.webp",
+      "source": "apps/web/public/assets/img/tome/recognition.webp",
+      "bytes": 137798,
+      "sha256": "C638521C7413880AE72A63D02EEB9A32BF97C88340A1641040B9C1EABDC63EF4",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/tome/rituals.webp",
+      "source": "apps/web/public/assets/img/tome/rituals.webp",
+      "bytes": 322844,
+      "sha256": "430CA85634A2089D2F43B2B943C5E34D382502C37E0E8106ABA25681EB5A7194",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/tome/tenets.webp",
+      "source": "apps/web/public/assets/img/tome/tenets.webp",
+      "bytes": 182714,
+      "sha256": "DD40BA73E83133EDF44CB82FAD355AFBEB077F3AA1431B2063D922BC7649E0BF",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/tome/values.webp",
+      "source": "apps/web/public/assets/img/tome/values.webp",
+      "bytes": 194052,
+      "sha256": "9640E6532E0E20850CEFE1BAD4420B112AA5F1187A80786CD2DE99A51BDACF25",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/lottie/ambient-mist.json",
+      "source": "apps/web/public/assets/lottie/ambient-mist.json",
+      "bytes": 99,
+      "sha256": "72FE19927012BE336A4EC8DB2D963A95E66EEA096C958867F0AD828FF424A4C7",
+      "category": "asset",
+      "format": "json"
+    },
+    {
+      "url": "/assets/lottie/hero.json",
+      "source": "apps/web/public/assets/lottie/hero.json",
+      "bytes": 99,
+      "sha256": "72FE19927012BE336A4EC8DB2D963A95E66EEA096C958867F0AD828FF424A4C7",
+      "category": "asset",
+      "format": "json"
+    },
+    {
+      "url": "/assets/lottie/seal.json",
+      "source": "apps/web/public/assets/lottie/seal.json",
+      "bytes": 99,
+      "sha256": "72FE19927012BE336A4EC8DB2D963A95E66EEA096C958867F0AD828FF424A4C7",
+      "category": "asset",
+      "format": "json"
+    },
+    {
+      "url": "/assets/ranks/dharmapala.webp",
+      "source": "apps/web/public/assets/ranks/dharmapala.webp",
+      "bytes": 130812,
+      "sha256": "D5A549B5B76A1537E23DDED9B41B9B037DD1DD4929A9FD09E2AFE98254A51008",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/ranks/elite.webp",
+      "source": "apps/web/public/assets/ranks/elite.webp",
+      "bytes": 131644,
+      "sha256": "34F2CE2C66AA7D999DBCCAF3523AA2486081E72EAF36C5B22C565CDB17BA0D88",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/ranks/hallleader.webp",
+      "source": "apps/web/public/assets/ranks/hallleader.webp",
+      "bytes": 137500,
+      "sha256": "20C578DDF9667C9464DD37A2024507FC89FE7D5F9511B36470D451C8A18B846C",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/ranks/initiate.webp",
+      "source": "apps/web/public/assets/ranks/initiate.webp",
+      "bytes": 125440,
+      "sha256": "60CD765A585B07C60ABE24CA44FD04CA08DB6ACB0A26998038E5632E899F3419",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/ranks/mistpetal.webp",
+      "source": "apps/web/public/assets/ranks/mistpetal.webp",
+      "bytes": 116546,
+      "sha256": "532E0400AFBF18DCAD61B6D398AF666232C82762475A84A3FB5875BDAF91271F",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/ranks/mochiblossom.webp",
+      "source": "apps/web/public/assets/ranks/mochiblossom.webp",
+      "bytes": 119728,
+      "sha256": "EAC5C8D39EB8934581648998C7CAD3C611B13E6177F3339B78C7F7E4A3AFAA06",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/ranks/petalkeeper.webp",
+      "source": "apps/web/public/assets/ranks/petalkeeper.webp",
+      "bytes": 127526,
+      "sha256": "D1B494E8926BF9A483C6FA02A229A3590F6AFD7EC4E7EFB81D79E1A3F4ED4E50",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/ranks/softwind.webp",
+      "source": "apps/web/public/assets/ranks/softwind.webp",
+      "bytes": 128770,
+      "sha256": "2EBF5B83917540AEDAE98DA6127D2176329AD86806B636A75AA62834391F0C99",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/ranks/veteran.webp",
+      "source": "apps/web/public/assets/ranks/veteran.webp",
+      "bytes": 137404,
+      "sha256": "258AB46BBDC01166FB7438F9D9CE503CDA110A391E115BC0A144F11F72C99651",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/ranks/viceleader.webp",
+      "source": "apps/web/public/assets/ranks/viceleader.webp",
+      "bytes": 136420,
+      "sha256": "6F649B56D4B79B9A91F5640A4893DD50C93D4B2F1B217525DCD0FF745D3017E2",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/values/calm.webp",
+      "source": "apps/web/public/assets/values/calm.webp",
+      "bytes": 80728,
+      "sha256": "3D427C004C10C09CD955348817A41E6D0B1E3E6403D5283DB75E97C14F7C9FBA",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/values/consistency.webp",
+      "source": "apps/web/public/assets/values/consistency.webp",
+      "bytes": 100640,
+      "sha256": "53D2AC2F0631516DC9780317475D2E31B2D75CB8FBFEB746953EF97AB4B4910E",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/values/craft.webp",
+      "source": "apps/web/public/assets/values/craft.webp",
+      "bytes": 96374,
+      "sha256": "2CF66DD852B92B2808C553AA9693E0B0E990A9794FE2A248537FCDC8B18A59C2",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/values/sweetness.webp",
+      "source": "apps/web/public/assets/values/sweetness.webp",
+      "bytes": 76466,
+      "sha256": "5253398E8A4D968AED8EA72EEFBE0D71D5494CD60FCE0160FF5533D4BB0BCE44",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/data/announcements.json",
+      "source": "apps/web/public/data/announcements.json",
+      "bytes": 1896,
+      "sha256": "4C3FE4D6F818C4FF99BF08E57CBA7C886D06126AA6B9F283EFE771D88E9FFE07",
+      "category": "public_data",
+      "format": "json"
+    },
+    {
+      "url": "/data/events.json",
+      "source": "apps/web/public/data/events.json",
+      "bytes": 2491,
+      "sha256": "FFD1D6032AE6B475510E1E2F148B7BB3C9003365D245B9A63354D5E72A218652",
+      "category": "public_data",
+      "format": "json"
+    },
+    {
+      "url": "/data/gallery.json",
+      "source": "apps/web/public/data/gallery.json",
+      "bytes": 40121,
+      "sha256": "47E5948F9A84C030CA8658FB4A057F650792D8CAB1DD76C914DBE37F0BC8E650",
+      "category": "public_data",
+      "format": "json"
+    },
+    {
+      "url": "/data/guild-schedule.json",
+      "source": "apps/web/public/data/guild-schedule.json",
+      "bytes": 4978,
+      "sha256": "553CF0E91123EB40C0DC1460A676095A2DB8B81CE4CE9AA23E467F9734427B04",
+      "category": "public_data",
+      "format": "json"
+    },
+    {
+      "url": "/data/home.json",
+      "source": "apps/web/public/data/home.json",
+      "bytes": 4811,
+      "sha256": "2A853C8C01E77DCF0AE2445A4D7A9754C7E4C9082541BC7395E973A1705B6FC6",
+      "category": "public_data",
+      "format": "json"
+    },
+    {
+      "url": "/data/join.json",
+      "source": "apps/web/public/data/join.json",
+      "bytes": 5127,
+      "sha256": "94CB2F62F52029D4B035026BF7E21E2D158FEFDD98831533448280A46C8727E1",
+      "category": "public_data",
+      "format": "json"
+    },
+    {
+      "url": "/data/leaders.json",
+      "source": "apps/web/public/data/leaders.json",
+      "bytes": 4474,
+      "sha256": "859742B927F2E7811C408732E3654CCD923D9C779E3AFB2D8935A853E6A2CE7F",
+      "category": "public_data",
+      "format": "json"
+    },
+    {
+      "url": "/data/raffles.json",
+      "source": "apps/web/public/data/raffles.json",
+      "bytes": 5770,
+      "sha256": "DDDDC4AE9ECF3E91709BC997582D6AE0158BA460EE050CC7BE400AD6D9DC55F3",
+      "category": "public_data",
+      "format": "json"
+    },
+    {
+      "url": "/data/ranks.json",
+      "source": "apps/web/public/data/ranks.json",
+      "bytes": 4237,
+      "sha256": "D4734A1297DE766CD029618FA9DA8F58C3B9F3D74CF7A442C86481A243E9CE39",
+      "category": "public_data",
+      "format": "json"
+    },
+    {
+      "url": "/data/recruitment.json",
+      "source": "apps/web/public/data/recruitment.json",
+      "bytes": 3695,
+      "sha256": "3427F0735FBE27D14511BB4F76B2AA557A5F22412B6C43D329CFC256139DD2F4",
+      "category": "public_data",
+      "format": "json"
+    },
+    {
+      "url": "/data/spotify.json",
+      "source": "apps/web/public/data/spotify.json",
+      "bytes": 2920,
+      "sha256": "AC9DBDF85EF6C25DC89639813FC949F8CFA29ADFF95F94B24855F74C50742212",
+      "category": "public_data",
+      "format": "json"
+    },
+    {
+      "url": "/data/spotlight.json",
+      "source": "apps/web/public/data/spotlight.json",
+      "bytes": 1082,
+      "sha256": "BE705E809EFA3BF672930842A8AF65E6DAC401ECD4A5F34EC1DED9B04186C5BD",
+      "category": "public_data",
+      "format": "json"
+    },
+    {
+      "url": "/data/tome.json",
+      "source": "apps/web/public/data/tome.json",
+      "bytes": 5609,
+      "sha256": "A3519CE6C8F39E85303BD1DAE24E3A2FEF598BAFBE81E30642B4409F5EA9A57A",
+      "category": "public_data",
+      "format": "json"
+    },
+    {
+      "url": "/data/twills.json",
+      "source": "apps/web/public/data/twills.json",
+      "bytes": 1098,
+      "sha256": "7C55D5093D5C6882D852B2346F9215E0F9C4D754AD86BE6E1B1BED6420C2A4BD",
+      "category": "public_data",
+      "format": "json"
+    },
+    {
+      "url": "/favicon.ico",
+      "source": "apps/web/public/favicon.ico",
+      "bytes": 4286,
+      "sha256": "BBB766A8FF508BDE8983562E323C86E1D5D3F38B3509088872334975A0AFCFA1",
+      "category": "icon",
+      "format": "ico"
+    },
+    {
+      "url": "/robots.txt",
+      "source": "apps/web/public/robots.txt",
+      "bytes": 85,
+      "sha256": "A0F71ACED5971A958F11845133AA0219CD5AF1C7F4120CC7E93FB389CD589785",
+      "category": "discovery",
+      "format": "txt"
+    },
+    {
+      "url": "/sitemap.xml",
+      "source": "apps/web/public/sitemap.xml",
+      "bytes": 1030,
+      "sha256": "D348E93B07936B016AAA544EE8CC5C78FA9CF02CCE59B06F40B327C260A63068",
+      "category": "discovery",
+      "format": "xml"
+    }
+  ]
+}

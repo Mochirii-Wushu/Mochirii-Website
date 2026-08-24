@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { OFFICIAL_GUILD_PROFILES, SOCIAL_HOST } from "./lib/public-urls.mjs";
+import { OFFICIAL_GUILD_PROFILES, SITE_ORIGIN, SOCIAL_HOST } from "./lib/public-urls.mjs";
 
 const root = process.cwd();
 const failures = [];
@@ -19,12 +19,20 @@ const headerNavigation = read("apps/web/components/site-header/header-navigation
 const spinnerViewerNavLink = read("apps/web/components/site-header/spinner-viewer-nav-link.tsx");
 const navSource = read("apps/web/lib/site-navigation.ts");
 const footer = read("apps/web/components/SiteFooter.tsx");
+const footerStyles = read("apps/web/app/styles/shell-footer.css");
 const officialGuildProfiles = read("apps/web/components/OfficialGuildProfiles.tsx");
 const socialPanel = read("apps/web/components/member-workflow/SocialHubPanel.tsx");
 const socialPage = read("apps/web/app/social/page.tsx");
 const accountPanel = read("apps/web/components/member-workflow/AccountPanel.tsx");
 const currentState = read("docs/current-live-state.md");
 const runbook = read("docs/operations/integration-operations-runbook.md");
+const privacyRoute = read("apps/web/app/privacy/page.tsx");
+const deletionRoute = read("apps/web/app/meta-data-deletion/page.tsx");
+const privacyPage = read("apps/web/components/public-pages/route-pages/PrivacyPage.tsx");
+const deletionPage = read("apps/web/components/public-pages/route-pages/MetaDataDeletionPage.tsx");
+const publicMetadata = read("apps/web/components/public-pages/metadata.ts");
+const sitemap = read("apps/web/public/sitemap.xml");
+const legalStyles = read("apps/web/app/styles/public-legal.css");
 
 const navGroups = between(navSource, "export const navGroups", "export const publicUtilityLinks");
 const publicUtilityLinks = between(navSource, "export const publicUtilityLinks", "export const accountWorkflowLinks");
@@ -95,6 +103,50 @@ assertNotIncludes("SiteFooter signed-out HTML", footer, `href="/spinner"`);
 assertIncludes("SiteFooter authenticated Spinner", footer, "<SpinnerViewerNavLink");
 assertIncludes("SiteFooter authenticated Spinner", footer, "hidden={!authState.spinnerViewer}");
 assertIncludes("SiteFooter official profiles", footer, '<OfficialGuildProfiles placement="footer" />');
+assertIncludes("SiteFooter legal navigation", footer, 'aria-label="Privacy and support"');
+assertIncludes("SiteFooter Privacy", footer, '<Link href="/privacy">Privacy</Link>');
+assertIncludes("SiteFooter Data Deletion", footer, '<Link href="/meta-data-deletion">Data Deletion</Link>');
+assertIncludes("SiteFooter support", footer, '<a href="mailto:support@mochirii.com">support@mochirii.com</a>');
+assertIncludes("SiteFooter legal target sizing", footerStyles, "min-height:48px");
+assertIncludes("SiteFooter legal target width", footerStyles, "min-width:48px");
+assertIncludes("SiteFooter legal keyboard focus", footerStyles, ".footer-legal a:focus-visible");
+assertIncludes("Privacy route component", privacyRoute, 'import { PrivacyPage } from "@/components/public-pages/route-pages/PrivacyPage";');
+assertIncludes("Privacy route metadata", privacyRoute, 'metadataFor("privacy")');
+assertIncludes("Data Deletion route component", deletionRoute, 'import { MetaDataDeletionPage } from "@/components/public-pages/route-pages/MetaDataDeletionPage";');
+assertIncludes("Data Deletion route metadata", deletionRoute, 'metadataFor("metaDataDeletion")');
+assertIncludes("Privacy page scope", privacyPage, "This page summarizes information handled by the Mōchirīī website");
+assertIncludes("Privacy page provider boundary", privacyPage, "does not describe every Mōchirīī service");
+assertIncludes("Privacy page Gallery delivery fact", privacyPage, "delivered through bounded");
+assertIncludes("Privacy page Gallery delivery fact", privacyPage, "public media URLs");
+assertIncludes("Privacy page incomplete retention boundary", privacyPage, "does not establish one complete retention schedule");
+assertIncludes("Privacy page support contact", privacyPage, 'const SUPPORT_EMAIL = "support@mochirii.com";');
+assertIncludes("Data Deletion request scope", deletionPage, "review deletion of eligible website data it controls");
+assertIncludes("Data Deletion provider boundary", deletionPage, "does not delete Facebook, Instagram, Discord, or other provider accounts");
+assertIncludes("Data Deletion secret boundary", deletionPage, "Do not send a password, access token, recovery code, signed media URL, or identity document");
+assertIncludes("Data Deletion operational boundary", deletionPage, "No automatic site-wide deletion, complete provider propagation, or response deadline is represented");
+assertIncludes("Data Deletion request subject", deletionPage, 'const REQUEST_SUBJECT = "Mōchirīī data deletion request";');
+assertIncludes("Privacy metadata canonical", publicMetadata, 'path: "/privacy"');
+assertIncludes("Data Deletion metadata canonical", publicMetadata, 'path: "/meta-data-deletion"');
+assertIncludes("Privacy sitemap entry", sitemap, `<loc>${SITE_ORIGIN}/privacy</loc>`);
+assertIncludes("Data Deletion sitemap entry", sitemap, `<loc>${SITE_ORIGIN}/meta-data-deletion</loc>`);
+assertIncludes("legal page responsive layout", legalStyles, "@media (max-width:760px)");
+
+const legalPageSource = `${privacyPage}\n${deletionPage}`;
+for (const unsupportedClaim of [
+  "Publishing currently disabled",
+  "Automated Facebook and Instagram publishing",
+  "will be cancelled atomically",
+  "will be quarantined for moderator inspection",
+  "metadata-stripped JPEG",
+  "Supabase provides database",
+  "Vercel delivers and measures",
+  "private storage and temporary, time-limited URLs",
+  "permanently deleted",
+  "guaranteed reply",
+  "monitored mailbox",
+]) {
+  assertNotIncludes("scoped privacy and deletion copy", legalPageSource, unsupportedClaim);
+}
 assertIncludes("official profile semantics", officialGuildProfiles, 'role="group"');
 assertIncludes("official profile semantics", officialGuildProfiles, "Official Mōchirīī profiles in the Guild menu");
 assertIncludes("official profile semantics", officialGuildProfiles, "Official Mōchirīī profiles in the mobile menu");
