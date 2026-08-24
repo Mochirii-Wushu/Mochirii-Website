@@ -25,6 +25,9 @@ jobs:
         with:
           node-version-file: .node-version
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            apps/web/package-lock.json
 
       - name: Set up Deno
         uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
@@ -42,6 +45,10 @@ jobs:
           deno --version | grep -F 'deno 2.9.4'
 
       - name: Install dependencies
+        run: npm ci
+
+      - name: Install web dependencies
+        working-directory: apps/web
         run: npm ci
 
       - name: Run validation
