@@ -23,6 +23,7 @@ const checkerUrl = pathToFileURL(checkerPath).href;
 const libraryPath = path.join(root, "scripts", "lib", "app-static-surface-inventory.mjs");
 const libraryUrl = pathToFileURL(libraryPath).href;
 const appRouterLibraryPath = path.join(root, "scripts", "lib", "app-router-inventory.mjs");
+const productionCheckerPath = path.join(root, "scripts", "check-production.mjs");
 const configPath = path.join(root, "apps", "web", "config", "app-static-surface-inventory.v1.json");
 const expectedSuccess = "App static surface inventory OK (29 metadata routes, 249 public files, 38482392 bytes).\n";
 const expectedCheckerBytes = 13_000;
@@ -31,6 +32,8 @@ const expectedLibraryBytes = 24_956;
 const expectedLibrarySha256 = "AF6A2D5632582D56B92C8E7CD0D7ED0A004712BFCF51091DE2A1AFB50BD63C0A";
 const expectedAppRouterLibraryBytes = 59_423;
 const expectedAppRouterLibrarySha256 = "5051994396F6B0EAC3033F13CF2DC41BD2DCD8FF3102CF11DC49F8B53F780D84";
+const expectedProductionCheckerBytes = 107_442;
+const expectedProductionCheckerSha256 = "EECF77B765BF2F724382A3E428F540E174130CB06B6E206C780B1840CC31BCB2";
 
 function sha256(buffer) {
   return createHash("sha256").update(buffer).digest("hex").toUpperCase();
@@ -55,9 +58,20 @@ if (!exactOrdinarySource(checkerPath, expectedCheckerBytes, expectedCheckerSha25
     appRouterLibraryPath,
     expectedAppRouterLibraryBytes,
     expectedAppRouterLibrarySha256,
+  )
+  || !exactOrdinarySource(
+    productionCheckerPath,
+    expectedProductionCheckerBytes,
+    expectedProductionCheckerSha256,
   )) {
   throw new Error("Claim K executable source seal rejected");
 }
+
+const {
+  PRODUCTION_CHECK_LIMITS,
+  checkProductionWithTestFixtures,
+  productionDocumentPolicyMatches,
+} = await import(pathToFileURL(productionCheckerPath).href);
 
 const {
   assertNoUncataloguedAppStaticSurfaces,
@@ -812,5 +826,526 @@ test("copied checker rejects benign validator and parser byte drift before evalu
     }
   } finally {
     cleanup(directory);
+  }
+});
+
+const resealSiteOrigin = "https://mochirii.com";
+const resealBaseUrl = "https://preview.example";
+const resealHeader = `<header id="site-header" class="site-header" data-state="top"><a class="skip-link" href="#main">Skip to content</a></header>`;
+
+function resealHomeHtml(ogImage = resealSiteOrigin + "/assets/card.webp") {
+  return `<!doctype html><html><head><title>Mōchirīī • Where Winds Meet Guild</title><meta name="description" content="Mōchirīī guild"><link rel="canonical" href="${resealSiteOrigin}"><meta property="og:title" content="Mōchirīī"><meta property="og:image" content="${ogImage}"><link rel="stylesheet" href="/_next/static/chunks/3jvcxpga865m1.css" data-precedence="next"></head><body>${resealHeader}<script async="" src="/_next/static/chunks/3nk76snv1e0rj.js"></script><footer class="site-footer" role="contentinfo"><div class="footer-wrap"><div class="footer-bottom"><nav class="footer-legal" aria-label="Privacy and support"><a href="/privacy">Privacy</a><a href="/meta-data-deletion">Data Deletion</a><a href="mailto:support@mochirii.com">support@mochirii.com</a></nav></div></div></footer></body></html>`;
+}
+
+function resealBody(url) {
+  switch (url.pathname) {
+    case "/":
+      return resealHomeHtml();
+    case "/recruitment":
+      return `<!doctype html><html><head><title>Recruitment</title><link rel="canonical" href="${resealSiteOrigin}/recruitment"></head><body>${resealHeader}<main>Recruitment<audio id="recruitmentAudio" src="./assets/audio/mochiriiiiii.mp3" preload="none" class="recruitment-audio-native" aria-labelledby="recruitmentAudioTitle" aria-describedby="recruitmentAudioDesc" controlslist="nodownload">Audio fallback.</audio></main></body></html>`;
+    case "/privacy":
+      return `<!doctype html><html><head><title>Privacy</title><link rel="canonical" href="${resealSiteOrigin}/privacy"></head><body>${resealHeader}<main>Website scope</main></body></html>`;
+    case "/meta-data-deletion":
+      return `<!doctype html><html><head><title>Data Deletion</title><link rel="canonical" href="${resealSiteOrigin}/meta-data-deletion"></head><body>${resealHeader}<main>Data Deletion Requests</main></body></html>`;
+    case "/robots.txt":
+      return `User-agent: *\nSitemap: ${resealSiteOrigin}/sitemap.xml\n`;
+    case "/sitemap.xml":
+      return `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${resealSiteOrigin}/gallery</loc></url><url><loc>${resealSiteOrigin}/privacy</loc></url><url><loc>${resealSiteOrigin}/meta-data-deletion</loc></url></urlset>`;
+    default:
+      return `<!doctype html><html><head><title>Mōchirīī</title></head><body>${resealHeader}<main>Mōchirīī</main></body></html>`;
+  }
+}
+
+function resealMediaType(pathname) {
+  if (pathname === "/robots.txt") return "text/plain; charset=utf-8";
+  if (pathname === "/sitemap.xml") return "application/xml; charset=utf-8";
+  if (pathname.startsWith("/assets/")) return "image/webp";
+  return "text/html; charset=utf-8";
+}
+
+function resealReply(url, body, headers) {
+  const response = new Response(body, { status: 200, headers });
+  return {
+    body: response.body,
+    headers: response.headers,
+    redirected: false,
+    status: response.status,
+    url,
+  };
+}
+
+const resealStaticResources = Object.freeze({
+  body: '<script async="" src="/_next/static/chunks/3nk76snv1e0rj.js"></script>',
+  head: '<link rel="stylesheet" href="/_next/static/chunks/3jvcxpga865m1.css" data-precedence="next">',
+});
+
+function resealFixture({
+  buildId = "",
+  buildIdForPath = () => buildId,
+  bodyTransform = (body) => body,
+  resourcePaths = new Set(),
+  scriptBuildId = undefined,
+  responseHeaders = () => ({}),
+} = {}) {
+  const calls = [];
+  const requestCounts = new Map();
+  return {
+    calls,
+    async fetchImpl(input, options) {
+      const url = new URL(input);
+      const occurrence = (requestCounts.get(url.pathname) || 0) + 1;
+      requestCounts.set(url.pathname, occurrence);
+      calls.push({ occurrence, options, path: url.pathname });
+      let body = url.pathname.startsWith("/assets/")
+        ? new Uint8Array([0x52, 0x49, 0x46, 0x46])
+        : resealBody(url);
+      if (typeof body === "string" && resourcePaths.has(url.pathname)) {
+        body = body.replace("</head>", resealStaticResources.head + "</head>")
+          .replace("</body>", resealStaticResources.body + "</body>");
+      }
+      const responseBuildId = buildIdForPath(url.pathname, occurrence);
+      if (typeof body === "string" && responseBuildId) {
+        body = body.replaceAll("/_next/static/", `/_next/static/${responseBuildId}/`);
+        const responseScriptBuildId = scriptBuildId === undefined
+          ? responseBuildId : scriptBuildId;
+        if (responseScriptBuildId !== responseBuildId) {
+          body = body.replace(
+            `src="/_next/static/${responseBuildId}/chunks/3nk76snv1e0rj.js"`,
+            `src="/_next/static/${responseScriptBuildId}/chunks/3nk76snv1e0rj.js"`,
+          );
+        }
+      }
+      if (typeof body === "string") body = bodyTransform(body, url, occurrence);
+      return resealReply(url.href, body, {
+        "content-type": resealMediaType(url.pathname),
+        ...responseHeaders(url),
+      });
+    },
+  };
+}
+
+const fontPreload = (buildId, name) =>
+  `</_next/static/${buildId ? buildId + "/" : ""}media/${name}.woff2>; rel=preload; as="font"; crossorigin=""; type="font/woff2"`;
+
+test("production document variants preserve exact header-resource pairings", () => {
+  const headerA = "A".repeat(64);
+  const headerB = "B".repeat(64);
+  const resourcesA = "C".repeat(64);
+  const resourcesB = "D".repeat(64);
+  const resourcesC = "E".repeat(64);
+  const policy = {
+    variants: [
+      { header: headerA, resources: [resourcesA, resourcesB] },
+      { header: headerB, resources: resourcesC },
+    ],
+  };
+  assert.equal(productionDocumentPolicyMatches(policy, headerA, resourcesA), true);
+  assert.equal(productionDocumentPolicyMatches(policy, headerA, resourcesB), true);
+  assert.equal(productionDocumentPolicyMatches(policy, headerB, resourcesC), true);
+  assert.equal(productionDocumentPolicyMatches(policy, headerA, resourcesC), false);
+  assert.equal(productionDocumentPolicyMatches(policy, headerB, resourcesA), false);
+});
+
+test("production checker accepts the bounded Vercel publication envelope", async () => {
+  const buildId = "build_123";
+  const current = resealFixture({
+    buildId,
+    bodyTransform: (body, url) => url.pathname === "/events"
+      ? body.replace("<main>", '<main><img src="assets/ordinary.webp">') : body,
+    resourcePaths: new Set(["/events", "/gallery", "/join", "/privacy"]),
+    responseHeaders(url) {
+      const filename = url.pathname.split("/").at(-1) || "";
+      const disposition = url.pathname.startsWith("/assets/")
+        || url.pathname === "/robots.txt"
+        || url.pathname === "/sitemap.xml"
+        ? `inline; filename="${filename}"`
+        : "inline";
+      return {
+        "content-disposition": disposition,
+        ...(url.pathname.startsWith("/assets/")
+          ? { "content-length": "0000000000000004" } : {}),
+        ...(url.pathname === "/events" ? {
+          link: [fontPreload(buildId, "font-a"), fontPreload(buildId, "font-b")].join(", "),
+        } : {}),
+      };
+    },
+  });
+  assert.deepEqual(await checkProductionWithTestFixtures({
+    baseUrl: resealBaseUrl,
+    fetchImpl: current.fetchImpl,
+    maxAttempts: 1,
+  }), { ok: true });
+  assert.equal(current.calls.length, 16);
+  assert(current.calls.every(({ options }) => options.redirect === "manual"));
+
+  const local = resealFixture({
+    resourcePaths: new Set(["/events", "/gallery", "/join", "/privacy"]),
+    responseHeaders: (url) => url.pathname === "/events" ? {
+      link: [fontPreload("", "font-a"), fontPreload("", "font-b")].join(", "),
+    } : {},
+  });
+  assert.deepEqual(await checkProductionWithTestFixtures({
+    baseUrl: resealBaseUrl,
+    fetchImpl: local.fetchImpl,
+    maxAttempts: 1,
+  }), { ok: true });
+  assert.equal(local.calls.length, 16);
+
+  const splitFlightStream = resealFixture({
+    buildId: "build_a",
+    bodyTransform(body, url) {
+      if (url.pathname !== "/events") return body;
+      const firstPayload = JSON.stringify([1, 'x:"/_next/static/']);
+      const secondPayload = JSON.stringify([1, 'build_a/chunks/ordinary.js"\n']);
+      return body.replace(
+        "</body>",
+        `<script>self.__next_f.push(${firstPayload})</script><script>self.__next_f.push(${secondPayload})</script></body>`,
+      );
+    },
+  });
+  assert.deepEqual(await checkProductionWithTestFixtures({
+    baseUrl: resealBaseUrl,
+    fetchImpl: splitFlightStream.fetchImpl,
+    maxAttempts: 1,
+  }), { ok: true });
+  assert.equal(splitFlightStream.calls.length, 16);
+});
+
+test("production checker rejects publication-envelope drift", async () => {
+  for (const current of [
+    resealFixture({ buildId: "build_a", scriptBuildId: "build_b" }),
+    resealFixture({ buildId: "bad.id" }),
+    resealFixture({
+      buildId: "build_a",
+      buildIdForPath: (pathname) => pathname === "/privacy" ? "build_b" : "build_a",
+      resourcePaths: new Set(["/privacy"]),
+    }),
+    resealFixture({
+      buildId: "build_a",
+      buildIdForPath: (pathname) => pathname === "/privacy" ? "" : "build_a",
+      resourcePaths: new Set(["/privacy"]),
+    }),
+    ...["/gallery", "/join", "/events"].map((driftPath) => resealFixture({
+      buildId: "build_a",
+      buildIdForPath: (pathname) => pathname === driftPath ? "build_b" : "build_a",
+      resourcePaths: new Set([driftPath]),
+    })),
+    resealFixture({
+      buildId: "build_a",
+      buildIdForPath: (pathname, occurrence) => pathname === "/" && occurrence === 1
+        ? "build_b" : "build_a",
+    }),
+    resealFixture({
+      buildId: "build_a",
+      bodyTransform(body, url, occurrence) {
+        if (url.pathname !== "/" || occurrence !== 1) return body;
+        const scopedHead = resealStaticResources.head.replaceAll(
+          "/_next/static/", "/_next/static/build_a/",
+        );
+        const scopedBody = resealStaticResources.body.replaceAll(
+          "/_next/static/", "/_next/static/build_a/",
+        );
+        return body.replace(scopedHead, "").replace(scopedBody, "");
+      },
+    }),
+    resealFixture({
+      buildId: "build_a",
+      bodyTransform: (body, url) => url.pathname === "/events"
+        ? body.replace(
+          "</head>",
+          String.raw`<style>@font-face{src:url(\2f _next/static/build_b/media/evil.woff2)}</style></head>`,
+        ) : body,
+    }),
+    resealFixture({
+      buildId: "build_a",
+      bodyTransform: (body, url) => url.pathname === "/events"
+        ? body.replace(
+          "<main>",
+          String.raw`<main style="background-image:url(\2f _next/static/build_b/media/evil.webp)">`,
+        ) : body,
+    }),
+    resealFixture({
+      buildId: "build_a",
+      bodyTransform(body, url) {
+        if (url.pathname !== "/events") return body;
+        const payload = JSON.stringify([
+          1, "/_next/static/build_b/chunks/evil.js",
+        ]).replaceAll("/", "\\/");
+        return body.replace("</body>", `<script>self.__next_f.push(${payload})</script></body>`);
+      },
+    }),
+    ...[
+      "_next/static/build_b/chunks/evil.js",
+      "/_next/ignored/../static/build_b/chunks/evil.js",
+      String.raw`\_next\static\build_b\chunks\evil.js`,
+      "_ne\nxt/static/build_b/chunks/evil.js",
+      "/_ne\rxt/static/build_b/chunks/evil.js",
+      String.raw`\_ne` + "\t" + String.raw`xt\static\build_b\chunks\evil.js`,
+      'x:{"dangerouslySetInnerHTML":{"__html":"<img src=&#95;next/static/build_b/media/evil.webp>"}}',
+      'x:{"dangerouslySetInnerHTML":{"__html":"<meta http-equiv=refresh content=0;url=https://outside.example/>"}}',
+      'x:["$","meta",null,{"httpEquiv":"refresh","content":"0;url=https://outside.example/"}]',
+      'x:["$","base",null,{"href":"/_next/"}]\ny:["$","img",null,{"src":"static/build_b/media/evil.webp"}]',
+      '1:"base"\n0:[["$","$1",null,{"href":"/_next/"}],["$","img",null,{"src":"static/build_b/media/evil.webp"}]]\n',
+      'x:["$","iframe",null,{"srcDoc":"<img src=&#47;&#95;next/static/build_b/media/evil.webp>"}]',
+      String.raw`x:{"style":{"backgroundImage":"url(\5f next/static/build_b/media/evil.webp)"}}`,
+    ].map((flightPath) => resealFixture({
+      buildId: "build_a",
+      bodyTransform(body, url) {
+        if (url.pathname !== "/events") return body;
+        const payload = JSON.stringify([1, flightPath]);
+        return body.replace("</body>", `<script>self.__next_f.push(${payload})</script></body>`);
+      },
+    })),
+    ...[
+      ['x:"/_ne', 'xt/static/build_b/chunks/evil.js"\n'],
+      ['x:["$","meta",null,{"http', 'Equiv":"refresh","content":"0;url=https://outside.example/"}]\n'],
+      ['x:["$","iframe",null,{"src', 'Doc":"<img src=ordinary.webp>"}]\n'],
+      ['x:{"dangerouslySetInner', 'HTML":{"__html":"<img src=ordinary.webp>"}}\n'],
+      ['x:["$","ba', 'se",null,{"href":"/_next/"}]\n'],
+      ["x:{\"style\":{\"backgroundImage\":\"url(\\", '5f next/static/build_b/media/evil.webp)"}}'],
+    ].map(([firstChunk, secondChunk]) => resealFixture({
+      buildId: "build_a",
+      bodyTransform(body, url) {
+        if (url.pathname !== "/events") return body;
+        const bootstrap = "(self.__next_f=self.__next_f||[]).push([0])";
+        const firstPayload = JSON.stringify([1, firstChunk]);
+        const secondPayload = JSON.stringify([1, secondChunk]);
+        return body.replace(
+          "</body>",
+          `<script>${bootstrap}</script><script>self.__next_f.push(${firstPayload})</script><script>self.__next_f.push(${secondPayload})</script></body>`,
+        );
+      },
+    })),
+    ...[
+      "0;url=_next/static/build_b/chunks/evil.js",
+      "0;url=https://outside.example/harvest",
+    ].map((content) => resealFixture({
+      buildId: "build_a",
+      bodyTransform: (body, url) => url.pathname === "/events"
+        ? body.replace(
+          "</head>",
+          `<meta http-equiv="refresh" content="${content}"></head>`,
+        ) : body,
+    })),
+    resealFixture({
+      buildId: "build_a",
+      bodyTransform: (body, url) => url.pathname === "/events"
+        ? body.replace(
+          "<main>",
+          '<audio><source src="_next/static/build_b/media/evil.mp3" type="audio/mpeg"></audio><main>',
+        ) : body,
+    }),
+    resealFixture({
+      buildId: "build_a",
+      bodyTransform: (body, url) => url.pathname === "/events"
+        ? body.replace(
+          "<main>",
+          '<audio><track src="_next/static/build_b/media/evil.vtt"></audio><main>',
+        ) : body,
+    }),
+    resealFixture({
+      buildId: "build_a",
+      bodyTransform(body, url, occurrence) {
+        if (url.pathname !== "/recruitment" || occurrence !== 1) return body;
+        return body.replace(
+          "Audio fallback.</audio>",
+          '<base href="/_next/">fallback</audio><img src="static/build_b/media/evil.webp">',
+        );
+      },
+    }),
+    resealFixture({
+      buildId: "build_a",
+      bodyTransform(body, url, occurrence) {
+        if (url.pathname !== "/recruitment" || occurrence !== 1) return body;
+        const payload = JSON.stringify([
+          1, 'HL["static/build_b/chunks/evil.css","style"]',
+        ]);
+        return body.replace("<main>", `<script>self.__next_f.push(${payload})</script><main>`)
+          .replace("Audio fallback.</audio>", '<base href="/_next/">fallback</audio>');
+      },
+    }),
+    resealFixture({
+      buildId: "build_a",
+      bodyTransform(body, url, occurrence) {
+        if (url.pathname !== "/recruitment" || occurrence !== 2) return body;
+        return body.replace(
+          "Audio fallback.</audio>",
+          '<source src="_next/static/build_b/media/evil.mp3">Audio fallback.</audio>',
+        );
+      },
+    }),
+    resealFixture({
+      buildId: "build_a",
+      bodyTransform(body, url, occurrence) {
+        if (url.pathname !== "/recruitment" || occurrence !== 2) return body;
+        return body.replace(
+          "Audio fallback.</audio>",
+          '<track src="_next/static/build_b/media/evil.vtt">Audio fallback.</audio>',
+        );
+      },
+    }),
+    resealFixture({
+      buildId: "build_a",
+      bodyTransform(body, url, occurrence) {
+        if (url.pathname !== "/recruitment" || occurrence !== 2) return body;
+        return body.replace("</head>", '<base href="/_next/"></head>')
+          .replace("</body>", '<img src="static/build_b/media/evil.webp"></body>');
+      },
+    }),
+    resealFixture({
+      buildId: "build_a",
+      bodyTransform(body, url, occurrence) {
+        if (url.pathname !== "/privacy" || occurrence !== 2) return body;
+        return body.replace(
+          "</head>",
+          '<meta http-equiv="refresh" content="0;url=_next/static/build_b/chunks/evil.js"></head>',
+        );
+      },
+    }),
+    resealFixture({
+      buildId: "build_a",
+      bodyTransform(body, url, occurrence) {
+        if (url.pathname !== "/meta-data-deletion" || occurrence !== 2) return body;
+        const payload = JSON.stringify([
+          1, "_next/static/build_b/chunks/evil.js",
+        ]);
+        return body.replace("</body>", `<script>self.__next_f.push(${payload})</script></body>`);
+      },
+    }),
+    resealFixture({
+      buildId: "build_a",
+      bodyTransform: (body, url) => url.pathname === "/events"
+        ? body.replace(
+          "<main>",
+          `<select><input><link rel="stylesheet" href="/_next/static/build_b/chunks/evil.css" data-precedence="next"></select><main>`,
+        ) : body,
+    }),
+    resealFixture({
+      buildId: "build_a",
+      bodyTransform: (body, url) => url.pathname === "/events"
+        ? body.replace(
+          "<main>",
+          '<main><img src="_next/static/build_b/media/evil.webp">',
+        ) : body,
+    }),
+    resealFixture({
+      buildId: "build_a",
+      bodyTransform: (body, url) => url.pathname === "/events"
+        ? body.replace(
+          "</head>",
+          '<style>body{background:url(_next/static/build_b/media/evil.webp)}</style></head>',
+        ) : body,
+    }),
+    resealFixture({
+      buildId: "build_a",
+      bodyTransform: (body, url) => url.pathname === "/events"
+        ? body.replace(
+          "<main>",
+          String.raw`<main><img src="\_next\static\build_b\media\evil.webp">`,
+        ) : body,
+    }),
+    resealFixture({
+      buildId: "build_a",
+      bodyTransform: (body, url) => url.pathname === "/events"
+        ? body.replace(
+          "</head>",
+          String.raw`<style>body{background:url(\\_next\\static\\build_b\\media\\evil.webp)}</style></head>`,
+        ) : body,
+    }),
+    resealFixture({
+      buildId: "build_a",
+      bodyTransform: (body, url) => url.pathname === "/events"
+        ? body.replace(
+          "<main>",
+          '<main><img src="/_next/ignored/../static/build_b/media/evil.webp">',
+        ) : body,
+    }),
+    resealFixture({
+      buildId: "build_a",
+      bodyTransform: (body, url) => url.pathname === "/events"
+        ? body.replace(
+          "<main>",
+          '<template><select></template></select><link rel="stylesheet" href="/_next/static/build_b/chunks/evil.css" data-precedence="next"></template><main>',
+        ) : body,
+    }),
+    resealFixture({
+      buildId: "build_a",
+      responseHeaders: (url) => url.pathname === "/"
+        ? { link: fontPreload("build_b", "font-a") } : {},
+    }),
+    resealFixture({
+      buildId: "build_a",
+      responseHeaders: (url) => url.pathname === "/"
+        ? { link: fontPreload("", "font-a") } : {},
+    }),
+  ]) {
+    await assert.rejects(() => checkProductionWithTestFixtures({
+      baseUrl: resealBaseUrl,
+      fetchImpl: current.fetchImpl,
+      maxAttempts: 1,
+    }), { message: "HTML_DOCUMENT_REJECTED" });
+  }
+
+  for (const responseHeaders of [
+    () => ({ "content-disposition": 'inline; filename="index.html"' }),
+    (url) => url.pathname === "/events" ? {
+      link: [fontPreload("build_a", "font-a"), fontPreload("build_b", "font-b")].join(", "),
+    } : {},
+    (url) => url.pathname === "/" ? { link: fontPreload("build_a", "font-a") }
+      : url.pathname === "/events" ? { link: fontPreload("build_b", "font-b") } : {},
+    (url) => url.pathname === "/events" ? {
+      link: [fontPreload("build_a", "font-a"), fontPreload("build_a", "font-a")].join(", "),
+    } : {},
+    () => ({ link: "x".repeat(PRODUCTION_CHECK_LIMITS.linkHeaderCharacters + 1) }),
+    () => ({
+      "content-disposition": "x".repeat(
+        PRODUCTION_CHECK_LIMITS.contentDispositionCharacters + 1,
+      ),
+    }),
+    (url) => url.pathname.startsWith("/assets/")
+      ? { "content-disposition": 'inline; filename="wrong.webp"' } : {},
+  ]) {
+    const current = resealFixture({ buildId: "build_a", responseHeaders });
+    await assert.rejects(() => checkProductionWithTestFixtures({
+      baseUrl: resealBaseUrl,
+      fetchImpl: current.fetchImpl,
+      maxAttempts: 1,
+    }), { message: "RESPONSE_HEADER_REJECTED" });
+  }
+
+  const oversizedContentLength = resealFixture({
+    responseHeaders: () => ({
+      "content-length": "0".repeat(PRODUCTION_CHECK_LIMITS.contentLengthCharacters) + "4",
+    }),
+  });
+  await assert.rejects(() => checkProductionWithTestFixtures({
+    baseUrl: resealBaseUrl,
+    fetchImpl: oversizedContentLength.fetchImpl,
+    maxAttempts: 1,
+  }), { message: "RESPONSE_HEADER_REJECTED" });
+
+  for (const contentLength of [
+    "0".repeat(PRODUCTION_CHECK_LIMITS.contentLengthCharacters) + "4",
+    String(PRODUCTION_CHECK_LIMITS.assetBytes + 1),
+    "9999999999999999",
+    "PRIVATE_SENTINEL",
+  ]) {
+    const assetContentLength = resealFixture({
+      responseHeaders: (url) => url.pathname.startsWith("/assets/")
+        ? { "content-length": contentLength } : {},
+    });
+    let rejected;
+    try {
+      await checkProductionWithTestFixtures({
+        baseUrl: resealBaseUrl,
+        fetchImpl: assetContentLength.fetchImpl,
+        maxAttempts: 1,
+      });
+    } catch (error) {
+      rejected = error;
+    }
+    assert.equal(rejected?.message, "RESPONSE_HEADER_REJECTED");
+    assert.equal(String(rejected).includes("PRIVATE_SENTINEL"), false);
+    assert.equal(assetContentLength.calls.filter(({ path }) => path.startsWith("/assets/")).length, 1);
   }
 });
