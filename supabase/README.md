@@ -23,17 +23,31 @@ Functions, and schema changes migration-based. Do not commit real secrets or
 - Do not deploy Edge Functions unless a future task explicitly approves deployment.
 - Protected page text must not be changed for auth/gallery-upload work.
 
+## Inert Member Entitlement State
+
+The durable entitlement substrate is documented in
+[`../docs/integrations/member-entitlement-state-foundation.v1.md`](../docs/integrations/member-entitlement-state-foundation.v1.md).
+It adds private revision, snapshot, delivery-obligation, and expiry state with
+all runtime flags false. It creates no producer, dispatcher, scheduler,
+consumer protocol, provider binding, or live login behavior. Its pull request
+may apply the migration to an isolated hosted Preview branch. A protected
+`main` merge automatically applies new migrations to production and redeploys
+the full declared Edge Function inventory through the existing Supabase Git
+integration, so that merge requires an exact production release approval.
+Enabling any entitlement capability requires a later reviewed forward
+migration and separate activation approval.
+
 ## Edge Function Dependencies
 
 Every deployed function owns a local `deno.json` with exact direct dependency
 versions, following [Supabase's function dependency guidance](https://supabase.com/docs/guides/functions/dependencies).
 The Supabase CLI uses that file as Deno configuration when bundling a function;
 it does not upload the repository root `deno.lock`. Accordingly,
-`npm run check:supabase-edge-types` checks all 31 entrypoints with their real
-function-local configuration and no deployment lock, records and audits each
-entrypoint's current resolution in its own temporary lock, and separately audits
-the repository lock used by local tooling. Never describe the root lock as
-freezing the deployed transitive graph.
+`npm run check:supabase-edge-types` checks every entrypoint declared in
+`supabase/config.toml` with its real function-local configuration and no
+deployment lock, records and audits each entrypoint's current resolution in its
+own temporary lock, and separately audits the repository lock used by local
+tooling. Never describe the root lock as freezing the deployed transitive graph.
 
 ## Pixelfed Guild Social Mapping
 

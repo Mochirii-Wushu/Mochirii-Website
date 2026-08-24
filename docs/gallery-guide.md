@@ -21,6 +21,7 @@ The Gallery is Mōchirīī's visual memory: screenshots of scenes, members, gath
 - The grid uses thumbnails for page speed.
 - The lightbox opens full images.
 - Never let the lightbox open `/thumbs/` images.
+- Committed static full images used by Gallery and Home Screenshot Spotlight are WebP files no larger than 2 MiB and 2560 pixels on either edge. This contract covers all 73 `full` references in `apps/web/public/data/gallery.json`; Home Spotlight and its fallbacks must draw from that same thumbnail/full inventory. It excludes page heroes, the guild seal, event imagery, Shopify theme imagery, member uploads, and private source originals.
 - Every approved runtime submission needs a private WebP derivative no larger than 720 pixels on its longest edge and 80 KiB. The moderator browser prepares it during approval; the Edge Function verifies both the WebP structure and a complete pixel decode before storage.
 - Do not use managed on-the-fly image transformations for this path. They are an optional provider feature with a separate cost/configuration boundary, while the stored derivative has no per-view transform requirement.
 - The worst-case first 24 member derivatives and the representative first 24 static thumbnails must each remain below 2 MiB. Browser tests also require no original request before the viewer opens and CLS no greater than 0.1.
