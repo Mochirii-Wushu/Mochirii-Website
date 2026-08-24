@@ -5,7 +5,7 @@ successor head must pass the repository's Supabase Git integration in its
 isolated hosted Preview before source acceptance. It has not been applied to
 production, and every runtime capability remains disabled.
 
-Base Website source: `8779968290fe5884035fa8c142ff1280be1f5a6e`.
+Original authoring base Website source: `8779968290fe5884035fa8c142ff1280be1f5a6e`.
 
 ## Purpose
 
