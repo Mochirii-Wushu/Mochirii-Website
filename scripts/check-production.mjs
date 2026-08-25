@@ -589,8 +589,16 @@ const TEST_DOCUMENT_POLICIES = Object.freeze({
     resources: "2354AEB6C7E3F5FE93409CE57430E49F75D64FC5CCF672F3CA537469A6472F3F",
   }),
   home: Object.freeze({
-    header: "86F4BD56E49D759E1007911F74826C416C2D5038AF3CC00A9F7C818A29F79EE0",
-    resources: "28E5AAF90A062B6FDB43F973D00186DFB991828200350774561EBDBD303F3D3C",
+    variants: Object.freeze([
+      Object.freeze({
+        header: "86F4BD56E49D759E1007911F74826C416C2D5038AF3CC00A9F7C818A29F79EE0",
+        resources: "28E5AAF90A062B6FDB43F973D00186DFB991828200350774561EBDBD303F3D3C",
+      }),
+      Object.freeze({
+        header: "86F4BD56E49D759E1007911F74826C416C2D5038AF3CC00A9F7C818A29F79EE0",
+        resources: "C20EE4E36AB43738A6EE40FD24790096428318667D4AB0DFCD6070EEE2D44540",
+      }),
+    ]),
   }),
   privacy: Object.freeze({
     header: "86F4BD56E49D759E1007911F74826C416C2D5038AF3CC00A9F7C818A29F79EE0",
@@ -1384,15 +1392,58 @@ function productionFlightResourceReference(value, kind, buildIds) {
 
 export function canonicalizeProductionFlightResourceEnvelopeStream(
   value, buildIds, resourceUrls = null, canonicalDocumentUrl = null,
+  normalizeHomeSpotlight = false,
 ) {
   if (typeof value !== "string" || value.length > PRODUCTION_CHECK_LIMITS.htmlBytes) return null;
   if (resourceUrls !== null && !Array.isArray(resourceUrls)) return null;
+  if (typeof normalizeHomeSpotlight !== "boolean") return null;
   const replacements = [];
+  const frames = [];
+  const flightReferenceOccurrences = [];
+  const spotlightAnchors = [];
   const regularRecordIds = new Set();
   const openDeferredRecordIds = new Set();
   const closedDeferredRecordIds = new Set();
   const deferredReturnRecordIds = new Set();
   let rootSeen = false;
+
+  function productionFlightReferenceTarget(value) {
+    if (typeof value !== "string" || value[0] !== "$" || value === "$" || value[1] === "$") {
+      return null;
+    }
+    const code = value[1];
+    if (["S", "T", "Z", "I", "-", "N", "u", "D", "n"].includes(code)) return null;
+    const reference = ["L", "@", "h", "Q", "W", "B", "K", "i"].includes(code)
+      ? value.slice(2) : value.slice(1);
+    const referenceId = ["h", "Q", "W", "B", "K", "i"].includes(code)
+      ? reference.split(":", 1)[0] : reference;
+    const target = Number.parseInt(referenceId, 16);
+    return Number.isInteger(target) && target >= 0 && target <= 0x7fffffff ? target : null;
+  }
+
+  function recordFlightReference(node, recordId) {
+    if (!normalizeHomeSpotlight || node?.type !== "string") return;
+    const target = productionFlightReferenceTarget(node.value);
+    if (target === null) return;
+    flightReferenceOccurrences.push(Object.freeze({
+      recordId,
+      target,
+      value: node.value,
+    }));
+  }
+
+  function collectFlightReferences(node, recordId) {
+    if (!normalizeHomeSpotlight || node === null || typeof node !== "object") return;
+    if (node.type === "array") {
+      for (const item of node.items) collectFlightReferences(item, recordId);
+      return;
+    }
+    if (node.type === "object") {
+      for (const entry of node.entries) collectFlightReferences(entry.value, recordId);
+      return;
+    }
+    recordFlightReference(node, recordId);
+  }
 
   function decodeRecordId(recordId) {
     const canonical = /^(?:0|[1-9a-f][0-9a-f]{0,6}|[1-7][0-9a-f]{7})$/.test(recordId);
@@ -1440,6 +1491,7 @@ export function canonicalizeProductionFlightResourceEnvelopeStream(
     const referencedRecordId = decodeRecordId(record.value.slice(1));
     if (referencedRecordId === null || referencedRecordId === deferredRecordId) return false;
     deferredReturnRecordIds.add(referencedRecordId);
+    recordFlightReference(record, deferredRecordId.toString(16));
     return true;
   }
 
@@ -1661,11 +1713,48 @@ export function canonicalizeProductionFlightResourceEnvelopeStream(
     }
   }
 
-  function collectReactResources(node, sourceOffset) {
+  function productionFlightStringPropertyIs(properties, name, value) {
+    return productionJsonStringIs(productionJsonObjectEntry(properties, name)?.value, value);
+  }
+
+  function productionFlightHomeSpotlightAncestryIsExact(ancestry) {
+    if (!Array.isArray(ancestry) || ancestry.length < 4) return false;
+    const [section, card, plate, title] = ancestry.slice(-4);
+    const cardLabel = productionJsonObjectEntry(card.properties, "aria-label")?.value;
+    return section.name === "section"
+      && productionJsonObjectKeyOrderMatches(
+        section.properties, ["className", "aria-label", "children"],
+      )
+      && productionFlightStringPropertyIs(
+        section.properties, "className", "glass-card glass-card--primary glass-pad u-mt-24",
+      )
+      && productionFlightStringPropertyIs(section.properties, "aria-label", "Member spotlight")
+      && card.name === "div"
+      && productionJsonObjectKeyOrderMatches(
+        card.properties, ["id", "className", "role", "aria-label", "children"],
+      )
+      && productionFlightStringPropertyIs(card.properties, "id", "spotlightCard")
+      && productionFlightStringPropertyIs(card.properties, "className", "home-spotlight")
+      && productionFlightStringPropertyIs(card.properties, "role", "group")
+      && productionFlightBoundedString(cardLabel, 256)
+      && cardLabel.value.startsWith("Member spotlight - ")
+      && plate.name === "div"
+      && productionJsonObjectKeyOrderMatches(plate.properties, ["className", "children"])
+      && productionFlightStringPropertyIs(
+        plate.properties, "className", "home-spotlight__plate",
+      )
+      && title.name === "h3"
+      && productionJsonObjectKeyOrderMatches(title.properties, ["id", "className", "children"])
+      && productionFlightStringPropertyIs(title.properties, "id", "spotlightTitle")
+      && productionFlightStringPropertyIs(title.properties, "className", "home-title");
+  }
+
+  function collectReactResources(node, sourceOffset, recordId, ancestry = []) {
     if (node?.type === "array") {
       const [marker, element, key, properties] = node.items;
       const reactElementMarker = productionJsonStringIs(marker, "$") && element?.type === "string";
       let intrinsicName = null;
+      let descendantAncestry = ancestry;
       if (reactElementMarker && !element.value.startsWith("$")) {
         if (!/^[a-z][a-z0-9-]*$/.test(element.value)) return false;
         intrinsicName = element.value;
@@ -1678,6 +1767,20 @@ export function canonicalizeProductionFlightResourceEnvelopeStream(
           || PRODUCTION_NAMESPACE_REJECTED_CONTEXT_ELEMENTS.has(intrinsicName)
           || PRODUCTION_AMBIGUOUS_TREE_ELEMENTS.has(intrinsicName)
           || intrinsicName === "base") return false;
+        descendantAncestry = [...ancestry, Object.freeze({
+          name: intrinsicName,
+          properties,
+        })];
+        if (intrinsicName === "h3"
+          && productionFlightHomeSpotlightAncestryIsExact(descendantAncestry)) {
+          const children = productionJsonObjectEntry(properties, "children")?.value;
+          if (children?.type === "string") {
+            spotlightAnchors.push(Object.freeze({
+              recordId,
+              reference: children.value,
+            }));
+          }
+        }
         const propertyNames = properties.entries.map((entry) => entry.key.value);
         if (propertyNames.some((name) => /^on[A-Za-z]/.test(name))) return false;
 
@@ -1772,35 +1875,42 @@ export function canonicalizeProductionFlightResourceEnvelopeStream(
           return false;
         }
       }
-      return node.items.every((item) => collectReactResources(item, sourceOffset));
+      return node.items.every((item, index) => collectReactResources(
+        item,
+        sourceOffset,
+        recordId,
+        index === 3 ? descendantAncestry : ancestry,
+      ));
     }
     if (node?.type === "object") {
-      return node.entries.every((entry) => collectReactResources(entry.value, sourceOffset));
+      return node.entries.every((entry) => collectReactResources(
+        entry.value, sourceOffset, recordId, ancestry,
+      ));
     }
     return true;
   }
 
-  function readFrame(start) {
-    const colon = value.indexOf(":", start);
-    const priorLineFeed = value.indexOf("\n", start);
+  function readFrame(source, start) {
+    const colon = source.indexOf(":", start);
+    const priorLineFeed = source.indexOf("\n", start);
     if (colon < 0 || (priorLineFeed >= 0 && priorLineFeed < colon)) return null;
-    const recordId = value.slice(start, colon);
+    const recordId = source.slice(start, colon);
     const payloadOffset = colon + 1;
-    if (value[payloadOffset] !== "T") {
-      const lineEnd = value.indexOf("\n", payloadOffset);
+    if (source[payloadOffset] !== "T") {
+      const lineEnd = source.indexOf("\n", payloadOffset);
       return lineEnd < 0 ? null : Object.freeze({
         end: lineEnd + 1,
         kind: "line",
-        payload: value.slice(payloadOffset, lineEnd),
+        payload: source.slice(payloadOffset, lineEnd),
         payloadOffset,
         recordId,
       });
     }
 
-    const comma = value.indexOf(",", payloadOffset + 1);
-    const headerLineFeed = value.indexOf("\n", payloadOffset + 1);
+    const comma = source.indexOf(",", payloadOffset + 1);
+    const headerLineFeed = source.indexOf("\n", payloadOffset + 1);
     if (comma < 0 || (headerLineFeed >= 0 && headerLineFeed < comma)) return null;
-    const byteLengthText = value.slice(payloadOffset + 1, comma);
+    const byteLengthText = source.slice(payloadOffset + 1, comma);
     if (!/^(?:0|[1-9a-f][0-9a-f]{0,7})$/.test(byteLengthText)) return null;
     const byteLength = Number.parseInt(byteLengthText, 16);
     if (!Number.isSafeInteger(byteLength)
@@ -1808,8 +1918,8 @@ export function canonicalizeProductionFlightResourceEnvelopeStream(
       || byteLength > PRODUCTION_CHECK_LIMITS.htmlBytes) return null;
     let bytesRead = 0;
     let textEnd = comma + 1;
-    while (bytesRead < byteLength && textEnd < value.length) {
-      const first = value.charCodeAt(textEnd);
+    while (bytesRead < byteLength && textEnd < source.length) {
+      const first = source.charCodeAt(textEnd);
       let codeUnits = 1;
       let utf8Bytes;
       if (first <= 0x7f) {
@@ -1817,9 +1927,9 @@ export function canonicalizeProductionFlightResourceEnvelopeStream(
       } else if (first <= 0x7ff) {
         utf8Bytes = 2;
       } else if (first >= 0xd800 && first <= 0xdbff
-        && textEnd + 1 < value.length
-        && value.charCodeAt(textEnd + 1) >= 0xdc00
-        && value.charCodeAt(textEnd + 1) <= 0xdfff) {
+        && textEnd + 1 < source.length
+        && source.charCodeAt(textEnd + 1) >= 0xdc00
+        && source.charCodeAt(textEnd + 1) <= 0xdfff) {
         codeUnits = 2;
         utf8Bytes = 4;
       } else {
@@ -1832,27 +1942,147 @@ export function canonicalizeProductionFlightResourceEnvelopeStream(
     return bytesRead === byteLength ? Object.freeze({
       end: textEnd,
       kind: "text",
-      payload: value.slice(payloadOffset, textEnd),
+      payload: source.slice(payloadOffset, textEnd),
       payloadOffset,
       recordId,
     }) : null;
+  }
+
+  function flightReferenceIsExact(value, recordId) {
+    const matches = flightReferenceOccurrences.filter((entry) => entry.value === value);
+    return matches.length === 1 && matches[0].recordId === recordId;
+  }
+
+  function flightTargetIsReferencedOnce(recordId) {
+    const decoded = decodeRecordId(recordId);
+    return decoded !== null
+      && flightReferenceOccurrences.filter((entry) => entry.target === decoded).length === 1;
+  }
+
+  function productionFlightStringIsWellFormed(value) {
+    for (let index = 0; index < value.length; index += 1) {
+      const codeUnit = value.charCodeAt(index);
+      if (codeUnit >= 0xd800 && codeUnit <= 0xdbff) {
+        if (index + 1 >= value.length) return false;
+        const trailing = value.charCodeAt(index + 1);
+        if (trailing < 0xdc00 || trailing > 0xdfff) return false;
+        index += 1;
+      } else if (codeUnit >= 0xdc00 && codeUnit <= 0xdfff) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  function productionFlightHomeSpotlightNameIsSafe(name) {
+    return typeof name === "string"
+      && name.length >= 1
+      && name.length <= 120
+      && name === name.trim()
+      && !name.includes("  ")
+      && !/[^\S ]/.test(name)
+      && !/[\\@<>`\u0000-\u001f\u007f-\u009f\u2028\u2029\u202a-\u202e\u2066-\u2069]/.test(name)
+      && productionFlightStringIsWellFormed(name);
+  }
+
+  function prepareHomeSpotlightNormalization() {
+    const retainedOrder = Object.freeze(["26", "24", "21", "1f", "23"]);
+    if (spotlightAnchors.length !== 1
+      || spotlightAnchors[0].recordId !== "1b"
+      || spotlightAnchors[0].reference !== "$L24") return null;
+
+    const exactReferences = [
+      ["$Ld", "0"],
+      ["$L12", "0"],
+      ["$L13", "0"],
+      ["$L1b", "d"],
+      ["$L24", "1b"],
+      ["$@1f", "12"],
+      ["$L21", "13"],
+      ["$L23", "13"],
+      ["$L26", "23"],
+    ];
+    if (exactReferences.some(([reference, source]) => !flightReferenceIsExact(reference, source))
+      || ["d", "12", "13", "1b", "24", "1f", "21", "23", "26"].some(
+        (recordId) => !flightTargetIsReferencedOnce(recordId),
+      )) return null;
+
+    const frameById = new Map(frames.map((frame) => [frame.recordId, frame]));
+    const requiredRegularIds = ["0", "d", "12", "13", "1b", "24", "21", "1f", "23"];
+    if (requiredRegularIds.some((recordId) => frameById.get(recordId)?.role !== "regular")) {
+      return null;
+    }
+    const importFrame = frameById.get("26");
+    if (importFrame?.role !== "import"
+      || importFrame.record?.type !== "array"
+      || importFrame.record.items.length !== 3
+      || !productionJsonStringIs(importFrame.record.items[2], "IconMark")) return null;
+
+    const viewportFrame = frameById.get("21");
+    const metadataOutletFrame = frameById.get("1f");
+    const metadataFrame = frameById.get("23");
+    if (viewportFrame.record?.type !== "array"
+      || viewportFrame.record.items.length !== 3
+      || metadataOutletFrame.record?.type !== "null"
+      || metadataFrame.record?.type !== "array"
+      || metadataFrame.record.items.length !== 20) return null;
+    const iconElement = metadataFrame.record.items.at(-1);
+    if (iconElement?.type !== "array"
+      || iconElement.items.length !== 4
+      || !productionJsonStringIs(iconElement.items[0], "$")
+      || !productionJsonStringIs(iconElement.items[1], "$L26")
+      || !productionJsonStringIs(iconElement.items[2], "19")
+      || !productionJsonObjectKeyOrderMatches(iconElement.items[3], [])) return null;
+
+    const terminalFrames = frames.slice(-retainedOrder.length);
+    if (terminalFrames.length !== retainedOrder.length
+      || new Set(terminalFrames.map((frame) => frame.recordId)).size !== retainedOrder.length
+      || retainedOrder.some((recordId) => !terminalFrames.some((frame) => frame.recordId === recordId))
+      || terminalFrames.findIndex((frame) => frame.recordId === "26")
+        >= terminalFrames.findIndex((frame) => frame.recordId === "23")) {
+      return null;
+    }
+
+    const titleFrame = frameById.get("24");
+    const title = titleFrame.record?.type === "string" ? titleFrame.record.value : null;
+    const prefix = "Congratulations to: ";
+    if (typeof title !== "string"
+      || !title.startsWith(prefix)
+      || !title.endsWith(".")
+      || titleFrame.payload !== JSON.stringify(title)) return null;
+    const name = title.slice(prefix.length, -1);
+    if (!productionFlightHomeSpotlightNameIsSafe(name)) return null;
+    replacements.push(Object.freeze({
+      end: titleFrame.payloadOffset + titleFrame.record.end,
+      start: titleFrame.payloadOffset + titleFrame.record.start,
+      value: JSON.stringify("Congratulations to: Meenari."),
+    }));
+    return Object.freeze({
+      retainedOrder,
+      suffixStart: terminalFrames[0].start,
+    });
   }
 
   let sourceOffset = 0;
   let frameCount = 0;
   while (sourceOffset < value.length) {
     if (++frameCount > PRODUCTION_CHECK_LIMITS.htmlBytes) return null;
-    const frame = readFrame(sourceOffset);
+    const frame = readFrame(value, sourceOffset);
     if (frame === null || frame.end <= sourceOffset) return null;
     const { payload, payloadOffset, recordId } = frame;
     const hint = payload.startsWith("HL");
     const decodedRecordId = hint ? null : decodeRecordId(recordId);
+    let frameRecord = null;
+    let frameRole = "";
     if ((hint && recordId !== "") || (!hint && decodedRecordId === null)) return null;
     if (frame.kind === "text") {
       if (!claimValueRecordId(decodedRecordId)) return null;
+      frameRole = "text";
     } else if (payload.startsWith("I")) {
       if (decodedRecordId === 0 || !claimRegularRecordId(decodedRecordId)) return null;
       const record = parseProductionJsonWithSpans(payload.slice(1));
+      frameRecord = record;
+      frameRole = "import";
       const recordOffset = payloadOffset + 1;
       if (record?.type !== "array"
         || ![3, 4].includes(record.items.length)
@@ -1866,8 +2096,11 @@ export function canonicalizeProductionFlightResourceEnvelopeStream(
           && (record.items[3]?.type !== "number" || record.items[3].value !== 1))
         || !record.items[1].items.every((item) =>
           replaceResource(item, "script", recordOffset))) return null;
+      collectFlightReferences(record, recordId);
     } else if (payload.startsWith("HL")) {
       const record = parseProductionJsonWithSpans(payload.slice(2));
+      frameRecord = record;
+      frameRole = "hint";
       const recordOffset = payloadOffset + 2;
       const style = record?.type === "array"
         && record.items.length === 2
@@ -1891,15 +2124,21 @@ export function canonicalizeProductionFlightResourceEnvelopeStream(
       } else if (!replaceResource(record.items[0], style ? "style" : "font", recordOffset)) {
         return null;
       }
+      collectFlightReferences(record, recordId);
     } else if (payload === "X" || payload === "x") {
       if (!openDeferredRecordId(decodedRecordId)) return null;
+      frameRole = "deferred-open";
     } else if (payload.startsWith("C")) {
       if (!deferredReturnReferenceIsValid(payload, decodedRecordId)) return null;
       if (!closeDeferredRecordId(decodedRecordId)) return null;
+      frameRole = "deferred-close";
     } else {
       if (!claimValueRecordId(decodedRecordId)) return null;
       const record = parseProductionJsonWithSpans(payload);
       if (record === null) return null;
+      frameRecord = record;
+      frameRole = "regular";
+      collectFlightReferences(record, recordId);
       if (decodedRecordId === 0) {
         if (rootSeen
           || !productionJsonObjectKeyOrderMatches(record, PRODUCTION_FLIGHT_ROOT_KEYS)) return null;
@@ -1930,22 +2169,44 @@ export function canonicalizeProductionFlightResourceEnvelopeStream(
         }));
         for (const keyName of ["f", "G"]) {
           if (!collectReactResources(
-            productionJsonObjectEntry(record, keyName)?.value, payloadOffset,
+            productionJsonObjectEntry(record, keyName)?.value, payloadOffset, recordId,
           )) return null;
         }
         rootSeen = true;
-      } else if (!collectReactResources(record, payloadOffset)) {
+      } else if (!collectReactResources(record, payloadOffset, recordId)) {
         return null;
       }
     }
+    frames.push(Object.freeze({
+      decodedRecordId,
+      end: frame.end,
+      payload,
+      payloadOffset,
+      record: frameRecord,
+      recordId,
+      role: frameRole,
+      start: sourceOffset,
+    }));
     sourceOffset = frame.end;
   }
   if (!rootSeen
     || openDeferredRecordIds.size !== 0
     || [...deferredReturnRecordIds].some((recordId) =>
       !regularRecordIds.has(recordId) && !closedDeferredRecordIds.has(recordId))) return null;
+  const homeSpotlightNormalization = normalizeHomeSpotlight
+    ? prepareHomeSpotlightNormalization() : null;
+  if (normalizeHomeSpotlight && homeSpotlightNormalization === null) return null;
   replacements.sort((left, right) => right.start - left.start);
   let canonical = value;
+  let canonicalSuffixStart = homeSpotlightNormalization?.suffixStart ?? null;
+  if (canonicalSuffixStart !== null) {
+    for (const replacement of replacements) {
+      if (replacement.start < canonicalSuffixStart && replacement.end > canonicalSuffixStart) return null;
+      if (replacement.end <= canonicalSuffixStart) {
+        canonicalSuffixStart += replacement.value.length - (replacement.end - replacement.start);
+      }
+    }
+  }
   let priorStart = value.length;
   for (const replacement of replacements) {
     if (replacement.end > priorStart || replacement.start < 0 || replacement.end <= replacement.start) {
@@ -1954,6 +2215,27 @@ export function canonicalizeProductionFlightResourceEnvelopeStream(
     canonical = canonical.slice(0, replacement.start)
       + replacement.value + canonical.slice(replacement.end);
     priorStart = replacement.start;
+  }
+  if (homeSpotlightNormalization !== null) {
+    const canonicalFrames = new Map();
+    let canonicalOffset = canonicalSuffixStart;
+    while (canonicalOffset < canonical.length) {
+      if (canonicalFrames.size >= homeSpotlightNormalization.retainedOrder.length) return null;
+      const frame = readFrame(canonical, canonicalOffset);
+      if (frame === null
+        || frame.end <= canonicalOffset
+        || canonicalFrames.has(frame.recordId)) return null;
+      canonicalFrames.set(frame.recordId, canonical.slice(canonicalOffset, frame.end));
+      canonicalOffset = frame.end;
+    }
+    if (canonicalOffset !== canonical.length
+      || homeSpotlightNormalization.retainedOrder.some(
+        (recordId) => !canonicalFrames.has(recordId),
+      )) return null;
+    canonical = canonical.slice(0, canonicalSuffixStart)
+      + homeSpotlightNormalization.retainedOrder.map(
+        (recordId) => canonicalFrames.get(recordId),
+      ).join("");
   }
   return canonical;
 }
@@ -3028,7 +3310,7 @@ function readActiveProductionHtml(html, {
 
   if (resourceFlightEnvelopeIndex >= 0) {
     const canonicalFlightPayloadStream = canonicalizeProductionFlightResourceEnvelopeStream(
-      resourceFlightPayloadStream, nextStaticBuildIds,
+      resourceFlightPayloadStream, nextStaticBuildIds, null, null, resourceProfile === "home",
     );
     if (canonicalFlightPayloadStream === null) {
       reportDiagnostic("HTML document parser FLIGHT_STREAM");
