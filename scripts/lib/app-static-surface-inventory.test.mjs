@@ -32,8 +32,8 @@ const expectedLibraryBytes = 24_956;
 const expectedLibrarySha256 = "AF6A2D5632582D56B92C8E7CD0D7ED0A004712BFCF51091DE2A1AFB50BD63C0A";
 const expectedAppRouterLibraryBytes = 59_423;
 const expectedAppRouterLibrarySha256 = "5051994396F6B0EAC3033F13CF2DC41BD2DCD8FF3102CF11DC49F8B53F780D84";
-const expectedProductionCheckerBytes = 143_373;
-const expectedProductionCheckerSha256 = "5AA65B5F924D7E7AFC5960F845B41D7D4F6754BCDE144B77870D95F610F679BB";
+const expectedProductionCheckerBytes = 155_150;
+const expectedProductionCheckerSha256 = "271C3D67117FA0E62CC04349548E4D84DC24478080555929BA53223BDDF52317";
 
 function sha256(buffer) {
   return createHash("sha256").update(buffer).digest("hex").toUpperCase();
@@ -959,6 +959,130 @@ function resealFlightStream({
     + `4:${JSON.stringify(resourceScript)}\n`;
 }
 
+const resealHomeSpotlightRetainedOrder = Object.freeze(["26", "24", "21", "1f", "23"]);
+
+function resealHomeSpotlightFlightStream({
+  anchorChildren = "$L24",
+  cardId = "spotlightCard",
+  cardRole = "group",
+  importName = "IconMark",
+  order = resealHomeSpotlightRetainedOrder,
+  title = "Congratulations to: Meenari.",
+} = {}) {
+  const root = {
+    P: null,
+    c: [],
+    q: "",
+    i: false,
+    f: ["$Ld", "$L12", "$L13"],
+    m: "fixture",
+    G: [],
+    S: false,
+    h: null,
+    r: "",
+    s: "",
+    a: "",
+    l: "",
+    p: "",
+    d: resealFlightSemanticToken,
+    b: resealFlightBuildId,
+  };
+  const spotlight = ["$", "section", "spotlight-section", {
+    className: "glass-card glass-card--primary glass-pad u-mt-24",
+    "aria-label": "Member spotlight",
+    children: ["$", "div", "spotlight-card", {
+      id: cardId,
+      className: "home-spotlight",
+      role: cardRole,
+      "aria-label": "Member spotlight - Fixture - Kind - Spotlight Appreciation",
+      children: ["$", "div", "spotlight-plate", {
+        className: "home-spotlight__plate",
+        children: ["$", "h3", "spotlight-title", {
+          id: "spotlightTitle",
+          className: "home-title",
+          children: anchorChildren,
+        }],
+      }],
+    }],
+  }];
+  const viewportMetadata = [
+    ["$", "meta", "0", { charSet: "utf-8" }],
+    ["$", "meta", "1", {
+      name: "viewport",
+      content: "width=device-width, initial-scale=1, viewport-fit=cover",
+    }],
+    ["$", "meta", "2", { name: "theme-color", content: "#0a0c0e" }],
+  ];
+  const documentMetadata = Array.from({ length: 19 }, (_, index) => [
+    "$", "meta", String(index), { name: `fixture-${index}`, content: `value-${index}` },
+  ]);
+  documentMetadata.push(["$", "$L26", "19", {}]);
+  const rows = new Map([
+    ["0", `0:${JSON.stringify(root)}\n`],
+    ["d", `d:${JSON.stringify(["$", "main", "home-main", { children: ["stable", "$L1b"] }])}\n`],
+    ["12", `12:${JSON.stringify(["$", "div", "metadata-outlet", { children: "$@1f" }])}\n`],
+    ["13", `13:${JSON.stringify(["$", "div", "metadata-ready", { children: ["$L21", "$L23"] }])}\n`],
+    ["1b", `1b:${JSON.stringify(spotlight)}\n`],
+    ["26", `26:I${JSON.stringify([60329, [resealFlightVisiblePath], importName])}\n`],
+    ["24", `24:${JSON.stringify(title)}\n`],
+    ["21", `21:${JSON.stringify(viewportMetadata)}\n`],
+    ["1f", "1f:null\n"],
+    ["23", `23:${JSON.stringify(documentMetadata)}\n`],
+  ]);
+  return ["0", "d", "12", "13", "1b", ...order].map((recordId) => rows.get(recordId)).join("");
+}
+
+function permutations(values) {
+  if (values.length <= 1) return [values];
+  return values.flatMap((value, index) => permutations([
+    ...values.slice(0, index), ...values.slice(index + 1),
+  ]).map((tail) => [value, ...tail]));
+}
+
+function withReachableFlightReference(stream, reference) {
+  const rows = stream.trimEnd().split("\n");
+  const parentIndex = rows.findIndex((row) => row.startsWith("d:"));
+  assert(parentIndex >= 0);
+  const parent = JSON.parse(rows[parentIndex].slice(2));
+  parent[3].children.push(reference);
+  rows[parentIndex] = `d:${JSON.stringify(parent)}`;
+  return `${rows.join("\n")}\n`;
+}
+
+function withRootFlightReference(stream, field, reference) {
+  const rows = stream.trimEnd().split("\n");
+  assert(rows[0].startsWith("0:"));
+  const rootRecord = JSON.parse(rows[0].slice(2));
+  if (field === "c") {
+    rootRecord.c.push(reference);
+  } else {
+    assert(["q", "m", "r", "s", "a", "l", "p", "d"].includes(field));
+    rootRecord[field] = reference;
+  }
+  rows[0] = `0:${JSON.stringify(rootRecord)}`;
+  return `${rows.join("\n")}\n`;
+}
+
+function withFlightImportReference(stream, reference) {
+  const rows = stream.trimEnd().split("\n");
+  const terminalIndex = Math.min(...resealHomeSpotlightRetainedOrder.map((recordId) =>
+    rows.findIndex((row) => row.startsWith(`${recordId}:`))));
+  assert(terminalIndex >= 0);
+  rows.splice(terminalIndex, 0, `25:I${JSON.stringify([
+    1, [resealFlightVisiblePath], reference,
+  ])}`);
+  return `${rows.join("\n")}\n`;
+}
+
+function withReachableDeferredReturn(stream, targetRecordId) {
+  const rows = withReachableFlightReference(stream, "$@27").trimEnd().split("\n");
+  const terminalIndex = Math.min(...resealHomeSpotlightRetainedOrder.map((recordId) =>
+    rows.findIndex((row) => row.startsWith(`${recordId}:`))));
+  assert(terminalIndex >= 0);
+  rows.splice(terminalIndex, 0, "27:x", `27:C"$${targetRecordId}"`);
+  return `${rows.join("\n")}\n`;
+}
+
 const resealSafeFlightStream = resealFlightStream();
 const resealSafeFlightScript = resealFlightScript(resealSafeFlightStream);
 const resealFlightInitializer = "<script>(self.__next_f=self.__next_f||[]).push([0])</script>";
@@ -1244,6 +1368,73 @@ test("production checker accepts the bounded Vercel publication envelope", async
   assert.equal(splitFlightStream.calls.length, 16);
 });
 
+test("production checker actual home consumer binds Spotlight normalization and diagnostics", async () => {
+  const streams = [
+    resealHomeSpotlightFlightStream(),
+    resealHomeSpotlightFlightStream({
+      order: ["26", "23", "1f", "21", "24"],
+      title: "Congratulations to: Lián 🌸.",
+    }),
+  ];
+  for (const stream of streams) {
+    const fixture = resealFixture({
+      resourcePaths: new Set(["/"]),
+      bodyTransform: (body, url) => url.pathname === "/"
+        ? body.replace(resealSafeFlightScript, resealFlightScript(stream)) : body,
+    });
+    assert.deepEqual(await checkProductionWithTestFixtures({
+      baseUrl: resealBaseUrl,
+      fetchImpl: fixture.fetchImpl,
+      maxAttempts: 1,
+    }), { ok: true });
+    assert.equal(fixture.calls.length, 16);
+  }
+
+  const sentinel = "MOCHIRII_SPOTLIGHT_PRIVATE_SENTINEL";
+  const messages = [];
+  const hostileStream = resealHomeSpotlightFlightStream({
+    title: `Congratulations to: @${sentinel}.`,
+  });
+  const hostile = resealFixture({
+    resourcePaths: new Set(["/"]),
+    bodyTransform: (body, url) => url.pathname === "/"
+      ? body.replace(resealSafeFlightScript, resealFlightScript(hostileStream)) : body,
+  });
+  await assert.rejects(() => checkProductionWithTestFixtures({
+    baseUrl: resealBaseUrl,
+    diagnose: true,
+    fetchImpl: hostile.fetchImpl,
+    maxAttempts: 1,
+    reportDiagnostic: (message) => messages.push(message),
+  }), { message: "HTML_DOCUMENT_REJECTED" });
+  assert(messages.length > 0);
+  assert(messages.every((message) => typeof message === "string"
+    && message.length <= 128
+    && !message.includes(sentinel)
+    && !message.includes("Congratulations to:")));
+
+  const footerMessages = [];
+  const footerHostile = resealFixture({
+    resourcePaths: new Set(["/"]),
+    bodyTransform: (body, url) => url.pathname === "/"
+      ? body
+        .replace(resealSafeFlightScript, resealFlightScript(streams[1]))
+        .replace('<a href="/privacy">Privacy</a>', '<a href="/privacy-drift">Privacy</a>')
+      : body,
+  });
+  await assert.rejects(() => checkProductionWithTestFixtures({
+    baseUrl: resealBaseUrl,
+    diagnose: true,
+    fetchImpl: footerHostile.fetchImpl,
+    maxAttempts: 1,
+    reportDiagnostic: (message) => footerMessages.push(message),
+  }), { message: "CONTENT_HOMEPAGE_FOOTER_REJECTED" });
+  assert(footerMessages.length > 0);
+  assert(footerMessages.every((message) => typeof message === "string"
+    && message.length <= 128
+    && !message.includes("privacy-drift")));
+});
+
 test("production Flight aggregation preserves its body context and resource position", async () => {
   const regularScript = '<script async="" src="/_next/static/chunks/3nk76snv1e0rj.js"></script>';
   const turbopackScript = '<script async="" src="/_next/static/chunks/turbopack-3x7rb7n3bw1wb.js"></script>';
@@ -1438,6 +1629,235 @@ test("production resource envelopes bind every non-generated Flight payload byte
     assert.equal(diagnosticText.includes("outside.example"), false, name);
     assert.equal(diagnosticText.includes("Mōchirīx"), false, name);
   }
+});
+
+test("home Flight normalization binds the exact Spotlight graph and async terminal cohort", () => {
+  const retained = resealHomeSpotlightFlightStream();
+  const expected = canonicalizeProductionFlightResourceEnvelopeStream(retained, new Set());
+  assert.notEqual(expected, null);
+  assert.equal(
+    canonicalizeProductionFlightResourceEnvelopeStream(retained, new Set(), null, null, true),
+    expected,
+  );
+
+  const schedules = permutations([...resealHomeSpotlightRetainedOrder]);
+  assert.equal(schedules.length, 120);
+  const validSchedules = schedules.filter((order) => order.indexOf("26") < order.indexOf("23"));
+  const invalidSchedules = schedules.filter((order) => order.indexOf("23") < order.indexOf("26"));
+  assert.equal(validSchedules.length, 60);
+  assert.equal(invalidSchedules.length, 60);
+  for (const order of validSchedules) {
+    const stream = resealHomeSpotlightFlightStream({
+      order,
+      title: "Congratulations to: Lián 🌸.",
+    });
+    assert.equal(
+      canonicalizeProductionFlightResourceEnvelopeStream(stream, new Set(), null, null, true),
+      expected,
+    );
+  }
+  for (const order of invalidSchedules) {
+    const stream = resealHomeSpotlightFlightStream({ order });
+    assert.equal(
+      canonicalizeProductionFlightResourceEnvelopeStream(stream, new Set(), null, null, true),
+      null,
+    );
+  }
+
+  for (const name of ["A", "山茶", "A".repeat(118) + "🌸"]) {
+    const stream = resealHomeSpotlightFlightStream({ title: `Congratulations to: ${name}.` });
+    assert.equal(
+      canonicalizeProductionFlightResourceEnvelopeStream(stream, new Set(), null, null, true),
+      expected,
+    );
+  }
+
+  const alternateSchedule = resealHomeSpotlightFlightStream({
+    order: ["26", "23", "1f", "21", "24"],
+    title: "Congratulations to: Lián 🌸.",
+  });
+  assert.notEqual(
+    canonicalizeProductionFlightResourceEnvelopeStream(alternateSchedule, new Set()),
+    expected,
+  );
+});
+
+test("home Flight normalization rejects graph, title, cohort, and noncohort drift", () => {
+  const retained = resealHomeSpotlightFlightStream();
+  const expected = canonicalizeProductionFlightResourceEnvelopeStream(retained, new Set());
+  assert.notEqual(expected, null);
+  const normalize = (stream) => canonicalizeProductionFlightResourceEnvelopeStream(
+    stream, new Set(), null, null, true,
+  );
+  const replaceRow = (stream, recordId, transform) => stream.split("\n").map((row) => {
+    if (!row.startsWith(`${recordId}:`)) return row;
+    return `${recordId}:${transform(row.slice(recordId.length + 1))}`;
+  }).join("\n");
+
+  const invalidTitles = [
+    "Congratulations to: .",
+    `Congratulations to: ${"A".repeat(121)}.`,
+    "Congratulations for: A.",
+    "Congratulations to: A  B.",
+    "Congratulations to: A\u00a0B.",
+    "Congratulations to: A\nB.",
+    "Congratulations to: @member.",
+    "Congratulations to: <member>.",
+    "Congratulations to: A\\B.",
+    "Congratulations to: A`B.",
+    "Congratulations to: A\u202eB.",
+    `Congratulations to: ${String.fromCharCode(0xd800)}.`,
+  ];
+  for (const title of invalidTitles) {
+    assert.equal(normalize(resealHomeSpotlightFlightStream({ title })), null);
+  }
+
+  const duplicateAnchor = replaceRow(retained, "1b", (payload) => {
+    const anchor = JSON.parse(payload);
+    return JSON.stringify([anchor, anchor]);
+  });
+  const noncanonicalTitle = replaceRow(retained, "24", (payload) =>
+    payload.replace("Congratulations to:", "Congratulations\\u0020to:"));
+  const sharedTitleReference = replaceRow(retained, "d", (payload) => {
+    const record = JSON.parse(payload);
+    record[3].children.push("$L24");
+    return JSON.stringify(record);
+  });
+  const targetAsImport = replaceRow(
+    retained,
+    "24",
+    () => `I${JSON.stringify([1, [resealFlightVisiblePath], "Title"])}`,
+  );
+  const trailingFrame = retained + "25:\"trailing\"\n";
+  const interveningTerminalFrame = retained.replace("24:", "25:\"intervening\"\n24:");
+  const reorderedMetadata = replaceRow(retained, "23", (payload) =>
+    JSON.stringify(JSON.parse(payload).reverse()));
+  const deferredReturnAliases = ["d", "12", "13", "1b", "24", "1f", "21", "23", "26"]
+    .map((recordId) => withReachableDeferredReturn(retained, recordId));
+  const hostileStreams = [
+    resealHomeSpotlightFlightStream({ anchorChildren: "$24" }),
+    resealHomeSpotlightFlightStream({ anchorChildren: "$L25" }),
+    resealHomeSpotlightFlightStream({ cardId: "spotlightTitle" }),
+    resealHomeSpotlightFlightStream({ cardRole: "presentation" }),
+    resealHomeSpotlightFlightStream({ importName: "OtherMark" }),
+    resealHomeSpotlightFlightStream({ order: ["26", "24", "21", "1f"] }),
+    resealHomeSpotlightFlightStream({ order: ["26", "24", "21", "1f", "1f"] }),
+    duplicateAnchor,
+    noncanonicalTitle,
+    sharedTitleReference,
+    targetAsImport,
+    trailingFrame,
+    interveningTerminalFrame,
+    reorderedMetadata,
+    retained.replace("$@1f", "$L1f"),
+    retained.replace("$L21", "$L22"),
+    retained.replace("$L23", "$L22"),
+    retained.replace("$L26", "$L25"),
+    ...deferredReturnAliases,
+  ];
+  for (const stream of hostileStreams) assert.equal(normalize(stream), null);
+
+  for (const title of [
+    "Congratulations to: Synthetic Alpha.",
+    "Congratulations to: Synthetic Beta.",
+  ]) {
+    assert.equal(normalize(withReachableDeferredReturn(
+      resealHomeSpotlightFlightStream({ title }), "24",
+    )), null);
+  }
+
+  const titleReferenceAliases = [
+    "$24:length",
+    "$L24:ignored",
+    "$@24:ignored",
+    "$024",
+    "$L024",
+    "$@024",
+    "$h24:ignored",
+    "$Q24:ignored",
+    "$W24:ignored",
+    "$B24:ignored",
+    "$K24:ignored",
+    "$i24:ignored",
+    "$0x24",
+    "$L0x24",
+    "$@0X24",
+    "$+24",
+    "$L+24",
+    "$@+24",
+    "$ 24",
+    "$L 24",
+    "$@ 24",
+    "$24ignored",
+    "$L24ignored",
+    "$@24ignored",
+  ];
+  for (const reference of titleReferenceAliases) {
+    for (const title of [
+      "Congratulations to: A.",
+      "Congratulations to: Much Longer Name.",
+    ]) {
+      assert.equal(normalize(withReachableFlightReference(
+        resealHomeSpotlightFlightStream({ title }), reference,
+      )), null);
+    }
+  }
+
+  for (const field of ["c", "q", "m", "r", "s", "a", "l", "p", "d"]) {
+    for (const title of [
+      "Congratulations to: A.",
+      "Congratulations to: Much Longer Name.",
+    ]) {
+      assert.equal(normalize(withRootFlightReference(
+        resealHomeSpotlightFlightStream({ title }), field, "$24:length",
+      )), null, field);
+    }
+  }
+
+  for (const title of [
+    "Congratulations to: A.",
+    "Congratulations to: Much Longer Name.",
+  ]) {
+    assert.equal(normalize(withFlightImportReference(
+      resealHomeSpotlightFlightStream({ title }), "$24:length",
+    )), null);
+  }
+
+  for (const literal of ["$$24", "$S24", "$D24", "$n24"]) {
+    const canonical = normalize(withReachableFlightReference(retained, literal));
+    assert.notEqual(canonical, null);
+    assert.notEqual(canonical, expected);
+  }
+
+  const decoyAlpha = retained.replace(
+    "26:I", '25:"Congratulations to: Synthetic Alpha."\n26:I',
+  );
+  const decoyBeta = retained.replace(
+    "26:I", '25:"Congratulations to: Synthetic Beta."\n26:I',
+  );
+  const normalizedDecoyAlpha = normalize(decoyAlpha);
+  const normalizedDecoyBeta = normalize(decoyBeta);
+  assert.notEqual(normalizedDecoyAlpha, null);
+  assert.notEqual(normalizedDecoyBeta, null);
+  assert.notEqual(normalizedDecoyAlpha, normalizedDecoyBeta);
+
+  const prefixSemanticDrift = retained.replace('"stable"', '"changed"');
+  const cohortSemanticDrift = replaceRow(retained, "21", (payload) => {
+    const record = JSON.parse(payload);
+    record[1][3].content = "width=device-width";
+    return JSON.stringify(record);
+  });
+  const rows = retained.trimEnd().split("\n");
+  const prefixOrderDrift = [rows[0], rows[2], rows[1], ...rows.slice(3)].join("\n") + "\n";
+  for (const stream of [prefixSemanticDrift, cohortSemanticDrift, prefixOrderDrift]) {
+    const canonical = normalize(stream);
+    assert.notEqual(canonical, null);
+    assert.notEqual(canonical, expected);
+  }
+  assert.equal(
+    canonicalizeProductionFlightResourceEnvelopeStream(retained, new Set(), null, null, "home"),
+    null,
+  );
 });
 
 test("production Flight build identity is the only normalized root field", async () => {
@@ -1751,6 +2171,222 @@ const model = {
     ),
     "string",
   );
+});
+
+test("pinned Next emits stable IDs with async settlement order variance", () => {
+  const probe = String.raw`
+const React = require("./apps/web/node_modules/react");
+const rsc = require("./apps/web/node_modules/next/dist/compiled/react-server-dom-webpack/cjs/react-server-dom-webpack-server.node.production.js");
+
+async function render(order, winnerName) {
+  let releaseWinner;
+  let releaseOther;
+  const winnerGate = new Promise((resolve) => { releaseWinner = resolve; });
+  const otherGate = new Promise((resolve) => { releaseOther = resolve; });
+
+  async function SpotlightWinnerTitle() {
+    await winnerGate;
+    return React.createElement(
+      React.Fragment,
+      null,
+      "Congratulations to: " + winnerName + ".",
+    );
+  }
+
+  async function OtherSettlement() {
+    await otherGate;
+    return React.createElement("em", null, "fixed-other");
+  }
+
+  const plate = React.createElement(
+    "div",
+    { className: "home-spotlight__plate" },
+    React.createElement("span", { id: "spotlightTag", className: "home-pill" }, "Spotlight"),
+    React.createElement(
+      "h3",
+      { id: "spotlightTitle", className: "home-title" },
+      React.createElement(SpotlightWinnerTitle),
+    ),
+    React.createElement(
+      "p",
+      { id: "spotlightSummary", className: "home-summary" },
+      "For support & a pretty amazing spark.",
+    ),
+    React.createElement(
+      "span",
+      { className: "home-link", "aria-hidden": "true" },
+      "Spotlight Appreciation",
+    ),
+  );
+
+  const anchoredSection = React.createElement(
+    "section",
+    {
+      className: "glass-card glass-card--primary glass-pad u-mt-24",
+      "aria-label": "Member spotlight",
+    },
+    React.createElement(
+      "div",
+      { id: "spotlightCard", className: "home-spotlight", role: "group" },
+      plate,
+    ),
+  );
+
+  const model = {
+    P: null,
+    c: [],
+    q: "",
+    i: false,
+    f: [
+      anchoredSection,
+      React.createElement("div", null, React.createElement(OtherSettlement)),
+    ],
+    m: "fixture",
+    G: [],
+    S: false,
+    h: null,
+    r: "",
+    s: "",
+    a: "",
+    l: "",
+    p: "",
+    d: "zyxwvutsrqponmlkjihgf",
+    b: "0123456789abcdefghijk",
+  };
+
+  const stream = await rsc.renderToReadableStream(model, {});
+  setImmediate(() => {
+    const first = order === "winner-first" ? releaseWinner : releaseOther;
+    const second = order === "winner-first" ? releaseOther : releaseWinner;
+    first();
+    setImmediate(second);
+  });
+
+  const chunks = [];
+  for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+  return Buffer.concat(chunks).toString("base64");
+}
+
+(async () => {
+  const winnerFirst = await render("winner-first", "Synthetic Alpha");
+  const otherFirst = await render("other-first", "Synthetic Beta");
+  process.stdout.write(JSON.stringify({ winnerFirst, otherFirst }));
+})().catch(() => process.exit(1));
+`;
+  const child = spawnSync(nodeExecutable, ["--conditions", "react-server", "-e", probe], {
+    cwd: root,
+    encoding: "utf8",
+    env: {},
+    maxBuffer: 1024 * 1024,
+    timeout: 30_000,
+    windowsHide: true,
+  });
+  assert.equal(child.error, undefined);
+  assert.equal(child.signal, null);
+  assert.equal(child.status, 0);
+  assert.equal(child.stderr, "");
+  const encoded = JSON.parse(child.stdout);
+  const winnerFirst = Buffer.from(encoded.winnerFirst, "base64").toString("utf8");
+  const otherFirst = Buffer.from(encoded.otherFirst, "base64").toString("utf8");
+  const rowIds = (stream) => stream.trimEnd().split("\n").map(
+    (row) => row.slice(0, row.indexOf(":")),
+  );
+  assert.deepEqual(rowIds(winnerFirst), ["0", "1", "2"]);
+  assert.deepEqual(rowIds(otherFirst), ["0", "2", "1"]);
+  assert.match(winnerFirst, /"children":"\$L1"/);
+  assert.match(otherFirst, /"children":"\$L1"/);
+  assert.match(winnerFirst, /^1:"Congratulations to: Synthetic Alpha\."$/m);
+  assert.match(otherFirst, /^1:"Congratulations to: Synthetic Beta\."$/m);
+  assert.match(winnerFirst, /^2:\["\$","em",null,\{"children":"fixed-other"\}\]$/m);
+  assert.match(otherFirst, /^2:\["\$","em",null,\{"children":"fixed-other"\}\]$/m);
+});
+
+test("pinned Next emits client imports before their referring regular rows", () => {
+  const probe = String.raw`
+const React = require("./apps/web/node_modules/react");
+const rsc = require("./apps/web/node_modules/next/dist/compiled/react-server-dom-webpack/cjs/react-server-dom-webpack-server.node.production.js");
+const IconMark = rsc.registerClientReference(
+  function IconMark() {},
+  "fixture-icon",
+  "IconMark",
+);
+
+async function render(order) {
+  let releaseClient;
+  let releaseOther;
+  const clientGate = new Promise((resolve) => { releaseClient = resolve; });
+  const otherGate = new Promise((resolve) => { releaseOther = resolve; });
+
+  async function ClientTask() {
+    await clientGate;
+    return React.createElement(IconMark, { label: "icon" });
+  }
+  async function OtherTask() {
+    await otherGate;
+    return React.createElement("em", null, "other");
+  }
+
+  const stream = rsc.renderToReadableStream(
+    [React.createElement(ClientTask), React.createElement(OtherTask)],
+    {
+      "fixture-icon#IconMark": {
+        id: 60329,
+        chunks: ["/_next/static/chunks/icon.js"],
+        name: "IconMark",
+      },
+    },
+  );
+  setImmediate(() => {
+    const first = order === "client-first" ? releaseClient : releaseOther;
+    const second = order === "client-first" ? releaseOther : releaseClient;
+    first();
+    setImmediate(second);
+  });
+
+  const chunks = [];
+  for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+  return Buffer.concat(chunks).toString("base64");
+}
+
+(async () => {
+  process.stdout.write(JSON.stringify({
+    clientFirst: await render("client-first"),
+    otherFirst: await render("other-first"),
+  }));
+})().catch(() => process.exit(1));
+`;
+  const child = spawnSync(nodeExecutable, ["--conditions", "react-server", "-e", probe], {
+    cwd: root,
+    encoding: "utf8",
+    env: {},
+    maxBuffer: 1024 * 1024,
+    timeout: 30_000,
+    windowsHide: true,
+  });
+  assert.equal(child.error, undefined);
+  assert.equal(child.signal, null);
+  assert.equal(child.status, 0);
+  assert.equal(child.stderr, "");
+
+  const encoded = JSON.parse(child.stdout);
+  const lines = (value) => Buffer.from(value, "base64").toString("utf8").trimEnd().split("\n");
+  const clientFirst = lines(encoded.clientFirst);
+  const otherFirst = lines(encoded.otherFirst);
+  const rowIds = (rows) => rows.map((row) => row.slice(0, row.indexOf(":")));
+
+  assert.deepEqual(rowIds(clientFirst), ["0", "3", "1", "2"]);
+  assert.deepEqual(rowIds(otherFirst), ["0", "3", "2", "1"]);
+  for (const rows of [clientFirst, otherFirst]) {
+    const importIndex = rows.indexOf(
+      '3:I[60329,["/_next/static/chunks/icon.js"],"IconMark"]',
+    );
+    const parentIndex = rows.indexOf(
+      '1:["$","$L3",null,{"label":"icon"}]',
+    );
+    assert(importIndex >= 0);
+    assert(parentIndex >= 0);
+    assert(importIndex < parentIndex);
+  }
 });
 
 test("production Flight intrinsic resources reject active unreviewed browser surfaces", async () => {
