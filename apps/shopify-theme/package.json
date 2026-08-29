@@ -34,6 +34,6 @@
   },
   "devDependencies": {
     "@shopify/cli": "4.7.0",
-    "sharp": "0.35.3"
+    "sharp": "0.35.4"
   }
 }
