@@ -25,12 +25,12 @@
     "verify:local": "npm run toolchain:check && npm run test:web-runtime-performance && npm run lint && npm run build && npm run check:client-bundle && npm run check:font-bundle && npm run check:route-css-bundle"
   },
   "dependencies": {
-    "@napi-rs/canvas": "1.0.7",
+    "@napi-rs/canvas": "1.0.8",
     "@napi-rs/webcodecs": "1.4.0",
-    "@supabase/supabase-js": "^2.112.3",
+    "@supabase/supabase-js": "^2.112.4",
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
-    "next": "16.3.1",
+    "next": "16.3.3",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
