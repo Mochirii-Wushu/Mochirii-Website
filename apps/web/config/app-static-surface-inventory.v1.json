@@ -14,7 +14,7 @@
     "indexedMetadataRoutes": 18,
     "nonindexedMetadataRoutes": 11,
     "publicFiles": 249,
-    "publicBytes": 38623510,
+    "publicBytes": 38622565,
     "sourceFiles": 44
   },
   "sourceCatalog": [
@@ -211,7 +211,7 @@
     {
       "path": "scripts/check-app-static-surface-inventory.mjs",
       "bytes": 13000,
-      "sha256": "F0830BA64F929663E922A338D5AF0B7AFB1441C1F0E1B1196A7CDB32DA15519D"
+      "sha256": "2A14E264B41BE889883371A9640C0C3B1163571D2E355E39A814160231D829C1"
     },
     {
       "path": "scripts/check-assets.mjs",
@@ -236,7 +236,7 @@
     {
       "path": "scripts/lib/app-static-surface-inventory.test.mjs",
       "bytes": 124618,
-      "sha256": "8518CA04805CC71605D7725E37D09AA1B1984F4B930EAD0713563B8EEBBA2791"
+      "sha256": "0FB7897412C0ACD1A782B26416BAA7AB5ABC5E910E57EF8EEC7F3F960E0A97FB"
     }
   ],
   "metadataRoutes": [
@@ -2526,8 +2526,8 @@
     {
       "url": "/data/leaders.json",
       "source": "apps/web/public/data/leaders.json",
-      "bytes": 4118,
-      "sha256": "7E4F0421F36E1EBA13BE711F82365AEC99C308F7788541D1F1FC94F7590E2C1A",
+      "bytes": 4075,
+      "sha256": "A0BECA68CEC33AB962F60747F3099C6439502A55C46AA1E94F31D75924E6F290",
       "category": "public_data",
       "format": "json"
     },
@@ -2542,8 +2542,8 @@
     {
       "url": "/data/ranks.json",
       "source": "apps/web/public/data/ranks.json",
-      "bytes": 4237,
-      "sha256": "D4734A1297DE766CD029618FA9DA8F58C3B9F3D74CF7A442C86481A243E9CE39",
+      "bytes": 3335,
+      "sha256": "1A10389183AB9CE3954E06E36E7360863369DC6A1B199B40A00D3C1702A3E926",
       "category": "public_data",
       "format": "json"
     },
