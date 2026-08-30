@@ -59,7 +59,7 @@ const LOCAL_SOURCE_CONTRACT = Object.freeze([
   Object.freeze({
     path: VALIDATOR_PATH,
     bytes: 30_750,
-    sha256: "9BE59C4D915F260EA3ABAEF3798B33FB8BA4E2798DB0CF18F389E08F34132573",
+    sha256: "2EEF9A3503734D8B3A345FAC9BE5E58B6680F32AC26341CF24155E261E4F5424",
   }),
   Object.freeze({
     path: path.join(CHECKER_DIRECTORY, "lib", "app-router-inventory.mjs"),

@@ -1,12 +1,13 @@
 import { existsSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { runCheckSuite } from "./lib/check-runner.mjs";
 
 const bundledNpmCli = join(dirname(process.execPath), "node_modules", "npm", "bin", "npm-cli.js");
 const npmCli = process.env.npm_execpath || bundledNpmCli;
 const npmCommand = existsSync(npmCli) ? [process.execPath, npmCli] : ["npm"];
 
-const checks = [
+const checkRows = [
   ["check:js", ["node", "scripts/check-js.mjs"]],
   ["check:json", ["node", "scripts/check-json.mjs"]],
   ["check:protected-content", ["node", "scripts/check-protected-content.mjs"]],
@@ -24,6 +25,7 @@ const checks = [
   ["check:repository-boundaries", ["node", "scripts/check-repository-boundaries.mjs"]],
   ["check:host-independence", ["node", "scripts/check-host-independence.mjs"]],
   ["check:shopify-release-safety", ["node", "apps/shopify-theme/scripts/check-release-safety.mjs"]],
+  ["test:local-toolchain", ["node", "--test", "scripts/lib/local-toolchain.test.mjs"]],
   ["check:code-cleanliness", ["node", "scripts/check-code-cleanliness.mjs"]],
   ["check:github-actions-security", ["node", "scripts/check-github-actions-security.mjs"]],
   ["check:supabase-config", ["node", "scripts/check-supabase-public-config.mjs"]],
@@ -101,9 +103,24 @@ const checks = [
   ["check:universal-hero-spacing", ["node", "scripts/check-universal-hero-spacing.mjs"]],
 ];
 
-if (!runCheckSuite(checks)) {
-  console.error("\nValidation failed.");
-  process.exit(1);
+export const CHECK_PLAN = Object.freeze(checkRows.map(([label, command]) =>
+  Object.freeze([label, Object.freeze([...command])])));
+
+export function runAllChecks({
+  runSuite = runCheckSuite,
+  writeOutput = console.log,
+  writeError = console.error,
+} = {}) {
+  if (!runSuite(CHECK_PLAN)) {
+    writeError("\nValidation failed.");
+    return false;
+  }
+
+  writeOutput("\nAll validation checks completed.");
+  return true;
 }
 
-console.log("\nAll validation checks completed.");
+const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isMain) {
+  process.exitCode = runAllChecks() ? 0 : 1;
+}

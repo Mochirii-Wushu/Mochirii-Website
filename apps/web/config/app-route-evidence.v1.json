@@ -41,15 +41,15 @@
       "path": "scripts/check-app-route-evidence.mjs",
       "scope": "actual CLI execution and categorical exit contract",
       "bytes": 15211,
-      "sha256": "D0606419B42BBF83D682D6E7D730B6872C2F69992B580D547E434B80C728B05D",
+      "sha256": "599F50E2F1D5FF638991AD5B5812DE569787919CB8FFA7AFECA732A6B72DB457",
       "status": "verified_source"
     },
     {
       "id": "app-route-evidence-tests",
       "path": "scripts/lib/app-route-evidence.test.mjs",
       "scope": "actual CLI and hostile route-evidence controls",
-      "bytes": 45650,
-      "sha256": "CBEDB0990FBA4B6254B9D9925AC8B4EA3FDDF8FED805EF6ED075520507A0DBA8",
+      "bytes": 46298,
+      "sha256": "10FE198AB6E92AA973B7F2C951B96992DCB500474D2F2419433BE5D5F2A4B73C",
       "status": "verified_source"
     },
     {
@@ -57,7 +57,7 @@
       "path": "scripts/lib/app-route-evidence.mjs",
       "scope": "bounded source-only route-evidence validation contract",
       "bytes": 30750,
-      "sha256": "9BE59C4D915F260EA3ABAEF3798B33FB8BA4E2798DB0CF18F389E08F34132573",
+      "sha256": "2EEF9A3503734D8B3A345FAC9BE5E58B6680F32AC26341CF24155E261E4F5424",
       "status": "verified_source"
     },
     {
@@ -80,8 +80,8 @@
       "id": "app-route-inventory-tests",
       "path": "scripts/lib/app-router-inventory.test.mjs",
       "scope": "hostile source-only App Router inventory controls",
-      "bytes": 131054,
-      "sha256": "FFE3EAEF7494357908C2F0F7A8EDB436D430E81078C1DABFD211056E104A0093",
+      "bytes": 133706,
+      "sha256": "0C4AB968F0D9EB7B170BDD429FA2E078A608B85F29849FED436CDEA3D3E8A15C",
       "status": "verified_source"
     },
     {
@@ -112,8 +112,8 @@
       "id": "package-route-evidence-wiring",
       "path": "package.json",
       "scope": "exact npm commands for route-evidence checking and hostile tests",
-      "bytes": 16924,
-      "sha256": "91044708FCA9339CCB32E1DDF3D93D2B02B5B938568F82EBA5B2253A7D9C9C2E",
+      "bytes": 17004,
+      "sha256": "6D19419B87D3337C0FC02BBA4CB220C09157315153CD792F433C5AB46A0E101B",
       "status": "verified_source"
     },
     {
@@ -136,8 +136,8 @@
       "id": "repository-check-runner",
       "path": "scripts/check-all.mjs",
       "scope": "full-repository execution wiring for route-evidence checks",
-      "bytes": 11832,
-      "sha256": "70030278FC72A39F0CE11FB7687AF5804DDDD020034A63F103985CF30F83305F",
+      "bytes": 12413,
+      "sha256": "730E25BDC02A4CC37F7746608D53FD9D5945CB2697E21120E672DF2D9D336481",
       "status": "verified_source"
     },
     {

@@ -40,7 +40,7 @@ export const APP_ROUTE_EVIDENCE_LIMITS = Object.freeze({
   evidenceBytes: 262_144,
   matrixBytes: 131_072,
   publicUrlBytes: 16_384,
-  sourceBytes: 131_072,
+  sourceBytes: 262_144,
   catalogEntries: 17,
   profiles: 24,
   routes: 512,

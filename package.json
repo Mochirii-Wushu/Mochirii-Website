@@ -10,6 +10,7 @@
   "description": "Canonical Mochirii website, storefront, and backend repository.",
   "scripts": {
     "toolchain:check": "node scripts/check-local-toolchain.mjs",
+    "test:local-toolchain": "node --test scripts/lib/local-toolchain.test.mjs",
     "check": "node scripts/check-all.mjs",
     "check:accessibility-route-matrix": "node scripts/check-accessibility-route-matrix.mjs",
     "check:apac-content": "node scripts/check-apac-content.mjs",
