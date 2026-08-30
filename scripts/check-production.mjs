@@ -596,7 +596,7 @@ const TEST_DOCUMENT_POLICIES = Object.freeze({
       }),
       Object.freeze({
         header: "86F4BD56E49D759E1007911F74826C416C2D5038AF3CC00A9F7C818A29F79EE0",
-        resources: "C20EE4E36AB43738A6EE40FD24790096428318667D4AB0DFCD6070EEE2D44540",
+        resources: "5A0B531E32BBAE90F0D3818C08FC76353377C347B6B7C8C80C2CA888B9F22EA8",
       }),
     ]),
   }),
@@ -1981,7 +1981,7 @@ export function canonicalizeProductionFlightResourceEnvelopeStream(
       && name === name.trim()
       && !name.includes("  ")
       && !/[^\S ]/.test(name)
-      && !/[\\@<>`\u0000-\u001f\u007f-\u009f\u2028\u2029\u202a-\u202e\u2066-\u2069]/.test(name)
+      && !/[\u0000-\u001f\u007f-\u009f\u061c\u200e\u200f\u2028\u2029\u202a-\u202e\u2066-\u2069]/.test(name)
       && productionFlightStringIsWellFormed(name);
   }
 
@@ -2046,16 +2046,17 @@ export function canonicalizeProductionFlightResourceEnvelopeStream(
     const titleFrame = frameById.get("24");
     const title = titleFrame.record?.type === "string" ? titleFrame.record.value : null;
     const prefix = "Congratulations to: ";
-    if (typeof title !== "string"
-      || !title.startsWith(prefix)
-      || !title.endsWith(".")
-      || titleFrame.payload !== JSON.stringify(title)) return null;
-    const name = title.slice(prefix.length, -1);
-    if (!productionFlightHomeSpotlightNameIsSafe(name)) return null;
+    const fallbackTitle = "Member Spotlight";
+    if (typeof title !== "string" || titleFrame.payload !== JSON.stringify(title)) return null;
+    if (title !== fallbackTitle) {
+      if (!title.startsWith(prefix) || !title.endsWith(".")) return null;
+      const name = title.slice(prefix.length, -1);
+      if (!productionFlightHomeSpotlightNameIsSafe(name)) return null;
+    }
     replacements.push(Object.freeze({
       end: titleFrame.payloadOffset + titleFrame.record.end,
       start: titleFrame.payloadOffset + titleFrame.record.start,
-      value: JSON.stringify("Congratulations to: Meenari."),
+      value: JSON.stringify(fallbackTitle),
     }));
     return Object.freeze({
       retainedOrder,

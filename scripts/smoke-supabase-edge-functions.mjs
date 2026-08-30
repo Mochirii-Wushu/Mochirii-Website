@@ -371,15 +371,14 @@ async function checkCurrentSpotlightWinner(config) {
   );
   assert(result.json?.ok === true, `${name} response did not return ok=true.`);
   assert(result.json?.data && typeof result.json.data === "object", `${name} response missing data.`);
-  const expectedKeys = ["monthKey", "publishedAt", "source", "winnerName"];
+  const expectedKeys = ["monthKey", "winnerName"];
   const actualKeys = Object.keys(result.json.data).sort();
   assert(JSON.stringify(actualKeys) === JSON.stringify(expectedKeys), `${name} returned an unexpected public field set.`);
-  for (const key of ["winnerName", "monthKey", "publishedAt", "source"]) {
-    assert(typeof result.json.data[key] === "string", `${name} ${key} must be a string.`);
-  }
+  assert(/^\d{4}-(?:0[1-9]|1[0-2])-01$/.test(result.json.data.monthKey), `${name} monthKey must be a monthly date key.`);
   assert(
-    ["fallback", "monthly-discord-poll"].includes(result.json.data.source),
-    `${name} returned an unexpected source value.`,
+    result.json.data.winnerName === null
+      || (typeof result.json.data.winnerName === "string" && result.json.data.winnerName.length > 0),
+    `${name} winnerName must be null or a nonempty string.`,
   );
   await checkMethodNotAllowed(config, name);
 }

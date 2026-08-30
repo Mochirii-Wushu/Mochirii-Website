@@ -55,8 +55,7 @@
   },
   "spotlight": {
     "id": "member-spotlight",
-    "rule": "first-day-current-month",
-    "memberProfileSlug": "meenari"
+    "rule": "first-day-current-month"
   },
   "weekly": [
     {

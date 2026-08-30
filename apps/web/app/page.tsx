@@ -20,7 +20,7 @@ import { monthlyScheduleDate } from "@/lib/guild-schedule";
 import { DISCORD_INVITE_URL, SITE_ORIGIN, SOCIAL_HOST } from "@/lib/public-urls";
 import { SITE_DESCRIPTION, SITE_LANGUAGE } from "@/lib/site-metadata";
 
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 
 type HomeData = typeof homeData;
 type GalleryData = typeof galleryData;

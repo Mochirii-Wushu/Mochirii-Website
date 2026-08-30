@@ -39,7 +39,10 @@ Renderer notes:
 
 - `apps/web/app/page.tsx` imports `home.json`, `gallery.json`, and `guild-schedule.json` at build time and renders the canonical `/` route.
 - Monthly gathering and raffle dates come from `guild-schedule.json` when a bulletin has `scheduleId`.
-- `SpotlightWinnerTitle` may replace the configured fallback title with the finalized monthly Discord poll winner name from `get-current-spotlight-winner`; the path is name-only and must not expose Discord handles, profile links, avatars, vote counts, or candidate lists.
+- `SpotlightWinnerTitle` uses the same current-month, randomly selected Website member name returned by
+  `get-current-spotlight-winner` as the dedicated Spotlight page. The path is name-only and must not expose account
+  IDs, Discord data, profile links, avatars, selection audit details, or candidate lists. Home is dynamically rendered
+  and reads that bounded DTO without a page cache, matching the dedicated page on the first request after selection.
 - `HomeGallerySpotlight` and `HomeGalleryLightboxModal` own Screenshot Spotlight selection and dialog behavior.
 - Home descriptor strings render as paragraphs, badges render as plain spans, and bulletin dates use the UTC formatter in `page.tsx`.
 - Door, bulletin, spotlight, and gallery media render from controlled data fields through owned image components or elements.

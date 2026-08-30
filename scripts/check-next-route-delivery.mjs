@@ -140,7 +140,8 @@ for (const file of [
 }
 
 for (const file of ["apps/web/app/page.tsx", "apps/web/app/spotlight/page.tsx"]) {
-  expectIncludes(file, read(file), "export const revalidate = 3600;");
+  expectIncludes(file, read(file), 'export const dynamic = "force-dynamic";');
+  expectExcludes(file, read(file), "export const revalidate");
 }
 
 const homePage = read("apps/web/app/page.tsx");
@@ -157,8 +158,12 @@ expectExcludes("spotlight title", spotlightTitle, "useEffect");
 expectIncludes("spotlight title", spotlightTitle, "export async function SpotlightWinnerTitle");
 
 const spotlightLookup = read("apps/web/lib/supabase/spotlight.ts");
+const spotlightResponse = read("apps/web/lib/supabase/spotlight-response.ts");
 expectIncludes("spotlight lookup", spotlightLookup, 'import "server-only";');
-expectIncludes("spotlight lookup", spotlightLookup, "next: { revalidate: 3600 }");
+expectIncludes("spotlight lookup", spotlightLookup, "fetchCurrentSpotlightWinner");
+expectIncludes("spotlight response", spotlightResponse, 'cache: "no-store"');
+expectExcludes("spotlight response", spotlightResponse, "next: { revalidate:");
+expectIncludes("spotlight response", spotlightResponse, "readBoundedResponseText");
 
 const lightbox = read("apps/web/components/HomeGalleryLightbox.tsx");
 const lightboxModal = read("apps/web/components/HomeGalleryLightboxModal.tsx");

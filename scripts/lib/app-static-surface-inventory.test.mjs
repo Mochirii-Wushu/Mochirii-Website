@@ -25,15 +25,15 @@ const libraryUrl = pathToFileURL(libraryPath).href;
 const appRouterLibraryPath = path.join(root, "scripts", "lib", "app-router-inventory.mjs");
 const productionCheckerPath = path.join(root, "scripts", "check-production.mjs");
 const configPath = path.join(root, "apps", "web", "config", "app-static-surface-inventory.v1.json");
-const expectedSuccess = "App static surface inventory OK (29 metadata routes, 249 public files, 38509676 bytes).\n";
+const expectedSuccess = "App static surface inventory OK (29 metadata routes, 249 public files, 38509641 bytes).\n";
 const expectedCheckerBytes = 13_000;
-const expectedCheckerSha256 = "364A304590CF4B4269DCFE0ACA548E250D7E8800745B8628AC9C5FD249045A3C";
+const expectedCheckerSha256 = "A8B1FACCF375FF117CF3624899E11AB8CBF2F86B23134053C2FC414025A7DD06";
 const expectedLibraryBytes = 24_956;
 const expectedLibrarySha256 = "AF6A2D5632582D56B92C8E7CD0D7ED0A004712BFCF51091DE2A1AFB50BD63C0A";
 const expectedAppRouterLibraryBytes = 59_423;
 const expectedAppRouterLibrarySha256 = "5051994396F6B0EAC3033F13CF2DC41BD2DCD8FF3102CF11DC49F8B53F780D84";
-const expectedProductionCheckerBytes = 155_150;
-const expectedProductionCheckerSha256 = "271C3D67117FA0E62CC04349548E4D84DC24478080555929BA53223BDDF52317";
+const expectedProductionCheckerBytes = 155_239;
+const expectedProductionCheckerSha256 = "B51B60431165B4E3FF2480E3B1F045B24576389C297607CAC99897F6820166CF";
 
 function sha256(buffer) {
   return createHash("sha256").update(buffer).digest("hex").toUpperCase();
@@ -257,7 +257,7 @@ test("current source builds the complete source-only inventory", () => {
     indexedMetadataRoutes: 18,
     nonindexedMetadataRoutes: 11,
     publicFiles: 249,
-    publicBytes: 38_509_676,
+    publicBytes: 38_509_641,
     sourceFiles: 44,
   });
   assert.deepEqual(inventory.coverage, {
@@ -324,7 +324,7 @@ test("public inventory covers every ordinary file with exact aggregate categorie
       .map((category) => [category, rows.filter((row) => row.category === category).length]),
   );
   assert.equal(rows.length, 249);
-  assert.equal(rows.reduce((sum, row) => sum + row.bytes, 0), 38_509_676);
+  assert.equal(rows.reduce((sum, row) => sum + row.bytes, 0), 38_509_641);
   assert.deepEqual(categoryCounts, {
     asset: 231,
     discovery: 3,
@@ -967,7 +967,7 @@ function resealHomeSpotlightFlightStream({
   cardRole = "group",
   importName = "IconMark",
   order = resealHomeSpotlightRetainedOrder,
-  title = "Congratulations to: Meenari.",
+  title = "Member Spotlight",
 } = {}) {
   const root = {
     P: null,
@@ -1393,7 +1393,7 @@ test("production checker actual home consumer binds Spotlight normalization and 
   const sentinel = "MOCHIRII_SPOTLIGHT_PRIVATE_SENTINEL";
   const messages = [];
   const hostileStream = resealHomeSpotlightFlightStream({
-    title: `Congratulations to: @${sentinel}.`,
+    title: `Congratulations to: ${sentinel}\u202e.`,
   });
   const hostile = resealFixture({
     resourcePaths: new Set(["/"]),
@@ -1664,7 +1664,7 @@ test("home Flight normalization binds the exact Spotlight graph and async termin
     );
   }
 
-  for (const name of ["A", "山茶", "A".repeat(118) + "🌸"]) {
+  for (const name of ["A", "山茶", "@member", "<member>", "A\\B", "A`B", "A".repeat(118) + "🌸"]) {
     const stream = resealHomeSpotlightFlightStream({ title: `Congratulations to: ${name}.` });
     assert.equal(
       canonicalizeProductionFlightResourceEnvelopeStream(stream, new Set(), null, null, true),
@@ -1701,10 +1701,6 @@ test("home Flight normalization rejects graph, title, cohort, and noncohort drif
     "Congratulations to: A  B.",
     "Congratulations to: A\u00a0B.",
     "Congratulations to: A\nB.",
-    "Congratulations to: @member.",
-    "Congratulations to: <member>.",
-    "Congratulations to: A\\B.",
-    "Congratulations to: A`B.",
     "Congratulations to: A\u202eB.",
     `Congratulations to: ${String.fromCharCode(0xd800)}.`,
   ];
@@ -1717,7 +1713,7 @@ test("home Flight normalization rejects graph, title, cohort, and noncohort drif
     return JSON.stringify([anchor, anchor]);
   });
   const noncanonicalTitle = replaceRow(retained, "24", (payload) =>
-    payload.replace("Congratulations to:", "Congratulations\\u0020to:"));
+    payload.replace("Member Spotlight", "Member\\u0020Spotlight"));
   const sharedTitleReference = replaceRow(retained, "d", (payload) => {
     const record = JSON.parse(payload);
     record[3].children.push("$L24");

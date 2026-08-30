@@ -15,6 +15,7 @@ const suites = [
   ["pending verification", ["supabase/functions/_shared/pending-verification-containment_test.ts"]],
   ["spinner", ["--allow-env", "--node-modules-dir=auto", "--import-map=supabase/functions/spinner-live-session/deno.json", "supabase/functions/_shared/spinner-live_test.ts", "supabase/functions/_shared/spinner-media_test.ts"]],
   ["spotlight poll", ["--allow-env", "--node-modules-dir=auto", "--import-map=deno-spotlight-poll.import_map.json", "supabase/functions/_shared/spotlight-polls_test.ts"]],
+  ["spotlight winner", ["--allow-env", "--node-modules-dir=auto", "--import-map=supabase/functions/get-current-spotlight-winner/deno.json", "supabase/functions/get-current-spotlight-winner/index_test.ts"]],
   ["service role", ["supabase/functions/_shared/supabase-service-role_test.ts"]],
   ["vote reminder", ["--allow-env", "supabase/functions/_shared/vote-reminders_test.ts"]],
   ["member access refresh", ["--allow-env", "--node-modules-dir=auto", "--import-map=supabase/functions/verify-member-access/deno.json", "supabase/functions/verify-member-access/index_test.ts"]],

@@ -36,7 +36,7 @@ export function PrivacyPage() {
           <div className="grid-12 grid-gap">
             <section className="col-8 glass-card glass-card--primary glass-pad" aria-labelledby="privacyScopeTitle">
               <p className="kicker">
-                Last updated <time dateTime="2026-08-13">August 13, 2026</time>
+                Last updated <time dateTime="2026-08-30">August 30, 2026</time>
               </p>
               <h2 className="section-title" id="privacyScopeTitle">Website scope</h2>
               <div className="prose-stack">
@@ -67,6 +67,17 @@ export function PrivacyPage() {
                 <Link className="hero-cta" href="/meta-data-deletion">Deletion request instructions</Link>
               </div>
             </aside>
+
+            <section className="col-12 glass-card glass-card--soft glass-pad" aria-labelledby="privacySpotlightTitle">
+              <h2 className="section-title" id="privacySpotlightTitle">Monthly member Spotlight</h2>
+              <p>
+                Beginning on the first day of each month, the website selects one current active member account at
+                random for the Mōchirīī Spotlight. Only the selected member&apos;s website display name and Spotlight
+                month are published; the candidate list, account identifier, and selection audit details remain
+                private. For a name correction or withdrawal request, email{" "}
+                <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>.
+              </p>
+            </section>
 
             <section className="col-12 glass-card glass-card--soft glass-pad" aria-labelledby="privacyChoicesTitle">
               <h2 className="section-title" id="privacyChoicesTitle">Gallery choices and public copies</h2>

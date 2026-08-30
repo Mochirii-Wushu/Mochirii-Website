@@ -106,6 +106,7 @@ const requiredWorkflowSnippets = [
   "npm exec -- supabase db reset --local --no-seed",
   "npm run test:supabase-db",
   "npm run test:member-entitlement-concurrency",
+  "npm run test:spotlight-concurrency",
   "npm exec -- supabase db lint --local --level warning --fail-on warning",
   "npm run check:supabase-edge-types",
   "npm run test:supabase-edge-local-preview",

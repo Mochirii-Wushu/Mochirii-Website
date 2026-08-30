@@ -119,6 +119,10 @@ jobs:
         if: steps.changes.outputs.changed == 'true'
         run: npm run test:member-entitlement-concurrency
 
+      - name: Run monthly Spotlight concurrency tests
+        if: steps.changes.outputs.changed == 'true'
+        run: npm run test:spotlight-concurrency
+
       - name: Run local database lint
         if: steps.changes.outputs.changed == 'true'
         run: npm exec -- supabase db lint --local --level warning --fail-on warning --workdir "$SUPABASE_LOCAL_WORKDIR"
