@@ -4,7 +4,7 @@
     "title": "Leaders Hall",
     "image": "./assets/img/leaders/hero.webp",
     "introBody": [
-      "Leadership in Mōchirīī is about being consistently active & supportive of others. Each role carries its own work & all help keep the guild fair."
+      "Leadership in Mōchirīī is about being consistently active & supportive of others. Each role is important & valued for a healthy guild."
     ],
     "pills": [
       "Start with your Hall Leader",
@@ -18,14 +18,14 @@
     "badge": "Contact & Profiles",
     "image": "./assets/img/leaders/panel.webp",
     "body": [
-      "Leaders may keep a short profile page for introductions, preferred roles & the best way to reach them. Keep it in-game, keep it safe & leave personal info out."
+      "Leaders may keep a short profile page for introductions, preferred roles & the best way to reach them."
     ],
-    "note": "Members start with their hall leader for most questions. Requests that affect multiple halls move to the vice leader. Matters that shape policy, long-term direction, or unresolved outcomes move to the guild leader."
+    "note": "Hall leaders can answer most questions. Requests that affect multiple halls move to the vice leader. Policy, long-term direction, or unresolved outcomes move to the guild leader."
   },
 
   "council": {
     "title": "The Council",
-    "description": "These are contact points for support, planning & smooth decisions."
+    "description": "These are contact points for support & planning."
   },
 
   "leaders": [
@@ -46,7 +46,7 @@
       "availability": "Operations & coordination",
       "image": "./assets/img/leaders/leader-silhouette.webp",
       "alt": "Vice Leader portrait",
-      "summary": "Coordinates leaders & helps resolve issues that reach beyond one group.",
+      "summary": "Coordinates leaders & helps resolve issues.",
       "memberProfileSlug": "vice-leader",
       "profileLabel": "Open profile"
     },
@@ -56,17 +56,17 @@
       "availability": "Hall & group oversight",
       "image": "./assets/img/leaders/leader-silhouette.webp",
       "alt": "Hall Leader portrait",
-      "summary": "First contact for support, event coordination & hall activity.",
+      "summary": "First contact for support & event coordination.",
       "memberProfileSlug": "hall-leader",
       "profileLabel": "Open profile"
     },
     {
       "role": "Dharmapala",
-      "name": "Isawisima",
+      "name": "Blackheart",
       "availability": "Community guidance",
       "image": "./assets/img/leaders/dharmapala.webp",
       "alt": "Dharmapala portrait",
-      "summary": "Protects fairness, helps mediate conflict & keeps standards clear.",
+      "summary": "Helps mediate conflict, leads teams.",
       "memberProfileSlug": "isawisima",
       "profileLabel": "Open profile"
     },
@@ -76,7 +76,7 @@
       "availability": "Member support",
       "image": "./assets/img/leaders/lotus_warden.webp",
       "alt": "Lotus Warden portrait",
-      "summary": "Supports member well-being, guides arrivals & helps morale.",
+      "summary": "Consistent support, helps new members.",
       "memberProfileSlug": "sinbell",
       "profileLabel": "Open profile"
     },
@@ -86,7 +86,7 @@
       "availability": "Culture & activity support",
       "image": "./assets/img/leaders/petal_keeper.webp",
       "alt": "Petal Keeper portrait",
-      "summary": "Keeps daily spaces active, welcomes arrivals & helps members find footing.",
+      "summary": "Maintains morale & keeps guild updated.",
       "memberProfileSlug": "meenari",
       "profileLabel": "Open profile"
     }
@@ -94,23 +94,23 @@
 
   "responsibilities": {
     "title": "Responsibilities",
-      "description": "Members receive direction, fair decisions & support. Leadership keeps structure, protects culture & stays present. Members participate in good faith, communicate responsibly & contribute to the guild's pace.",
+      "description": "Members receive direction & support. Leadership protects culture. Members participate, communicate & contribute to the guilds culture.",
     "items": [
       {
         "title": "Direction & strategy",
-        "description": "Sets goals, priorities & the long road for the guild.",
+        "description": "Sets goals, priorities & long term guild direction.",
         "image": "./assets/img/leaders/responsibilities-01.webp",
         "alt": "Direction & strategy visual panel"
       },
       {
         "title": "Ops & coordination",
-        "description": "Organizes events, manages roles & keeps daily guild work moving.",
+        "description": "Organizes events & manages roles.",
         "image": "./assets/img/leaders/responsibilities-02.webp",
         "alt": "Ops & coordination visual panel"
       },
       {
         "title": "Culture & people",
-        "description": "Maintains standards, resolves conflicts & sustains morale.",
+        "description": "Maintains standards, resolves conflicts, sustains morale.",
         "image": "./assets/img/leaders/responsibilities-03.webp",
         "alt": "Culture & people visual panel"
       }
