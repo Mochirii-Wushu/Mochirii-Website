@@ -25,9 +25,9 @@ const libraryUrl = pathToFileURL(libraryPath).href;
 const appRouterLibraryPath = path.join(root, "scripts", "lib", "app-router-inventory.mjs");
 const productionCheckerPath = path.join(root, "scripts", "check-production.mjs");
 const configPath = path.join(root, "apps", "web", "config", "app-static-surface-inventory.v1.json");
-const expectedSuccess = "App static surface inventory OK (29 metadata routes, 249 public files, 38622565 bytes).\n";
+const expectedSuccess = "App static surface inventory OK (29 metadata routes, 249 public files, 38621757 bytes).\n";
 const expectedCheckerBytes = 13_000;
-const expectedCheckerSha256 = "945B8E4C267B72DACF4EF0F3CAC7F62221FE8A3357716DB3984D5BCCDC321E0D";
+const expectedCheckerSha256 = "EF17AFC6AAF1BFC09163BD7E438DA96A248344C04F6E5EA574D69EE63E5F75BE";
 const expectedLibraryBytes = 24_956;
 const expectedLibrarySha256 = "AF6A2D5632582D56B92C8E7CD0D7ED0A004712BFCF51091DE2A1AFB50BD63C0A";
 const expectedAppRouterLibraryBytes = 59_423;
@@ -257,7 +257,7 @@ test("current source builds the complete source-only inventory", () => {
     indexedMetadataRoutes: 18,
     nonindexedMetadataRoutes: 11,
     publicFiles: 249,
-    publicBytes: 38_622_565,
+    publicBytes: 38_621_757,
     sourceFiles: 44,
   });
   assert.deepEqual(inventory.coverage, {
@@ -324,7 +324,7 @@ test("public inventory covers every ordinary file with exact aggregate categorie
       .map((category) => [category, rows.filter((row) => row.category === category).length]),
   );
   assert.equal(rows.length, 249);
-  assert.equal(rows.reduce((sum, row) => sum + row.bytes, 0), 38_622_565);
+  assert.equal(rows.reduce((sum, row) => sum + row.bytes, 0), 38_621_757);
   assert.deepEqual(categoryCounts, {
     asset: 231,
     discovery: 3,

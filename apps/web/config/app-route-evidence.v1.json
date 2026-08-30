@@ -160,8 +160,8 @@
       "id": "site-navigation",
       "path": "scripts/check-site-navigation.mjs",
       "scope": "source-only shared navigation contract; no browser journey claim",
-      "bytes": 25878,
-      "sha256": "DFEB77EEF685BDE8634C89FF46D853A0866AB47E0BF91DFAFA71F4D2D0BFA1BB",
+      "bytes": 27190,
+      "sha256": "296C8A099DBB2D4690FBA625598E08BDED34361BCE7B4E366D8C1BFB4E71083C",
       "status": "verified_source"
     }
   ],

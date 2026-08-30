@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { DISCORD_INVITE_URL, FORUMS_HOST, OFFICIAL_GUILD_PROFILES, SITE_ORIGIN, SOCIAL_HOST } from "./lib/public-urls.mjs";
 
@@ -40,11 +40,25 @@ const deletionPage = read("apps/web/components/public-pages/route-pages/MetaData
 const publicMetadata = read("apps/web/components/public-pages/metadata.ts");
 const sitemap = read("apps/web/public/sitemap.xml");
 const legalStyles = read("apps/web/app/styles/public-legal.css");
-const discordInviteDataSources = [
-  ["Join data", read("apps/web/public/data/join.json")],
-  ["Events data", read("apps/web/public/data/events.json")],
-  ["Guild schedule data", read("apps/web/public/data/guild-schedule.json")],
-];
+const websiteTextExtensions = new Set([
+  ".cjs",
+  ".css",
+  ".html",
+  ".js",
+  ".json",
+  ".jsx",
+  ".md",
+  ".mjs",
+  ".svg",
+  ".toml",
+  ".ts",
+  ".tsx",
+  ".txt",
+  ".xml",
+  ".yaml",
+  ".yml",
+]);
+const websiteGeneratedDirectories = new Set([".next", ".turbo", ".vercel", "coverage", "node_modules"]);
 
 const navGroups = between(navSource, "export const navGroups", "export const publicUtilityLinks");
 const publicUtilityLinks = between(navSource, "export const publicUtilityLinks", "export const accountWorkflowLinks");
@@ -272,6 +286,39 @@ function read(file) {
   return readFileSync(full, "utf8");
 }
 
+function readWebsiteTextSources() {
+  const sources = [];
+
+  function visit(relativeDirectory) {
+    let entries;
+    try {
+      entries = readdirSync(resolve(root, relativeDirectory), { withFileTypes: true })
+        .sort((left, right) => left.name.localeCompare(right.name, "en"));
+    } catch {
+      failures.push(`${relativeDirectory}: Website source enumeration failed.`);
+      return;
+    }
+
+    for (const entry of entries) {
+      const relativePath = `${relativeDirectory}/${entry.name}`;
+      if (entry.isDirectory()) {
+        if (!websiteGeneratedDirectories.has(entry.name)) visit(relativePath);
+        continue;
+      }
+      if (entry.isSymbolicLink()) {
+        failures.push(`${relativePath}: Website source links are unsupported.`);
+        continue;
+      }
+      if (entry.isFile() && websiteTextExtensions.has(entry.name.slice(entry.name.lastIndexOf(".")).toLowerCase())) {
+        sources.push([relativePath, read(relativePath)]);
+      }
+    }
+  }
+
+  visit("apps/web");
+  return sources;
+}
+
 function between(text, startMarker, endMarker) {
   const start = text.indexOf(startMarker);
   const end = endMarker ? text.indexOf(endMarker, start + startMarker.length) : text.length;
@@ -347,12 +394,17 @@ function checkDiscordInvite() {
     failures.push("Discord invite must be a valid absolute HTTPS URL.");
   }
 
-  const invitePattern = /https:\/\/discord\.com\/invite\/[A-Za-z0-9]+/g;
-  for (const [label, source] of discordInviteDataSources) {
+  const invitePattern = /(?:https?:)?\/\/(?:www\.)?(?:discord\.com\/invite|discord\.gg)\/[^\s"'<>\\)\x60]+/gi;
+  let inviteCount = 0;
+  for (const [sourcePath, source] of readWebsiteTextSources()) {
     const links = source.match(invitePattern) || [];
-    if (links.length === 0 || links.some((link) => link !== DISCORD_INVITE_URL)) {
-      failures.push(`${label}: every Discord invite must use the canonical Website destination.`);
+    inviteCount += links.length;
+    if (links.some((link) => link !== DISCORD_INVITE_URL)) {
+      failures.push(`${sourcePath}: every Discord invite must use the canonical Website destination.`);
     }
+  }
+  if (inviteCount === 0) {
+    failures.push("Website sources must retain at least one canonical Discord invite.");
   }
 }
 
