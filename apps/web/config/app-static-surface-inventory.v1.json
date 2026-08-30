@@ -14,7 +14,7 @@
     "indexedMetadataRoutes": 18,
     "nonindexedMetadataRoutes": 11,
     "publicFiles": 249,
-    "publicBytes": 38621757,
+    "publicBytes": 38510119,
     "sourceFiles": 44
   },
   "sourceCatalog": [
@@ -211,7 +211,7 @@
     {
       "path": "scripts/check-app-static-surface-inventory.mjs",
       "bytes": 13000,
-      "sha256": "EF17AFC6AAF1BFC09163BD7E438DA96A248344C04F6E5EA574D69EE63E5F75BE"
+      "sha256": "88F52A076B1F3992E376567173443E21142A2C5EA9E3610336EB9C003D8D6C4B"
     },
     {
       "path": "scripts/check-assets.mjs",
@@ -236,7 +236,7 @@
     {
       "path": "scripts/lib/app-static-surface-inventory.test.mjs",
       "bytes": 124618,
-      "sha256": "B2C37A0FAF8EF674B3412FCE4524CFB344B026250A29DC21CFAED240D2348679"
+      "sha256": "8B4711840BFF08F368B613ECE46D31CEA3AFD10C22CC0CDD97E0CD71D25950F5"
     }
   ],
   "metadataRoutes": [
@@ -2038,8 +2038,8 @@
     {
       "url": "/assets/img/leaders/dharmapala.webp",
       "source": "apps/web/public/assets/img/leaders/dharmapala.webp",
-      "bytes": 204024,
-      "sha256": "26DECF8F119D2D7D73293AA2B41FC43B16D064883AE30EC58F5AB58371C493EC",
+      "bytes": 92386,
+      "sha256": "AC0AF5EC137AA1BF629B7A9869192CA6ABE31C1F9931BEE569A277FE0051C156",
       "category": "asset",
       "format": "webp"
     },
