@@ -19,8 +19,8 @@ Keep this page focused on rule, custom, conduct, balance, respect, practice, and
 
 - Tome data lives in `apps/web/public/data/tome.json`.
 - Keep JSON valid.
-- Preserve the current schema unless `tome.js` changes in the same scoped task.
-- Add only fields that `tome.js` actually supports.
+- Preserve the current schema unless `TomePage.tsx` changes in the same scoped task.
+- Add only fields that `TomePage.tsx` actually supports.
 - Keep values and rules concise.
 - Use page-specific Tome vocabulary: rule, custom, conduct, balance, respect, practice, and line.
 
@@ -86,17 +86,16 @@ Safe editing rules:
 - Keep etiquette list items direct and readable.
 - Avoid duplicate rules.
 - Avoid contradictions with Join, Recruitment, Events, or Leaders pages.
-- Preserve the current array/object shapes unless `tome.js` is updated in the same scoped task.
+- Preserve the current array/object shapes unless `TomePage.tsx` is updated in the same scoped task.
 - Keep serious conduct language plain before adding tone.
 
 ## 6. Links and Unsupported Fields
 
 Current link behavior:
 
-- `recognition.ranksHref` controls the `View Ranks` link destination.
-- If `recognition.ranksHref` is missing, the link falls back to `./ranks.html`.
-- `Return to Home` is a static link in `tome.html`.
-- The visible label for the recognition link is not data-driven; it remains `View Ranks`.
+- `recognition.ranksHref` controls the final `Join Mōchirīī` link destination.
+- If `recognition.ranksHref` is missing, the link falls back to `/join`.
+- The visible label for the recognition link is not data-driven; it remains `Join Mōchirīī`.
 
 Unsupported fields:
 
@@ -104,7 +103,7 @@ Unsupported fields:
 - External Tome data links are not currently supported.
 - Data-driven link labels are not currently supported.
 - Categories, tags, filters, buttons, and URL state are not currently supported.
-- `hero.atmosphere` is not currently supported by `tome.js`, even though `tome.html` includes a static atmosphere image placeholder.
+- `hero.atmosphere` is not currently supported by `TomePage.tsx`.
 
 Internal links must resolve. External links, if support is added later, should follow existing safe-link conventions with `target="_blank"` and `rel="noopener noreferrer"`.
 
@@ -116,7 +115,7 @@ Unsupported link fields should not be added without renderer changes and validat
 - Use `h2` for major Tome sections.
 - Use `h3` for rendered cards and list blocks.
 - Keep card text readable on mobile.
-- Preserve visible focus states for `View Ranks`, `Return to Home`, and shared header/footer links.
+- Preserve visible focus states for `Join Mōchirīī` and shared header/footer links.
 - Avoid horizontal overflow at mobile widths.
 - Rules should remain readable by screen readers.
 - Keep `#codexError` available as a polite status message for load failures.
@@ -139,9 +138,10 @@ Use `npm run smoke:gallery` as a general regression check when relevant to the r
 
 ## 9. Manual Tome Smoke Checklist
 
-- Open `/tome.html`.
-- Confirm heading structure is sensible.
-- Confirm hero, intro, tenets, etiquette, rhythm, and recognition content render.
+- Open `/tome`.
+- Confirm the page has one `h1`, major sections use `h2`, and their card/list headings use `h3` without skipped levels.
+- Confirm hero, Rules for Every Member, Guild Tenets, Participation, Guild Etiquette, and Rank Recognition content render in that order.
+- Confirm `Join Mōchirīī` is the final main-content link and resolves to `/join`.
 - Confirm no missing content.
 - Confirm links work.
 - Check mobile widths at 360px, 390px, and 768px for horizontal overflow.

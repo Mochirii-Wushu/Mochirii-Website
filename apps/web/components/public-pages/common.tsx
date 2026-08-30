@@ -244,15 +244,25 @@ export function ImagePanel({
   src,
   alt,
   title,
+  titleElement = "h3",
 }: {
   id?: string;
   src: string;
   alt: string;
   title?: string;
+  titleElement?: "h3" | "p";
 }) {
+  const TitleElement = titleElement;
+
   return (
     <div className="glass-card glass-card--soft glass-pad">
-      {title ? <h3 className="section-title section-title--sm">{title}</h3> : null}
+      {title ? (
+        <TitleElement
+          className={`section-title section-title--sm${titleElement === "p" ? " section-title--label" : ""}`}
+        >
+          {title}
+        </TitleElement>
+      ) : null}
       <div className="prose-stack">
         <StaticImage
           id={id}

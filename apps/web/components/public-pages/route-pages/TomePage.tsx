@@ -1,7 +1,7 @@
 import tomeData from "@/public/data/tome.json";
 import { BodyPageMarker } from "../BodyPageMarker";
 import { BadgeRow, cleanRoute, ImagePanel, PageHero, ProseStack, StaticImage, text } from "../common";
-import { ListBlock, MiniCard, ReturnHomeLink, record, records, strings } from "../page-helpers";
+import { ListBlock, MiniCard, record, records, strings } from "../page-helpers";
 
 export function TomePage() {
   const data = record(tomeData);
@@ -30,7 +30,13 @@ export function TomePage() {
           <section>
             <div className="grid-12 grid-gap">
               <aside className="col-4">
-                <ImagePanel id="introImage" src={text(intro.image)} alt="Tome artwork" title={text(intro.badge, "Values & Rhythm")} />
+                <ImagePanel
+                  id="introImage"
+                  src={text(intro.image)}
+                  alt="Tome artwork"
+                  title={text(intro.badge, "Values & Rhythm")}
+                  titleElement="p"
+                />
               </aside>
               <section className="col-8">
                 <div className="glass-card glass-card--primary glass-pad">
@@ -102,7 +108,13 @@ export function TomePage() {
           <section className="u-mt-24">
             <div className="grid-12 grid-gap">
               <aside className="col-4">
-                <ImagePanel id="etiquetteImage" src={text(etiquette.image)} alt="Etiquette artwork" title={text(etiquette.badge, "How we treat each other")} />
+                <ImagePanel
+                  id="etiquetteImage"
+                  src={text(etiquette.image)}
+                  alt="Etiquette artwork"
+                  title={text(etiquette.badge, "How we treat each other")}
+                  titleElement="p"
+                />
               </aside>
               <section className="col-8">
                 <div className="glass-card glass-card--primary glass-pad">
@@ -145,13 +157,12 @@ export function TomePage() {
                     ))}
                   </div>
                   <div className="u-mt-16">
-                    <a id="recLink" href={cleanRoute(recognition.ranksHref, "/ranks")} className="footer-link">
-                      View Ranks
+                    <a id="recLink" href={cleanRoute(recognition.ranksHref, "/join")} className="footer-link">
+                      Join Mōchirīī
                     </a>
                   </div>
                 </section>
               </div>
-              <ReturnHomeLink />
             </div>
           </section>
         </div>
