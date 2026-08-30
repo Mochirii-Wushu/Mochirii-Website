@@ -211,7 +211,8 @@
 }
 
 .overlay-card__frame--portrait .overlay-card__image{
-  object-fit:contain;
+  object-fit:cover;
+  object-position:center center;
 }
 
 .overlay-card{
