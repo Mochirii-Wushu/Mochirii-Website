@@ -1,119 +1,119 @@
 {
   "hero": {
-    "kicker": "Ranks",
-    "title": "Ranks & Progression",
-    "intro": "Our ranks describe how trust grows. Leadership keeps the halls rooted, middle leaders guard culture & momentum & members rise through presence & kindness.",
+    "kicker": "Guild Path",
+    "title": "Ranks of Mōchirīī",
+    "intro": "Trust grows in the small moments. Show up when you can, lend a hand & be nice.",
     "image": "./assets/img/ranks/hero.webp",
     "atmosphereImage": "",
     "pills": [
-      "Observed over time",
-      "Culture-first",
-      "Clear escalation",
-      "Patient recognition"
+      "Seen over time",
+      "Kindness first",
+      "Know who to ask",
+      "No rush"
     ]
   },
   "progression": {
-    "title": "Progression",
+    "title": "How ranks grow",
     "pills": [
-      "Consistency",
-      "Reliability",
-      "Helpfulness",
-      "Respect"
+      "Be present",
+      "Keep your word",
+      "Lend a hand",
+      "Treat people well"
     ],
     "body": [
-      "Progression reflects conduct & community presence over time. Short bursts matter less than habits that return.",
-      "Questions & small issues start with middle leadership. Hall leaders handle hall-wide needs. Vice leaders coordinate across halls. Long-term direction & policy rest with the guild leader."
+      "We notice the habits with being consistent & reward that trust over time.",
+      "Ask a middle leader first. Hall Leaders handle wider guild concerns, Vice Leaders & the Guild Leader guide larger decisions."
     ]
   },
   "tiers": {
     "senior": {
       "title": "Senior Leadership",
-      "description": "Senior leaders care for member well-being and guide the guild's path.",
+      "description": "Senior leaders keep the guild active & look after its people.",
       "image": "./assets/img/ranks/senior.webp",
       "ranks": [
         {
           "name": "Guild Leader",
           "body": [
-            "A leader carries the guild's direction. The members are the body; without them, there is no guild."
+            "Sets the guild’s course & makes the final call with decisions."
           ]
         },
         {
           "name": "Vice Leader",
           "body": [
-            "The vice leader is the guild's right hand, supporting the leader & stepping in when needed. They coordinate across halls & help direction become action."
+            "Carries plans across the ranks & steps in when the Guild Leader is away."
           ]
         },
         {
           "name": "Hall Leader",
           "body": [
-            "Hall leaders look after members within their hall. They oversee daily needs, support middle leadership & help every hall stay rooted."
+            "Looks after one hall & handles its wider needs."
           ]
         }
       ]
     },
     "middle": {
       "title": "Middle Leadership",
-      "description": "Team leaders guide guild teams directly & respond when members need help finding the next step.",
+      "description": "Middle leaders stay close to daily guild life. They welcome members & keep things moving.",
       "image": "./assets/img/ranks/middle.webp",
       "pills": [
-        "Onboarding support",
-        "Daily coordination",
-        "Culture stewardship"
+        "Welcome newcomers",
+        "Help day to day",
+        "Keep the guild warm"
       ],
       "ranks": [
         {
           "name": "Dharmapala",
           "body": [
-            "Dharmapala are the core of middle leadership, guarding the guild's culture & daily pace."
+            "Leads day-to-day coordination & settles routine concerns."
           ]
         },
         {
           "name": "Lotus Warden",
           "body": [
-            "Lotus Wardens are the first line of support for members, helping with onboarding, answering questions & keeping culture alive day to day."
+            "Welcomes newcomers & answers their first questions."
           ]
         },
         {
           "name": "Petal Keeper",
           "body": [
-            "Petal Keepers support participation, answer with patience & keep the shared space useful for everyone."
+            "Shares updates & helps members join guild life."
           ]
         }
       ]
     },
     "members": {
       "title": "Members",
-      "description": "The heart of Mōchirīī. Member ranks are observed through participation, conduct & contribution over time.",
+      "description": "Members give Mōchirīī its life. Each rank marks trust shown through habits over time.",
       "image": "./assets/img/ranks/members.webp",
       "pills": [
-        "Participation over time",
-        "Kind conduct",
-        "Reliable party presence",
-        "Helps others learn"
+        "Rice Sprout",
+        "Softwind",
+        "Young Bamboo",
+        "Mochi Blossom"
       ],
       "ranks": [
         {
           "name": "Mochi Blossom",
           "body": [
-            "Mochi Blossoms are veterans of the guild before entering leadership roles. They have seen the guild through multiple seasons & helped shape its culture."
+            "A trusted veteran who has shared many seasons & helped the guild feel like home."
           ]
         },
         {
           "name": "Young Bamboo",
           "body": [
-            "Young Bamboo are the third rank of members. They have stayed awhile, contributed to the guild & still have room to grow into long-term veterans."
+            "A rooted member who joins in often & contributes with most activities."
           ]
         },
         {
           "name": "Softwind",
           "body": [
-            "Softwind are the second rank of members. They know the guild's culture & community, while still early enough in the journey to keep growing."
+            "A familiar face who knows the guild & takes part with generosity."
           ]
         },
         {
           "name": "Rice Sprout",
           "body": [
-            "Rice Sprout is the first rank of members. They are new to the guild & have shown promise through participation & good conduct."
+            "A new member learning the guild & beginning to build trust."
           ]
         }
       ]
