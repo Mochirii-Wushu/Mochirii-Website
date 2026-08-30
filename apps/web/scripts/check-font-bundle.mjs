@@ -1,9 +1,17 @@
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { brotliCompressSync, constants as zlibConstants } from "node:zlib";
 
 const buildRoot = path.resolve(".next", "static");
 const homeHtmlPath = path.resolve(".next", "server", "app", "index.html");
+const homeFontManifestPath = path.resolve(
+  ".next",
+  "server",
+  "app",
+  "page",
+  "next-font-manifest.json",
+);
+const homeFontManifestKey = "[project]/apps/web/app/page";
 const layoutPath = path.resolve("app", "layout.tsx");
 const fontRoot = path.resolve("app", "fonts");
 const fontCssLimit = 12 * 1024;
@@ -70,6 +78,35 @@ function normalizedFamily(value = "") {
 
 function formatKiB(bytes) {
   return `${(bytes / 1024).toFixed(2)} KiB`;
+}
+
+function homeFontPreloads() {
+  if (existsSync(homeHtmlPath)) {
+    const homeHtml = readFileSync(homeHtmlPath, "utf8");
+    return (homeHtml.match(/<link\b[^>]*>/g) || [])
+      .filter((tag) => tag.includes('rel="preload"') && tag.includes('as="font"'))
+      .map((tag) => tag.match(/href="([^"]+)"/)?.[1])
+      .filter(Boolean);
+  }
+
+  try {
+    const manifest = JSON.parse(readFileSync(homeFontManifestPath, "utf8"));
+    const routeFonts = manifest?.app?.[homeFontManifestKey];
+    if (
+      !Array.isArray(routeFonts) ||
+      routeFonts.some((value) =>
+        typeof value !== "string" ||
+        !/^static\/media\/[a-z0-9_.-]+\.woff2$/u.test(value)
+      )
+    ) {
+      failures.push("dynamic Home has no exact font preload manifest");
+      return [];
+    }
+    return routeFonts;
+  } catch {
+    failures.push("Home font preload evidence is unavailable");
+    return [];
+  }
 }
 
 const layout = readFileSync(layoutPath, "utf8");
@@ -159,11 +196,7 @@ if (!/--font-zhi-mang:"displayFont",\s*Zhi Mang Xing Fallback/.test(fontCss)) fa
 if (!/--font-noto-serif-sc:"bodyFont",\s*Noto Serif SC Fallback/.test(fontCss)) failures.push("body font variable lost its preserved fallback");
 if (emittedFonts.size !== 2) failures.push(`font bundle emits ${emittedFonts.size} font files; expected 2`);
 
-const homeHtml = readFileSync(homeHtmlPath, "utf8");
-const fontPreloads = (homeHtml.match(/<link\b[^>]*>/g) || [])
-  .filter((tag) => tag.includes('rel="preload"') && tag.includes('as="font"'))
-  .map((tag) => tag.match(/href="([^"]+)"/)?.[1])
-  .filter(Boolean);
+const fontPreloads = homeFontPreloads();
 if (fontPreloads.length !== 2) failures.push(`Home emits ${fontPreloads.length} font preloads; expected 2`);
 for (const emitted of emittedFonts) {
   if (!fontPreloads.some((href) => href.endsWith(`/${emitted}`))) failures.push(`Home does not preload ${emitted}`);
