@@ -1,4 +1,4 @@
-import { SOCIAL_HOST } from "@/lib/public-urls";
+import { FORUMS_HOST, SOCIAL_HOST } from "@/lib/public-urls";
 
 export type NavItem = {
   href: string;
@@ -23,6 +23,7 @@ export const navGroups: NavGroup[] = [
       { href: "/spotlight", label: "Spotlight", nav: "spotlight" },
       { href: "/gallery", label: "Gallery", nav: "gallery" },
       { href: SOCIAL_HOST, label: "Social", nav: "social-host", external: true },
+      { href: FORUMS_HOST, label: "Forums", nav: "forums-host", external: true },
       { href: "/games/mochi-pets", label: "Mochi Pets", nav: "games/mochi-pets" },
     ],
   },

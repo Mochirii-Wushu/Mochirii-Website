@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { OFFICIAL_GUILD_PROFILES, SITE_ORIGIN, SOCIAL_HOST } from "./lib/public-urls.mjs";
+import { DISCORD_INVITE_URL, FORUMS_HOST, OFFICIAL_GUILD_PROFILES, SITE_ORIGIN, SOCIAL_HOST } from "./lib/public-urls.mjs";
 
 const root = process.cwd();
 const failures = [];
@@ -17,10 +17,17 @@ const headerAuthState = read("apps/web/components/site-header/use-header-auth-st
 const headerAuthRuntime = read("apps/web/components/site-header/header-auth-runtime.ts");
 const headerNavigation = read("apps/web/components/site-header/header-navigation.tsx");
 const spinnerViewerNavLink = read("apps/web/components/site-header/spinner-viewer-nav-link.tsx");
+const homePage = read("apps/web/app/page.tsx");
+const publicUrlsAdapter = read("apps/web/lib/public-urls.ts");
+const publicUrlsScriptAdapter = read("scripts/lib/public-urls.mjs");
 const navSource = read("apps/web/lib/site-navigation.ts");
 const footer = read("apps/web/components/SiteFooter.tsx");
+const ranksPage = read("apps/web/components/public-pages/route-pages/RanksPage.tsx");
 const footerStyles = read("apps/web/app/styles/shell-footer.css");
 const officialGuildProfiles = read("apps/web/components/OfficialGuildProfiles.tsx");
+const discordServerPreview = read("apps/web/components/public-pages/DiscordServerPreview.tsx");
+const eventsBoard = read("apps/web/components/public-pages/EventsBoard.tsx");
+const eventsPage = read("apps/web/components/public-pages/route-pages/EventsPage.tsx");
 const socialPanel = read("apps/web/components/member-workflow/SocialHubPanel.tsx");
 const socialPage = read("apps/web/app/social/page.tsx");
 const accountPanel = read("apps/web/components/member-workflow/AccountPanel.tsx");
@@ -33,6 +40,11 @@ const deletionPage = read("apps/web/components/public-pages/route-pages/MetaData
 const publicMetadata = read("apps/web/components/public-pages/metadata.ts");
 const sitemap = read("apps/web/public/sitemap.xml");
 const legalStyles = read("apps/web/app/styles/public-legal.css");
+const discordInviteDataSources = [
+  ["Join data", read("apps/web/public/data/join.json")],
+  ["Events data", read("apps/web/public/data/events.json")],
+  ["Guild schedule data", read("apps/web/public/data/guild-schedule.json")],
+];
 
 const navGroups = between(navSource, "export const navGroups", "export const publicUtilityLinks");
 const publicUtilityLinks = between(navSource, "export const publicUtilityLinks", "export const accountWorkflowLinks");
@@ -43,9 +55,13 @@ const retiredMembersRouteFiles = [
   "apps/web/components/member-workflow/MemberDirectory.tsx",
 ];
 
-const publicItems = [...extractItems(navGroups), ...extractItems(publicUtilityLinks)];
+const navGroupItems = extractItems(navGroups);
+const publicItems = [...navGroupItems, ...extractItems(publicUtilityLinks)];
 const accountItems = extractItems(accountWorkflowLinks);
 const footerItems = extractItems(footer);
+
+assertAdjacentLink("site navigation Guild order", navGroupItems, SOCIAL_HOST, "Social", FORUMS_HOST, "Forums");
+assertAdjacentLink("SiteFooter Guild order", footerItems, SOCIAL_HOST, "Social", FORUMS_HOST, "Forums");
 
 const forbiddenGroupHrefs = ["/members", "/social", "/gallery-submit", "/leader-dashboard", "/spinner"];
 
@@ -56,7 +72,12 @@ for (const href of forbiddenGroupHrefs) {
 }
 
 assertIncludes("site navigation public URL config", navSource, `"@/lib/public-urls"`);
+assertCount("Website Forums URL adapter", publicUrlsAdapter, "export const FORUMS_HOST = publicUrls.forumsHost;", 1);
+assertCount("Website Forums URL export", publicUrlsAdapter, "export const FORUMS_HOST", 1);
+assertCount("script Forums URL adapter", publicUrlsScriptAdapter, "export const FORUMS_HOST = publicUrls.forumsHost;", 1);
+assertCount("script Forums URL export", publicUrlsScriptAdapter, "export const FORUMS_HOST", 1);
 assertIncludes("site navigation dropdown Social", navGroups, `href: SOCIAL_HOST, label: "Social", nav: "social-host", external: true`);
+assertIncludes("site navigation dropdown Forums", navGroups, `href: FORUMS_HOST, label: "Forums", nav: "forums-host", external: true`);
 assertIncludes("site navigation dropdown Mochi Pets", navGroups, `href: "/games/mochi-pets", label: "Mochi Pets", nav: "games/mochi-pets"`);
 assertIncludes("SiteHeader group auth filtering", header, ".filter((item) => !navItemHidden(item, authState))");
 assertIncludes("SiteHeader deferred auth import", headerAuthState, 'import("./header-auth-runtime")');
@@ -72,6 +93,8 @@ assertIncludes("SiteHeader moderator auth marker", headerNavigation, `"data-auth
 assertIncludes("SiteHeader spinner viewer auth marker", headerNavigation, `"data-auth-spinner-viewer"`);
 assertIncludes("SiteHeader spinner viewer gate", header, `item.auth === "spinner-viewer"`);
 assertIncludes("SiteHeader spinner viewer launcher", header, "<SpinnerViewerNavLink");
+assertIncludes("SiteHeader Join CTA", header, `Join Mōchirīī <span className="cta-glint" aria-hidden="true" />`);
+assertIncludes("SiteHeader Discord destination", header, "href={DISCORD_INVITE_URL}");
 assertIncludes("deferred header exact spinner eligibility", headerAuthRuntime, "verifyMemberAccess");
 assertIncludes("deferred header exact spinner eligibility", headerAuthRuntime, "memberAccess?.galleryEligible === true");
 assertIncludes("deferred header exact spinner eligibility", headerAuthRuntime, 'memberAccess.memberStatus === "active"');
@@ -82,6 +105,7 @@ assertIncludes("spinner viewer link session-first navigation", spinnerViewerNavL
 
 assertNotIncludes("SiteHeader public nav", publicUtilityLinks, `href: "/social", label: "Social"`);
 assertNotIncludes("SiteHeader public utility Social", publicUtilityLinks, `href: SOCIAL_HOST, label: "Social"`);
+assertNotIncludes("SiteHeader public utility Forums", publicUtilityLinks, `href: FORUMS_HOST, label: "Forums"`);
 assertNotIncludes("SiteHeader account Members", accountWorkflowLinks, `href: "/members"`);
 assertNotIncludes("SiteHeader account Social Status", accountWorkflowLinks, `href: "/social", label: "Social Status"`);
 assertNotIncludes("SiteHeader account Mochi Pets", accountWorkflowLinks, `href: "/games/mochi-pets"`);
@@ -95,7 +119,23 @@ for (const file of retiredMembersRouteFiles) {
 
 assertIncludes("SiteFooter public URL config", footer, `"@/lib/public-urls"`);
 assertIncludes("SiteFooter Social", footer, `href: SOCIAL_HOST, label: "Social", external: true`);
+assertIncludes("SiteFooter Forums", footer, `href: FORUMS_HOST, label: "Forums", external: true`);
 assertIncludes("SiteFooter Mochi Pets", footer, `href: "/games/mochi-pets", label: "Mochi Pets"`);
+assertIncludes("SiteFooter Join CTA", footer, `Join Mōchirīī<span className="footer-cta-glint" aria-hidden="true" />`);
+assertIncludes("SiteFooter Discord destination", footer, "href={DISCORD_INVITE_URL}");
+assertCount("SiteFooter Join CTA", footer, `Join Mōchirīī<span className="footer-cta-glint" aria-hidden="true" />`, 1);
+assertIncludes("SiteFooter recruitment link", footer, [
+  `                <Link className="footer-link" href="/recruitment">`,
+  "                  Recruitment Note",
+  "                </Link>",
+].join("\n"));
+assertCount("SiteFooter recruitment link", footer, `href="/recruitment"`, 1);
+assertNotIncludes("SiteFooter retired recruitment label", footer, "Recruitment Tips");
+assertIncludes("Home Discord destination", homePage, "href={DISCORD_INVITE_URL}");
+assertIncludes("Account Discord destination", accountPanel, "href={DISCORD_INVITE_URL}");
+assertIncludes("Join Discord destination", discordServerPreview, "href={DISCORD_INVITE_URL}");
+assertIncludes("Events board Discord fallback", eventsBoard, "DISCORD_INVITE_URL");
+assertIncludes("Events page Discord destination", eventsPage, "href={DISCORD_INVITE_URL}");
 assertNotIncludes("SiteFooter", footer, "hidden:");
 assertNotIncludes("SiteFooter", footer, "data-auth-");
 assertNotIncludes("SiteFooter public Social", footer, `href: "/social", label: "Social"`);
@@ -130,6 +170,16 @@ assertIncludes("Data Deletion metadata canonical", publicMetadata, 'path: "/meta
 assertIncludes("Privacy sitemap entry", sitemap, `<loc>${SITE_ORIGIN}/privacy</loc>`);
 assertIncludes("Data Deletion sitemap entry", sitemap, `<loc>${SITE_ORIGIN}/meta-data-deletion</loc>`);
 assertIncludes("legal page responsive layout", legalStyles, "@media (max-width:760px)");
+assertIncludes("Ranks leaders link", ranksPage, [
+  `                      <Link href="/leaders" className="footer-link">`,
+  "                        Meet the Leaders",
+  "                      </Link>",
+].join("\n"));
+assertCount("Ranks leaders link", ranksPage, `<Link href="/leaders" className="footer-link">`, 1);
+assertNotIncludes("Ranks retired home link", ranksPage, "<ReturnHomeLink");
+
+checkForumsHost();
+checkDiscordInvite();
 
 const legalPageSource = `${privacyPage}\n${deletionPage}`;
 for (const unsupportedClaim of [
@@ -187,6 +237,8 @@ assertIncludes("social page metadata", socialPage, "Mōchirīī Social Access");
 assertIncludes("social page intro", socialPage, "Verified guild members can continue to the private guild social platform.");
 assertIncludes("current live state", currentState, "public website information surface");
 assertIncludes("integration runbook", runbook, "public information site");
+assertIncludes("integration runbook Forums handoff", runbook, "Header and footer Forums links hand off directly to `https://forums.mochirii.com`");
+assertIncludes("integration runbook Forums ownership", runbook, "the separate Forums repository and runtime remain the sole owners");
 
 checkScenario("signed-out", { signedIn: false, activeMember: false, moderator: false, spinnerViewer: false });
 checkScenario("signed-in", { signedIn: true, activeMember: false, moderator: false, spinnerViewer: false });
@@ -203,8 +255,10 @@ if (failures.length) {
 }
 
 console.log("Site navigation OK.");
-console.log("- Header Social and the public Mochi Pets page live in the Guild dropdown.");
-console.log("- Footer Social and Mochi Pets links are public.");
+console.log("- Header Social, Forums, and the public Mochi Pets page live in the Guild dropdown.");
+console.log("- Footer Social, Forums, and Mochi Pets links are public.");
+console.log("- Ranks links to Leaders; Join and Recruitment labels match the approved copy.");
+console.log("- All live Website Discord links use the canonical owner-approved invite.");
 console.log("- Official profile surfaces pin the approved Facebook, Instagram, TikTok, Twitch, and YouTube URLs.");
 console.log("- Watch Spinner appears only after exact active verified viewer authorization.");
 console.log("- /social redirects signed-in members and keeps signed-out help.");
@@ -232,7 +286,7 @@ function extractItems(source) {
   const items = [];
   const pattern = /\{\s*href:\s*(?:"([^"]+)"|([A-Z_]+)),\s*label:\s*"([^"]+)"(?<rest>[^}]*)\}/g;
   for (const match of source.matchAll(pattern)) {
-    const href = match[1] || (match[2] === "SOCIAL_HOST" ? SOCIAL_HOST : match[2]);
+    const href = match[1] || resolveConfiguredHref(match[2]);
     const rest = match.groups?.rest || "";
     items.push({
       href,
@@ -243,6 +297,63 @@ function extractItems(source) {
     });
   }
   return items;
+}
+
+function resolveConfiguredHref(name) {
+  if (name === "SOCIAL_HOST") return SOCIAL_HOST;
+  if (name === "FORUMS_HOST") return FORUMS_HOST;
+  return name;
+}
+
+function checkForumsHost() {
+  if (FORUMS_HOST !== "https://forums.mochirii.com") {
+    failures.push("Forums host must remain the exact approved service root.");
+    return;
+  }
+
+  try {
+    const url = new URL(FORUMS_HOST);
+    if (url.protocol !== "https:"
+      || url.username
+      || url.password
+      || url.pathname !== "/"
+      || url.search
+      || url.hash) {
+      failures.push("Forums host must be a credential-free HTTPS origin with no path, query, or fragment.");
+    }
+  } catch {
+    failures.push("Forums host must be a valid absolute HTTPS URL.");
+  }
+}
+
+function checkDiscordInvite() {
+  if (DISCORD_INVITE_URL !== "https://discord.com/invite/9HQKz6rqF4") {
+    failures.push("Discord invite must remain the exact owner-approved destination.");
+    return;
+  }
+
+  try {
+    const url = new URL(DISCORD_INVITE_URL);
+    if (url.protocol !== "https:"
+      || url.hostname !== "discord.com"
+      || url.pathname !== "/invite/9HQKz6rqF4"
+      || url.username
+      || url.password
+      || url.search
+      || url.hash) {
+      failures.push("Discord invite must be the credential-free approved HTTPS invite URL.");
+    }
+  } catch {
+    failures.push("Discord invite must be a valid absolute HTTPS URL.");
+  }
+
+  const invitePattern = /https:\/\/discord\.com\/invite\/[A-Za-z0-9]+/g;
+  for (const [label, source] of discordInviteDataSources) {
+    const links = source.match(invitePattern) || [];
+    if (links.length === 0 || links.some((link) => link !== DISCORD_INVITE_URL)) {
+      failures.push(`${label}: every Discord invite must use the canonical Website destination.`);
+    }
+  }
 }
 
 function visible(item, state) {
@@ -271,12 +382,18 @@ function checkScenario(label, state) {
   if (!items.some((item) => item.href === SOCIAL_HOST && item.label === "Social" && item.external)) {
     failures.push(`header ${label}: expected public Social link to ${SOCIAL_HOST}.`);
   }
+  if (!items.some((item) => item.href === FORUMS_HOST && item.label === "Forums" && item.external)) {
+    failures.push(`header ${label}: expected public Forums link to the configured Forums host.`);
+  }
 }
 
 function checkFooter() {
   checkDuplicates("footer", footerItems);
   if (!footerItems.some((item) => item.href === SOCIAL_HOST && item.label === "Social" && item.external)) {
     failures.push(`footer: expected visible Social link to ${SOCIAL_HOST}.`);
+  }
+  if (!footerItems.some((item) => item.href === FORUMS_HOST && item.label === "Forums" && item.external)) {
+    failures.push("footer: expected visible Forums link to the configured Forums host.");
   }
 }
 
@@ -299,10 +416,27 @@ function checkDuplicates(label, items) {
   }
 }
 
+function assertAdjacentLink(label, items, firstHref, firstLabel, secondHref, secondLabel) {
+  const firstIndex = items.findIndex((item) => item.href === firstHref && item.label === firstLabel && item.external);
+  const second = items[firstIndex + 1];
+  if (firstIndex < 0
+    || !second
+    || second.href !== secondHref
+    || second.label !== secondLabel
+    || !second.external) {
+    failures.push(`${label}: Forums must be the immediate visible item after Social.`);
+  }
+}
+
 function assertIncludes(label, text, snippet) {
   if (!text.includes(snippet)) failures.push(`${label}: expected snippet not found: ${snippet}`);
 }
 
 function assertNotIncludes(label, text, snippet) {
   if (text.includes(snippet)) failures.push(`${label}: unexpected snippet found: ${snippet}`);
+}
+
+function assertCount(label, text, snippet, expected) {
+  const count = text.split(snippet).length - 1;
+  if (count !== expected) failures.push(`${label}: expected ${expected} exact occurrence, found ${count}.`);
 }
