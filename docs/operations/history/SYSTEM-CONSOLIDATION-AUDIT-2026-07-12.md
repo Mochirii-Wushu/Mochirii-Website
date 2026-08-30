@@ -73,9 +73,10 @@ the private directory.
 - Mochi Pets and Mochi Social game repositories remain separate and untouched.
   Their local folder names and remote repository names differ, so future game
   work should begin with an explicit identity check before any rename.
-- FFXI/XI-Server runtime files, shortcuts, WSL repositories, and backups are a
-  separate project family.
-- Shopify, WWM MIDI, and other repositories are separate projects.
+- Non-Mochirii runtime files, shortcuts, development environments, backups,
+  and repositories remain outside this Website audit.
+- Shopify state is limited to the Website-owned theme and provider boundaries
+  documented in this repository.
 - Deno, Composer, Codex, Unity, browser, and Windows Recent entries are caches,
   application state, or history rather than authoritative website source.
 - `Mochi Creds\$Temp\Trash` is empty Proton Drive sync scaffolding and should
