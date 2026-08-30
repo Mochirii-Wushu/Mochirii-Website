@@ -210,6 +210,10 @@
   object-fit:cover;
 }
 
+.overlay-card__frame--portrait .overlay-card__image{
+  object-fit:contain;
+}
+
 .overlay-card{
   overflow:hidden;
 }
