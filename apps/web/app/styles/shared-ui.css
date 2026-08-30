@@ -100,6 +100,7 @@
   color:var(--ink-0);
 }
 .section-title--sm{font-size:24px;}
+.section-title--label{font-weight:700;}
 
 .muted{color:var(--ink-2);}
 
