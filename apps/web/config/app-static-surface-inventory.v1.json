@@ -191,7 +191,7 @@
     {
       "path": "apps/web/config/app-route-evidence.v1.json",
       "bytes": 68506,
-      "sha256": "69CE113ED4C58337F5C1CF1641BFAA2765606897235EDA2312C857B1392BA582"
+      "sha256": "E0C0DDFFAA5CD0EFCFEBEA46F3236319716970AF16A11BFBA493C64CFBD1F1C0"
     },
     {
       "path": "apps/web/config/app-route-matrix.v1.json",
@@ -200,18 +200,18 @@
     },
     {
       "path": "package.json",
-      "bytes": 16924,
-      "sha256": "91044708FCA9339CCB32E1DDF3D93D2B02B5B938568F82EBA5B2253A7D9C9C2E"
+      "bytes": 17004,
+      "sha256": "6D19419B87D3337C0FC02BBA4CB220C09157315153CD792F433C5AB46A0E101B"
     },
     {
       "path": "scripts/check-all.mjs",
-      "bytes": 11832,
-      "sha256": "70030278FC72A39F0CE11FB7687AF5804DDDD020034A63F103985CF30F83305F"
+      "bytes": 12413,
+      "sha256": "730E25BDC02A4CC37F7746608D53FD9D5945CB2697E21120E672DF2D9D336481"
     },
     {
       "path": "scripts/check-app-static-surface-inventory.mjs",
       "bytes": 13000,
-      "sha256": "1B15785CAAD38240ADE40BB1C4909C5174D6A73DF7B215540A9FAAC3332B7AA0"
+      "sha256": "7C7C291377A7135BECDAD749EE7263125401002D6EF91F65509129D31C17D1FB"
     },
     {
       "path": "scripts/check-assets.mjs",
@@ -236,7 +236,7 @@
     {
       "path": "scripts/lib/app-static-surface-inventory.test.mjs",
       "bytes": 124618,
-      "sha256": "A4AD5B8C19DA6B035E4135757D733C2069384F6062B3089418AD447E4756DDB1"
+      "sha256": "29373AB10590DD616314B1FDA3474C04A64C78547FD23122C40A7D555196C0F1"
     }
   ],
   "metadataRoutes": [

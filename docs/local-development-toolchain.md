@@ -9,7 +9,6 @@ and CI run the same checks before website changes reach Vercel.
 - npm `10.x`, bundled with the pinned Node.js runtime.
 - Git and GitHub CLI for branch, PR, and repository hygiene.
 - Deno `2.9.4` for Supabase Edge Function tests, matching GitHub Actions.
-- Docker Desktop for Supabase local containers.
 - Supabase CLI as a root dev dependency; run through `npm` or
   `node_modules/.bin/supabase` to avoid the root `supabase.js` name collision.
 - Playwright Chromium for local browser smoke tests.
@@ -28,12 +27,12 @@ cd apps\web
 npm ci
 ```
 
-Docker Desktop should be running before Supabase local-stack commands. Verify it
-with:
-
-```powershell
-docker run --rm hello-world
-```
+Keep this Windows checkout and its dependencies on the Windows filesystem. The
+local preflight does not invoke Docker or WSL. Container-backed Supabase tests
+run on the repository's isolated GitHub-hosted Linux jobs. The non-Windows
+toolchain contract retains both the Docker CLI and daemon checks. This preserves
+those tests without overlapping the workstation's Windows development
+environment.
 
 ## Verification
 
@@ -72,7 +71,11 @@ longer part of local development.
 - Vercel CLI local build usage follows the Vercel CLI docs and
   `apps/web/README.md`.
 - Supabase CLI usage follows Supabase local-development guidance; the CLI is
-  installed locally, not globally.
+  installed locally, not globally. Supabase's container-backed database tests
+  run in isolated GitHub-hosted CI under the Windows workstation policy.
+- Windows filesystem placement follows Microsoft's guidance for tools that run
+  from the Windows command line; repository work does not cross into a WSL
+  filesystem.
 - Playwright browser installation follows the official Playwright browser
   install workflow.
 - Lighthouse audits use the local package instead of `npx --yes` so the audit
@@ -95,3 +98,9 @@ longer part of local development.
   [Syft releases](https://github.com/anchore/syft/releases) before changing the
   pins; use [GitHub's runner guidance](https://docs.github.com/en/actions/how-tos/write-workflows/choose-where-workflows-run/choose-the-runner-for-a-job)
   when reviewing the hosted runner family.
+- Review the workstation boundary against Microsoft's
+  [cross-filesystem guidance](https://learn.microsoft.com/windows/wsl/filesystems)
+  and Supabase's [local development](https://supabase.com/docs/guides/local-development)
+  and [database testing](https://supabase.com/docs/guides/local-development/cli/testing-and-linting)
+  guidance before changing the split between Windows-local and container-backed
+  CI validation.

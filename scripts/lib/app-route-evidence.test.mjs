@@ -29,9 +29,9 @@ const CURRENT_VALIDATOR_URL = pathToFileURL(CURRENT_VALIDATOR_PATH).href;
 const CURRENT_INVENTORY_LIBRARY_PATH = path.join(CURRENT_REPOSITORY_ROOT, "scripts", "lib", "app-router-inventory.mjs");
 const EXPECTED_CHECKER_OUTPUT = "App route evidence OK (38 routes; excluded_internal=1, in_progress=37; Phase 4 exit not claimed).\n";
 const EXPECTED_CHECKER_BYTES = 15_211;
-const EXPECTED_CHECKER_SHA256 = "D0606419B42BBF83D682D6E7D730B6872C2F69992B580D547E434B80C728B05D";
+const EXPECTED_CHECKER_SHA256 = "599F50E2F1D5FF638991AD5B5812DE569787919CB8FFA7AFECA732A6B72DB457";
 const EXPECTED_VALIDATOR_BYTES = 30_750;
-const EXPECTED_VALIDATOR_SHA256 = "9BE59C4D915F260EA3ABAEF3798B33FB8BA4E2798DB0CF18F389E08F34132573";
+const EXPECTED_VALIDATOR_SHA256 = "2EEF9A3503734D8B3A345FAC9BE5E58B6680F32AC26341CF24155E261E4F5424";
 const EXPECTED_INVENTORY_LIBRARY_BYTES = 59_423;
 const EXPECTED_INVENTORY_LIBRARY_SHA256 = "5051994396F6B0EAC3033F13CF2DC41BD2DCD8FF3102CF11DC49F8B53F780D84";
 const CURRENT_IMPLEMENTATION_SOURCE_IDS = new Set([
@@ -548,6 +548,21 @@ test("rejects catalog size and digest substitution", () => {
   });
 });
 
+test("rejects a catalog source beyond the bounded source-input limit", () => {
+  withFixture((current) => {
+    const entry = current.evidence.evidenceCatalog[0];
+    const sourcePath = path.join(current.root, ...entry.path.split("/"));
+    const oversized = Buffer.alloc(APP_ROUTE_EVIDENCE_LIMITS.sourceBytes + 1, 0x20);
+    writeFileSync(sourcePath, oversized);
+    entry.bytes = oversized.length;
+    entry.sha256 = sha256(oversized);
+    const result = validate(current);
+    assert(result.failures.includes("evidenceCatalog[0] rejected [CATALOG_BINDING]"));
+    assert(result.failures.includes("evidenceCatalog[0] rejected [SOURCE_INPUT]"));
+    assertCategorical(result);
+  });
+});
+
 test("rejects route-matrix byte binding drift", () => {
   withFixture((current) => {
     current.evidence.routeMatrix.bytes += 1;
@@ -779,7 +794,7 @@ test("catalog closes every direct local import used by the evidence implementati
   assert.deepEqual(localRelativeImports("scripts/check-app-route-evidence.mjs"), []);
   assert.equal(checkerSource.match(/\bimport\s*\(/g)?.length, 1);
   assert(checkerSource.includes("await import(${JSON.stringify(pathToFileURL(VALIDATOR_PATH).href)})"));
-  assert(checkerSource.includes("9BE59C4D915F260EA3ABAEF3798B33FB8BA4E2798DB0CF18F389E08F34132573"));
+  assert(checkerSource.includes(EXPECTED_VALIDATOR_SHA256));
   assert(checkerSource.includes("5051994396F6B0EAC3033F13CF2DC41BD2DCD8FF3102CF11DC49F8B53F780D84"));
   assert(!checkerSource.includes("require("));
   assert(!checkerSource.includes("createRequire"));

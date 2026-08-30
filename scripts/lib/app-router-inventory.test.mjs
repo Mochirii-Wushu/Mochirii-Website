@@ -775,18 +775,18 @@ test("depth", () => {
 test("symlinks", () => {
   const current = fixture();
   try {
-    const target = path.join(current.root, "linked-route.ts");
+    const target = path.join(current.root, "linked-route-directory");
     const linkedDirectory = path.join(current.app, "api", "linked");
-    mkdirSync(linkedDirectory, { recursive: true });
-    writeFileSync(target, "export async function DELETE() {}\n");
-    symlinkSync(target, path.join(linkedDirectory, "route.ts"), "file");
+    mkdirSync(target);
+    writeFileSync(path.join(target, "route.ts"), "export async function DELETE() {}\n");
+    symlinkSync(target, linkedDirectory, process.platform === "win32" ? "junction" : "dir");
 
     assert.throws(
       () => discoverAppRouterEntries(current.app),
-      /symbolic links are unsupported inside App Router source \(api\/linked\/route\.ts\)/,
+      /symbolic links are unsupported inside App Router source \(api\/linked\)/,
     );
 
-    rmSync(path.join(linkedDirectory, "route.ts"));
+    rmSync(linkedDirectory);
     const linkedRoot = path.join(current.root, "linked-app");
     symlinkSync(current.app, linkedRoot, process.platform === "win32" ? "junction" : "dir");
     assert.throws(
@@ -801,9 +801,9 @@ test("symlinks", () => {
 test("configs", () => {
   const current = fixture();
   try {
-    const matrixTarget = path.join(current.root, "matrix-target.json");
-    writeMatrix(matrixTarget, completeRoutes());
-    symlinkSync(matrixTarget, current.matrix, "file");
+    const matrixTarget = path.join(current.root, "matrix-target");
+    mkdirSync(matrixTarget);
+    symlinkSync(matrixTarget, current.matrix, process.platform === "win32" ? "junction" : "dir");
     assert.throws(
       () => readAppRouteMatrix(current.matrix),
       /route matrix must be a regular non-symbolic file/,
@@ -814,11 +814,78 @@ test("configs", () => {
     );
 
     const configLink = path.join(current.root, "next.config.ts");
-    symlinkSync(nextConfigPath, configLink, "file");
+    symlinkSync(path.dirname(nextConfigPath), configLink, process.platform === "win32" ? "junction" : "dir");
     assert.throws(
       () => readNextConfigSource(configLink),
       /next\.config\.ts must be a regular non-symbolic file/,
     );
+  } finally {
+    rmSync(current.root, { recursive: true, force: true });
+  }
+});
+
+test("file symlink descriptors", () => {
+  const current = fixture();
+  try {
+    writeMatrix(current.matrix, completeRoutes());
+    const configPath = path.join(current.root, "next-config.ts");
+    writeFileSync(configPath, "export default {};\n");
+    const probePath = path.join(current.root, "file-symlink-descriptor-probe.mjs");
+    writeFileSync(probePath, `
+import fs from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
+
+const [moduleUrl, readerName, inputPath, expectedMessage] = process.argv.slice(2);
+const originalLstatSync = fs.lstatSync;
+const originalDescriptor = originalLstatSync(inputPath);
+fs.lstatSync = (candidate, ...args) => {
+  const descriptor = originalLstatSync(candidate, ...args);
+  if (candidate !== inputPath) return descriptor;
+  return {
+    size: originalDescriptor.size,
+    isFile: () => true,
+    isSymbolicLink: () => true,
+  };
+};
+syncBuiltinESMExports();
+let subject;
+let rejected = false;
+try {
+  subject = await import(moduleUrl + "?file-symlink-descriptor=" + encodeURIComponent(readerName));
+  try {
+    subject[readerName](inputPath);
+  } catch (error) {
+    rejected = error instanceof Error && error.message === expectedMessage;
+  }
+} finally {
+  fs.lstatSync = originalLstatSync;
+  syncBuiltinESMExports();
+}
+let ordinaryFileAccepted = false;
+try {
+  subject[readerName](inputPath);
+  ordinaryFileAccepted = true;
+} catch {}
+if (!rejected || !ordinaryFileAccepted) process.exitCode = 1;
+else process.stdout.write("file-symlink descriptor rejected and ordinary file accepted\\n");
+`, "utf8");
+
+    const moduleUrl = pathToFileURL(path.join(repositoryRoot, "scripts", "lib", "app-router-inventory.mjs")).href;
+    for (const [readerName, inputPath, expectedMessage] of [
+      ["readAppRouteMatrix", current.matrix, "route matrix must be a regular non-symbolic file"],
+      ["readNextConfigSource", configPath, "next.config.ts must be a regular non-symbolic file"],
+    ]) {
+      const outcome = spawnSync(process.execPath, [probePath, moduleUrl, readerName, inputPath, expectedMessage], {
+        cwd: current.root,
+        encoding: "utf8",
+        windowsHide: true,
+      });
+      assert.equal(outcome.error, undefined);
+      assert.equal(outcome.status, 0);
+      assert.equal(outcome.signal, null);
+      assert.equal(outcome.stdout, "file-symlink descriptor rejected and ordinary file accepted\n");
+      assert.equal(outcome.stderr, "");
+    }
   } finally {
     rmSync(current.root, { recursive: true, force: true });
   }
@@ -973,7 +1040,9 @@ test("raffle", () => {
     }
 
     const configLink = path.join(root, "apps", "web", "next.config.ts");
-    symlinkSync(path.join(repositoryRoot, "apps", "web", "next.config.ts"), configLink, "file");
+    const configTarget = path.join(root, "next-config-target");
+    mkdirSync(configTarget);
+    symlinkSync(configTarget, configLink, process.platform === "win32" ? "junction" : "dir");
     assert(lstatSync(configLink).isSymbolicLink());
 
     const outcome = spawnSync(process.execPath, [raffleCheckerPath], {
