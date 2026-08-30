@@ -1,10 +1,12 @@
+# Repository updates are reviewed and committed by the authenticated maintainer.
+# Dependabot alerts remain enabled; routine version-update pull requests are disabled.
 version: 2
 updates:
   - package-ecosystem: npm
     directory: /
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0
     groups:
       root-production-minor-and-patch:
         dependency-type: production
@@ -21,7 +23,7 @@ updates:
     directory: /apps/web
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0
     groups:
       web-production-minor-and-patch:
         dependency-type: production
@@ -45,7 +47,7 @@ updates:
     directory: /apps/shopify-theme
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0
     groups:
       theme-development-minor-and-patch:
         dependency-type: development
@@ -61,4 +63,4 @@ updates:
     directory: /
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0
