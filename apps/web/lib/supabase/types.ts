@@ -365,10 +365,8 @@ export type PublicMemberProfileResponse = {
 };
 
 export type CurrentSpotlightWinner = {
-  winnerName?: string | null;
-  monthKey?: string | null;
-  publishedAt?: string | null;
-  source?: string | null;
+  winnerName: string | null;
+  monthKey: string;
 };
 
 export type ProfileMediaKind = "avatar" | "banner";

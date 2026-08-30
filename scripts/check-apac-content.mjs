@@ -7,7 +7,7 @@ const failures = [];
 const expected = {
   subtitle: "Asia Pacific • Where Winds Meet Guild",
   description: "Join Mōchirīī, an Asia Pacific Where Winds Meet guild full of yummy cupcakes for everyone & pretty people to share them all with.",
-  spotlight: "Pretty guild member who's always so lovely, beautiful & keeping the guild a wonderful place for everyone.",
+  spotlight: "Each month, one active website member is selected at random for a little extra lantern glow.",
   gatheringTitle: "Monthly Guild Gathering",
   gatheringDescription: "A monthly gathering where every member can discuss anything they'd like with the guild.",
   footer: "An Asia Pacific Where Winds Meet guild, with events scheduled in UTC+8.",

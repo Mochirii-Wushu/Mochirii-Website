@@ -22,6 +22,7 @@ const requiredIndexSnippets = [
   "spotlight_poll_cycles_winner_profile_id_idx",
   "spotlight_poll_candidates_member_profile_id_idx",
   "spotlight_poll_results_member_profile_id_idx",
+  "member_spotlight_selections_winner_profile_idx",
   "mochi_pets_alpha_testers_invited_by_idx",
   "mochi_pets_chain_operations_user_id_idx",
   "mochi_pets_chat_messages_user_id_idx",

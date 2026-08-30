@@ -6,6 +6,6 @@ import { metadataFor } from "@/components/public-pages/metadata";
 import { SpotlightPage } from "@/components/public-pages/route-pages/SpotlightPage";
 
 export const metadata = metadataFor("spotlight");
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 
 export default SpotlightPage;

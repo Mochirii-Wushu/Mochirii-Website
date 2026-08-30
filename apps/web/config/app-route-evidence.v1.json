@@ -104,16 +104,16 @@
       "id": "next-route-delivery",
       "path": "scripts/check-next-route-delivery.mjs",
       "scope": "source and build-contract route delivery checks; no live delivery claim",
-      "bytes": 8059,
-      "sha256": "913E1722817EFA6AB5E6559537F32A7ED3AC6C25C814EC90045C3A75B4FEA88F",
+      "bytes": 8452,
+      "sha256": "60307F7CD0ADCB15794CC205C42FB161DC958068CFE8A7B7A46EE774841D368A",
       "status": "verified_source"
     },
     {
       "id": "package-route-evidence-wiring",
       "path": "package.json",
       "scope": "exact npm commands for route-evidence checking and hostile tests",
-      "bytes": 17004,
-      "sha256": "6D19419B87D3337C0FC02BBA4CB220C09157315153CD792F433C5AB46A0E101B",
+      "bytes": 17609,
+      "sha256": "CDD60C4E2F7DE3CB05D7E13CBF5E2709D8688ED1D8C0A758AACF8E719A39841B",
       "status": "verified_source"
     },
     {
@@ -136,8 +136,8 @@
       "id": "repository-check-runner",
       "path": "scripts/check-all.mjs",
       "scope": "full-repository execution wiring for route-evidence checks",
-      "bytes": 12413,
-      "sha256": "730E25BDC02A4CC37F7746608D53FD9D5945CB2697E21120E672DF2D9D336481",
+      "bytes": 12973,
+      "sha256": "466FB6E397E9006EE2964261A48525D23F801460CE2C54E4FE6D1809B18C33CB",
       "status": "verified_source"
     },
     {
@@ -152,8 +152,8 @@
       "id": "security-hardening",
       "path": "scripts/check-security-hardening.mjs",
       "scope": "source-only security and privacy hardening contract",
-      "bytes": 23161,
-      "sha256": "45F2573CC354D0516680552356A1A85EFDFC9A800173CE665B3D8CE78AA0B72C",
+      "bytes": 23325,
+      "sha256": "A3B1855EED54E2F860AF9CE56F501DE39D065230AABCEE8A5FA27DC56AAFF90F",
       "status": "verified_source"
     },
     {

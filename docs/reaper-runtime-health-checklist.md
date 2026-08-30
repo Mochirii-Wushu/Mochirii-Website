@@ -5,7 +5,8 @@ Use this checklist for read-only operations reviews. It does not authorize token
 ## Runtime Split
 
 - Supabase Edge Function `reaper-discord-interactions` handles slash commands, message components, gallery ingest, rank sync, event sync, pending-verification containment, native ModMail audit, and vote reminder interactions.
-- Supabase scheduled Edge Functions handle manual vote reminders and monthly native Discord spotlight polls; these scheduled functions use cron secrets and server-side Discord bot access only.
+- Supabase scheduled Edge Functions handle manual vote reminders. Monthly Website Spotlight selection is a direct
+  database Cron call and does not use Reaper, Discord, an HTTP request, or a runtime secret.
 - Reaper Gateway worker handles `guildMemberAdd` welcome DMs and, after the second release is approved, redacted pending-verification member-event forwarding.
 - Vercel/Next does not run Discord bot tokens, service-role keys, webhooks, or Gateway connections.
 
@@ -41,13 +42,16 @@ https://deyvmtncimmcinldjyqe.supabase.co/functions/v1/reaper-discord-interaction
 - Pending-containment apply mutates only tracked member-specific containment overwrites and records owned bits in `discord_managed_permission_overwrites`.
 - `reaper-discord-member-sync` requires `x-mochirii-reaper-member-sync-secret`, fetches current Discord member state before planning, and logs only redacted counts/IDs.
 
-## Monthly Spotlight Polls
+## Monthly Website Spotlight
 
-- `send-member-spotlight-poll` creates one native Discord poll per month after validating `SPOTLIGHT_POLL_CRON_SECRET`.
-- `DISCORD_SPOTLIGHT_POLL_CHANNEL_ID` is the only configured poll destination.
-- Candidate snapshots include up to 10 active, recently verified, Discord-linked website members because Discord native polls support up to 10 answers.
-- `publish-member-spotlight-winner` waits for finalized Discord poll results before publishing a winner.
-- Public website reads use `get-current-spotlight-winner` and expose only the winner name and month.
+- `mochirii-select-monthly-spotlight-member` invokes `private.select_monthly_member_spotlight(now())` directly in
+  Postgres at `00:05 UTC+8` each day.
+- The first successful call each month draws from all current active, non-deleted, non-banned Website member accounts;
+  same-month retries return the existing winner.
+- The selector does not depend on Reaper, Discord, a network call, or a secret and does not persist the candidate list.
+- Public website reads use `get-current-spotlight-winner` and expose only the current winner name and month. Home and
+  `/spotlight` fetch that selection without a page cache.
+- The old native Discord Spotlight poll functions and tables are retained only as dormant historical evidence.
 
 ## Scheduled Events
 

@@ -330,10 +330,22 @@ Current supported fields:
 How to add or update Spotlight safely:
 
 - Edit `apps/web/public/data/spotlight.json`.
-- Keep body text short and specific to the featured person or moment.
+- Keep body text short. The first Appreciation line may use the exact `{{winnerName}}` token; the renderer replaces
+  it with the same bounded current winner used by the title, or with a generic fallback when no current winner exists.
 - Use `highlights[]` for concise appreciation bullets.
 - Keep `spotlight.date` as a date-only value when possible.
-- The live Next Spotlight page derives the visible date from the first day of the current UTC+8 month. It may replace the configured fallback title with the finalized monthly Discord poll winner name from `get-current-spotlight-winner`; that public poll path must display the winner name only and must not expose Discord handles, profile links, avatars, vote counts, or candidate lists.
+- The live Next Spotlight page derives the visible date, title, and Appreciation name from one current-month result
+  returned by `get-current-spotlight-winner`. The public path may display only the selected website display name and
+  month; it must not expose account IDs, Discord data, profile links, avatars, pool size, audit details, or candidate
+  lists.
+- The database-owned selector begins at `00:05 UTC+8` on the first day of each month and retries daily until that
+  month has one immutable winner. Eligibility is every current `active` member profile backed by a non-deleted,
+  non-banned Website account. The draw must not require a Discord link or persist the candidate roster.
+- Home and `/spotlight` are dynamically rendered and read the bounded winner DTO with `cache: "no-store"`, so the
+  first request after a successful monthly selection cannot receive the previous month from a page or data cache.
+- Production release order is expand before activate: deploy and verify the backward-compatible public winner Edge
+  reader first, then apply the migration that backfills the accepted current winner and changes Cron. Once Cron is
+  changed, never roll the Edge reader back to the legacy-only implementation; forward-fix it instead.
 - Keep hero alt text meaningful.
 - Do not add profile/contact fields unless `spotlight.js` is intentionally updated and validated.
 

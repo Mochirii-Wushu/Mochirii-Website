@@ -2,7 +2,7 @@
   "copy": {
     "bulletinIntro": "Hall notes, events, raffle updates & little scrolls keep the guild lanterns glowing.",
     "doorsIntro": "Explore the ways that guide Mōchirīī along its wanderers filled path.",
-    "spotlightIntro": "Pretty guild member who's always so lovely, beautiful & keeping the guild a wonderful place for everyone.",
+    "spotlightIntro": "Each month, one active website member is selected at random for a little extra lantern glow.",
     "galleryIntro": "Screenshots from baddie smashing, pretty roads, lantern-lit detours & small moments that become guild memory."
   },
   "celebrationSplash": {
@@ -99,12 +99,11 @@
   ],
   "spotlight": {
     "tag": "Spotlight",
-    "title": "Congratulations to: Meenari.",
-    "summary": "For support & a pretty amazing spark.",
+    "title": "Member Spotlight",
+    "summary": "Celebrating one randomly selected active website member this month.",
     "image": "./assets/img/featured/spotlight.webp",
     "imageAlt": "Spotlight cover",
-    "href": "./spotlight.html",
-    "memberProfileSlug": "meenari"
+    "href": "./spotlight.html"
   },
   "gallery": [
     {

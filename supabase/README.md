@@ -664,6 +664,7 @@ The following tables are service-role-only audit, sync, moderation, or poll inte
 - `gallery_instagram_publish_jobs`
 - `gallery_moderation_events`
 - `member_auth_identities`
+- `member_spotlight_selections`
 - `member_verifications`
 - `spotlight_poll_candidates`
 - `spotlight_poll_cycles`
@@ -756,32 +757,35 @@ The database stores:
 
 Both tables have RLS enabled and service-role-only grants. Browser clients receive no direct vote table access.
 
-## Monthly Member Spotlight Polls
+## Monthly Member Spotlight Selection
 
-Monthly member spotlight polls use Discord native polls and Supabase-owned winner publication:
+`private.select_monthly_member_spotlight` owns the monthly draw inside Postgres. Supabase Cron invokes it daily at
+`00:05 UTC+8`; the first successful call in each Singapore calendar month selects one winner and every later call for
+that month returns the same immutable row. The daily no-op retry means a transient first-day failure can self-heal
+without selecting a second winner.
 
-- `send-member-spotlight-poll`: scheduled sender that creates one native Discord poll on the 1st of each month at `00:05 UTC+8`.
-- `publish-member-spotlight-winner`: scheduled finalizer that waits for Discord finalized poll results after 7 days.
-- `get-current-spotlight-winner`: public-safe website lookup that returns only the published winner name and month.
+The eligible pool is every `member_profiles` row with `member_status = 'active'` that is backed by a non-deleted,
+non-banned Auth account. Eligibility does not require a particular display-name shape, Discord linking, Discord
+roles, or recent Discord verification. The selected account's display name is canonicalized into a bounded public
+snapshot. The selector takes a transaction advisory lock, draws with database cryptographic randomness, and persists
+no candidate roster.
 
-Native Discord polls are limited to 10 answers, so Reaper snapshots up to 10 randomly selected active, recently verified, Discord-linked website members per cycle. If there are 10 or fewer eligible members, all eligible members are included. The poll is single-choice, lasts 168 hours, and uses `allowed_mentions: { parse: [] }`.
+The database stores one service-owned `member_spotlight_selections` row per month: the winner profile reference,
+bounded display-name snapshot, private pool-size audit, method version, and timestamps. RLS is enabled; browser roles
+have no direct access. `get-current-spotlight-winner` returns only the current month and winner display name. Home and
+`/spotlight` consume that same uncached DTO, while the dedicated page also replaces the controlled `{{winnerName}}`
+Appreciation token.
 
-The linked Twills account is intentionally excluded from spotlight poll eligibility so owner/admin participation never occupies member poll slots.
+The migration backfills accepted published legacy poll winners so the current member does not change mid-month, then
+removes the two legacy poll schedules. The legacy poll tables and Edge Functions remain dormant historical evidence;
+they are not release or scheduling authority for new months.
 
-Required secrets:
-
-```text
-DISCORD_SPOTLIGHT_POLL_CHANNEL_ID
-SPOTLIGHT_POLL_CRON_SECRET
-```
-
-The database stores:
-
-- `spotlight_poll_cycles`: one monthly Discord poll cycle, Discord message IDs, status, winner, and audit timestamps.
-- `spotlight_poll_candidates`: the private candidate snapshot and Discord answer mapping for that cycle.
-- `spotlight_poll_results`: private finalized answer counts and verification metadata.
-
-All three tables have RLS enabled and service-role-only grants. Browser clients receive no direct candidate, Discord ID, voter, or vote-count access. The website Home and Spotlight pages may replace the configured fallback title with the finalized winner name only; they do not expose the winner's Discord handle, profile link, avatar, raw vote totals, or candidate list.
+Production uses an expand-before-activate release order. Deploy and read back the backward-compatible
+`get-current-spotlight-winner` first while the legacy tables and schedules are still authoritative; only then may the
+migration backfill the accepted current winner and replace the schedules. After that migration commits, rolling the
+Edge reader back to the legacy-only implementation is unsafe: use a forward fix. Required post-migration readback is
+the preserved current winner, the exact two-field public DTO, one active replacement Cron job, and zero legacy
+Spotlight Cron jobs.
 
 Discord uploads are idempotent by message/attachment ID. They go through the same moderator approval queue as website uploads and do not appear publicly until approved. Discord attachment `content_type` is advisory because Discord may omit or mislabel it; `submit-discord-gallery-image` downloads the approved Discord CDN URL and accepts only JPEG, PNG, or WebP byte signatures under 50 MB before storing the sniffed MIME type.
 

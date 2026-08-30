@@ -339,7 +339,12 @@ const unauthenticatedFunctionGuardSpecs = {
   "get-current-spotlight-winner": {
     source: spotlightPollPublicWinner,
     kind: "public read-only spotlight DTO",
-    snippets: [".eq(\"status\", \"published\")", "winner_display_name", "monthly-discord-poll"],
+    snippets: [
+      '.from("member_spotlight_selections")',
+      '.select("cycle_month,winner_display_name")',
+      '.eq("cycle_month", currentMonth)',
+      "winner_display_name",
+    ],
   },
   "mochi-pets-alpha-action": {
     source: `${mochiPetsAlphaShared}\n${mochiPetsAlphaAction}`,
@@ -478,7 +483,7 @@ assertMatches(
 
 [
   "winner_display_name",
-  "monthly-discord-poll",
+  '.select("cycle_month,winner_display_name")',
 ].forEach((snippet) => assertIncludes("get-current-spotlight-winner", spotlightPollPublicWinner, snippet));
 
 [
@@ -487,6 +492,9 @@ assertMatches(
   "vote_count",
   "answer_label",
   "candidate_order",
+  "selected_at",
+  "publishedAt",
+  "source:",
 ].forEach((snippet) => {
   if (spotlightPollPublicWinner.includes(snippet)) {
     failures.push(`get-current-spotlight-winner: public endpoint must not return or select ${snippet}.`);

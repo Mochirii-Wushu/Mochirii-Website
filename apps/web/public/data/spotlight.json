@@ -6,27 +6,26 @@
   },
   "spotlight": {
     "kicker": "Member Spotlight",
-    "title": "This Month: Meenari",
-    "memberProfileSlug": "meenari",
-    "date": "2026-03-01",
+    "title": "This Month's Spotlight",
+    "date": "2026-08-01",
     "tag": "Appreciation",
-    "intro": "Once a month, we honor one member whose effort, enthusiasm & spirit help the guild move together.",
+    "intro": "Beginning on the first day of each month, one active Mōchirīī website member is selected at random for our guild Spotlight.",
     "badges": [
-      "Community Pillar",
-      "Cheerful Presence",
-      "Always Helpful"
+      "Monthly Spotlight",
+      "Mōchirīī Member",
+      "Lantern Glow"
     ],
     "body": [
-      "This month we lift a lantern for Meenari & the spark they bring to the guild.",
-      "They answer questions, welcome new members & help others feel at home.",
-      "In busy hours, that presence matters: one kind reply can turn a new name into someone remembered."
+      "This month we lift a lantern for {{winnerName}} & celebrate their place in Mōchirīī.",
+      "Our guild is shaped by every member who joins us along the cultivation road.",
+      "May this Spotlight be a warm reminder that each name gathered beneath our lanterns belongs to the story we share."
     ],
-    "conclusion": "Thank you so much for the patience & pretty acts that keep Mōchirīī moving forward together.",
+    "conclusion": "Thank you for being part of Mōchirīī & helping our shared journey continue.",
     "highlights": [
-      "Shows Up Often",
-      "Always Warm & Friendly",
-      "Helpful Guidance",
-      "Brightens the Guild"
+      "One Member Each Month",
+      "Selected From Active Website Members",
+      "Chosen at Random",
+      "Celebrated Together"
     ]
   }
 }

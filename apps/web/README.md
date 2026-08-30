@@ -232,11 +232,15 @@ vercel build --prod --cwd apps/web
 What stays in Supabase:
 
 - Identity, Postgres, RLS, Storage, Edge Functions, Discord verification, gallery moderation authority, signed preview URLs, and audit records.
-- `verify-discord-member`, `list-approved-gallery-submissions`, `list-gallery-review-queue`, `moderate-gallery-submission`, `list-instagram-publish-queue`, `mark-instagram-gallery-submission-shared`, `check-instagram-api-status`, `publish-instagram-gallery-submission`, `send-member-spotlight-poll`, `publish-member-spotlight-winner`, and `get-current-spotlight-winner`.
+- `verify-discord-member`, `list-approved-gallery-submissions`, `list-gallery-review-queue`, `moderate-gallery-submission`, `list-instagram-publish-queue`, `mark-instagram-gallery-submission-shared`, `check-instagram-api-status`, `publish-instagram-gallery-submission`, and `get-current-spotlight-winner`.
 
-## Monthly Spotlight Polls
+## Monthly Spotlight Selection
 
-Reaper posts one native Discord poll each month after `send-member-spotlight-poll` runs from Supabase Cron. Because Discord native polls allow up to 10 answers, the function snapshots up to 10 random active, recently verified, Discord-linked website members for that cycle. `publish-member-spotlight-winner` waits for finalized Discord poll results after 7 days and publishes the winner into Supabase. The public site calls `get-current-spotlight-winner` and may show only the winner name on Home and Spotlight; Discord handles, profile links, avatars, candidate lists, and vote counts stay private.
+Supabase Postgres selects one current active Website member account at random beginning at `00:05 UTC+8` on the
+first day of each month. The database transaction guarantees one immutable winner per month and later daily retries
+are no-ops. The public `get-current-spotlight-winner` response contains only the winner display name and month. Home
+and `/spotlight` render that same current selection without a page cache; account IDs, Discord data, profile links,
+the candidate pool, and private audit details stay private.
 
 ## Instagram Gallery Publishing
 
