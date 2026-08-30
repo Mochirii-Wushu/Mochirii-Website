@@ -1,102 +1,100 @@
 {
   "hero": {
-    "kicker": "Tome",
-    "title": "The Tome",
+    "kicker": "Rules of the Guild",
+    "title": "The Mōchirīī Tome",
     "image": "./assets/img/tome/hero.webp",
     "introBody": [
-      "The Tome is about how Mōchirīī speaks, gathers & looks after each other.",
-      "Read it once, revisit it often & use it to remind yourself to be nice."
+      "The Tome explains how members communicate, join events, help others & handle problems.",
+      "Use it before your first event & whenever a rule needs checking."
     ],
-    "pills": ["Values in practice", "Etiquette with dignity", "Consistency with ease"]
+    "pills": ["Guild Conduct", "Event Practice", "Rank Recognition"]
   },
 
   "intro": {
-    "badge": "Values & Rhythm",
-    "title": "A shared standard",
+    "badge": "Inside the Tome",
+    "title": "Rules for Every Member",
     "image": "./assets/img/tome/values.webp",
     "body": [
-      "The Tome keeps culture rooted across time zones & playstyles.",
-      "It sets expectations, explains how disputes get handled & describes how we keep guild life active & enjoyable for everyone."
+      "The same rules apply across time zones, playstyles, parties & guild channels.",
+      "They cover conduct, event planning, disputes & rank recognition."
     ]
   },
 
   "tenets": {
-    "title": "Tenets",
-    "description": "These tenets shape our tone in parties, chat & guild spaces so every member feels welcomed.",
+    "title": "Guild Tenets",
+    "description": "These six tenets guide decisions in parties, chat & guild spaces.",
     "image": "./assets/img/tome/tenets.webp",
-    "captionTitle": "Values made practical",
-    "caption": "A shared standard turns good intent into grounded conduct when disputes happen.",
-    "pills": ["Tone", "Trust", "Growth"],
-    "note": "Choose one tenet before an event & carry it into the team together.",
+    "captionTitle": "Six Actions to Follow",
+    "caption": "Each one names a behavior members can use during play.",
+    "pills": ["Speak Clearly", "Help Directly", "Follow Through"],
     "items": [
       {
-        "title": "Harmony",
-        "description": "Stay coordinated, be nice & communicate clearly."
+        "title": "Coordination",
+        "description": "Agree on roles, follow team leaders & post changes when possible."
       },
       {
-        "title": "Generosity",
-        "description": "Offer help as an invitation & match the other person's pace."
+        "title": "Help",
+        "description": "Offer help, explain the task & let others choose."
       },
       {
         "title": "Respect",
-        "description": "Speak thoughtfully, assume good faith & leave room to recover from mistakes."
+        "description": "Address the issue without insults & allow mistakes to be corrected."
       },
       {
         "title": "Reliability",
-        "description": "Show up in small, repeatable ways that keep momentum & trust intact."
+        "description": "Keep commitments or post an update before plans change."
       },
       {
-        "title": "Craft",
-        "description": "Improve with patience & pass knowledge in clear steps that others can follow."
+        "title": "Practice",
+        "description": "Share builds & mechanics in steps others can test."
       },
       {
-        "title": "Joy",
-        "description": "Keep the guild bright by celebrating wins & having fun together."
+        "title": "Fair Play",
+        "description": "Win without taunting, lose without blame & follow event rules."
       }
     ]
   },
 
   "etiquette": {
     "badge": "How we treat each other",
-    "title": "Etiquette",
-    "description": "Etiquette protects trust during fast play: chat tone, mentoring habits & how we settle disputes.",
+    "title": "Guild Etiquette",
+    "description": "These rules cover chat, mentoring & disputes during guild activity.",
     "image": "./assets/img/tome/etiquette.webp",
     "blocks": [
       {
         "title": "Chat",
         "items": [
-          "Keep messages simple, especially during events.",
-          "Welcome new members with simple replies & helpful feedback.",
-          "Be mindful with sarcasm & make it easy to opt out."
+          "Keep event chat short & relevant.",
+          "Greet new members & answer the question they asked.",
+          "Avoid jokes that target a member. Stop when someone opts out."
         ]
       },
       {
         "title": "Mentoring",
         "items": [
-          "Offer help as an invitation & match the learner's pace.",
-          "Ask questions freely & answer with patience & specifics.",
-          "Share builds & tips in a way that leaves room for personal style."
+          "Ask before giving advice.",
+          "Find out what the member already knows.",
+          "Share one step at a time & let them choose their own build."
         ]
       },
       {
-        "title": "Repair",
+        "title": "Disputes",
         "items": [
-          "Move tense topics to private messages early.",
-          "Bring in a hall leader when emotions rise or patterns repeat.",
-          "Restore trust through accountability & one clear next step."
+          "Move disagreements to private messages before they spread.",
+          "Ask middle leadership about routine concerns. Hall Leaders handle repeated or hall-wide issues.",
+          "State what happened, own your part & agree on the next step."
         ]
       },
       {
         "title": "Guild Code",
         "items": [
-          "Be kind in public spaces & make room for new members.",
-          "Respect real-life schedules, time zones & longer breaks.",
-          "Join events when available without pressuring casual members.",
-          "Ask leadership for help when a conflict or concern needs attention."
+          "Keep public channels suitable for all guild members.",
+          "Respect time zones, schedules & announced breaks.",
+          "Invite members to events without pressuring them.",
+          "Report harassment, safety concerns, or repeated conflict to leadership."
         ]
       }
-    ],
-    "note": "Keep disputes private & actionable; return to the road with dignity."
+    ]
   },
 
   "rhythm": {
@@ -128,23 +126,23 @@
   },
 
   "recognition": {
-    "title": "Recognition",
-    "description": "Recognition is how we say “we see you,” marking effort, care & consistency that helps others feel known.",
+    "title": "Rank Recognition",
+    "description": "Ranks reflect conduct & contribution observed over time as a guild member.",
     "image": "./assets/img/tome/recognition.webp",
     "items": [
       {
         "title": "Follow-through",
-        "description": "Showing up over time through team play, events, chat help & small acts that keep the guild moving forward."
+        "description": "Keep commitments & post updates when plans change."
       },
       {
-        "title": "Service",
-        "description": "Helping others progress, sharing knowledge, organizing parties & making guild spaces easier to use."
+        "title": "Contribution",
+        "description": "Answer questions, share tested information, or help organize parties."
       },
       {
-        "title": "Composure",
-        "description": "Keeping a clear tone under stress, honoring commitments & protecting harmony in public channels."
+        "title": "Conduct",
+        "description": "Handle setbacks without insults, blame, or public arguments."
       }
     ],
-    "ranksHref": "./ranks.html"
+    "ranksHref": "./join.html"
   }
 }
