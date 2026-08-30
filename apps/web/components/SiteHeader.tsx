@@ -282,7 +282,7 @@ export function SiteHeader({
             rel="noopener noreferrer"
             aria-label="Join Mōchirīī"
           >
-            Join <span className="cta-glint" aria-hidden="true" />
+            Join Mōchirīī <span className="cta-glint" aria-hidden="true" />
           </a>
 
           <button

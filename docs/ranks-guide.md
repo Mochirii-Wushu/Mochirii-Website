@@ -142,10 +142,10 @@ Image rules:
 Current link behavior:
 
 - Ranks JSON does not render links.
-- The only page-local content link is the static `Return to Home` link in `ranks.html`.
-- Header and footer links are mounted by `site.js`, not `ranks.js`.
-- Shared header and footer navigation include links to `./ranks.html`.
-- Home, Join, and Tome currently link to `./ranks.html` from other page data or markup.
+- The only page-local content link is `Meet the Leaders`, which routes from `/ranks` to `/leaders`.
+- Header and footer links are rendered by the shared Next.js site shell, not the Ranks data file.
+- Shared header and footer navigation include links to `/ranks`.
+- Home, Join, and Tome link to `/ranks` from other page data or components.
 
 Link rules:
 
@@ -177,7 +177,7 @@ Currently unsupported fields and behaviors:
 - Current rank cards are `div` elements, not list items; if list semantics are introduced later, update the renderer and smoke checklist together.
 - Keep image alt text descriptive where images are public.
 - Do not add JSON alt text fields unless `ranks.js` is updated to use them.
-- Keep focus states visible for the static `Return to Home` link and shared header/footer controls.
+- Keep focus states visible for the `Meet the Leaders` link and shared header/footer controls.
 - Keep touch targets usable when adding any new interactive element.
 - Preserve mobile readability at narrow widths.
 - Avoid horizontal overflow.

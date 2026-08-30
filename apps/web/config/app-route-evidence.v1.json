@@ -128,8 +128,8 @@
       "id": "public-url-config",
       "path": "apps/web/config/public-urls.json",
       "scope": "canonical Website origin source used by route URL evidence",
-      "bytes": 1350,
-      "sha256": "3F0244DE6384743E7EDA19A723DEF9DBC7C00769633134F4D5049F512164080A",
+      "bytes": 1397,
+      "sha256": "5602217D08A7B8D29AC89A3129557063658D3FDC23F1ECD34F2B19A7BBA0EB1D",
       "status": "verified_source"
     },
     {
@@ -160,8 +160,8 @@
       "id": "site-navigation",
       "path": "scripts/check-site-navigation.mjs",
       "scope": "source-only shared navigation contract; no browser journey claim",
-      "bytes": 18919,
-      "sha256": "4501DF9BD9148BBD8854DB6B6932BC9EFE648EFAEB71FC5EE4848E40084AEFB9",
+      "bytes": 27190,
+      "sha256": "296C8A099DBB2D4690FBA625598E08BDED34361BCE7B4E366D8C1BFB4E71083C",
       "status": "verified_source"
     }
   ],

@@ -19,7 +19,7 @@
     "timezone": "UTC+8",
     "title": "Skill building & Mentoring",
     "image": "./assets/img/events/featured.webp",
-    "href": "https://discord.com/invite/dPafqMwWPK",
+    "href": "https://discord.com/invite/9HQKz6rqF4",
     "linkLabel": "RSVP & details in Discord",
     "bullets": [
       "When slots allow, we welcome members & help each player find a place in Mōchirīī.",
@@ -35,7 +35,7 @@
       "title": "Guild Hero's Realm: Weekly Coordination",
       "summary": "A weekly Friday window for the guild hero's realm. Show up, ask questions & we'll match groups together.",
       "image": "./assets/img/events/upcoming-01.webp",
-      "href": "https://discord.com/invite/dPafqMwWPK"
+      "href": "https://discord.com/invite/9HQKz6rqF4"
     },
     {
       "scheduleId": "united-resolve",
@@ -45,7 +45,7 @@
       "title": "United Resolve",
       "summary": "A Friday guild window for members gathering after Hero's Realm.",
       "image": "./assets/img/events/upcoming-01.webp",
-      "href": "https://discord.com/invite/dPafqMwWPK"
+      "href": "https://discord.com/invite/9HQKz6rqF4"
     }
   ],
   "recurring": {

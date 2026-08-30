@@ -62,7 +62,7 @@ The header and footer brand blocks match: the prominent `Mōchirīī` guild name
 
 Current desktop navigation:
 
-- Guild: Home, Spotlight, Gallery, Social, Mochi Pets.
+- Guild: Home, Spotlight, Gallery, Social, Forums, Mochi Pets.
 - The Guild dropdown contains the five owner-approved profile links from `apps/web/config/public-urls.json`: Facebook, Instagram, TikTok, Twitch, and YouTube.
 - Culture: Join, Ranks, Leaders, Tome, Playlists.
 - Updates: Announcements, Events, Raffle.
@@ -101,8 +101,8 @@ Current footer content:
 - Brand link to Home.
 - Emblem image.
 - Compact identity description.
-- Discord Join CTA with `target="_blank"` and `rel="noopener noreferrer"`.
-- Recruitment Tips link.
+- Discord `Join Mōchirīī` CTA with `target="_blank"` and `rel="noopener noreferrer"`.
+- Recruitment Note link.
 - Guild, Culture, and Updates navigation columns.
 - Official profiles render from the shared canonical profile collection. Facebook, Instagram, TikTok, Twitch, and YouTube appear in both header and footer.
 - Copyright year rendered by the Footer component.

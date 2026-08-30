@@ -1,7 +1,8 @@
+import Link from "next/link";
 import ranksData from "@/public/data/ranks.json";
 import { BodyPageMarker } from "../BodyPageMarker";
 import { BadgeRow, ImagePanel, PageHero, ProseStack, text } from "../common";
-import { RankCards, ReturnHomeLink, record, strings } from "../page-helpers";
+import { RankCards, record, strings } from "../page-helpers";
 
 export function RanksPage() {
   const data = record(ranksData);
@@ -65,7 +66,13 @@ export function RanksPage() {
                   <p className="muted u-mt-14" id={`${tier.id}Note`}>
                     {text(tier.data.note)}
                   </p>
-                  {tier.id === "members" ? <ReturnHomeLink /> : null}
+                  {tier.id === "members" ? (
+                    <div className="u-mt-18">
+                      <Link href="/leaders" className="footer-link">
+                        Meet the Leaders
+                      </Link>
+                    </div>
+                  ) : null}
                 </div>
               </section>
               <aside className="col-4">

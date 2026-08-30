@@ -14,7 +14,7 @@
     "indexedMetadataRoutes": 18,
     "nonindexedMetadataRoutes": 11,
     "publicFiles": 249,
-    "publicBytes": 38622565,
+    "publicBytes": 38510119,
     "sourceFiles": 44
   },
   "sourceCatalog": [
@@ -191,7 +191,7 @@
     {
       "path": "apps/web/config/app-route-evidence.v1.json",
       "bytes": 68506,
-      "sha256": "E0C0DDFFAA5CD0EFCFEBEA46F3236319716970AF16A11BFBA493C64CFBD1F1C0"
+      "sha256": "CEF3FA2B25F109E79B3269E904F2FF21B3A61F5A6C8D571C26E61EE17A9CD33E"
     },
     {
       "path": "apps/web/config/app-route-matrix.v1.json",
@@ -211,7 +211,7 @@
     {
       "path": "scripts/check-app-static-surface-inventory.mjs",
       "bytes": 13000,
-      "sha256": "2A14E264B41BE889883371A9640C0C3B1163571D2E355E39A814160231D829C1"
+      "sha256": "88F52A076B1F3992E376567173443E21142A2C5EA9E3610336EB9C003D8D6C4B"
     },
     {
       "path": "scripts/check-assets.mjs",
@@ -236,7 +236,7 @@
     {
       "path": "scripts/lib/app-static-surface-inventory.test.mjs",
       "bytes": 124618,
-      "sha256": "0FB7897412C0ACD1A782B26416BAA7AB5ABC5E910E57EF8EEC7F3F960E0A97FB"
+      "sha256": "8B4711840BFF08F368B613ECE46D31CEA3AFD10C22CC0CDD97E0CD71D25950F5"
     }
   ],
   "metadataRoutes": [
@@ -2038,8 +2038,8 @@
     {
       "url": "/assets/img/leaders/dharmapala.webp",
       "source": "apps/web/public/assets/img/leaders/dharmapala.webp",
-      "bytes": 204024,
-      "sha256": "26DECF8F119D2D7D73293AA2B41FC43B16D064883AE30EC58F5AB58371C493EC",
+      "bytes": 92386,
+      "sha256": "AC0AF5EC137AA1BF629B7A9869192CA6ABE31C1F9931BEE569A277FE0051C156",
       "category": "asset",
       "format": "webp"
     },
@@ -2487,7 +2487,7 @@
       "url": "/data/events.json",
       "source": "apps/web/public/data/events.json",
       "bytes": 2491,
-      "sha256": "FFD1D6032AE6B475510E1E2F148B7BB3C9003365D245B9A63354D5E72A218652",
+      "sha256": "D0173E26404C04EF5B923D20C4775BEA423C3332930A884A3F3B239298E43766",
       "category": "public_data",
       "format": "json"
     },
@@ -2503,7 +2503,7 @@
       "url": "/data/guild-schedule.json",
       "source": "apps/web/public/data/guild-schedule.json",
       "bytes": 4978,
-      "sha256": "553CF0E91123EB40C0DC1460A676095A2DB8B81CE4CE9AA23E467F9734427B04",
+      "sha256": "0F9C43FFDA7958E73212C097558ED907F310194239E348B6CA76711E109CE2B7",
       "category": "public_data",
       "format": "json"
     },
@@ -2518,8 +2518,8 @@
     {
       "url": "/data/join.json",
       "source": "apps/web/public/data/join.json",
-      "bytes": 5127,
-      "sha256": "94CB2F62F52029D4B035026BF7E21E2D158FEFDD98831533448280A46C8727E1",
+      "bytes": 4319,
+      "sha256": "AB5CD5709D5DB36A8A9A81DF106D1AF6824BC03768DD9A6756E032759B5F086D",
       "category": "public_data",
       "format": "json"
     },
