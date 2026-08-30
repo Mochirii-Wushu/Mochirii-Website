@@ -1,132 +1,131 @@
 {
   "hero": {
-    "kicker": "Join",
+    "kicker": "The Open Gate",
     "title": "Join Mōchirīī",
-    "updated": "2026-02-01",
     "timezone": "UTC+8",
-    "intro": "Mōchirīī welcomes all pretty new members across Asia Pacific or anywhere else in the world if you don't mind the ping.",
+    "intro": "There is room in the guild for pretty Wanderers. We gather in Asia Pacific & players farther away are welcome when the ping works for them.",
     "image": "./assets/img/join/hero.webp",
     "imageAlt": "Join Mōchirīī banner artwork",
     "atmosphereImage": "",
     "badges": [
       "Welcome within a day",
       "Discord onboarding",
-      "Newcomer support",
-      "Ground rules"
+      "Newcomer help",
+      "Casual pace"
     ]
   },
   "steps": {
     "title": "The Joining Path",
     "intro": [
-      "These steps carry you from hello to first run. Leaders handle setup; you bring your in-game name, time zone & patience while roles are assigned."
+      "Five small steps take you from the gate to your first guild event."
     ],
     "items": [
       {
         "number": "1",
-        "title": "Enter the Hall",
-        "description": "Join Discord & tell a mod you are here for the guild. Verification opens the server & the game channels appear once your role is set. If you feel stuck, DM a mod or ask in game; one greeting can open the door."
+        "title": "Enter the Guild",
+        "description": "Open Discord & follow the welcome prompt. A moderator will verify you & open the guild channels."
       },
       {
         "number": "2",
-        "title": "Read the Tome & Ranks",
-        "description": "Skim the Tome & Ranks pages so you know our tone, etiquette, leadership path & support flow before you settle in."
+        "title": "Know the Guild",
+        "description": "Read the Tome & Ranks to learn our conduct, roles & who to ask for help."
       },
       {
         "number": "3",
-        "title": "Share your IGN & time zone",
-        "description": "Post your in-game name & time zone so leaders can match you with channels, roles & event windows. Mōchirīī is global, so time zones help everyone avoid guesswork."
+        "title": "Share Your Name",
+        "description": "Post your in-game name or UID & time zone so we can find you & match event times."
       },
       {
         "number": "4",
-        "title": "Receive your starting rank",
-        "description": "A leader gives your starting rank & points you to the channels, roles & weekly notes you need first."
+        "title": "Receive Your Rank",
+        "description": "A leader will assign your first rank & show you the channels you need."
       },
       {
         "number": "5",
-        "title": "Join an event",
-        "description": "Pick an upcoming event, RSVP if planning is needed & show up when you can. Ask questions early so the run starts well & everyone can share the road."
+        "title": "Share the Road",
+        "description": "Join an event, ask questions, say hello. It's all in the simple things."
       }
     ]
   },
   "quickStart": {
-    "title": "Quick Start",
+    "title": "Your Next Step",
     "body": [
       "Come say hello.",
-      "Presence matters & questions always welcome."
+      "We will help with the rest."
     ],
     "links": [
-      { "label": "Events", "href": "./events.html" },
-      { "label": "Guild Tome", "href": "./tome.html" },
-      { "label": "Ranks", "href": "./ranks.html" }
+      { "label": "See Events", "href": "./events.html" },
+      { "label": "Read the Tome", "href": "./tome.html" },
+      { "label": "View Ranks", "href": "./ranks.html" }
     ]
   },
   "checklist": {
     "eyebrow": "Before You Join",
-    "title": "New Cupcake Checklist",
-    "intro": "A quick way to step in ready to be welcomed.",
+    "title": "A Good Fit",
+    "intro": "Mōchirīī suits casual players who enjoy playing together when it suits them.",
     "items": [
       {
-        "title": "Join the Discord",
-        "text": "Use Discord for announcements, event planning & the having fun.",
-        "href": "https://discord.com/invite/dPafqMwWPK",
-        "label": "Open Discord"
-      },
-      {
-        "title": "Know your in-game name or UID",
-        "text": "Let us know your IGN so we can find you quickly & welcome you by name."
-      },
-      {
-        "title": "Read the Tome",
-        "text": "Review the guild's conduct, values & expectations before you settle in.",
+        "title": "Kindness Comes First",
+        "text": "Be ncie & give people room to recover from mistakes.",
         "href": "./tome.html",
         "label": "Read the Tome"
       },
       {
-        "title": "Check event expectations",
-        "text": "Events are announced as scheduled. Join when you can, speak up when life gets busy & keep the atmosphere friendly.",
-        "href": "./events.html",
-        "label": "View Events"
+        "title": "Real Life Comes First",
+        "text": "Join when you can & give notice before a longer break."
       },
       {
-        "title": "Say hello",
-        "text": "A simple greeting helps everyone recognize you; small welcomes become the start of shared runs."
+        "title": "UTC+8 Event Times",
+        "text": "Most planned guild events follow Asia Pacific hours. Check that the timing & ping suit you.",
+        "href": "./events.html",
+        "label": "See Events"
+      },
+      {
+        "title": "Discord Keeps Us Connected",
+        "text": "Roles, announcements & event planning live there.",
+        "href": "https://discord.com/invite/9HQKz6rqF4",
+        "label": "Join on Discord"
+      },
+      {
+        "title": "Questions Are Welcome",
+        "text": "Ask freely. Leaders & veteran members will help you anytime they can."
       }
     ]
   },
   "culture": {
-    "title": "Expectations & Culture",
+    "title": "Life in the Guild",
     "intro": [
-      "Mōchirīī stays kind through courtesy, effort & clear communication. Skill grows over time; care can show up in the first message."
+      "Guild life is meant to be light, casual & considerate."
     ],
     "cards": [
       {
-        "title": "Respect & kindness",
-        "description": "Keep chat welcoming, assume good intent & treat every member as someone you may share the road with for a long time."
+        "title": "Be Nice & Respectful",
+        "description": "Keep chat welcoming, assume good intent & repair mistakes calmly."
       },
       {
-        "title": "Activity rhythm",
-        "description": "Participation stays flexible. Presence, RSVPs for planned runs & notice during breaks matter more than marathon sessions."
+        "title": "Be Consistent",
+        "description": "RSVP for planned events & tell a leader before a longer break."
       },
       {
-        "title": "Helping new members",
-        "description": "Questions belong here. Veterans share tips, builds & mechanics with patience. Leaders step in when guidance helps."
+        "title": "Share What You Know",
+        "description": "Offer clear tips, simple answers & room for each members's own style."
       },
       {
-        "title": "Events & updates",
-        "description": "Events & announcements live in Discord as well as on the website, with pinned notes for clarity. RSVP early when asked & follow posted requirements."
+        "title": "Check the Latest Notice",
+        "description": "Discord events show final times, roles & requirements. Read the pinned note before an event."
       }
     ]
   },
   "notes": {
-    "title": "Notes",
+    "title": "Good to Know",
     "body": [
-      "Voice chat is optional unless an event post says otherwise. Discord is the clearest place for roles, announcements & coordination.",
-      "Need a break? Tell a leader before a longer Cupcake nap so roles & expectations remain for you.",
-      "If you feel lost, tag a leader. Getting unstuck keeps the game fun."
+      "Voice chat is optional unless an event notice requires it.",
+      "Everyday questions begin with middle leadership, Hall Leaders handle wider concerns.",
+      "When you feel lost, ask early. One question can spare a long detour."
     ],
     "links": [
-      { "label": "Leaders Hall", "href": "./leaders.html" },
-      { "label": "Home", "href": "./index.html" }
+      { "label": "Join on Discord", "href": "https://discord.com/invite/9HQKz6rqF4" },
+      { "label": "Meet the Leaders", "href": "./leaders.html" }
     ]
   }
 }
