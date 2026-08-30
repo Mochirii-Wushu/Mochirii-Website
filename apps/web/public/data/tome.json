@@ -94,7 +94,7 @@
           "Report harassment, safety concerns, or repeated conflict to leadership."
         ]
       }
-    ],
+    ]
   },
 
   "rhythm": {
@@ -144,6 +144,5 @@
       }
     ],
     "ranksHref": "./join.html"
-    "ranksHref": "./ranks.html"
   }
 }

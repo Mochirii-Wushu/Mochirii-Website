@@ -14,7 +14,7 @@
     "indexedMetadataRoutes": 18,
     "nonindexedMetadataRoutes": 11,
     "publicFiles": 249,
-    "publicBytes": 38510119,
+    "publicBytes": 38509669,
     "sourceFiles": 44
   },
   "sourceCatalog": [
@@ -211,7 +211,7 @@
     {
       "path": "scripts/check-app-static-surface-inventory.mjs",
       "bytes": 13000,
-      "sha256": "88F52A076B1F3992E376567173443E21142A2C5EA9E3610336EB9C003D8D6C4B"
+      "sha256": "E95D75F1BF29486EEC49F85DC080ACAC1FAC021D1EB3FE26F3018C493FCC5D58"
     },
     {
       "path": "scripts/check-assets.mjs",
@@ -236,7 +236,7 @@
     {
       "path": "scripts/lib/app-static-surface-inventory.test.mjs",
       "bytes": 124618,
-      "sha256": "8B4711840BFF08F368B613ECE46D31CEA3AFD10C22CC0CDD97E0CD71D25950F5"
+      "sha256": "793241B695B73A1C4FAB2211D049930834753DE84722938734FCBC7A1D4BBB64"
     }
   ],
   "metadataRoutes": [
@@ -2574,8 +2574,8 @@
     {
       "url": "/data/tome.json",
       "source": "apps/web/public/data/tome.json",
-      "bytes": 5609,
-      "sha256": "A3519CE6C8F39E85303BD1DAE24E3A2FEF598BAFBE81E30642B4409F5EA9A57A",
+      "bytes": 5159,
+      "sha256": "EA948BF4BF15C6740AA5AF27EA7B31EAFFD2FCF517D833E093CC62BD6CD0FB3A",
       "category": "public_data",
       "format": "json"
     },
