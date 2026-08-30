@@ -11,7 +11,7 @@ const expected = {
   gatheringTitle: "Monthly Guild Gathering",
   gatheringDescription: "A monthly gathering where every member can discuss anything they'd like with the guild.",
   footer: "An Asia Pacific Where Winds Meet guild, with events scheduled in UTC+8.",
-  join: "Mōchirīī welcomes all pretty new members across Asia Pacific or anywhere else in the world if you don't mind the ping.",
+  join: "There is room in the guild for pretty Wanderers. We gather in Asia Pacific & players farther away are welcome when the ping works for them.",
   displayTimezone: "UTC+8",
   brandSubtitle: "Asia Pacific Guild",
 };

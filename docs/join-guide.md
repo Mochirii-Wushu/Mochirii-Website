@@ -2,7 +2,7 @@
 
 ## 1. Purpose
 
-The Join page is for onboarding: first steps, the Discord path, in-game name or UID readiness, Tome and Events readiness, and the newcomer checklist.
+The Join page is for onboarding: first steps, the Discord path, Tome and Events readiness, and the newcomer checklist.
 
 Join should not duplicate:
 
@@ -18,8 +18,8 @@ Keep this page practical. A visitor should understand how to enter Discord, what
 
 - Join data lives in `apps/web/public/data/join.json`.
 - Keep JSON valid.
-- Preserve the current schema unless `join.js` changes in the same scoped task.
-- Add only fields that `join.js` actually supports.
+- Preserve the current schema unless `JoinPage.tsx` changes in the same scoped task.
+- Add only fields that `JoinPage.tsx` actually supports.
 - Keep onboarding copy concise.
 - Keep functional labels plain.
 
@@ -42,7 +42,7 @@ Current item shapes:
 
 ## 3. Rendering and Shared Helpers
 
-`join.js` renders:
+`JoinPage.tsx` renders:
 
 - hero image, title, updated month, timezone, intro, and badges
 - joining path title, intro, and ordered steps
@@ -54,11 +54,10 @@ Current item shapes:
 
 Shared helper usage:
 
-- `utils.js` must load before `join.js`.
-- Join uses `MochiriiUtils.text`, `asArray`, `setText`, `setImg`, `isExternalHttpUrl`, `fetchJson`, and `formatDateUTC`.
+- Join uses the shared public-page text, record, route, link, image, date, and badge helpers.
 - Join copy renders through `textContent`; inline HTML and Markdown are not supported in JSON.
 - `hero.updated` uses the shared UTC-safe date formatter and renders as `Updated Month Year`.
-- `site.js` mounts the shared header/footer and owns active nav, dropdowns, mobile menu behavior, footer year, and shared lightbox behavior.
+- The shared Next shell mounts the header/footer and owns active nav, dropdowns, mobile menu behavior, and footer year.
 
 ## 4. Newcomer Checklist
 
@@ -71,11 +70,11 @@ Current checklist item shape:
 - optional `href`
 - optional `label`
 
-Each item should describe one concrete preparation step. Current checklist topics cover Discord, in-game name or UID readiness, Tome review, Events expectations, and saying hello.
+Each item should describe one concrete preparation step. Current checklist topics cover kindness, real-life availability, UTC+8 event timing, Discord, and questions.
 
 Checklist links render only when both `href` and `label` are present. Current checklist links point to Discord, Tome, and Events.
 
-Checklist copy should remain clear, not overly poetic. Do not add interactive completion behavior, checkbox state, local storage, or unsupported fields without updating `join.js` in a separate scoped task.
+Checklist copy should remain clear, not overly poetic. Do not add interactive completion behavior, checkbox state, local storage, or unsupported fields without updating `JoinPage.tsx` in a separate scoped task.
 
 ## 5. Tone Rules
 
@@ -85,7 +84,7 @@ Checklist copy should remain clear, not overly poetic. Do not add interactive co
 - Avoid forced rhyme.
 - Avoid generic AI-like language.
 - Avoid "Where Winds Meet" in visible Join body copy.
-- Keep labels plain: Join Discord, Read the Tome, View Events, Ranks, Home.
+- Keep labels plain: See Events, Read the Tome, View Ranks, Join on Discord, Meet the Leaders.
 
 ## 6. Links and CTAs
 
@@ -96,8 +95,8 @@ Current link behavior:
 - `notes.links` render as badge-row links.
 - Discord links are external and open in a new tab with `rel="noopener noreferrer"`.
 - The optional Discord server preview is user activated. Its iframe must not exist or make a Discord request until the visitor selects `Show server preview`; the ordinary `Open Discord` link remains available without loading the preview.
-- Internal links currently point to Events, Tome, Ranks, Leaders, and Home.
-- Shared header/footer links are mounted by `site.js`, not `join.js`.
+- Internal links currently point to Events, Tome, Ranks, and Leaders.
+- Shared header/footer links are mounted by the Next layout, not `JoinPage.tsx`.
 
 Link rules:
 

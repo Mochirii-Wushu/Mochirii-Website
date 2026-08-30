@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { OfficialGuildProfiles } from "@/components/OfficialGuildProfiles";
 import type { HeaderAuthState } from "@/components/site-header/header-navigation";
 import { SpinnerViewerNavLink } from "@/components/site-header/spinner-viewer-nav-link";
-import { DISCORD_INVITE_URL, SOCIAL_HOST } from "@/lib/public-urls";
+import { DISCORD_INVITE_URL, FORUMS_HOST, SOCIAL_HOST } from "@/lib/public-urls";
 import { accountWorkflowLinks } from "@/lib/site-navigation";
 
 type FooterLink = {
@@ -18,6 +18,7 @@ const guildLinks = [
   { href: "/spotlight", label: "Spotlight" },
   { href: "/gallery", label: "Gallery" },
   { href: SOCIAL_HOST, label: "Social", external: true },
+  { href: FORUMS_HOST, label: "Forums", external: true },
   { href: "/games/mochi-pets", label: "Mochi Pets" },
 ] satisfies FooterLink[];
 
@@ -107,11 +108,11 @@ export function SiteFooter({
                   rel="noopener noreferrer"
                   aria-label="Join Mōchirīī on Discord"
                 >
-                  Join<span className="footer-cta-glint" aria-hidden="true" />
+                  Join Mōchirīī<span className="footer-cta-glint" aria-hidden="true" />
                 </a>
 
                 <Link className="footer-link" href="/recruitment">
-                  Recruitment Tips
+                  Recruitment Note
                 </Link>
               </div>
             </div>

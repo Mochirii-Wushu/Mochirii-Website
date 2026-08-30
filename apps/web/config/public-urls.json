@@ -1,7 +1,8 @@
 {
   "siteOrigin": "https://mochirii.com",
   "socialHost": "https://social.mochirii.com",
-  "discordInviteUrl": "https://discord.com/invite/dPafqMwWPK",
+  "forumsHost": "https://forums.mochirii.com",
+  "discordInviteUrl": "https://discord.com/invite/9HQKz6rqF4",
   "supabaseProjectRef": "deyvmtncimmcinldjyqe",
   "officialGuildProfiles": [
     {
