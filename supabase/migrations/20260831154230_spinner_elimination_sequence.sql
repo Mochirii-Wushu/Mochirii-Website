@@ -176,7 +176,6 @@ declare
   snapshot jsonb;
   receipt_value jsonb;
   participant_count integer;
-  participant_index integer;
   participant_value jsonb;
   participant_ids text[] := array[]::text[];
   next_revision bigint;
@@ -190,7 +189,6 @@ declare
   compact_plan jsonb := '[]'::jsonb;
   active_participants jsonb;
   round_count integer;
-  round_index integer;
   round_value jsonb;
   round_selected_index integer;
   round_active_count integer;
@@ -201,7 +199,6 @@ declare
   expected_rejection_limit bigint;
   sampled_words jsonb;
   sampled_words_text text;
-  sample_index integer;
   sampled_word_value jsonb;
   sampled_word bigint;
   accepted_word bigint;
