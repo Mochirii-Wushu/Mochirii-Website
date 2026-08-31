@@ -32,8 +32,8 @@ const expectedLibraryBytes = 24_913;
 const expectedLibrarySha256 = "B0370216A311FC19A6206580806CD8312572F2589989C7038359D1F9D7547733";
 const expectedAppRouterLibraryBytes = 59_423;
 const expectedAppRouterLibrarySha256 = "5051994396F6B0EAC3033F13CF2DC41BD2DCD8FF3102CF11DC49F8B53F780D84";
-const expectedProductionCheckerBytes = 155_114;
-const expectedProductionCheckerSha256 = "220FD71AEEBE508B06B7DCD65C6A10B5337BF2893605A9D13CE4E0C21A72BA24";
+const expectedProductionCheckerBytes = 159_460;
+const expectedProductionCheckerSha256 = "2EA0828A9DCDE5ACCD9A27283D640A14EC3440BA915702BE65C67AD34C3A4322";
 
 function sha256(buffer) {
   return createHash("sha256").update(buffer).digest("hex").toUpperCase();
@@ -1031,6 +1031,82 @@ function resealHomeSpotlightFlightStream({
   return ["0", "d", "12", "13", "1b", ...order].map((recordId) => rows.get(recordId)).join("");
 }
 
+const resealCurrentHomeSpotlightRetainedOrder = Object.freeze(["20", "1e"]);
+
+function resealCurrentHomeSpotlightFlightStream({
+  anchorChildren = "$L1e",
+  cardId = "spotlightCard",
+  cardRole = "group",
+  galleryHref = "/gallery",
+  galleryLabel = "View Guild Gallery",
+  importName = "HomeGallerySpotlight",
+  order = resealCurrentHomeSpotlightRetainedOrder,
+  rootExtraReference = null,
+  title = "Member Spotlight",
+} = {}) {
+  const root = {
+    P: null,
+    c: rootExtraReference === null ? [] : [rootExtraReference],
+    q: "",
+    i: false,
+    f: ["$L8"],
+    m: "fixture",
+    G: [],
+    S: false,
+    h: null,
+    r: "",
+    s: "",
+    a: "",
+    l: "",
+    p: "",
+    d: resealFlightSemanticToken,
+    b: resealFlightBuildId,
+  };
+  const spotlight = ["$", "section", "spotlight-section", {
+    className: "glass-card glass-card--primary glass-pad u-mt-24",
+    "aria-label": "Member spotlight",
+    children: ["$", "div", "spotlight-card", {
+      id: cardId,
+      className: "home-spotlight",
+      role: cardRole,
+      "aria-label": "Member spotlight - Fixture - Kind - Spotlight Appreciation",
+      children: ["$", "div", "spotlight-plate", {
+        className: "home-spotlight__plate",
+        children: ["$", "h3", "spotlight-title", {
+          id: "spotlightTitle",
+          className: "home-title",
+          children: anchorChildren,
+        }],
+      }],
+    }],
+  }];
+  const galleryCta = ["$", "$L7", null, {
+    className: "hero-cta home-section-cta",
+    href: galleryHref,
+    children: galleryLabel,
+  }];
+  const rows = new Map([
+    ["0", `0:${JSON.stringify(root)}\n`],
+    ["8", `8:${JSON.stringify(["$", "div", "home-shell", { children: "$L15" }])}\n`],
+    ["15", `15:${JSON.stringify(["$", "main", "home-main", {
+      children: ["$L1c", "$L1d"],
+    }])}\n`],
+    ["1c", `1c:${JSON.stringify(spotlight)}\n`],
+    ["1f", `1f:I${JSON.stringify([24555, [
+      resealFlightVisiblePath,
+      "/_next/static/chunks/gallery-a.js",
+      "/_next/static/chunks/gallery-b.js",
+    ], importName])}\n`],
+    ["1d", `1d:${JSON.stringify(["$", "div", "gallery-shell", {
+      children: ["$L1f", "$L20"],
+    }])}\n`],
+    ["20", `20:${JSON.stringify(galleryCta)}\n`],
+    ["1e", `1e:${JSON.stringify(title)}\n`],
+  ]);
+  return ["0", "8", "15", "1c", "1f", "1d", ...order]
+    .map((recordId) => rows.get(recordId)).join("");
+}
+
 function permutations(values) {
   if (values.length <= 1) return [values];
   return values.flatMap((value, index) => permutations([
@@ -1146,6 +1222,9 @@ function resealFixture({
 const fontPreload = (buildId, name) =>
   `</_next/static/${buildId ? buildId + "/" : ""}media/${name}.woff2>; rel=preload; as="font"; crossorigin=""; type="font/woff2"`;
 
+const stylePreload = (buildId, name) =>
+  `</_next/static/${buildId ? buildId + "/" : ""}chunks/${name}.css>; rel=preload; as="style"`;
+
 function resealFlightPolicyFixture(bodyTransform = (body) => body) {
   return resealFixture({
     bodyTransform,
@@ -1205,21 +1284,22 @@ test("production document variants preserve exact header-resource pairings", () 
 });
 
 test("production profiles bind the repaired local and live resource envelopes exactly", () => {
-  const sharedHeader = "767693EE075EE31FE445A966DBE0BC2823B4353406A94C590DFF787CEED8E5E3";
+  const homeLiveHeader = "411005B83187566BA48384F5D5211FDCA5D4A3932C9F1E1CAE8AE44B7A550B78";
+  const sharedHeader = "951B1B5A4CD1F143B08D97FE83EA92425BCE46BB451BF00E5061E18579E5CE71";
   const localHomeHeader = "675E803BB871598DAD4CE0D1A3A64CB1ED1D30FB7616932CEA63CF25A98530F0";
   const localHomeResources = "3ED2476C6AE21876EADBE86B73FE0615C8FB8E1350C5E8CD9C8B34EF5B971820";
-  const liveHomeResources = "AF7841F98846581A218F2CBF97474B61B44F133E70586FE31B59D404416A1A12";
-  const recruitmentHeader = "179EADA7DAB503C38AD261D71B2301F8DB134C5354ED186BE6ED227C213E5649";
+  const liveHomeResources = "B4407357814ABF98CE52EDA66D0A472824DFBCBCD50FCFC902405D6262281761";
+  const recruitmentHeader = "66A0D6F526E99D38873D32D0B201816B1AF2C86151CF5CD99B1513BC6FA7B400";
   const localRecruitmentResources = "C92A261DD8F4354A428EFE76BA65AC19DBE81319FAC57762A97D1FB249FA238A";
-  const liveRecruitmentResources = "6CC57E08D21592A8C637D344931BBB4F508699AE69EA768C3ABC1E920DDFA023";
+  const liveRecruitmentResources = "F407952D409F3B5182F3465048F47592952C92948A4F56797886BD6194F1AAC4";
   const localPrivacyResources = "727E4C0D6E5C2A93C57660844BD08264A02643416CE0D63BCE58832DC2A863AA";
-  const livePrivacyResources = "6EA10100B693D0E95B09CBF1F6901F0CC5EEBD853F1A2607BE846A5C7AEF4C7C";
+  const livePrivacyResources = "EC048124DED6CD1D564ED72BF08F5C5489559754D2C6556A7E44C2C117B591AF";
   const localDeletionResources = "ED2A94A30FFCEF523DAA23935D4327E0782719182CDEAC3EECFA14EEF2452E4E";
-  const liveDeletionResources = "43111FFA05C8E063026126CAC9A90A7C97A28C38CC8F1BD8B3F7398B904DA0CC";
+  const liveDeletionResources = "EF68A8366B489129A4F89BD64001A55AD634AD15723A48DAF5E4C052ED2CE7AE";
   assert.equal(productionDocumentProfileMatches(
     "home", localHomeHeader, localHomeResources,
   ), true);
-  assert.equal(productionDocumentProfileMatches("home", sharedHeader, liveHomeResources), true);
+  assert.equal(productionDocumentProfileMatches("home", homeLiveHeader, liveHomeResources), true);
   assert.equal(productionDocumentProfileMatches(
     "recruitment", recruitmentHeader, localRecruitmentResources,
   ), true);
@@ -1239,7 +1319,7 @@ test("production profiles bind the repaired local and live resource envelopes ex
     "deletion", sharedHeader, liveDeletionResources,
   ), true);
   assert.equal(productionDocumentProfileMatches("home", localHomeHeader, liveHomeResources), false);
-  assert.equal(productionDocumentProfileMatches("home", sharedHeader, localHomeResources), false);
+  assert.equal(productionDocumentProfileMatches("home", homeLiveHeader, localHomeResources), false);
   assert.equal(productionDocumentProfileMatches(
     "recruitment", recruitmentHeader, localPrivacyResources,
   ), false);
@@ -1310,7 +1390,16 @@ test("production checker accepts the bounded Vercel publication envelope", async
         "content-disposition": disposition,
         ...(url.pathname.startsWith("/assets/")
           ? { "content-length": "0000000000000004" } : {}),
-        ...(url.pathname === "/events" ? {
+        ...(url.pathname === "/" ? {
+          link: [
+            fontPreload(buildId, "font-a"),
+            fontPreload(buildId, "font-b"),
+            stylePreload(buildId, "style-a"),
+            stylePreload(buildId, "style-b"),
+            stylePreload(buildId, "style-c"),
+            stylePreload(buildId, "style-d"),
+          ].join(", "),
+        } : url.pathname === "/events" ? {
           link: [fontPreload(buildId, "font-a"), fontPreload(buildId, "font-b")].join(", "),
         } : {}),
       };
@@ -1326,7 +1415,16 @@ test("production checker accepts the bounded Vercel publication envelope", async
 
   const local = resealFixture({
     resourcePaths: new Set(["/events", "/gallery", "/join", "/privacy"]),
-    responseHeaders: (url) => url.pathname === "/events" ? {
+    responseHeaders: (url) => url.pathname === "/" ? {
+      link: [
+        fontPreload("", "font-a"),
+        fontPreload("", "font-b"),
+        stylePreload("", "style-a"),
+        stylePreload("", "style-b"),
+        stylePreload("", "style-c"),
+        stylePreload("", "style-d"),
+      ].join(", "),
+    } : url.pathname === "/events" ? {
       link: [fontPreload("", "font-a"), fontPreload("", "font-b")].join(", "),
     } : {},
   });
@@ -1678,6 +1776,47 @@ test("home Flight normalization binds the exact Spotlight graph and async termin
     canonicalizeProductionFlightResourceEnvelopeStream(alternateSchedule, new Set()),
     expected,
   );
+});
+
+test("current home Flight normalization binds the accessible Spotlight and gallery graph", () => {
+  const retained = resealCurrentHomeSpotlightFlightStream();
+  const expected = canonicalizeProductionFlightResourceEnvelopeStream(retained, new Set());
+  const normalize = (stream) => canonicalizeProductionFlightResourceEnvelopeStream(
+    stream, new Set(), null, null, true,
+  );
+  assert.notEqual(expected, null);
+  assert.equal(normalize(retained), expected);
+  assert.equal(normalize(resealCurrentHomeSpotlightFlightStream({
+    order: [...resealCurrentHomeSpotlightRetainedOrder].reverse(),
+    title: "Lián 🌸",
+  })), expected);
+  for (const title of ["A", "山茶", "@member", "<member>", "A\\B", "A`B", "A".repeat(118) + "🌸"]) {
+    assert.equal(normalize(resealCurrentHomeSpotlightFlightStream({ title })), expected);
+  }
+
+  const trailingFrame = retained + "21:null\n";
+  const duplicateAnchor = retained.replace(
+    /^1c:(.+)$/m,
+    (_row, payload) => `1c:${JSON.stringify([JSON.parse(payload), JSON.parse(payload)])}`,
+  );
+  for (const stream of [
+    resealCurrentHomeSpotlightFlightStream({ anchorChildren: "$1e" }),
+    resealCurrentHomeSpotlightFlightStream({ anchorChildren: "$L20" }),
+    resealCurrentHomeSpotlightFlightStream({ cardId: "spotlightTitle" }),
+    resealCurrentHomeSpotlightFlightStream({ cardRole: "presentation" }),
+    resealCurrentHomeSpotlightFlightStream({ galleryHref: "/events" }),
+    resealCurrentHomeSpotlightFlightStream({ galleryLabel: "Changed" }),
+    resealCurrentHomeSpotlightFlightStream({ importName: "OtherGallery" }),
+    resealCurrentHomeSpotlightFlightStream({ order: ["20"] }),
+    resealCurrentHomeSpotlightFlightStream({ order: ["20", "20"] }),
+    resealCurrentHomeSpotlightFlightStream({ rootExtraReference: "$L1e" }),
+    resealCurrentHomeSpotlightFlightStream({ title: "" }),
+    resealCurrentHomeSpotlightFlightStream({ title: "A".repeat(121) }),
+    resealCurrentHomeSpotlightFlightStream({ title: " A" }),
+    resealCurrentHomeSpotlightFlightStream({ title: "A\nB" }),
+    duplicateAnchor,
+    trailingFrame,
+  ]) assert.equal(normalize(stream), null);
 });
 
 test("home Flight normalization rejects graph, title, cohort, and noncohort drift", () => {
@@ -2042,6 +2181,7 @@ test("production Flight parser accepts reviewed intrinsics, primitives, and defe
     }],
     ["$", "a", null, {
       href: "/events",
+      "aria-label": "Open guild events",
       target: "$undefined",
       rel: "$undefined",
       children: "Events",
@@ -2440,6 +2580,32 @@ test("production Flight intrinsic resources reject active unreviewed browser sur
     [
       "active-anchor",
       ["$", "a", "copy", { href: `javascript:${sentinel}`, children: "copy" }],
+      "HTML namespace parser PAYLOAD_MODEL",
+    ],
+    [
+      "empty-anchor-label",
+      ["$", "a", "copy", { href: "/events", "aria-label": "", children: "copy" }],
+      "HTML namespace parser PAYLOAD_MODEL",
+    ],
+    [
+      "control-anchor-label",
+      ["$", "a", "copy", {
+        href: "/events", "aria-label": `Open\n${sentinel}`, children: "copy",
+      }],
+      "HTML namespace parser PAYLOAD_MODEL",
+    ],
+    [
+      "oversized-anchor-label",
+      ["$", "a", "copy", {
+        href: "/events", "aria-label": sentinel.repeat(20), children: "copy",
+      }],
+      "HTML namespace parser PAYLOAD_MODEL",
+    ],
+    [
+      "non-string-anchor-label",
+      ["$", "a", "copy", {
+        href: "/events", "aria-label": { sentinel }, children: "copy",
+      }],
       "HTML namespace parser PAYLOAD_MODEL",
     ],
   ];
@@ -3100,12 +3266,12 @@ test("production checker rejects publication-envelope drift", async () => {
     resealFixture({
       buildId: "build_a",
       responseHeaders: (url) => url.pathname === "/"
-        ? { link: fontPreload("build_b", "font-a") } : {},
+        ? { link: [fontPreload("build_b", "font-a"), fontPreload("build_b", "font-b")].join(", ") } : {},
     }),
     resealFixture({
       buildId: "build_a",
       responseHeaders: (url) => url.pathname === "/"
-        ? { link: fontPreload("", "font-a") } : {},
+        ? { link: [fontPreload("", "font-a"), fontPreload("", "font-b")].join(", ") } : {},
     }),
   ];
   for (const [index, current] of driftFixtures.entries()) {
@@ -3126,6 +3292,89 @@ test("production checker rejects publication-envelope drift", async () => {
     (url) => url.pathname === "/events" ? {
       link: [fontPreload("build_a", "font-a"), fontPreload("build_a", "font-a")].join(", "),
     } : {},
+    (url) => url.pathname === "/events" ? {
+      link: fontPreload("build_a", "font-a"),
+    } : {},
+    (url) => url.pathname === "/events" ? {
+      link: [stylePreload("build_a", "style-a"), stylePreload("build_a", "style-b")].join(", "),
+    } : {},
+    (url) => url.pathname === "/events" ? {
+      link: [
+        fontPreload("build_a", "font-a"),
+        fontPreload("build_a", "font-b"),
+        stylePreload("build_b", "style-a"),
+      ].join(", "),
+    } : {},
+    (url) => url.pathname === "/events" ? {
+      link: [
+        fontPreload("build_a", "font-a"),
+        fontPreload("build_a", "font-b"),
+        stylePreload("build_a", "style-a"),
+        stylePreload("build_a", "style-a"),
+      ].join(", "),
+    } : {},
+    (url) => url.pathname === "/events" ? {
+      link: [
+        fontPreload("build_a", "font-a"),
+        fontPreload("build_a", "font-b"),
+        '<https://outside.example/_next/static/build_a/chunks/style-a.css>; rel=preload; as="style"',
+      ].join(", "),
+    } : {},
+    (url) => url.pathname === "/events" ? {
+      link: [
+        fontPreload("build_a", "font-a"),
+        fontPreload("build_a", "font-b"),
+        '<https://user:placeholder@preview.example/_next/static/build_a/chunks/style-a.css>; rel=preload; as="style"',
+      ].join(", "),
+    } : {},
+    ...["?sentinel=private", "#private-sentinel"].map((suffix) =>
+      (url) => url.pathname === "/events" ? {
+        link: [
+          fontPreload("build_a", "font-a"),
+          fontPreload("build_a", "font-b"),
+          `</_next/static/build_a/chunks/style-a.css${suffix}>; rel=preload; as="style"`,
+        ].join(", "),
+      } : {}),
+    (url) => url.pathname === "/events" ? {
+      link: [
+        fontPreload("build_a", "font-a"),
+        fontPreload("build_a", "font-b"),
+        stylePreload("build_a", "style-a") + "; fetchpriority=high",
+      ].join(", "),
+    } : {},
+    (url) => url.pathname === "/events" ? {
+      link: [
+        fontPreload("build_a", "font-a"),
+        fontPreload("build_a", "font-b"),
+        ...Array.from({ length: 5 }, (_, index) => stylePreload("build_a", `style-${index}`)),
+      ].join(", "),
+    } : {},
+    (url) => url.pathname === "/events" ? {
+      link: [
+        fontPreload("build_a", "font-a"),
+        stylePreload("build_a", "style-a"),
+        fontPreload("build_a", "font-b"),
+      ].join(", "),
+    } : {},
+    (url) => url.pathname === "/events" ? {
+      link: [
+        fontPreload("build_a", "font-a"),
+        fontPreload("build_a", "font-b"),
+        fontPreload("build_a", "font-c"),
+      ].join(", "),
+    } : {},
+    ...[
+      "style%2ea.css",
+      "../style-a.css",
+      String.raw`style\\a.css`,
+      "style-a.css\tprivate",
+    ].map((name) => (url) => url.pathname === "/events" ? {
+      link: [
+        fontPreload("build_a", "font-a"),
+        fontPreload("build_a", "font-b"),
+        `</_next/static/build_a/chunks/${name}>; rel=preload; as="style"`,
+      ].join(", "),
+    } : {}),
     () => ({ link: "x".repeat(PRODUCTION_CHECK_LIMITS.linkHeaderCharacters + 1) }),
     () => ({
       "content-disposition": "x".repeat(
