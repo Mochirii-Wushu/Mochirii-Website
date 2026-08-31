@@ -30,15 +30,31 @@ export function formatPublicDate(date: Date, timeZone = "UTC") {
   return `${day} ${PUBLIC_MONTH_ABBREVIATIONS[month - 1]} ${year}`;
 }
 
-export function formatPublicDateTime(
-  date: Date,
-  timeZone: string,
-  locale?: string,
-) {
-  const time = new Intl.DateTimeFormat(locale, {
+export function formatPublicTime(date: Date, timeZone: string) {
+  if (Number.isNaN(date.valueOf())) throw new RangeError("Public time must be valid");
+  const parts = new Intl.DateTimeFormat("en-US", {
     timeZone,
     hour: "numeric",
     minute: "2-digit",
-  }).format(date);
-  return `${formatPublicDate(date, timeZone)}, ${time}`;
+    hour12: true,
+  }).formatToParts(date);
+  const values = new Map(parts.map((part) => [part.type, part.value]));
+  const hour = Number(values.get("hour"));
+  const minute = values.get("minute") || "";
+  const period = (values.get("dayPeriod") || "").toUpperCase();
+
+  if (!Number.isInteger(hour) || hour < 1 || hour > 12
+    || !/^(?:[0-5]\d)$/u.test(minute)
+    || !/^(?:AM|PM)$/u.test(period)) {
+    throw new RangeError("Public time could not be formatted");
+  }
+
+  return `${hour}:${minute} ${period}`;
+}
+
+export function formatPublicDateTime(
+  date: Date,
+  timeZone: string,
+) {
+  return `${formatPublicDate(date, timeZone)}, ${formatPublicTime(date, timeZone)}`;
 }

@@ -55,26 +55,14 @@ export function isExternalHref(href: string) {
   return /^https?:\/\//i.test(href);
 }
 
-export function formatDateUTC(
-  value: unknown,
-  options?: Intl.DateTimeFormatOptions,
-) {
+export function formatDateUTC(value: unknown) {
   const raw = text(value);
   if (!raw) return "";
 
   const date = new Date(`${raw}T00:00:00Z`);
   if (Number.isNaN(date.valueOf())) return raw;
 
-  if (!options) return formatPublicDate(date);
-
-  return new Intl.DateTimeFormat("en-GB", {
-    timeZone: "UTC",
-    ...options,
-  }).format(date);
-}
-
-export function monthYearUTC(value: unknown) {
-  return formatDateUTC(value, { year: "numeric", month: "long" });
+  return formatPublicDate(date);
 }
 
 export function BadgeRow({

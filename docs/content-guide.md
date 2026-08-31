@@ -28,6 +28,9 @@ Do not restore or edit a parallel root static site.
 - Use `YYYY-MM-DD` for date-only values.
 - Render public calendar dates as `D MMM YYYY` using the exact English abbreviations `Jan`, `Feb`, `Mar`, `Apr`,
   `May`, `Jun`, `Jul`, `Aug`, `Sep`, `Oct`, `Nov`, and `Dec`.
+- Render public clock times as `h:mm AM/PM`, including `:00` for whole hours and uppercase `AM` or `PM`.
+- Render combined public instants as `D MMM YYYY, h:mm AM/PM`. Keep the governing time-zone label beside the
+  value; any visitor-local raffle equivalent uses the same presentation.
 - Date rendering is UTC-safe, so date-only values should not shift backward in US time zones.
 - Avoid natural-language dates in structured date fields.
 - After editing events or announcements, spot-check rendered dates locally.
@@ -86,7 +89,7 @@ The restoration source of truth is [`reports/audio-original-restore.md`](../repo
 - Use Cupcake warmth sparingly; do not make every section dessert-themed or unclear.
 - Keep functional labels plain, such as Join Discord, Read the Tome, View Events, Upcoming, Past, and All.
 - Avoid generic AI-like phrasing, corporate language, forced rhyme, and direct references from source poems.
-- Do not alter the protected long-form recruitment body or the four approved Guild Standards lines.
+- Do not alter the protected long-form recruitment body or the guild seal poem.
 
 ## 8. Xianxia House Style, Page Purpose, and Vocabulary
 
@@ -94,9 +97,9 @@ The restoration source of truth is [`reports/audio-original-restore.md`](../repo
 - Each page should have a distinct job. Home invites, Join orients, Events schedules, Gallery remembers, Ranks explains progression, Leaders directs contact, Tome defines conduct, Recruitment preserves philosophy, and side pages keep their own focus.
 - Use cultivation, path, hall, lantern, jade, lotus, bamboo, moon, frost, and qi imagery sparingly. Clear meaning comes first.
 - Keep Cupcake warmth as a playful thread, not a repeated motif.
-- The exact phrase “Where Winds Meet” may remain in the approved Home subtitle `Asia Pacific • Where Winds Meet Guild`,
-  the approved first Hero paragraph phrase `casual Where Winds Meet players`, titles, metadata, JSON-LD, validation
-  scripts, docs, reports, header, and footer. Avoid it elsewhere in regular visible body copy when a clear phrase like
+- The exact phrase “Where Winds Meet” may remain in the approved first Hero paragraph phrase
+  `casual Where Winds Meet players`, titles, metadata, JSON-LD, validation scripts, docs, reports, header, and footer.
+  Avoid it elsewhere in regular visible body copy when a clear phrase like
   the game, the Jianghu, the guild road, or the path works better.
 - Do not imitate named authors, copy poem/article phrases, force rhyme, blur functional labels, or repeat the same vocabulary across pages without purpose.
 

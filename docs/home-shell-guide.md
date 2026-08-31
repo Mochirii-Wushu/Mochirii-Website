@@ -15,7 +15,7 @@ Home should route visitors onward without duplicating:
 - Leaders contact structure.
 - Twills personal profile.
 
-Current Home order is Hero, Guild Bulletin, Guild Guide, Guild Standards, Member Spotlight, Guild Gallery, then the
+Current Home order is Hero with Guild Seal, Guild Bulletin, Guild Guide, Member Spotlight, Guild Gallery, then the
 global footer. Keep current/actionable information and primary destinations ahead of supporting identity material.
 
 ## 2. Data Source
@@ -60,17 +60,15 @@ Renderer notes:
 - Inline HTML and Markdown are not supported in Home JSON copy.
 - Home kicker, `h1`, primary CTA labels, section headings, metadata, header, footer, and navigation are component-owned rather than data-driven.
 
-## 3. Protected Guild Standards
+## 3. Protected Guild Seal Poem
 
-The protected Guild Standards lines live at:
+The protected guild seal poem lives at:
 
 - `apps/web/public/data/home.json` `seal.verse`
 
-The four standards are `Keep commitments.`, `Share useful information.`, `Offer help without pressure.`, and
-`Address problems directly.` They are protected after the explicitly approved replacement of the former seal poem.
-Do not alter wording, punctuation, line breaks, spelling, capitalization, order, or structure without a new explicit
-user request. Future edits may revise other non-standard Home fields only if needed, supported by the canonical Next
-Home route, and intentionally scoped.
+The guild seal poem is protected. Do not alter wording, punctuation, line breaks, spelling, capitalization,
+diacritics, order, or structure. Future edits may revise other non-seal Home fields only if needed, supported by the
+canonical Next Home route, and intentionally scoped. Any seal poem change requires explicit user approval.
 
 ## 4. Header / Navigation
 
@@ -157,16 +155,15 @@ and permission contract; authentication-provider marks are not reusable.
 - Home should feel clear, human, xianxia-inspired, and Mōchirīī-specific.
 - Cupcake warmth may appear lightly.
 - Do not overuse Cupcake language.
-- Keep the approved `apps/web/public/data/home.json` `hero.subtitle` exactly `Asia Pacific • Where Winds Meet Guild`.
-- The explicitly approved first hero paragraph may also say `casual Where Winds Meet players`; these two Hero strings
-  are the only regular visible Home body-copy exceptions for the exact game name.
+- The explicitly approved first hero paragraph may say `casual Where Winds Meet players`; this Hero string is the
+  only regular visible Home body-copy exception for the exact game name.
 - Do not use `Where Winds Meet` elsewhere in regular visible Home body copy.
 - Keep functional labels clear.
 - Avoid generic AI-like language.
 - Avoid forced rhyme.
 - Do not duplicate page-specific content from other sections.
 
-The exact game name may remain in the two approved Hero strings, header/footer, titles, metadata, SEO, JSON-LD,
+The exact game name may remain in the approved Hero string, header/footer, titles, metadata, SEO, JSON-LD,
 internal code, docs, reports, and validation scripts.
 
 ## 8. Metadata and Social Preview
@@ -219,8 +216,8 @@ Image expectations:
 Next app shared hero presentation:
 
 - Shared `PageHero` routes and Home use the same stable `3 / 2` hero image frame inside the tokenized `--hero-frame-max-width` container.
-- The hero image frame renders first, followed by the Home intro card. Guild Standards is a standalone main-content
-  section after Guild Guide rather than part of the Hero row.
+- The hero image frame renders first, then Home may place the intro card and guild seal together in a slim row below
+  it with positive spacing. Main page content follows below the hero header.
 - Hero images should render with `object-fit: contain` and `object-position: center`, with no crop, scrim, tint, CSS filter, transform, or overlay covering the image.
 - Do not use negative `--hero-image-to-card-gap` values, page-scoped hero geometry tokens, one-off hero margins, or page-local hero aspect/size overrides.
 - Surface tiers should remain explicit: hero shell, primary content card, quiet card, tool panel, and admin/member panel.
@@ -295,7 +292,7 @@ responsive contract on that production-mode Next app at `127.0.0.1:8765`.
 - Home cards/doors render.
 - Home Guild Gallery opens the selected full image in the same bounded proportional viewer as `/gallery`.
 - The lightbox passes mobile portrait/landscape, tablet, desktop, reflow, long-caption, keyboard, and touch checks without horizontal overflow.
-- Guild Standards render unchanged.
+- Seal poem renders unchanged.
 - Key links resolve.
 - The exact approved Facebook, Instagram, TikTok, Twitch, and YouTube profiles appear in the desktop Guild dropdown,
   mobile Official Social Profiles group, and footer without provider requests before activation.
@@ -305,13 +302,13 @@ responsive contract on that production-mode Next app at `127.0.0.1:8765`.
 - Protected recruitment body remains unchanged.
 - Protected recruitment conclusion remains unchanged.
 - Twills protected body remains unchanged.
-- Guild Standards remain unchanged.
+- Guild seal poem remains unchanged.
 
 ## 14. Protected Content
 
 Home/Shell work must not alter:
 
-- `apps/web/public/data/home.json` `seal.verse` (the four approved Guild Standards lines)
+- `apps/web/public/data/home.json` `seal.verse`
 - `apps/web/public/data/recruitment.json` `content.paragraphs`
 - `apps/web/public/data/recruitment.json` `content.conclusion`
 - `apps/web/public/data/twills.json` `profile.bio`

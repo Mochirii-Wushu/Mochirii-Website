@@ -6,9 +6,9 @@ export function formatRaffleTime(instant: string) {
   return formatRaffleTimeForZone(instant, RAFFLE_TIME_ZONE);
 }
 
-export function formatRaffleTimeForZone(instant: string, timeZone: string, locale = "en") {
+export function formatRaffleTimeForZone(instant: string, timeZone: string) {
   const date = parseRaffleInstant(instant);
-  return formatPublicDateTime(date, timeZone, locale);
+  return formatPublicDateTime(date, timeZone);
 }
 
 export function parseRaffleInstant(instant: string) {

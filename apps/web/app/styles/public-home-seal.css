@@ -45,7 +45,13 @@
 
 .home-hero-row{
   display:grid;
-  grid-template-columns:minmax(0, 1fr);
+  grid-template-columns:minmax(0, 1fr) clamp(220px, 24vw, 320px);
   align-items:stretch;
   gap:clamp(14px, 2vw, 24px);
+}
+
+@media (max-width:820px){
+  .home-hero-row{
+    grid-template-columns:1fr;
+  }
 }

@@ -25,15 +25,15 @@ const libraryUrl = pathToFileURL(libraryPath).href;
 const appRouterLibraryPath = path.join(root, "scripts", "lib", "app-router-inventory.mjs");
 const productionCheckerPath = path.join(root, "scripts", "check-production.mjs");
 const configPath = path.join(root, "apps", "web", "config", "app-static-surface-inventory.v1.json");
-const expectedSuccess = "App static surface inventory OK (29 metadata routes, 249 public files, 38509462 bytes).\n";
+const expectedSuccess = "App static surface inventory OK (29 metadata routes, 249 public files, 38509476 bytes).\n";
 const expectedCheckerBytes = 13_000;
-const expectedCheckerSha256 = "2927AAB46886EF07159D7723EB700CA8F8538AE92B98207EA2691D18D822172C";
+const expectedCheckerSha256 = "20C7A5DC206F489877900E30DB5F76F8393DEBD2A6E3367BC3FFCC7D6A1A7128";
 const expectedLibraryBytes = 24_956;
 const expectedLibrarySha256 = "AF6A2D5632582D56B92C8E7CD0D7ED0A004712BFCF51091DE2A1AFB50BD63C0A";
 const expectedAppRouterLibraryBytes = 59_423;
 const expectedAppRouterLibrarySha256 = "5051994396F6B0EAC3033F13CF2DC41BD2DCD8FF3102CF11DC49F8B53F780D84";
-const expectedProductionCheckerBytes = 155_184;
-const expectedProductionCheckerSha256 = "CA636DB5EF782EF1517B14EBB2A989BD13F7C480DA39C3DBE067AE868285A47F";
+const expectedProductionCheckerBytes = 155_114;
+const expectedProductionCheckerSha256 = "220FD71AEEBE508B06B7DCD65C6A10B5337BF2893605A9D13CE4E0C21A72BA24";
 
 function sha256(buffer) {
   return createHash("sha256").update(buffer).digest("hex").toUpperCase();
@@ -257,7 +257,7 @@ test("current source builds the complete source-only inventory", () => {
     indexedMetadataRoutes: 18,
     nonindexedMetadataRoutes: 11,
     publicFiles: 249,
-    publicBytes: 38_509_462,
+    publicBytes: 38_509_476,
     sourceFiles: 44,
   });
   assert.deepEqual(inventory.coverage, {
@@ -324,7 +324,7 @@ test("public inventory covers every ordinary file with exact aggregate categorie
       .map((category) => [category, rows.filter((row) => row.category === category).length]),
   );
   assert.equal(rows.length, 249);
-  assert.equal(rows.reduce((sum, row) => sum + row.bytes, 0), 38_509_462);
+  assert.equal(rows.reduce((sum, row) => sum + row.bytes, 0), 38_509_476);
   assert.deepEqual(categoryCounts, {
     asset: 231,
     discovery: 3,

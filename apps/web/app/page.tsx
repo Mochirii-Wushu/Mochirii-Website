@@ -480,10 +480,6 @@ export default async function Home() {
             <section className="glass-card glass-card--strong glass-pad hero-intro">
               <p className="kicker" id="homeKicker">Jianghu Guild Hall</p>
               <h1 className="display-title" id="homeHeading">Mōchirīī</h1>
-              <p className="meta-text u-mt-10" id="homeSubtitle">
-                {homeData.hero.subtitle}
-              </p>
-
               <div id="heroDescriptor" className="prose-stack" aria-live="polite">
                 <Descriptor lines={heroDescriptor} />
               </div>
@@ -514,6 +510,23 @@ export default async function Home() {
                 </Link>
               </div>
             </section>
+
+            <aside className="home-guild-seal" aria-label="Guild seal">
+              <StaticImage
+                id="sealImage"
+                src={publicPath(homeData.seal.image, "/assets/img/brand/emblem.webp")}
+                alt={cleanLabel(homeData.seal.imageAlt || "Mōchirīī guild seal")}
+                width="1024"
+                height="1024"
+                sizes="(max-width: 640px) 128px, 116px"
+              />
+              <h2 id="sealTitle" className="home-seal-title">
+                {homeData.seal.title}
+              </h2>
+              <p id="sealVerse" className="home-seal-verse muted">
+                <SealVerse lines={sealVerse} />
+              </p>
+            </aside>
           </div>
         </div>
       </header>
@@ -586,26 +599,6 @@ export default async function Home() {
               {homeData.copy.doorsIntro}
             </p>
             <DoorGrid tiles={homeData.tiles} />
-          </section>
-
-          <section
-            className="glass-card glass-card--primary glass-pad u-mt-24 home-guild-seal"
-            aria-label="Guild standards"
-          >
-            <StaticImage
-              id="sealImage"
-              src={publicPath(homeData.seal.image, "/assets/img/brand/emblem.webp")}
-              alt={cleanLabel(homeData.seal.imageAlt || "Mōchirīī guild seal")}
-              width="1024"
-              height="1024"
-              sizes="(max-width: 640px) 128px, 116px"
-            />
-            <h2 id="sealTitle" className="home-seal-title">
-              {homeData.seal.title}
-            </h2>
-            <p id="sealVerse" className="home-seal-verse muted">
-              <SealVerse lines={sealVerse} />
-            </p>
           </section>
 
           <section

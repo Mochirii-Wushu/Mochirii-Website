@@ -38,7 +38,7 @@ Renderer notes:
   recruitment chip and primary CTA.
 - `meta.status` accepts exactly `open`, `limited`, or `paused`. Unknown values fail closed to the paused Home
   presentation; transition the public state by editing this one canonical field.
-- `meta.updated` renders as month and year through the shared public date formatter.
+- `meta.updated` renders as `D MMM YYYY` through the shared public date formatter.
 - Text renders as React text; inline HTML and Markdown are not supported.
 - Badges render as plain spans, not links.
 - Audio sources render as native `<source>` elements under a hidden `#recruitmentAudio`, while visitors use the custom themed audio player.
@@ -161,7 +161,7 @@ Use `npm run smoke:gallery` as a general regression check when shared behavior c
 - No console-breaking errors occur.
 - Supabase page shell does not cause signed-out runtime errors.
 - Twills protected body remains unchanged.
-- The four approved Guild Standards lines remain unchanged.
+- Guild seal poem remains unchanged.
 
 ## 10. Protected Content
 

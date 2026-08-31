@@ -46,10 +46,12 @@ Not currently implemented:
 
 - Use `YYYY-MM-DD` for date-only values.
 - Date rendering must remain UTC-safe.
+- Public dates render as `D MMM YYYY`; public event times render as `h:mm AM/PM`, including `:00` for whole hours.
+- Public time ranges render both endpoints in that exact clock shape and keep the governing `UTC+8` label visible.
 - Dates must not shift one day earlier in US time zones.
 - `events.js` parses date-only values with a strict UTC pattern before classifying events.
 - Invalid or missing event dates are treated as upcoming by the current renderer.
-- Event-board dates are rendered with `MochiriiUtils.formatDateUTC`.
+- Event-board and featured fallback dates render through the shared Next public-date helper.
 - Featured event dates in the Next app derive from the first upcoming schedule card; `featured.date` is fallback shell data only.
 - Monthly schedule items declare their own supported rule (`next-first-saturday` or `next-first-wednesday`); Website and Reaper helpers must derive each item independently rather than applying one shared weekday.
 - If a monthly event and weekly event share the exact start, end, and Website location, the monthly event owns that slot. The Website selects the weekly event's next non-conflicting day, while Reaper advances that stable weekday event key by seven days so an existing managed Discord event can be updated rather than orphaned.

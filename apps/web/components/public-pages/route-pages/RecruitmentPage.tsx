@@ -1,7 +1,7 @@
 import recruitmentData from "@/public/data/recruitment.json";
 import { BodyPageMarker } from "../BodyPageMarker";
 import { RecruitmentAudioPlayer } from "../RecruitmentAudioPlayer";
-import { BadgeRow, MetaRow, monthYearUTC, PageHero, ProseStack, publicPath, text } from "../common";
+import { BadgeRow, formatDateUTC, MetaRow, PageHero, ProseStack, publicPath, text } from "../common";
 import { record, records, strings } from "../page-helpers";
 
 export function RecruitmentPage() {
@@ -27,7 +27,7 @@ export function RecruitmentPage() {
         atmosphere={text(hero.atmosphere)}
         kicker={text(meta.kicker, "Recruitment")}
         title={text(meta.heading, "Recruitment & Membership")}
-        meta={<MetaRow label="Recruitment metadata" items={[meta.author, meta.updated ? monthYearUTC(meta.updated) : ""]} />}
+        meta={<MetaRow label="Recruitment metadata" items={[meta.author, meta.updated ? formatDateUTC(meta.updated) : ""]} />}
         intro={
           <p className="lede" id="recruitmentIntro">
             {text(meta.intro)}

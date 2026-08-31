@@ -201,7 +201,6 @@ function validateGenericValue(filePath, valuePath, key, value, parent) {
     const isAllowedGameNamePath =
       keyName === "title" ||
       valuePath.includes(".meta.") ||
-      fullPath === "apps/web/public/data/home.json.hero.subtitle" ||
       fullPath === "apps/web/public/data/home.json.hero.descriptor.0";
     if (/Where Winds Meet/i.test(value) && !isAllowedGameNamePath) {
       addFailure(`${fullPath}: visible body copy should not contain the exact game name outside allowed title/metadata contexts.`);

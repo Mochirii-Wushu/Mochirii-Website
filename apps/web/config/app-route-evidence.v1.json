@@ -88,8 +88,8 @@
       "id": "content-guardrails",
       "path": "scripts/check-content-guardrails.mjs",
       "scope": "source-only public content and protected-copy guardrails",
-      "bytes": 20670,
-      "sha256": "877FACEBB156B7C16D34066607487D52A31190316F01310DBC71DE9E83879B35",
+      "bytes": 20601,
+      "sha256": "E81663396E4F3E41DB7A23687CC96B079751A1979ED5E31B0DD6294495DB0706",
       "status": "verified_source"
     },
     {

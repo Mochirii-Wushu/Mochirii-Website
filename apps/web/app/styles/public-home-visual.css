@@ -321,11 +321,6 @@ body[data-page="home"] .page-main section[aria-label="Guild guide"]{
   --home-rim-b:var(--home-frost);
 }
 
-body[data-page="home"] .page-main section[aria-label="Guild standards"]{
-  --home-rim-a:var(--home-lotus);
-  --home-rim-b:var(--home-moon);
-}
-
 body[data-page="home"] .page-main section[aria-label="Member spotlight"]{
   --home-rim-a:var(--home-lotus);
   --home-rim-b:var(--home-lantern);

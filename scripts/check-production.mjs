@@ -530,7 +530,6 @@ const PRODUCTION_SAFE_COMPOUND_CLASS_NAMES = new Set([
   "displayfont_12184ccb-module__YUH9_a__variable bodyfont_24fec695-module__4PpgrG__variable",
   "footer-col-title official-profiles-title", "glass-card glass-card--primary glass-pad",
   "glass-card glass-card--primary glass-pad u-mt-24", "glass-card glass-card--soft glass-pad center-stack",
-  "glass-card glass-card--primary glass-pad u-mt-24 home-guild-seal",
   "glass-card glass-card--strong glass-pad hero-intro",
   "glass-card glass-card--strong glass-pad hero-intro center-stack", "grid-12 grid-gap",
   "hero-cta hero-cta--primary", "hero-cta home-section-cta", "hero-cta-row u-mt-18", "home-seal-verse muted",

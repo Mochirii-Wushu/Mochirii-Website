@@ -5,6 +5,8 @@ import {
   monthlyScheduleDate,
   nextFirstSaturday,
   nextFirstWednesday,
+  scheduleLine,
+  weeklyScheduleLines,
   websiteEventCardsFromSchedule,
 } from "../guild-schedule.ts";
 import { eventStatusAt, parseReferenceTime } from "./reference-time.ts";
@@ -49,10 +51,30 @@ test("monthly rules keep the gathering on Wednesday and the raffle on Saturday",
   const gathering = websiteEventCardsFromSchedule(guildScheduleData, now)
     .find((item) => item.id === "monthly-gathering");
   assert.equal(gathering?.dayText, "First Wednesday");
-  assert.equal(gathering?.timeText, "9:30 PM - 10 PM");
+  assert.equal(gathering?.timeText, "9:30 PM - 10:00 PM");
   assert.equal(gathering?.startIso, "2026-08-05T13:30:00.000Z");
   assert.equal(gathering?.endIso, "2026-08-05T14:00:00.000Z");
   assert.equal(gathering?.timezone, "UTC+8");
+});
+
+test("all public schedule lines retain minutes and one clock shape", () => {
+  assert.deepEqual(weeklyScheduleLines(guildScheduleData), [
+    "Guild Party: Every Day - 9:30 PM - 10:00 PM",
+    "Breaking Army: Mondays & Wednesdays - 10:00 PM - 12:00 AM",
+    "Showdown: Tuesdays & Thursdays - 10:00 PM - 12:00 AM",
+    "Guild Wars: Saturdays & Sundays - 8:30 PM - 11:30 PM",
+  ]);
+});
+
+test("schedule display fallbacks normalize valid clocks and reject malformed clocks", () => {
+  assert.equal(
+    scheduleLine({ title: "Fallback", dayText: "Friday", timeText: "7 PM - 8 PM" }, guildScheduleData),
+    "Fallback: Friday - 7:00 PM - 8:00 PM",
+  );
+  assert.equal(
+    scheduleLine({ title: "Fallback", dayText: "Friday", startTime: "bad", endTime: "25:00", timeText: "later" }, guildScheduleData),
+    "Fallback: Friday",
+  );
 });
 
 test("the monthly gathering takes its exact slot and advances the next Guild Party card", () => {

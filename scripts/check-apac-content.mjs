@@ -7,15 +7,14 @@ const failures = [];
 const expected = {
   title: "Mōchirīī | Asia Pacific Where Winds Meet Guild",
   ogTitle: "Mōchirīī | Where Winds Meet Guild",
-  subtitle: "Asia Pacific • Where Winds Meet Guild",
   description: "Mōchirīī is an Asia Pacific Where Winds Meet guild for casual players, group runs, events, raffles, guides, and member projects.",
   ogDescription: "Join an Asia Pacific guild for group runs, events, raffles, guides, and member projects.",
   spotlight: "Each month, members recognize one person for a specific contribution.",
   gatheringTitle: "Monthly Guild Gathering",
   gatheringDescription: "A monthly gathering where every member can discuss anything they'd like with the guild.",
   footer: "Mōchirīī is an Asia Pacific Where Winds Meet guild for casual players, guild events, and member projects.",
-  heroIntro: "Mōchirīī is an Asia Pacific guild for casual Where Winds Meet players. We organize group runs, events, raffles, guides, and member projects.",
-  heroFollowup: "Discord handles onboarding and event planning. The website keeps guild rules, ranks, leaders, updates, screenshots, social posts, and forums in one place.",
+  heroIntro: "Mōchirīī is an Asia Pacific guild for casual Where Winds Meet players. We organize teams, events, raffles, guides & member projects.",
+  heroFollowup: "Discord handles onboarding & event planning. The website keeps guild rules, ranks, leaders, updates, screenshots, social posts & forums in one place.",
   join: "There is room in the guild for pretty Wanderers. We gather in Asia Pacific & players farther away are welcome when the ping works for them.",
   displayTimezone: "UTC+8",
   brandSubtitle: "Asia Pacific Guild",
@@ -77,35 +76,34 @@ const raffles = readJson("apps/web/public/data/raffles.json");
 const recruitment = readJson("apps/web/public/data/recruitment.json");
 const twills = readJson("apps/web/public/data/twills.json");
 
-assert(home.hero?.subtitle === expected.subtitle, "home.hero.subtitle must match the approved APAC subtitle.");
 assert(home.hero?.descriptor?.[0] === expected.heroIntro, "home.hero.descriptor[0] must match the approved APAC introduction.");
 assert(home.hero?.descriptor?.[1] === expected.heroFollowup, "home.hero.descriptor[1] must match the approved Home introduction.");
 assertJsonEqual("Home hero badges", home.hero?.badges, ["Cross-Platform", "Casual Play", "UTC+8 Events"]);
 assert(home.copy?.spotlightIntro === expected.spotlight, "home Spotlight text must match the approved copy.");
 assertJsonEqual("Home section introductions", home.copy, {
-  bulletinIntro: "Check the next event, current raffle, and latest announcement.",
-  doorsIntro: "Use these pages to join the guild, review ranks, find leaders, and read the rules.",
+  bulletinIntro: "Check the next event, current raffle & latest announcement.",
+  doorsIntro: "Use these pages to join the guild, review ranks, find leaders & read the rules.",
   spotlightIntro: expected.spotlight,
-  galleryIntro: "Recent screenshots from combat, exploration, events, and member gatherings.",
+  galleryIntro: "Recent screenshots from combat, exploration, events & member gatherings.",
 });
-assert(home.seal?.title === "Guild Standards", "Home seal title must be Guild Standards.");
+assert(home.seal?.title === "Guild Seal", "Home seal title must be Guild Seal.");
 assert(home.seal?.imageAlt === "Mōchirīī guild seal", "Home seal alt text must identify the guild seal.");
-assertJsonEqual("Home Guild Standards", home.seal?.verse, [
-  "Keep commitments.",
-  "Share useful information.",
-  "Offer help without pressure.",
-  "Address problems directly.",
+assertJsonEqual("Home Guild Seal poem", home.seal?.verse, [
+  "Silvered jade softly gleams, where quiet petals fall,",
+  "Bamboo stands in patient grace, a guardian to all.",
+  "Hearts gather here in gentle light, unhurried, warm & true,",
+  "A seal of trust, of shared resolve, where kindred spirits grew.",
 ]);
 assertJsonEqual("Home Guild Guide cards", home.tiles?.map(({ label, title, href }) => ({ label, title, href })), [
-  { label: "Join Mōchirīī", title: "Read the joining steps and open the guild Discord.", href: "./join.html" },
-  { label: "Guild Ranks", title: "See each rank and how recognition works.", href: "./ranks.html" },
+  { label: "Join Mōchirīī", title: "Read the joining steps & open the guild Discord.", href: "./join.html" },
+  { label: "Guild Ranks", title: "See each rank & how recognition works.", href: "./ranks.html" },
   { label: "Guild Leaders", title: "Find the right leader for questions or concerns.", href: "./leaders.html" },
-  { label: "Guild Tome", title: "Read the rules for conduct, events, and recognition.", href: "./tome.html" },
+  { label: "Guild Tome", title: "Read the rules for conduct, events & recognition.", href: "./tome.html" },
 ]);
 assert(home.spotlight?.tag === "Current Spotlight", "Home Spotlight tag must match the approved copy.");
 assert(["open", "limited", "paused"].includes(recruitment.meta?.status), "the canonical recruitment state must be open, limited, or paused.");
 const currentRecognition = home.spotlight?.recognitions?.find((item) => item.monthKey === "2026-08-01");
-assert(currentRecognition?.summary === "Recognized for helping members and contributing to guild activities.", "the current Home recognition must bind the approved contribution copy.");
+assert(currentRecognition?.summary === "Recognized for helping members & contributing to guild activities.", "the current Home recognition must bind the approved contribution copy.");
 assert(!Object.hasOwn(currentRecognition || {}, "memberName"), "Home recognition data must not persist a member display name.");
 assert(schedule.timezone?.label === "UTC+8", "the Discord-facing schedule label must remain UTC+8.");
 assert(schedule.timezone?.offsetMinutes === 480, "the schedule offset must remain 480 minutes.");
@@ -166,12 +164,18 @@ for (const file of directMetadataFiles) {
 }
 
 const homePage = read("apps/web/app/page.tsx");
-assertIncludes("Next Home", homePage, "homeData.hero.subtitle");
+assert(!homePage.includes("homeData.hero.subtitle"), "the removed Home subtitle must not be rendered by the canonical Next surface.");
 assertIncludes("Next Home", homePage, 'id="home-structured-data"');
 assertIncludes("Next Home", homePage, '"@type": "WebSite"');
 assertIncludes("Next Home", homePage, '"@type": "Organization"');
 assertIncludes("Next Home", homePage, 'sameAs: [SOCIAL_HOST]');
 assertIncludes("Next Home", homePage, 'replace(/</g, "\\\\u003c")');
+assertCompactOccurrenceCount(
+  "Next Home Guild Seal",
+  homePage,
+  'className="home-guild-seal" aria-label="Guild seal"',
+  1,
+);
 assertIncludes("Next Home recruitment state", homePage, "recruitmentPresentation(recruitmentData.meta.status)");
 assertIncludes("Next Home recognition", homePage, "spotlightRecognition(spotlight, winner)");
 for (const snippet of [
@@ -193,9 +197,9 @@ for (const snippet of [
   "View Guild Gallery",
 ]) assertIncludes("Next Home exact presentation", homePage, snippet);
 assertInOrder("Next Home section order", homePage, [
+  'aria-label="Guild seal"',
   'aria-label="Guild bulletin"',
   'aria-label="Guild guide"',
-  'aria-label="Guild standards"',
   'aria-label="Member spotlight"',
   'aria-label="Guild gallery"',
 ]);
@@ -210,8 +214,8 @@ assertCompactOccurrenceCount("Next footer brand lockup", footerComponent, nextBr
 assert(!headerComponent.includes("Where Winds Meet Guild"), "the Next header brand must use the concise regional label.");
 
 const scheduleHelper = read("apps/web/lib/guild-schedule.ts");
-assertIncludes("schedule helper", scheduleHelper, 'new Intl.DateTimeFormat("en-SG"');
-assertIncludes("schedule helper", scheduleHelper, "timeZone: scheduleIanaZone(schedule)");
+assertIncludes("schedule helper", scheduleHelper, "formatPublicTime(instant, scheduleIanaZone(schedule))");
+assertIncludes("schedule helper", scheduleHelper, "timeRangeText(item.startTime, item.endTime, schedule, item.timeText)");
 assertIncludes("schedule helper", scheduleHelper, "schedule.timezone?.displayLabel || schedule.timezone?.label");
 assertIncludes("schedule helper", scheduleHelper, "timezone,");
 
@@ -219,6 +223,19 @@ const publicDateHelper = read("apps/web/lib/public-date.ts");
 assertIncludes("public date helper", publicDateHelper, '"Jul", "Aug", "Sep", "Oct"');
 assertIncludes("public date helper", publicDateHelper, "formatToParts(date)");
 assertIncludes("public date helper", publicDateHelper, "`${day} ${PUBLIC_MONTH_ABBREVIATIONS[month - 1]} ${year}`");
+assertIncludes("public time helper", publicDateHelper, 'new Intl.DateTimeFormat("en-US"');
+assertIncludes("public time helper", publicDateHelper, "`${hour}:${minute} ${period}`");
+assert(!publicDateHelper.includes("locale?: string"),
+  "public date-time formatting must not vary with a browser locale.");
+const commonPublicPage = read("apps/web/components/public-pages/common.tsx");
+const joinPage = read("apps/web/components/public-pages/route-pages/JoinPage.tsx");
+const recruitmentPage = read("apps/web/components/public-pages/route-pages/RecruitmentPage.tsx");
+const eventsPage = read("apps/web/components/public-pages/route-pages/EventsPage.tsx");
+assertIncludes("shared public-page date", commonPublicPage, "return formatPublicDate(date)");
+assert(!commonPublicPage.includes("monthYearUTC"), "public pages must not use a month-only date formatter.");
+assertIncludes("Join public date", joinPage, "`Updated ${formatDateUTC(hero.updated)}`");
+assertIncludes("Recruitment public date", recruitmentPage, "formatDateUTC(meta.updated)");
+assertIncludes("Events fallback public date", eventsPage, "formatDateUTC(featuredEvent?.date || featured.date)");
 const privacyPage = read("apps/web/components/public-pages/route-pages/PrivacyPage.tsx");
 const deletionPage = read("apps/web/components/public-pages/route-pages/MetaDataDeletionPage.tsx");
 assertIncludes("Privacy public date", privacyPage, '>30 Aug 2026</time>');
@@ -228,6 +245,11 @@ assertIncludes("member public date", memberFormat, "formatPublicDate(date, timeZ
 assertIncludes("member public date-time", memberFormat, "formatPublicDateTime(date, timeZone)");
 assert(!memberFormat.includes("toLocaleDateString") && !memberFormat.includes("toLocaleString"),
   "member-visible dates must use the exact public date formatter.");
+const spinnerController = read("apps/web/components/spinner/RaffleSpinner.tsx");
+assertIncludes("Spinner receipt public date-time", spinnerController,
+  '`${formatPublicDateTime(timestamp, "Asia/Singapore")} UTC+8`');
+assert(!spinnerController.includes('for (const key of ["singaporeTime"'),
+  "Spinner receipt history must not render its legacy evidence timestamp directly.");
 
 if (failures.length) {
   console.error("APAC content contract failed:\n");

@@ -249,10 +249,10 @@ test("raffle instants use Singapore authority and strict visitor-local formattin
     formatRaffleTimeForZone(septemberInstant, "America/Los_Angeles"),
     "2 Sep 2026, 6:30 AM",
   );
-  assert.match(formatRaffleTime(instant), /9:30\s*PM/i);
-  assert.match(formatRaffleTimeForZone(instant, "America/Los_Angeles"), /6:30\s*AM/i);
-  assert.match(formatRaffleTimeForZone(instant, "Europe/London"), /2:30\s*PM/i);
-  assert.match(formatRaffleTimeForZone(instant, "Asia/Tokyo"), /10:30\s*PM/i);
+  assert.equal(formatRaffleTime(instant), "1 Aug 2026, 9:30 PM");
+  assert.equal(formatRaffleTimeForZone(instant, "America/Los_Angeles"), "1 Aug 2026, 6:30 AM");
+  assert.equal(formatRaffleTimeForZone(instant, "Europe/London"), "1 Aug 2026, 2:30 PM");
+  assert.equal(formatRaffleTimeForZone(instant, "Asia/Tokyo"), "1 Aug 2026, 10:30 PM");
   assert.throws(() => parseRaffleInstant("2026-08-01 13:30"), /UTC instant/);
   assert.throws(() => parseRaffleInstant("2026-02-30T13:30:00.000Z"), /valid UTC instant/);
 });

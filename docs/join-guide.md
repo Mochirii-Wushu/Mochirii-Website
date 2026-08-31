@@ -44,7 +44,7 @@ Current item shapes:
 
 `JoinPage.tsx` renders:
 
-- hero image, title, updated month, timezone, intro, and badges
+- hero image, title, updated date, timezone, intro, and badges
 - joining path title, intro, and ordered steps
 - quick-start body and links
 - newcomer checklist
@@ -56,7 +56,7 @@ Shared helper usage:
 
 - Join uses the shared public-page text, record, route, link, image, date, and badge helpers.
 - Join copy renders through `textContent`; inline HTML and Markdown are not supported in JSON.
-- `hero.updated` uses the shared UTC-safe date formatter and renders as `Updated Month Year`.
+- `hero.updated` uses the shared UTC-safe date formatter and renders as `Updated D MMM YYYY`.
 - The shared Next shell mounts the header/footer and owns active nav, dropdowns, mobile menu behavior, and footer year.
 
 ## 4. Newcomer Checklist
@@ -154,7 +154,7 @@ Use `npm run smoke:gallery` as a general regression check when relevant to the r
 - Confirm focus states are visible.
 - Confirm there are no console-breaking errors.
 - Confirm protected recruitment body remains unchanged.
-- Confirm the four approved Guild Standards lines remain unchanged.
+- Confirm guild seal poem remains unchanged.
 
 ## 10. Protected Content
 

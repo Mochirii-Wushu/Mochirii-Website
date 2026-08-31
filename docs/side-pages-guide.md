@@ -477,7 +477,7 @@ Use `npm run smoke:gallery` as a general regression check if shared behavior cou
 - Protected recruitment body remains unchanged.
 - Protected recruitment conclusion remains unchanged.
 - Twills protected body remains unchanged.
-- The four approved Guild Standards lines remain unchanged.
+- Guild seal poem remains unchanged.
 
 ## 13. Protected Content
 

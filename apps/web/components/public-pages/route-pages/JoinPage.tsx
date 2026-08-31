@@ -1,7 +1,7 @@
 import joinData from "@/public/data/join.json";
 import { BodyPageMarker } from "../BodyPageMarker";
 import { DiscordServerPreview } from "../DiscordServerPreview";
-import { BadgeRow, cleanRoute, MetaRow, monthYearUTC, PageHero, ProseStack, text } from "../common";
+import { BadgeRow, cleanRoute, formatDateUTC, MetaRow, PageHero, ProseStack, text } from "../common";
 import { badgeItems, linkProps, record, records } from "../page-helpers";
 
 export function JoinPage() {
@@ -28,7 +28,7 @@ export function JoinPage() {
         meta={
           <MetaRow
             label="Join metadata"
-            items={[hero.updated ? `Updated ${monthYearUTC(hero.updated)}` : "", hero.timezone]}
+            items={[hero.updated ? `Updated ${formatDateUTC(hero.updated)}` : "", hero.timezone]}
           />
         }
         intro={
