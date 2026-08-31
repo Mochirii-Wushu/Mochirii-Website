@@ -1,9 +1,11 @@
 import {
   buildDiscordOutboxPayloads,
   buildSnapshotResponseData,
+  canonicalDrawPlanPayload,
   canonicalRosterPayload,
   createLiveDrawPlan,
   normalizeDisplayName,
+  normalizeDurationMs,
   normalizeParticipants,
   type ParticipantV1,
   readBoundedSpinnerJsonObject,
@@ -11,9 +13,11 @@ import {
   sanitizeDiscordDisplayName,
   serializeSnapshot,
   sha256Hex,
+  SPINNER_APP_VERSION,
   SPINNER_DISCORD_CHANNEL_ID,
   SPINNER_LIVE_URL,
   SPINNER_MAX_COMMAND_BODY_BYTES,
+  SPINNER_ROUND_DURATION_MS,
 } from "./spinner-live.ts";
 import {
   isActiveVerifiedGuildMember,
@@ -130,6 +134,51 @@ Deno.test("drawing still requires at least two live participants", async () => {
   );
 });
 
+Deno.test("the fixed round duration rejects controller timing overrides", () => {
+  assertEquals(normalizeDurationMs(undefined), 5_000);
+  assertEquals(normalizeDurationMs(5_000), 5_000);
+  assertThrows(
+    () => normalizeDurationMs(4_800),
+    "the retired wheel duration must not be accepted",
+  );
+  assertThrows(
+    () => normalizeDurationMs(8_000),
+    "a controller must not lengthen a round",
+  );
+});
+
+Deno.test("a maximum roster produces exactly ninety-nine ordered eliminations", async () => {
+  const roster: ParticipantV1[] = Array.from({ length: 100 }, (_, index) => ({
+    version: 1,
+    id: `00000000-0000-4000-8000-${(index + 1).toString(16).padStart(12, "0")}`,
+    displayName: `Member ${index + 1}`,
+  }));
+  let sampled = 0;
+  const plan = await createLiveDrawPlan(roster, {
+    randomWord: () => {
+      sampled += 1;
+      return 0;
+    },
+    uuidFactory: () => "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  });
+  assertEquals(sampled, 99);
+  assertEquals(plan.receipt.rounds.length, 99);
+  assertEquals(
+    plan.receipt.rounds.map(({ activeCount }) => activeCount),
+    Array.from({ length: 99 }, (_, index) => 100 - index),
+  );
+  assertEquals(plan.receipt.selectedIndex, 99);
+  assertEquals(plan.receipt.winner, roster[99]);
+  const controllerPayloadBytes = new TextEncoder().encode(JSON.stringify({
+    receipt: plan.receipt,
+    rounds: plan.receipt.rounds,
+    planHashSha256: plan.planHashSha256,
+  })).byteLength;
+  if (controllerPayloadBytes >= 256 * 1_024) {
+    throw new Error(`Maximum controller payload is ${controllerPayloadBytes} bytes.`);
+  }
+});
+
 Deno.test("secure uint32 selection records rejection retries without modulo bias", () => {
   const words = [0xffff_ffff, 42];
   let calls = 0;
@@ -144,35 +193,73 @@ Deno.test("secure uint32 selection records rejection retries without modulo bias
   assertEquals(calls, 2);
 });
 
-Deno.test("one live draw plan freezes a compatible receipt and future synchronized timeline", async () => {
+Deno.test("one live draw plan freezes every elimination round before staging", async () => {
   const now = new Date("2026-07-26T12:34:56.000Z");
+  const words = [4, 1];
   let calls = 0;
   const result = await createLiveDrawPlan(PARTICIPANTS, {
     now,
-    durationMs: 8_000,
     startRotation: 315,
     uuidFactory: () => "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
     randomWord: () => {
       calls += 1;
-      return 4;
+      return words.shift()!;
     },
   });
   const expectedHash = await sha256Hex(canonicalRosterPayload(PARTICIPANTS));
 
-  assertEquals(calls, 1);
-  assertEquals(result.startAt, "2026-07-26T12:37:56.000Z");
-  assertEquals(result.revealAt, "2026-07-26T12:38:04.000Z");
-  assertEquals(result.receipt.version, 1);
+  assertEquals(calls, 2);
+  assertEquals(result.startAt, "2026-07-26T12:35:56.000Z");
+  assertEquals(result.revealAt, "2026-07-26T12:36:06.000Z");
+  assertEquals(result.durationMs, SPINNER_ROUND_DURATION_MS);
+  assertEquals(result.receipt.version, 2);
+  assertEquals(result.receipt.appVersion, SPINNER_APP_VERSION);
   assertEquals(result.receipt.rosterSnapshot, {
     version: 1,
     participants: PARTICIPANTS,
   });
   assertEquals(result.receipt.rosterHashSha256, expectedHash);
-  assertEquals(result.receipt.selectedIndex, 1);
-  assertEquals(result.receipt.winner, PARTICIPANTS[1]);
+  assertEquals(result.receipt.rounds, [
+    {
+      roundIndex: 0,
+      activeCount: 3,
+      selectedIndex: 1,
+      eliminatedId: PARTICIPANTS[1].id,
+      eliminatedParticipant: PARTICIPANTS[1],
+      rejectionLimit: 4_294_967_295,
+      sampledWords: [4],
+      acceptedWord: 4,
+      startedAt: "2026-07-26T12:35:56.000Z",
+      revealAt: "2026-07-26T12:36:01.000Z",
+      startRotation: 315,
+      finalRotation: 2_760,
+    },
+    {
+      roundIndex: 1,
+      activeCount: 2,
+      selectedIndex: 1,
+      eliminatedId: PARTICIPANTS[2].id,
+      eliminatedParticipant: PARTICIPANTS[2],
+      rejectionLimit: 4_294_967_296,
+      sampledWords: [1],
+      acceptedWord: 1,
+      startedAt: "2026-07-26T12:36:01.000Z",
+      revealAt: "2026-07-26T12:36:06.000Z",
+      startRotation: 240,
+      finalRotation: 2_700,
+    },
+  ]);
+  assertEquals(result.receipt.selectedIndex, 0);
+  assertEquals(result.receipt.winner, PARTICIPANTS[0]);
   assertEquals(result.startRotation, 315);
-  assertEquals(result.finalRotation, 2_760);
-  const finalAngle = (120 + result.finalRotation) % 360;
+  assertEquals(result.finalRotation, 2_520);
+  assertEquals(result.receipt.planHashSha256, result.planHashSha256);
+  assertEquals(
+    result.planHashSha256,
+    await sha256Hex(canonicalDrawPlanPayload(result.receipt)),
+  );
+  const finalAngle =
+    (result.receipt.selectedIndex * 120 + result.finalRotation) % 360;
   assertEquals(finalAngle, 0);
 });
 
@@ -189,24 +276,35 @@ Deno.test("repeated live spins keep rotations bounded and preserve winner geomet
   });
 
   assertEquals(first.startRotation, 315);
-  assertEquals(first.finalRotation, 2_760);
-  assertEquals(second.startRotation, 240);
-  assertEquals(second.finalRotation, 2_640);
+  assertEquals(first.finalRotation, 2_520);
+  assertEquals(second.startRotation, 0);
+  assertEquals(second.finalRotation, 2_400);
   assert(first.finalRotation < 2_880, "first rotation should remain bounded");
   assert(second.finalRotation < 2_880, "second rotation should remain bounded");
-  assertEquals((120 + first.finalRotation) % 360, 0);
-  assertEquals((240 + second.finalRotation) % 360, 0);
+  assertEquals(
+    (first.receipt.selectedIndex * 120 + first.finalRotation) % 360,
+    0,
+  );
+  assertEquals(
+    (second.receipt.selectedIndex * 120 + second.finalRotation) % 360,
+    0,
+  );
 });
 
-Deno.test("the three-minute lead preserves the existing wheel duration", async () => {
+Deno.test("the one-minute lead is followed by contiguous five-second rounds", async () => {
   const result = await createLiveDrawPlan(PARTICIPANTS, {
     now: new Date("2026-07-26T12:34:56.000Z"),
     uuidFactory: () => "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
     randomWord: () => 0,
   });
-  assertEquals(result.durationMs, 4_800);
-  assertEquals(result.startAt, "2026-07-26T12:37:56.000Z");
-  assertEquals(result.revealAt, "2026-07-26T12:38:00.800Z");
+  assertEquals(result.durationMs, 5_000);
+  assertEquals(result.startAt, "2026-07-26T12:35:56.000Z");
+  assertEquals(result.revealAt, "2026-07-26T12:36:06.000Z");
+  assertEquals(result.receipt.rounds.length, PARTICIPANTS.length - 1);
+  assertEquals(
+    result.receipt.rounds[0].revealAt,
+    result.receipt.rounds[1].startedAt,
+  );
 });
 
 Deno.test("Discord outbox uses the raffle channel, live page, one safe message contract, and no mentions", async () => {
@@ -232,7 +330,7 @@ Deno.test("Discord outbox uses the raffle channel, live page, one safe message c
   assertEquals(outbox.channelId, SPINNER_DISCORD_CHANNEL_ID);
   assertEquals(
     start.content,
-    `A Mōchirīī monthly guild raffle begins <t:1785069476:R>.\nWatch the moonwheel live: ${SPINNER_LIVE_URL}`,
+    `A Mōchirīī monthly guild raffle begins <t:1785069356:R>.\nWatch the moonwheel live: ${SPINNER_LIVE_URL}`,
   );
   assert(
     !String(result.content).includes("<@"),
@@ -276,6 +374,73 @@ Deno.test("viewer snapshots withhold winner fields until the authoritative revea
   assertEquals(revealed.phase, "revealed");
   assertEquals(revealed.selectedIndex, 1);
   assertEquals(revealed.winner, PARTICIPANTS[1]);
+});
+
+Deno.test("v2 snapshots validate the frozen round chain and trust the database phase", async () => {
+  const plan = await createLiveDrawPlan(PARTICIPANTS, {
+    now: new Date("2026-07-26T12:34:56.000Z"),
+    randomWord: () => 0,
+    uuidFactory: () => "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  });
+  const rounds = plan.receipt.rounds.map((round) => ({
+    roundIndex: round.roundIndex,
+    selectedIndex: round.selectedIndex,
+    eliminatedId: round.eliminatedId,
+    startedAt: round.startedAt,
+    revealAt: round.revealAt,
+    startRotation: round.startRotation,
+    finalRotation: round.finalRotation,
+  }));
+  const spinningRow = {
+    version: 2,
+    sessionId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    revision: 4,
+    phase: "spinning",
+    drawMode: "official",
+    participants: PARTICIPANTS,
+    startedAt: plan.startAt,
+    revealAt: plan.revealAt,
+    durationMs: 5_000,
+    startRotation: plan.startRotation,
+    finalRotation: plan.finalRotation,
+    planHashSha256: plan.planHashSha256,
+    rounds,
+    selectedIndex: null,
+    winner: null,
+    drawId: plan.receipt.drawId,
+    updatedAt: "2026-07-26T12:34:56.000Z",
+  };
+
+  const spinning = serializeSnapshot(
+    spinningRow,
+    new Date("2026-07-26T12:40:00.000Z"),
+  );
+  assert(spinning.version === 2, "the v2 row must remain a v2 snapshot");
+  assertEquals(spinning.phase, "spinning");
+  assertEquals(spinning.selectedIndex, null);
+  assertEquals(spinning.winner, null);
+  assertEquals(spinning.rounds, rounds);
+
+  const revealed = serializeSnapshot({
+    ...spinningRow,
+    phase: "revealed",
+    selectedIndex: plan.receipt.selectedIndex,
+    winner: plan.receipt.winner,
+  });
+  assertEquals(revealed.phase, "revealed");
+  assertEquals(revealed.selectedIndex, plan.receipt.selectedIndex);
+  assertEquals(revealed.winner, plan.receipt.winner);
+  assertThrows(
+    () =>
+      serializeSnapshot({
+        ...spinningRow,
+        rounds: [
+          { ...rounds[0], eliminatedId: PARTICIPANTS[2].id },
+          rounds[1],
+        ],
+      }),
+    "a round cannot eliminate a participant outside its selected position",
+  );
 });
 
 Deno.test("controller polling can recover the current receipt while viewer polling cannot", async () => {

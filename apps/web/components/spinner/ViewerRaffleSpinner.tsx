@@ -16,15 +16,19 @@ import {
   spinnerLiveHasStarted,
   spinnerLiveMotionRotations,
   spinnerLiveTimeline,
+  spinnerSequenceRoundMotionRotations,
+  spinnerSequenceRoundTimeline,
   spinnerServerClockAnchorForSnapshot,
   spinnerServerClockNow,
   resolveInitialViewerMotion,
   type SpinnerLivePhase,
   type SpinnerLiveResultV1,
+  type SpinnerLiveSnapshot,
   type SpinnerLiveSnapshotV1,
+  type SpinnerLiveSnapshotV2,
   type SpinnerServerClockAnchor,
 } from "./live";
-import { useSpinnerCountdown } from "./use-spinner-countdown";
+import { useSpinnerCountdown, useSpinnerSequencePresentation } from "./use-spinner-countdown";
 import { useSpinnerLive } from "./use-spinner-live";
 import { drawWheel } from "./wheel";
 
@@ -36,6 +40,7 @@ type VisibleWinner = {
 };
 type WheelMotion = {
   drawId: string;
+  animationKey: string;
   startRotation: number;
   finalRotation: number;
   durationMs: number;
@@ -49,8 +54,9 @@ type CelebrationStyle = CSSProperties & {
   "--spinner-celebration-delay"?: string;
 };
 
-function snapshotKey(snapshot: SpinnerLiveSnapshotV1) {
-  return `${snapshot.revision}:${snapshot.phase}:${snapshot.drawMode}:${snapshot.drawId || "idle"}`;
+function snapshotKey(snapshot: SpinnerLiveSnapshot) {
+  const planKey = snapshot.version === 2 ? snapshot.planHashSha256 : "v1";
+  return `${snapshot.version}:${snapshot.revision}:${snapshot.phase}:${snapshot.drawMode}:${snapshot.drawId || "idle"}:${planKey}`;
 }
 
 export function ViewerRaffleSpinner() {
@@ -70,6 +76,7 @@ export function ViewerRaffleSpinner() {
   const [countdownStartedAt, setCountdownStartedAt] = useState<string | null>(null);
   const [serverClockAnchor, setServerClockAnchor] = useState<SpinnerServerClockAnchor | null>(null);
   const [wheelMotionStartedDrawId, setWheelMotionStartedDrawId] = useState<string | null>(null);
+  const [sequenceSnapshot, setSequenceSnapshot] = useState<SpinnerLiveSnapshotV2 | null>(null);
 
   const wheelCanvasRef = useRef<HTMLCanvasElement>(null);
   const wheelFrameRef = useRef<HTMLDivElement>(null);
@@ -83,7 +90,7 @@ export function ViewerRaffleSpinner() {
   const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const appliedKeyRef = useRef("");
   const celebratedDrawIdRef = useRef<string | null>(null);
-  const liveSnapshotRef = useRef<SpinnerLiveSnapshotV1 | null>(null);
+  const liveSnapshotRef = useRef<SpinnerLiveSnapshot | null>(null);
   const preferredMotionRef = useRef<MotionMode>("full");
   const effectiveMotionRef = useRef<MotionMode>("full");
   const refreshLiveRef = useRef<(() => void) | null>(null);
@@ -92,6 +99,7 @@ export function ViewerRaffleSpinner() {
   const spinStartedAnnouncementDrawIdRef = useRef<string | null>(null);
   const mountedRef = useRef(true);
   const countdown = useSpinnerCountdown(countdownStartedAt, serverClockAnchor);
+  const sequencePresentation = useSpinnerSequencePresentation(sequenceSnapshot, serverClockAnchor);
 
   const numberedParticipants = useMemo(
     () => participants.map((participant, index) => ({ ...participant, number: index + 1 })),
@@ -188,16 +196,23 @@ export function ViewerRaffleSpinner() {
       monotonicNowMs,
       snapshotChanged,
     );
-    if (!snapshotChanged) return;
     const serverNowMs = spinnerServerClockNow(nextClockAnchor, monotonicNowMs);
-    if (nextClockAnchor) {
+    if (nextClockAnchor && nextClockAnchor !== serverClockAnchorRef.current) {
       serverClockAnchorRef.current = nextClockAnchor;
       setServerClockAnchor(nextClockAnchor);
     }
+    if (!snapshotChanged) return;
     appliedKeyRef.current = key;
     liveSnapshotRef.current = snapshot;
     setParticipants(snapshot.participants);
     setDrawMode(snapshot.drawMode);
+
+    if (snapshot.version === 2) {
+      stopTimeline();
+      setSequenceSnapshot(snapshot);
+      return;
+    }
+    setSequenceSnapshot(null);
 
     if (snapshot.phase === "idle") {
       stopTimeline();
@@ -235,13 +250,13 @@ export function ViewerRaffleSpinner() {
     stopTimeline();
     setWinner(null);
     setPhase("spinning");
-    setCountdownStartedAt(snapshot.startedAt);
+    const countdownPending = !spinnerLiveHasStarted(snapshot, serverNowMs);
+    setCountdownStartedAt(countdownPending ? snapshot.startedAt : null);
     setWheelMotionStartedDrawId(null);
     const timeline = spinnerLiveTimeline(snapshot, serverNowMs, motionMode);
     const rotations = spinnerLiveMotionRotations(snapshot, motionMode);
     setWheelMotion(null);
     setWheelRotation(snapshot.startRotation);
-    const countdownPending = !spinnerLiveHasStarted(snapshot, serverNowMs);
     const drawStatus = snapshot.drawMode === "test"
       ? countdownPending
         ? "Test draw: the roster is locked and the moonwheel countdown is underway."
@@ -258,20 +273,114 @@ export function ViewerRaffleSpinner() {
     spinStartedAnnouncementDrawIdRef.current = announcement.state.spinDrawId;
     if (announcement.announcement) setDrawAnnouncement(announcement.announcement);
 
-    if (timeline.motionDurationMs > 0) {
+    if (!countdownPending && timeline.motionDurationMs > 0) {
       setWheelMotion({
         drawId: liveDrawId,
+        animationKey: liveDrawId,
         startRotation: rotations.startRotation,
         finalRotation: rotations.finalRotation,
         durationMs: timeline.motionDurationMs,
         delayMs: timeline.motionDelayMs,
       });
     }
+    const nextRefreshDelayMs = countdownPending ? timeline.startDelayMs : timeline.revealDelayMs;
     revealTimerRef.current = setTimeout(() => {
       appliedKeyRef.current = "";
       refreshLiveRef.current?.();
-    }, timeline.revealDelayMs + 60);
+    }, nextRefreshDelayMs + 60);
   }, [motionMode, revealSnapshot, stopCelebration, stopTimeline]);
+
+  useEffect(() => {
+    const snapshot = sequenceSnapshot;
+    const presentation = sequencePresentation;
+    if (!snapshot || !presentation) return;
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      const drawId = snapshot.drawId;
+      const authoritativeNowMs = spinnerServerClockNow(serverClockAnchorRef.current, performance.now());
+      setParticipants(presentation.participants);
+      setDrawMode(snapshot.drawMode);
+      setWheelMotion(null);
+      setWheelMotionStartedDrawId(null);
+
+    if (presentation.stage === "countdown") {
+      stopCelebration();
+      setWinner(null);
+      setPhase("spinning");
+      setCountdownStartedAt(snapshot.startedAt);
+      setWheelRotation(presentation.settledRotation);
+      const countdownStatus = snapshot.drawMode === "test"
+        ? "Test draw: the roster is locked and the one-minute moonwheel countdown is underway."
+        : "The roster is locked. The one-minute moonwheel countdown is underway.";
+      setStatus(countdownStatus);
+      const announcement = spinnerDrawAnnouncementTransition(drawId, true, {
+        countdownDrawId: countdownAnnouncementDrawIdRef.current,
+        spinDrawId: spinStartedAnnouncementDrawIdRef.current,
+      });
+      countdownAnnouncementDrawIdRef.current = announcement.state.countdownDrawId;
+      spinStartedAnnouncementDrawIdRef.current = announcement.state.spinDrawId;
+      if (announcement.announcement) setDrawAnnouncement(announcement.announcement);
+        return;
+    }
+
+    setCountdownStartedAt(null);
+    if (presentation.stage === "round-spinning" && presentation.round) {
+      const roundNumber = presentation.round.roundIndex + 1;
+      const animationKey = `${drawId}:${presentation.round.roundIndex}`;
+      const timeline = spinnerSequenceRoundTimeline(
+        presentation.round,
+        authoritativeNowMs,
+        motionMode,
+      );
+      const rotations = spinnerSequenceRoundMotionRotations(presentation.round, motionMode);
+      setWinner(null);
+      setPhase("spinning");
+      setWheelRotation(presentation.round.startRotation);
+      if (timeline.motionDurationMs > 0) {
+        setWheelMotion({
+          drawId,
+          animationKey,
+          startRotation: rotations.startRotation,
+          finalRotation: rotations.finalRotation,
+          durationMs: timeline.motionDurationMs,
+          delayMs: timeline.motionDelayMs,
+        });
+      }
+      const roundStatus = `${snapshot.drawMode === "test" ? "Test draw · " : ""}Elimination round ${roundNumber} of ${presentation.roundCount}: ${presentation.participants.length} remain.`;
+      setStatus(roundStatus);
+      setDrawAnnouncement(roundNumber === 1
+        ? "The shared elimination draw is underway."
+        : `Elimination round ${roundNumber} has begun. ${presentation.participants.length} entrants remain.`);
+        return;
+    }
+
+    const finalWinner = presentation.winner;
+    if (!finalWinner) return;
+    const originalIndex = snapshot.participants.findIndex((participant) => participant.id === finalWinner.id);
+    setWheelRotation(presentation.settledRotation);
+    setPhase("revealed");
+    setWinner({
+      drawId,
+      participant: finalWinner,
+      selectedIndex: originalIndex,
+      participantCount: snapshot.participants.length,
+    });
+    const winnerStatus = `Winner: ${finalWinner.displayName}.`;
+    setStatus(winnerStatus);
+    setDrawAnnouncement(winnerStatus);
+      queueWinnerCelebration(drawId, snapshot.revealAt);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    motionMode,
+    queueWinnerCelebration,
+    sequencePresentation,
+    sequenceSnapshot,
+    stopCelebration,
+  ]);
 
   const { connected, error, refresh } = useSpinnerLive({
     enabled: motionPreferenceReady,
@@ -281,7 +390,7 @@ export function ViewerRaffleSpinner() {
   useEffect(() => {
     const snapshot = liveSnapshotRef.current;
     if (
-      phase !== "spinning" || countdown.remainingSeconds !== 0 || !snapshot?.drawId ||
+      snapshot?.version !== 1 || phase !== "spinning" || countdown.remainingSeconds !== 0 || !snapshot.drawId ||
       spinStartedAnnouncementDrawIdRef.current === snapshot.drawId
     ) return;
     const announcement = spinnerDrawAnnouncementTransition(snapshot.drawId, false, {
@@ -323,8 +432,10 @@ export function ViewerRaffleSpinner() {
       effectiveMotionRef.current = nextMotionMode;
       setMotionMode(nextMotionMode);
       setMotionPreferenceReady(true);
-      appliedKeyRef.current = "";
-      void refreshLiveRef.current?.();
+      if (liveSnapshotRef.current?.version === 1) {
+        appliedKeyRef.current = "";
+        void refreshLiveRef.current?.();
+      }
     };
     const onStorage = (event: StorageEvent) => {
       if (event.key !== SETTINGS_STORAGE_KEY) return;
@@ -356,18 +467,23 @@ export function ViewerRaffleSpinner() {
     const observer = new ResizeObserver(render);
     observer.observe(frame);
     return () => observer.disconnect();
-  }, [participants, wheelMotion?.drawId]);
+  }, [participants, wheelMotion?.animationKey]);
 
   useEffect(() => {
     const onVisibilityChange = () => {
       if (document.hidden) stopCelebration();
       const snapshot = liveSnapshotRef.current;
       if (snapshot?.phase !== "spinning") return;
-      if (!document.hidden) appliedKeyRef.current = "";
+      if (document.hidden) return;
+      if (snapshot.version === 1) {
+        appliedKeyRef.current = "";
+      } else if (sequencePresentation?.stage === "complete") {
+        queueWinnerCelebration(snapshot.drawId, snapshot.revealAt);
+      }
     };
     document.addEventListener("visibilitychange", onVisibilityChange);
     return () => document.removeEventListener("visibilitychange", onVisibilityChange);
-  }, [stopCelebration]);
+  }, [queueWinnerCelebration, sequencePresentation, stopCelebration]);
 
   useEffect(() => {
     if (!error) return;
@@ -393,17 +509,20 @@ export function ViewerRaffleSpinner() {
       animationDuration: `${wheelMotion.durationMs}ms`,
       animationDelay: `${wheelMotion.delayMs}ms`,
       animationTimingFunction: "cubic-bezier(0.12, 0.72, 0.12, 1)",
-      animationFillMode: "both",
+      animationFillMode: "forwards",
       "--spinner-wheel-start": `${wheelMotion.startRotation}deg`,
       "--spinner-wheel-finish": `${wheelMotion.finalRotation}deg`,
     } : {}),
   };
   const wheelMotionHasStarted = phase === "spinning"
-    && wheelMotion?.drawId != null
-    && wheelMotionStartedDrawId === wheelMotion.drawId;
+    && wheelMotion?.animationKey != null
+    && wheelMotionStartedDrawId === wheelMotion.animationKey;
   const showCountdownTimer = phase === "spinning"
     && countdownStartedAt !== null
     && countdown.remainingSeconds !== null;
+  const activeSequenceRound = sequencePresentation?.stage === "round-spinning"
+    ? sequencePresentation
+    : null;
 
   return (
     <main
@@ -449,12 +568,12 @@ export function ViewerRaffleSpinner() {
           >
             <div className="wheel-pointer" aria-hidden="true"><span /></div>
             <div
-              key={wheelMotion?.drawId ?? "settled"}
-              className="wheel-rotor"
+              key={wheelMotion?.animationKey ?? "settled"}
+              className={`wheel-rotor ${wheelMotion ? "has-live-motion" : ""}`}
               style={wheelStyle}
               onAnimationStart={(event) => {
-                if (event.animationName === "spinner-live-wheel-turn" && wheelMotion?.drawId) {
-                  setWheelMotionStartedDrawId(wheelMotion.drawId);
+                if (event.animationName === "spinner-live-wheel-turn" && wheelMotion?.animationKey) {
+                  setWheelMotionStartedDrawId(wheelMotion.animationKey);
                 }
               }}
             >
@@ -491,6 +610,14 @@ export function ViewerRaffleSpinner() {
                     {countdown.label}
                   </strong>
                   <p>{countdown.isCountingDown ? "Roster locked · shared server time" : "Fate is turning"}</p>
+                </>
+              ) : activeSequenceRound ? (
+                <>
+                  <span className="eyebrow">Elimination round {(activeSequenceRound.roundIndex ?? 0) + 1} of {activeSequenceRound.roundCount}</span>
+                  <h3>{activeSequenceRound.participants.length} remain</h3>
+                  <p>{activeSequenceRound.lastEliminated
+                    ? `${activeSequenceRound.lastEliminated.displayName} was removed at the last boundary`
+                    : "Each round spins for five seconds"}</p>
                 </>
               ) : (
                 <>

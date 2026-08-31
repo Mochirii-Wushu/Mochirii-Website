@@ -1,5 +1,5 @@
 import {
-  type DrawReceiptV1,
+  type DrawReceipt,
   normalizeParticipants,
   type ParticipantV1,
   sha256Hex,
@@ -154,7 +154,7 @@ async function hmacSha256(secret: string, value: string): Promise<Uint8Array> {
 }
 
 export async function buildAnimationManifest(
-  receipt: DrawReceiptV1,
+  receipt: DrawReceipt,
   plan: {
     startAt: string;
     revealAt: string;

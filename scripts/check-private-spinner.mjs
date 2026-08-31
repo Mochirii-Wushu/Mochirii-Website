@@ -222,6 +222,11 @@ for (const snippet of [
   "isTerminalSpinnerSpinFailure",
   "spinnerSkipStateForDraw",
   "spinnerLiveMotionRotations",
+  "spinnerSequencePresentation",
+  "stabilizeSpinnerSequencePresentation",
+  "spinnerSequenceRoundTimeline",
+  "spinnerSequenceRoundMotionRotations",
+  "SPINNER_SEQUENCE_ROUND_DURATION_MS = 5_000",
   "commandId",
 ].forEach((snippet) => includes("same-origin live client", source.live, snippet));
 for (const forbidden of ["WebSocket", "realtime.send", "wss://", "https://", "http://", "Math.random"]) {
@@ -279,8 +284,15 @@ for (const required of [
   'drawMode === "test"',
   "Test draw · no public result",
   'animationName: "spinner-live-wheel-turn"',
+  'animationFillMode: "forwards"',
   'wheelMotionHasStarted && motionMode === "full"',
   "spinnerLiveMotionRotations(snapshot, motionMode)",
+  "useSpinnerSequencePresentation(sequenceSnapshot, serverClockAnchor)",
+  "spinnerSequenceRoundTimeline(",
+  "spinnerSequenceRoundMotionRotations(presentation.round, motionMode)",
+  "setParticipants(presentation.participants)",
+  'animationKey = `${drawId}:${presentation.round.roundIndex}`',
+  "Each round spins for five seconds",
   "resolveCelebrationMotionMode(",
   "if (nextMotionMode !== effectiveMotionRef.current) stopCelebration();",
   "queueWinnerCelebration(snapshot.drawId, snapshot.revealAt)",
@@ -302,11 +314,19 @@ for (const required of [
   "No guild announcement or public result",
   'action: "reset"',
   'animationName: "spinner-live-wheel-turn"',
+  'animationFillMode: "forwards"',
   "&& !skipRequestedRef.current",
   "isTerminalSpinnerSpinFailure(error)",
   "spinnerSkipStateForDraw({",
   'wheelMotionHasStarted && effectiveMotionMode === "full"',
   "spinnerLiveMotionRotations(snapshot, selectedMotion)",
+  "useSpinnerSequencePresentation(sequenceSnapshot, serverClockAnchor)",
+  "spinnerSequenceRoundTimeline(",
+  "spinnerSequenceRoundMotionRotations(presentation.round, selectedMotion)",
+  "spinnerSequenceMutationReady(snapshot, presentation)",
+  "spinnerSequenceReceiptForPromotion(\n      sequenceSnapshot,\n      sequencePresentation,\n      sequenceReceipt,",
+  "wheelParticipants",
+  'animationKey = `${drawId}:${presentation.round.roundIndex}`',
   'id="main"',
   'src="/assets/img/brand/emblem.webp"',
   "Mōchirīī-roster-",
@@ -321,6 +341,8 @@ for (const required of [
 ]) includes("moderator spinner", source.controller, required);
 excludes("moderator spinner", source.controller, "onTransitionEnd");
 excludes("moderator spinner", source.controller, "document.documentElement.requestFullscreen");
+excludes("moderator spinner", source.controller, 'animationFillMode: "both"');
+excludes("view-only spinner", source.viewer, 'animationFillMode: "both"');
 
 for (const page of [
   ["moderator spinner", source.controller],
@@ -339,6 +361,7 @@ for (const page of [
     'role="timer"',
     'aria-live="off"',
     "The roster is locked. The moonwheel countdown is underway.",
+    "The one-minute moonwheel countdown is underway.",
     "The shared draw is underway.",
     'event.animationName === "spinner-live-wheel-turn"',
   ]) includes(page[0], page[1], snippet);
@@ -353,6 +376,10 @@ for (const page of [
 for (const snippet of [
   "spinnerServerClockNow(serverClockAnchor, performance.now())",
   "[serverClockAnchor, startedAt]",
+  "useSpinnerSequencePresentation",
+  "stabilizeSpinnerSequencePresentation(",
+  "nextBoundaryAt",
+  "visibilitychange",
 ]) includes("monotonic spinner countdown", source.countdownHook, snippet);
 excludes("monotonic spinner countdown", source.countdownHook, "Date.now()");
 
@@ -585,6 +612,11 @@ for (const key of [
   "mochirii.raffle.settings.v1",
   "mochirii.raffle.receipts.v1",
   "uniform-uint32-rejection-v1",
+  'ELIMINATION_APP_VERSION = "2.0.0"',
+  'ELIMINATION_ALGORITHM_VERSION = "uniform-elimination-uint32-rejection-v2"',
+  "ELIMINATION_ROUND_DURATION_MS = 5_000",
+  "planHashSha256",
+  "rounds: EliminationReceiptRoundV2[]",
 ]) includes("raffle contract", source.raffle, key);
 
 for (const forbidden of ["@import", "@font-face", ":root", 'url("/assets/wuxia-bg.webp")', 'url("/assets/raffle-hero.webp")']) {
@@ -603,6 +635,10 @@ includes("spinner CSS", source.css, "animation-delay: var(--spinner-celebration-
 includes("spinner CSS", source.css, ".spinner-page .raffle-app.is-motion-reduced .draw-stage");
 includes("spinner CSS", source.css, ".spinner-page .spinner-test-control");
 includes("spinner CSS", source.css, ".spinner-page .spinner-test-badge");
+includes("spinner CSS", source.css, ".spinner-page .wheel-rotor.has-live-motion");
+if (/\.spinner-page \.wheel-rotor\s*\{[^}]*will-change\s*:/su.test(source.css)) {
+  failures.push("spinner CSS idle rotor: will-change must be reserved for an active wheel animation.");
+}
 excludes("spinner CSS", source.css, "@keyframes wheel-aura");
 
 const assetPath = resolve(root, "apps/web/public/assets/img/spinner/mochirii-banner.webp");

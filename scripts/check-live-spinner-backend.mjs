@@ -7,6 +7,8 @@ const migrationPath =
   "supabase/migrations/20260726180052_add_private_live_spinner.sql";
 const countdownMigrationPath =
   "supabase/migrations/20260727054717_enforce_three_minute_spinner_countdown.sql";
+const eliminationMigrationPath =
+  "supabase/migrations/20260831154230_spinner_elimination_sequence.sql";
 const foreignKeyIndexMigrationPath =
   "supabase/migrations/20260726213000_add_spinner_foreign_key_indexes.sql";
 const mediaMigrationPath =
@@ -18,6 +20,7 @@ const reviewedDrawClassificationMigrationPath =
 const files = {
   migration: migrationPath,
   countdownMigration: countdownMigrationPath,
+  eliminationMigration: eliminationMigrationPath,
   foreignKeyIndexMigration: foreignKeyIndexMigrationPath,
   mediaMigration: mediaMigrationPath,
   officialRaffleMigration: officialRaffleMigrationPath,
@@ -34,6 +37,7 @@ const files = {
   mediaTest: "supabase/functions/_shared/spinner-media_test.ts",
   test: "supabase/functions/_shared/spinner-live_test.ts",
   sqlTest: "supabase/tests/private_live_spinner_test.sql",
+  publicationSqlTest: "supabase/tests/official_raffle_publication_test.sql",
   mediaSqlTest: "supabase/tests/spinner_media_jobs_test.sql",
   winnerRunbook: "docs/operations/SPINNER-RAFFLE-WINNER-PUBLICATION.md",
   reviewedDrawReadback:
@@ -65,6 +69,7 @@ function excludes(label, text, pattern, message) {
 
 const migration = read(files.migration);
 const countdownMigration = read(files.countdownMigration);
+const eliminationMigration = read(files.eliminationMigration);
 const foreignKeyIndexMigration = read(files.foreignKeyIndexMigration);
 const mediaMigration = read(files.mediaMigration);
 const officialRaffleMigration = read(files.officialRaffleMigration);
@@ -87,6 +92,7 @@ const mediaDispatch = read(files.mediaDispatch);
 const mediaTest = read(files.mediaTest);
 const denoTest = read(files.test);
 const sqlTest = read(files.sqlTest);
+const publicationSqlTest = read(files.publicationSqlTest);
 const mediaSqlTest = read(files.mediaSqlTest);
 
 for (const snippet of [
@@ -241,6 +247,72 @@ excludes(
   "the forward migration must replace the released two-second timing rule.",
 );
 
+for (const snippet of [
+  "Preserve every released v1 receipt while introducing one authoritative v2",
+  "Rolling-deploy compatibility: an already-staged released v1 command",
+  "and not (p_payload ? 'version')",
+  "receipt_timestamp_value + interval '3 minutes'",
+  "add column if not exists elimination_plan jsonb",
+  "add column if not exists plan_hash_sha256 text",
+  "when '1' then elimination_plan is null and plan_hash_sha256 is null",
+  "app_version = '2.0.0'",
+  "algorithm_version = 'uniform-elimination-uint32-rejection-v2'",
+  "rejection_limit is null",
+  "sampled_words is null",
+  "accepted_word is null",
+  "receipt_value ->> 'appVersion' <> '2.0.0'",
+  "'uniform-elimination-uint32-rejection-v2'",
+  "not (p_payload ?& array[",
+  "not (receipt_value ?& array[",
+  "not (participant_value ?&",
+  "not (round_value ?& array[",
+  "started_at_value <> receipt_timestamp_value + interval '60 seconds'",
+  "round_count <> participant_count - 1",
+  "p_payload -> 'rounds' <> full_rounds",
+  "started_at_value + round_count * interval '5 seconds'",
+  "round_started_at + interval '5 seconds'",
+  "expected_rejection_limit :=",
+  "(4294967296::bigint / round_active_count::bigint) *",
+  "accepted_word % round_active_count <> round_selected_index",
+  "active_participants :=",
+  "active_participants - round_selected_index",
+  "receipt_value -> 'winner' <> final_survivor",
+  "extensions.digest(convert_to(canonical_plan_text, 'UTF8'), 'sha256')",
+  "computed_plan_hash <> plan_hash_value",
+  "duration_ms = (p_payload ->> 'durationMs')::integer",
+  "elimination_plan = case when v2_payload then compact_plan else null end",
+  "plan_hash_sha256 = case when v2_payload then plan_hash_value else null end",
+]) {
+  includes("v2 spinner elimination migration", eliminationMigration, snippet);
+}
+for (const forbidden of [/duration_ms = 4800/u]) {
+  excludes(
+    "v2 spinner elimination migration",
+    eliminationMigration,
+    forbidden,
+    `retired timing matched ${forbidden}`,
+  );
+}
+
+if ((eliminationMigration.match(/or invalid_datetime_format/gu) ?? []).length !== 2) {
+  failures.push(
+    "v1/v2 timestamp containment: both receipt cast blocks must categorize invalid_datetime_format.",
+  );
+}
+
+const v2CommandLock = eliminationMigration.indexOf(
+  "from public.spinner_commands",
+);
+const v2StateLock = eliminationMigration.indexOf(
+  "from public.spinner_live_state",
+  v2CommandLock + 1,
+);
+if (!(v2CommandLock >= 0 && v2StateLock > v2CommandLock)) {
+  failures.push(
+    "v2 spinner lock ordering: the command row must remain locked before the singleton live state.",
+  );
+}
+
 if (
   /delete from public\.spinner_discord_outbox[\s\S]*?spinner_live_state[\s\S]*?get diagnostics outbox_count/i
     .test(migration)
@@ -287,8 +359,15 @@ if (
   "Math.floor(UINT32_RANGE / count) * count",
   "sampledWords.push(word)",
   "word < rejectionLimit",
-  "SPINNER_START_DELAY_MS = 180_000",
-  "SPINNER_DEFAULT_DURATION_MS = 4_800",
+  'SPINNER_APP_VERSION = "2.0.0"',
+  '"uniform-elimination-uint32-rejection-v2"',
+  "SPINNER_START_DELAY_MS = 60_000",
+  "SPINNER_DEFAULT_DURATION_MS = 5_000",
+  "SPINNER_ROUND_DURATION_MS = 5_000",
+  "roundIndex < participants.length - 1",
+  "sampleUniformIndex(activeCount, randomWord)",
+  "activeParticipants.splice(sample.index, 1)",
+  "canonicalDrawPlanPayload(planHashInput)",
   "startRotation",
   "finalRotation",
   "https://mochirii.com/account?open=live-draw",
@@ -420,7 +499,7 @@ for (const snippet of [
 
 for (const snippet of [
   "Signed-out and unverified visitors receive exactly `Winner Confirmed`",
-  "A test receipt is durable for private review",
+  "A test receipt durably records the same complete elimination mechanics for private review",
   "drops the temporary backfill function",
   "unchanged 33-function inventory and 20/13 JWT parity",
   "20260727211442_classify_reviewed_sya_spinner_draw.sql",
@@ -518,8 +597,17 @@ excludes(
   "readBoundedSpinnerJsonObject(req)",
   "rejectUnstagedSpin(moderator.adminClient, commandId)",
   "const drawMode = normalizeDrawMode(body.drawMode)",
-  "commandInput = { action, expectedRevision, durationMs, drawMode }",
+  'Object.prototype.hasOwnProperty.call(body, "durationMs")',
+  "Spin duration is fixed by the raffle protocol.",
+  "commandInput = { version: 2, action, expectedRevision, drawMode }",
 ].forEach((snippet) => includes("Edge HTTP contract", index, snippet));
+
+excludes(
+  "fixed spinner command timing",
+  index,
+  /commandInput\s*=\s*\{[^}]*durationMs/iu,
+  "controller input must not carry a duration override into the draw plan.",
+);
 
 includes(
   "protected response variance",
@@ -666,9 +754,12 @@ for (const snippet of [
 );
 
 [
+  "the fixed round duration rejects controller timing overrides",
+  "a maximum roster produces exactly ninety-nine ordered eliminations",
   "records rejection retries without modulo bias",
-  "future synchronized timeline",
-  "three-minute lead preserves the existing wheel duration",
+  "one live draw plan freezes every elimination round before staging",
+  "the one-minute lead is followed by contiguous five-second rounds",
+  "v2 snapshots validate the frozen round chain and trust the database phase",
   "controller polling can recover the current receipt while viewer polling cannot",
   "withhold winner fields",
   "no mentions",
@@ -709,7 +800,29 @@ for (const snippet of [
   "an Edge failure terminalizes an unstaged spin so retry requires a new command ID",
   "exhausted delivery is failed deterministically instead of violating its attempt bound",
   "retention cleanup removes expired evidence after 30 days even when the live stage still points at that draw",
+  "an already-staged released v1 command remains resumable with its three-minute proof and v1 snapshot",
+  "a staged v2 envelope missing one required key is rejected without receipt, outbox, or state mutation",
+  "a v2 receipt missing one required key is rejected without receipt, outbox, or state mutation",
+  "a roster participant missing one required key is rejected without receipt, outbox, or state mutation",
+  "a full v2 round missing one required key is rejected without receipt, outbox, or state mutation",
+  "a v2 malformed timestamp is categorically rejected without receipt, outbox, or state mutation",
+  "a staged v1 malformed timestamp is categorically rejected without receipt, outbox, or state mutation",
+  "the spinning v2 command exposes its compact round plan without revealing the final survivor early",
+  "the actual staged test-mode v2 sequence uses the same final-survivor contract",
+  "the actual test-mode apply creates zero outbox, media, public-result, or monthly side effects",
+  "ed480a7239cf0dc48ba27e492cc4181786e96b68cf395013dd81a3097a042d82",
 ].forEach((snippet) => includes("focused pgTAP tests", sqlTest, snippet));
+
+for (const snippet of [
+  "the actual official v2 apply eliminates two entrants in contiguous five-second rounds and retains one survivor",
+  "official publication and delivery bind only the final survivor after the last round",
+  "uniform-elimination-uint32-rejection-v2",
+  "jsonb_array_length(elimination_plan) = 2",
+  "published_at = reveal_at",
+  "2164b43d3c7173ca80d3fd7661057052110ec9f32a9c2dae08d2f78d68fff12c",
+]) {
+  includes("official v2 publication pgTAP tests", publicationSqlTest, snippet);
+}
 
 for (const snippet of [
   "browser roles have no direct media job access",

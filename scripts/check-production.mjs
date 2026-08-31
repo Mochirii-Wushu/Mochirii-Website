@@ -11,7 +11,7 @@ const DEFAULT_DIAGNOSE = process.argv.includes("--diagnose");
 export const PRODUCTION_CHECK_LIMITS = Object.freeze({
   baseUrlCharacters: 2048,
   responseHeaderCharacters: 256,
-  linkHeaderCharacters: 512,
+  linkHeaderCharacters: 1024,
   contentDispositionCharacters: 160,
   contentLengthCharacters: 16,
   htmlBytes: 1024 * 1024,
@@ -224,14 +224,18 @@ function responseMatchesRequest(response, target) {
 
 function productionLinkResponseHeaderRecord(value) {
   if (typeof value !== "string" || value.length === 0
-    || value.length > PRODUCTION_CHECK_LIMITS.linkHeaderCharacters) return null;
-  const fontPreload = /^<\/_next\/static\/(?:([A-Za-z0-9_-]{1,64})\/)?media\/[A-Za-z0-9._-]+\.woff2>; rel=preload; as="font"; crossorigin=""; type="font\/woff2"$/;
+    || value.length > PRODUCTION_CHECK_LIMITS.linkHeaderCharacters
+    || /[\u0000-\u001f\u007f]/.test(value)) return null;
+  const fontPreload = /^<\/_next\/static\/(?:([A-Za-z0-9_-]{1,64})\/)?media\/[A-Za-z0-9][A-Za-z0-9._-]{0,127}\.woff2>; rel=preload; as="font"; crossorigin=""; type="font\/woff2"$/;
+  const stylePreload = /^<\/_next\/static\/(?:([A-Za-z0-9_-]{1,64})\/)?chunks\/[A-Za-z0-9][A-Za-z0-9._-]{0,127}\.css>; rel=preload; as="style"$/;
   const entries = value.split(", ");
-  if (entries.length < 1 || entries.length > 2 || new Set(entries).size !== entries.length) return null;
+  if (entries.length < 2 || entries.length > 6
+    || new Set(entries).size !== entries.length) return null;
   let nextStaticBuildId = null;
-  for (const entry of entries) {
-    const match = fontPreload.exec(entry);
-    if (!match) return null;
+  for (let index = 0; index < entries.length; index += 1) {
+    const entry = entries[index];
+    const match = (index < 2 ? fontPreload : stylePreload).exec(entry);
+    if (!match || match[0] !== entry) return null;
     const entryBuildId = match[1] || "";
     if (nextStaticBuildId !== null && nextStaticBuildId !== entryBuildId) return null;
     nextStaticBuildId = entryBuildId;
@@ -550,9 +554,9 @@ const PRODUCTION_GEOMETRY_CLASS_NAMES = new Set([
 ]);
 const PRODUCTION_DOCUMENT_POLICIES = Object.freeze({
   deletion: Object.freeze({
-    header: "767693EE075EE31FE445A966DBE0BC2823B4353406A94C590DFF787CEED8E5E3",
+    header: "951B1B5A4CD1F143B08D97FE83EA92425BCE46BB451BF00E5061E18579E5CE71",
     resources: Object.freeze([
-      "43111FFA05C8E063026126CAC9A90A7C97A28C38CC8F1BD8B3F7398B904DA0CC",
+      "EF68A8366B489129A4F89BD64001A55AD634AD15723A48DAF5E4C052ED2CE7AE",
       "ED2A94A30FFCEF523DAA23935D4327E0782719182CDEAC3EECFA14EEF2452E4E",
     ]),
   }),
@@ -563,22 +567,22 @@ const PRODUCTION_DOCUMENT_POLICIES = Object.freeze({
         resources: "3ED2476C6AE21876EADBE86B73FE0615C8FB8E1350C5E8CD9C8B34EF5B971820",
       }),
       Object.freeze({
-        header: "767693EE075EE31FE445A966DBE0BC2823B4353406A94C590DFF787CEED8E5E3",
-        resources: "AF7841F98846581A218F2CBF97474B61B44F133E70586FE31B59D404416A1A12",
+        header: "411005B83187566BA48384F5D5211FDCA5D4A3932C9F1E1CAE8AE44B7A550B78",
+        resources: "B4407357814ABF98CE52EDA66D0A472824DFBCBCD50FCFC902405D6262281761",
       }),
     ]),
   }),
   privacy: Object.freeze({
-    header: "767693EE075EE31FE445A966DBE0BC2823B4353406A94C590DFF787CEED8E5E3",
+    header: "951B1B5A4CD1F143B08D97FE83EA92425BCE46BB451BF00E5061E18579E5CE71",
     resources: Object.freeze([
-      "6EA10100B693D0E95B09CBF1F6901F0CC5EEBD853F1A2607BE846A5C7AEF4C7C",
+      "EC048124DED6CD1D564ED72BF08F5C5489559754D2C6556A7E44C2C117B591AF",
       "727E4C0D6E5C2A93C57660844BD08264A02643416CE0D63BCE58832DC2A863AA",
     ]),
   }),
   recruitment: Object.freeze({
-    header: "179EADA7DAB503C38AD261D71B2301F8DB134C5354ED186BE6ED227C213E5649",
+    header: "66A0D6F526E99D38873D32D0B201816B1AF2C86151CF5CD99B1513BC6FA7B400",
     resources: Object.freeze([
-      "6CC57E08D21592A8C637D344931BBB4F508699AE69EA768C3ABC1E920DDFA023",
+      "F407952D409F3B5182F3465048F47592952C92948A4F56797886BD6194F1AAC4",
       "C92A261DD8F4354A428EFE76BA65AC19DBE81319FAC57762A97D1FB249FA238A",
     ]),
   }),
@@ -1217,7 +1221,7 @@ const PRODUCTION_FLIGHT_IMAGE_PROPERTY_NAMES = new Set([
   "sizes", "src", "srcSet", "width",
 ]);
 const PRODUCTION_FLIGHT_ANCHOR_PROPERTY_NAMES = new Set([
-  "children", "className", "href", "id", "rel", "target",
+  "aria-label", "children", "className", "href", "id", "rel", "target",
 ]);
 const PRODUCTION_FLIGHT_ACTIVE_PROPERTY_NAMES = new Set([
   "action", "background", "cite", "dangerouslysetinnerhtml", "data", "formaction", "href",
@@ -1857,11 +1861,15 @@ export function canonicalizeProductionFlightResourceEnvelopeStream(
         if (intrinsicName === "a") {
           if (propertyNames.some((name) => !PRODUCTION_FLIGHT_ANCHOR_PROPERTY_NAMES.has(name))) return false;
           const href = productionJsonObjectEntry(properties, "href")?.value;
+          const ariaLabel = productionJsonObjectEntry(properties, "aria-label")?.value;
           const target = productionJsonObjectEntry(properties, "target")?.value;
           const rel = productionJsonObjectEntry(properties, "rel")?.value;
           const targetUndefined = target === undefined || productionJsonStringIs(target, "$undefined");
           const relUndefined = rel === undefined || productionJsonStringIs(rel, "$undefined");
           if (!productionFlightAnchorHrefIsSafe(href)
+            || (ariaLabel !== undefined
+              && (!productionFlightBoundedString(ariaLabel, 256)
+                || ariaLabel.value.length === 0))
             || ["className", "id"].some((name) => {
               const entry = productionJsonObjectEntry(properties, name)?.value;
               return entry !== undefined && !productionFlightBoundedString(entry, 256);
@@ -1986,6 +1994,88 @@ export function canonicalizeProductionFlightResourceEnvelopeStream(
   }
 
   function prepareHomeSpotlightNormalization() {
+    const currentRetainedOrder = Object.freeze(["20", "1e"]);
+    if (spotlightAnchors.length === 1
+      && spotlightAnchors[0].recordId === "1c"
+      && spotlightAnchors[0].reference === "$L1e") {
+      const exactReferences = [
+        ["$L8", "0"],
+        ["$L15", "8"],
+        ["$L1c", "15"],
+        ["$L1d", "15"],
+        ["$L1e", "1c"],
+        ["$L1f", "1d"],
+        ["$L20", "1d"],
+      ];
+      if (exactReferences.some(([reference, source]) => !flightReferenceIsExact(reference, source))
+        || ["8", "15", "1c", "1d", "1e", "1f", "20"].some(
+          (recordId) => !flightTargetIsReferencedOnce(recordId),
+        )) return null;
+
+      const frameById = new Map(frames.map((frame) => [frame.recordId, frame]));
+      const requiredRegularIds = ["0", "8", "15", "1c", "1d", "1e", "20"];
+      if (requiredRegularIds.some((recordId) => frameById.get(recordId)?.role !== "regular")) {
+        return null;
+      }
+      const galleryImportFrame = frameById.get("1f");
+      if (galleryImportFrame?.role !== "import"
+        || galleryImportFrame.record?.type !== "array"
+        || galleryImportFrame.record.items.length !== 3
+        || galleryImportFrame.record.items[1]?.type !== "array"
+        || galleryImportFrame.record.items[1].items.length !== 3
+        || !productionJsonStringIs(
+          galleryImportFrame.record.items[2], "HomeGallerySpotlight",
+        )) return null;
+
+      const galleryCtaFrame = frameById.get("20");
+      const galleryCtaProperties = galleryCtaFrame?.record?.items?.[3];
+      if (galleryCtaFrame.record?.type !== "array"
+        || galleryCtaFrame.record.items.length !== 4
+        || !productionJsonStringIs(galleryCtaFrame.record.items[0], "$")
+        || !productionJsonStringIs(galleryCtaFrame.record.items[1], "$L7")
+        || galleryCtaFrame.record.items[2]?.type !== "null"
+        || !productionJsonObjectKeyOrderMatches(
+          galleryCtaProperties, ["className", "href", "children"],
+        )
+        || !productionFlightStringPropertyIs(
+          galleryCtaProperties, "className", "hero-cta home-section-cta",
+        )
+        || !productionFlightStringPropertyIs(galleryCtaProperties, "href", "/gallery")
+        || !productionFlightStringPropertyIs(
+          galleryCtaProperties, "children", "View Guild Gallery",
+        )) return null;
+
+      const terminalFrames = frames.slice(-currentRetainedOrder.length);
+      if (terminalFrames.length !== currentRetainedOrder.length
+        || new Set(terminalFrames.map((frame) => frame.recordId)).size
+          !== currentRetainedOrder.length
+        || currentRetainedOrder.some(
+          (recordId) => !terminalFrames.some((frame) => frame.recordId === recordId),
+        )
+        || frames.findIndex((frame) => frame.recordId === "1f")
+          >= frames.findIndex((frame) => frame.recordId === "1d")
+        || frames.findIndex((frame) => frame.recordId === "1d")
+          >= frames.findIndex((frame) => frame.recordId === terminalFrames[0].recordId)) {
+        return null;
+      }
+
+      const titleFrame = frameById.get("1e");
+      const title = titleFrame.record?.type === "string" ? titleFrame.record.value : null;
+      const fallbackTitle = "Member Spotlight";
+      if (typeof title !== "string"
+        || titleFrame.payload !== JSON.stringify(title)
+        || (title !== fallbackTitle && !productionFlightHomeSpotlightNameIsSafe(title))) return null;
+      replacements.push(Object.freeze({
+        end: titleFrame.payloadOffset + titleFrame.record.end,
+        start: titleFrame.payloadOffset + titleFrame.record.start,
+        value: JSON.stringify(fallbackTitle),
+      }));
+      return Object.freeze({
+        retainedOrder: currentRetainedOrder,
+        suffixStart: terminalFrames[0].start,
+      });
+    }
+
     const retainedOrder = Object.freeze(["26", "24", "21", "1f", "23"]);
     if (spotlightAnchors.length !== 1
       || spotlightAnchors[0].recordId !== "1b"

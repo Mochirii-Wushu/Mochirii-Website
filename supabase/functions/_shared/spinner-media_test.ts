@@ -35,8 +35,7 @@ const participants: ParticipantV1[] = [
 Deno.test("animation manifest is deterministic, numbered, and validates exactly", async () => {
   const plan = await createLiveDrawPlan(participants, {
     now: new Date("2026-07-27T01:00:00.000Z"),
-    durationMs: 4_800,
-    randomWord: () => 1,
+    randomWord: () => 0,
     uuidFactory: () => "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
   });
   const manifest = await buildAnimationManifest(plan.receipt, plan);

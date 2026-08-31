@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(50);
+SELECT plan(59);
 
 INSERT INTO auth.users (
   id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at
@@ -439,24 +439,421 @@ SELECT ok(
   'the released two-second lead is rejected by the forward timing rule'
 );
 
+CREATE TEMP TABLE spinner_v2_required_key_fixture (
+  payload jsonb NOT NULL,
+  state_before jsonb NOT NULL
+) ON COMMIT DROP;
+INSERT INTO spinner_v2_required_key_fixture
+SELECT
+  jsonb_build_object(
+    'version', 2,
+    'receipt', jsonb_build_object(
+      'version', 2,
+      'drawMode', 'official',
+      'drawId', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbc1',
+      'timestampIso', '2019-12-01T00:00:00.000Z',
+      'singaporeTime', '01 Dec 2019, 08:00:00 SGT',
+      'appVersion', '2.0.0',
+      'algorithmVersion', 'uniform-elimination-uint32-rejection-v2',
+      'rosterSnapshot', jsonb_build_object(
+        'version', 1,
+        'participants', jsonb_build_array(
+          jsonb_build_object('version', 1, 'id', '11111111-1111-4111-8111-111111111111', 'displayName', 'Lotus'),
+          jsonb_build_object('version', 1, 'id', '22222222-2222-4222-8222-222222222222', 'displayName', 'Jade')
+        )
+      ),
+      'rosterHashSha256', repeat('2', 64),
+      'planHashSha256', '6ecfd9467152e92322d874341ad9214b76d37fcd87253259eb0b90bf5651b3a1',
+      'durationMs', 5000,
+      'startAt', '2019-12-01T00:01:00.000Z',
+      'revealAt', '2019-12-01T00:01:05.000Z',
+      'startRotation', 180,
+      'finalRotation', 2340,
+      'rounds', jsonb_build_array(jsonb_build_object(
+        'roundIndex', 0,
+        'activeCount', 2,
+        'selectedIndex', 0,
+        'eliminatedId', '11111111-1111-4111-8111-111111111111',
+        'eliminatedParticipant', jsonb_build_object(
+          'version', 1,
+          'id', '11111111-1111-4111-8111-111111111111',
+          'displayName', 'Lotus'
+        ),
+        'rejectionLimit', 4294967296,
+        'sampledWords', jsonb_build_array(0),
+        'acceptedWord', 0,
+        'startedAt', '2019-12-01T00:01:00.000Z',
+        'revealAt', '2019-12-01T00:01:05.000Z',
+        'startRotation', 180,
+        'finalRotation', 2520
+      )),
+      'selectedIndex', 1,
+      'winner', jsonb_build_object(
+        'version', 1,
+        'id', '22222222-2222-4222-8222-222222222222',
+        'displayName', 'Jade'
+      )
+    ),
+    'planHashSha256', '6ecfd9467152e92322d874341ad9214b76d37fcd87253259eb0b90bf5651b3a1',
+    'rounds', jsonb_build_array(jsonb_build_object(
+      'roundIndex', 0,
+      'activeCount', 2,
+      'selectedIndex', 0,
+      'eliminatedId', '11111111-1111-4111-8111-111111111111',
+      'eliminatedParticipant', jsonb_build_object(
+        'version', 1,
+        'id', '11111111-1111-4111-8111-111111111111',
+        'displayName', 'Lotus'
+      ),
+      'rejectionLimit', 4294967296,
+      'sampledWords', jsonb_build_array(0),
+      'acceptedWord', 0,
+      'startedAt', '2019-12-01T00:01:00.000Z',
+      'revealAt', '2019-12-01T00:01:05.000Z',
+      'startRotation', 180,
+      'finalRotation', 2520
+    )),
+    'startAt', '2019-12-01T00:01:00.000Z',
+    'revealAt', '2019-12-01T00:01:05.000Z',
+    'durationMs', 5000,
+    'startRotation', 180,
+    'finalRotation', 2340,
+    'animationManifest', '{}'::jsonb,
+    'animationManifestHashSha256', repeat('9', 64),
+    'discordChannelKey', 'raffle_spins',
+    'discordChannelId', '1468667003366674721',
+    'discordStartPayload', jsonb_build_object(
+      'content', 'Required-key regression draw',
+      'nonce', 'bbbbbbbbbbbbbbbbbbbbbbbc1',
+      'enforce_nonce', true,
+      'allowed_mentions', jsonb_build_object('parse', '[]'::jsonb, 'users', '[]'::jsonb, 'roles', '[]'::jsonb, 'replied_user', false)
+    ),
+    'discordResultPayload', jsonb_build_object(
+      'content', 'Required-key regression result',
+      'allowed_mentions', jsonb_build_object('parse', '[]'::jsonb, 'users', '[]'::jsonb, 'roles', '[]'::jsonb, 'replied_user', false)
+    )
+  ),
+  to_jsonb(state_row)
+FROM public.spinner_live_state state_row
+WHERE singleton_id = 1;
+
+SELECT public.spinner_reserve_command(
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaac1', 'spin',
+  '99999999-9999-4999-8999-999999999999', 4, repeat('1', 64)
+);
+SELECT public.spinner_stage_command(
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaac1',
+  (SELECT payload - 'discordResultPayload' FROM spinner_v2_required_key_fixture)
+);
+SELECT public.spinner_apply_command('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaac1');
+SELECT ok(
+  (SELECT status = 'rejected' AND error_code = 'invalid_receipt'
+    FROM public.spinner_commands
+    WHERE command_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaac1')
+  AND NOT EXISTS (SELECT 1 FROM public.spinner_draw_receipts
+    WHERE draw_id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbc1')
+  AND NOT EXISTS (SELECT 1 FROM public.spinner_discord_outbox
+    WHERE draw_id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbc1')
+  AND (SELECT to_jsonb(state_row) = fixture.state_before
+    FROM public.spinner_live_state state_row
+    CROSS JOIN spinner_v2_required_key_fixture fixture
+    WHERE state_row.singleton_id = 1),
+  'a staged v2 envelope missing one required key is rejected without receipt, outbox, or state mutation'
+);
+
+SELECT public.spinner_reserve_command(
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaac2', 'spin',
+  '99999999-9999-4999-8999-999999999999', 4, repeat('2', 64)
+);
+SELECT public.spinner_stage_command(
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaac2',
+  (SELECT jsonb_set(payload, '{receipt}', (payload -> 'receipt') - 'singaporeTime')
+   FROM spinner_v2_required_key_fixture)
+);
+SELECT public.spinner_apply_command('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaac2');
+SELECT ok(
+  (SELECT status = 'rejected' AND error_code = 'invalid_receipt'
+    FROM public.spinner_commands
+    WHERE command_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaac2')
+  AND NOT EXISTS (SELECT 1 FROM public.spinner_draw_receipts
+    WHERE draw_id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbc1')
+  AND NOT EXISTS (SELECT 1 FROM public.spinner_discord_outbox
+    WHERE draw_id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbc1')
+  AND (SELECT to_jsonb(state_row) = fixture.state_before
+    FROM public.spinner_live_state state_row
+    CROSS JOIN spinner_v2_required_key_fixture fixture
+    WHERE state_row.singleton_id = 1),
+  'a v2 receipt missing one required key is rejected without receipt, outbox, or state mutation'
+);
+
+UPDATE public.spinner_live_state
+SET participants = jsonb_set(participants, '{0}', (participants -> 0) - 'displayName'),
+  roster_hash_sha256 = 'eb08fd27f97164ea1875e19e1f18de49c3c4d19c272693a917f66b86dd03c23d'
+WHERE singleton_id = 1;
+CREATE TEMP TABLE spinner_v2_missing_participant_state AS
+SELECT to_jsonb(state_row) AS state_before
+FROM public.spinner_live_state state_row
+WHERE singleton_id = 1;
+
+SELECT public.spinner_reserve_command(
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaac3', 'spin',
+  '99999999-9999-4999-8999-999999999999', 4, repeat('3', 64)
+);
+WITH source AS (
+  SELECT
+    payload,
+    (payload #> '{receipt,rosterSnapshot,participants,0}') - 'displayName' AS participant,
+    (payload #> '{receipt,rounds,0,eliminatedParticipant}') - 'displayName' AS eliminated_participant
+  FROM spinner_v2_required_key_fixture
+), mutant AS (
+  SELECT jsonb_set(
+    jsonb_set(
+      jsonb_set(
+        jsonb_set(
+          jsonb_set(
+            jsonb_set(payload, '{receipt,rosterSnapshot,participants,0}', participant),
+            '{receipt,rosterHashSha256}',
+            to_jsonb('eb08fd27f97164ea1875e19e1f18de49c3c4d19c272693a917f66b86dd03c23d'::text)
+          ),
+          '{receipt,planHashSha256}',
+          to_jsonb('874a50d21e6192113588760f247d3b6f77217d32adb9c3143efc0698a7a10ba2'::text)
+        ),
+        '{planHashSha256}',
+        to_jsonb('874a50d21e6192113588760f247d3b6f77217d32adb9c3143efc0698a7a10ba2'::text)
+      ),
+      '{receipt,rounds,0,eliminatedParticipant}', eliminated_participant
+    ),
+    '{rounds,0,eliminatedParticipant}', eliminated_participant
+  ) AS payload
+  FROM source
+)
+SELECT public.spinner_stage_command('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaac3', payload)
+FROM mutant;
+SELECT public.spinner_apply_command('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaac3');
+SELECT ok(
+  (SELECT status = 'rejected' AND error_code = 'invalid_receipt'
+    FROM public.spinner_commands
+    WHERE command_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaac3')
+  AND NOT EXISTS (SELECT 1 FROM public.spinner_draw_receipts
+    WHERE draw_id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbc1')
+  AND NOT EXISTS (SELECT 1 FROM public.spinner_discord_outbox
+    WHERE draw_id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbc1')
+  AND (SELECT to_jsonb(state_row) = baseline.state_before
+    FROM public.spinner_live_state state_row
+    CROSS JOIN spinner_v2_missing_participant_state baseline
+    WHERE state_row.singleton_id = 1),
+  'a roster participant missing one required key is rejected without receipt, outbox, or state mutation'
+);
+UPDATE public.spinner_live_state
+SET participants = (SELECT payload #> '{receipt,rosterSnapshot,participants}'
+    FROM spinner_v2_required_key_fixture),
+  roster_hash_sha256 = repeat('2', 64)
+WHERE singleton_id = 1;
+
+SELECT public.spinner_reserve_command(
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaac4', 'spin',
+  '99999999-9999-4999-8999-999999999999', 4, repeat('4', 64)
+);
+WITH source AS (
+  SELECT payload, (payload #> '{receipt,rounds,0}') - 'eliminatedId' AS round
+  FROM spinner_v2_required_key_fixture
+), mutant AS (
+  SELECT jsonb_set(
+    jsonb_set(
+      jsonb_set(
+        jsonb_set(payload, '{receipt,rounds,0}', round),
+        '{rounds,0}', round
+      ),
+      '{receipt,planHashSha256}',
+      to_jsonb('b1b8a7786162f7f8d0d4c1070b568d051145c5fbc04e129f99d71898c998c4a1'::text)
+    ),
+    '{planHashSha256}',
+    to_jsonb('b1b8a7786162f7f8d0d4c1070b568d051145c5fbc04e129f99d71898c998c4a1'::text)
+  ) AS payload
+  FROM source
+)
+SELECT public.spinner_stage_command('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaac4', payload)
+FROM mutant;
+SELECT public.spinner_apply_command('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaac4');
+SELECT ok(
+  (SELECT status = 'rejected' AND error_code = 'invalid_receipt'
+    FROM public.spinner_commands
+    WHERE command_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaac4')
+  AND NOT EXISTS (SELECT 1 FROM public.spinner_draw_receipts
+    WHERE draw_id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbc1')
+  AND NOT EXISTS (SELECT 1 FROM public.spinner_discord_outbox
+    WHERE draw_id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbc1')
+  AND (SELECT to_jsonb(state_row) = fixture.state_before
+    FROM public.spinner_live_state state_row
+    CROSS JOIN spinner_v2_required_key_fixture fixture
+    WHERE state_row.singleton_id = 1),
+  'a full v2 round missing one required key is rejected without receipt, outbox, or state mutation'
+);
+
+SELECT public.spinner_reserve_command(
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaac5', 'spin',
+  '99999999-9999-4999-8999-999999999999', 4, repeat('5', 64)
+);
+SELECT public.spinner_stage_command(
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaac5',
+  (SELECT jsonb_set(
+      payload,
+      '{receipt,timestampIso}',
+      to_jsonb('not-a-timestamp'::text)
+    )
+   FROM spinner_v2_required_key_fixture)
+);
+SELECT public.spinner_apply_command('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaac5');
+SELECT ok(
+  (SELECT status = 'rejected' AND error_code = 'invalid_receipt'
+    FROM public.spinner_commands
+    WHERE command_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaac5')
+  AND NOT EXISTS (SELECT 1 FROM public.spinner_draw_receipts
+    WHERE draw_id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbc1')
+  AND NOT EXISTS (SELECT 1 FROM public.spinner_discord_outbox
+    WHERE draw_id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbc1')
+  AND (SELECT to_jsonb(state_row) = fixture.state_before
+    FROM public.spinner_live_state state_row
+    CROSS JOIN spinner_v2_required_key_fixture fixture
+    WHERE state_row.singleton_id = 1),
+  'a v2 malformed timestamp is categorically rejected without receipt, outbox, or state mutation'
+);
+
+SELECT public.spinner_reserve_command(
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa0',
+  'spin',
+  '99999999-9999-4999-8999-999999999999',
+  4,
+  repeat('0', 64)
+);
+SELECT public.spinner_stage_command(
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa0',
+  jsonb_build_object(
+    'receipt', jsonb_build_object(
+      'version', 1,
+      'drawMode', 'official',
+      'drawId', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbba0',
+      'timestampIso', '2020-01-01T00:00:00.000Z',
+      'singaporeTime', '01 Jan 2020, 08:00:00 SGT',
+      'appVersion', '1.0.0',
+      'algorithmVersion', 'uniform-uint32-rejection-v1',
+      'rosterSnapshot', jsonb_build_object(
+        'version', 1,
+        'participants', jsonb_build_array(
+          jsonb_build_object('version', 1, 'id', '11111111-1111-4111-8111-111111111111', 'displayName', 'Lotus'),
+          jsonb_build_object('version', 1, 'id', '22222222-2222-4222-8222-222222222222', 'displayName', 'Jade')
+        )
+      ),
+      'rosterHashSha256', repeat('2', 64),
+      'rejectionLimit', 4294967296,
+      'sampledWords', jsonb_build_array(1),
+      'acceptedWord', 1,
+      'selectedIndex', 1,
+      'winner', jsonb_build_object(
+        'version', 1,
+        'id', '22222222-2222-4222-8222-222222222222',
+        'displayName', 'Jade'
+      )
+    ),
+    'startAt', '2020-01-01T00:03:00.000Z',
+    'revealAt', '2020-01-01T00:03:04.800Z',
+    'durationMs', 4800,
+    'startRotation', 0,
+    'finalRotation', 2340,
+    'discordChannelKey', 'raffle_spins',
+    'discordChannelId', '1468667003366674721',
+    'discordStartPayload', jsonb_build_object(
+      'content', 'Mōchirīī released v1 compatibility draw',
+      'nonce', 'bbbbbbbbbbbbbbbbbbbbbbba0',
+      'enforce_nonce', true,
+      'allowed_mentions', jsonb_build_object('parse', '[]'::jsonb, 'users', '[]'::jsonb, 'roles', '[]'::jsonb, 'replied_user', false)
+    ),
+    'discordResultPayload', jsonb_build_object(
+      'content', 'Mōchirīī released v1 compatibility result',
+      'allowed_mentions', jsonb_build_object('parse', '[]'::jsonb, 'users', '[]'::jsonb, 'roles', '[]'::jsonb, 'replied_user', false)
+    )
+  )
+);
+SELECT public.spinner_apply_command('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa0');
+SELECT ok(
+  (SELECT status = 'applied'
+      AND response_snapshot ->> 'version' = '1'
+      AND response_receipt ->> 'version' = '1'
+    FROM public.spinner_commands
+    WHERE command_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa0')
+  AND (SELECT algorithm_version = 'uniform-uint32-rejection-v1'
+      AND rejection_limit = 4294967296
+      AND sampled_words = jsonb_build_array(1)
+      AND accepted_word = 1
+      AND elimination_plan is null
+      AND plan_hash_sha256 is null
+    FROM public.spinner_draw_receipts
+    WHERE draw_id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbba0')
+  AND EXISTS (SELECT 1 FROM public.spinner_discord_outbox
+    WHERE draw_id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbba0'
+      AND draw_mode = 'official'
+      AND reveal_after = '2020-01-01T00:03:04.800Z'::timestamptz),
+  'an already-staged released v1 command remains resumable with its three-minute proof and v1 snapshot'
+);
+SELECT public.spinner_finalize_reveal();
+
+CREATE TEMP TABLE spinner_v1_invalid_datetime_state AS
+SELECT to_jsonb(state_row) AS state_before
+FROM public.spinner_live_state state_row
+WHERE singleton_id = 1;
+SELECT public.spinner_reserve_command(
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaac6', 'spin',
+  '99999999-9999-4999-8999-999999999999', 6, repeat('6', 64)
+);
+SELECT public.spinner_stage_command(
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaac6',
+  (SELECT jsonb_set(
+      jsonb_set(
+        staged_payload,
+        '{receipt,drawId}',
+        to_jsonb('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbac6'::text)
+      ),
+      '{receipt,timestampIso}',
+      to_jsonb('not-a-timestamp'::text)
+    )
+   FROM public.spinner_commands
+   WHERE command_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa0')
+);
+SELECT public.spinner_apply_command('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaac6');
+SELECT ok(
+  (SELECT status = 'rejected' AND error_code = 'invalid_receipt'
+    FROM public.spinner_commands
+    WHERE command_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaac6')
+  AND NOT EXISTS (SELECT 1 FROM public.spinner_draw_receipts
+    WHERE draw_id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbac6')
+  AND NOT EXISTS (SELECT 1 FROM public.spinner_discord_outbox
+    WHERE draw_id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbac6')
+  AND (SELECT to_jsonb(state_row) = baseline.state_before
+    FROM public.spinner_live_state state_row
+    CROSS JOIN spinner_v1_invalid_datetime_state baseline
+    WHERE state_row.singleton_id = 1),
+  'a staged v1 malformed timestamp is categorically rejected without receipt, outbox, or state mutation'
+);
+
 SELECT public.spinner_reserve_command(
     'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa6',
     'spin',
     '99999999-9999-4999-8999-999999999999',
-    4,
+    6,
     repeat('f', 64)
   );
 SELECT public.spinner_stage_command(
     'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa6',
     jsonb_build_object(
+      'version', 2,
       'receipt', jsonb_build_object(
-        'version', 1,
+        'version', 2,
         'drawMode', 'official',
         'drawId', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
-        'timestampIso', now(),
-        'singaporeTime', '26 Jul 2026, 20:34:56 SGT',
-        'appVersion', '1.0.0',
-        'algorithmVersion', 'uniform-uint32-rejection-v1',
+        'timestampIso', '2020-02-01T00:00:00.000Z',
+        'singaporeTime', '01 Feb 2020, 08:00:00 SGT',
+        'appVersion', '2.0.0',
+        'algorithmVersion', 'uniform-elimination-uint32-rejection-v2',
         'rosterSnapshot', jsonb_build_object(
           'version', 1,
           'participants', jsonb_build_array(
@@ -465,17 +862,57 @@ SELECT public.spinner_stage_command(
           )
         ),
         'rosterHashSha256', repeat('2', 64),
-        'rejectionLimit', 4294967296,
-        'sampledWords', jsonb_build_array(1),
-        'acceptedWord', 1,
+        'planHashSha256', 'c5e45700a5d5ab339499e02f34cd3893b2bc22559bb26531eb0cb6d4cf10a4d1',
+        'durationMs', 5000,
+        'startAt', '2020-02-01T00:01:00.000Z',
+        'revealAt', '2020-02-01T00:01:05.000Z',
+        'startRotation', 180,
+        'finalRotation', 2340,
+        'rounds', jsonb_build_array(jsonb_build_object(
+          'roundIndex', 0,
+          'activeCount', 2,
+          'selectedIndex', 0,
+          'eliminatedId', '11111111-1111-4111-8111-111111111111',
+          'eliminatedParticipant', jsonb_build_object(
+            'version', 1,
+            'id', '11111111-1111-4111-8111-111111111111',
+            'displayName', 'Lotus'
+          ),
+          'rejectionLimit', 4294967296,
+          'sampledWords', jsonb_build_array(0),
+          'acceptedWord', 0,
+          'startedAt', '2020-02-01T00:01:00.000Z',
+          'revealAt', '2020-02-01T00:01:05.000Z',
+          'startRotation', 180,
+          'finalRotation', 2520
+        )),
         'selectedIndex', 1,
         'winner', jsonb_build_object('version', 1, 'id', '22222222-2222-4222-8222-222222222222', 'displayName', 'Jade')
       ),
-      'startAt', now() + interval '3 minutes',
-      'revealAt', now() + interval '3 minutes 4.8 seconds',
-      'durationMs', 4800,
-      'startRotation', 777,
-      'finalRotation', 2757,
+      'planHashSha256', 'c5e45700a5d5ab339499e02f34cd3893b2bc22559bb26531eb0cb6d4cf10a4d1',
+      'rounds', jsonb_build_array(jsonb_build_object(
+        'roundIndex', 0,
+        'activeCount', 2,
+        'selectedIndex', 0,
+        'eliminatedId', '11111111-1111-4111-8111-111111111111',
+        'eliminatedParticipant', jsonb_build_object(
+          'version', 1,
+          'id', '11111111-1111-4111-8111-111111111111',
+          'displayName', 'Lotus'
+        ),
+        'rejectionLimit', 4294967296,
+        'sampledWords', jsonb_build_array(0),
+        'acceptedWord', 0,
+        'startedAt', '2020-02-01T00:01:00.000Z',
+        'revealAt', '2020-02-01T00:01:05.000Z',
+        'startRotation', 180,
+        'finalRotation', 2520
+      )),
+      'startAt', '2020-02-01T00:01:00.000Z',
+      'revealAt', '2020-02-01T00:01:05.000Z',
+      'durationMs', 5000,
+      'startRotation', 180,
+      'finalRotation', 2340,
       'animationManifest', jsonb_build_object('version', 1),
       'animationManifestHashSha256', repeat('9', 64),
       'discordChannelKey', 'raffle_spins',
@@ -483,7 +920,7 @@ SELECT public.spinner_stage_command(
       'discordStartPayload', jsonb_build_object(
         'content', format(
           E'A Mōchirīī monthly guild raffle begins <t:%s:R>.\nWatch the moonwheel live: https://mochirii.com/account?open=live-draw',
-          floor(extract(epoch from now() + interval '3 minutes'))::bigint
+          floor(extract(epoch from '2020-02-01T00:01:00.000Z'::timestamptz))::bigint
         ),
         'nonce', 'bbbbbbbbbbbbbbbbbbbbbbbbb',
         'enforce_nonce', true,
@@ -500,10 +937,10 @@ SELECT ok(
   (SELECT status = 'applied' FROM public.spinner_commands
     WHERE command_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa6')
   AND (SELECT phase = 'start_pending' AND next_attempt_at <= now()
-      AND reveal_after = now() + interval '3 minutes 4.8 seconds'
+      AND reveal_after = '2020-02-01T00:01:05.000Z'::timestamptz
     FROM public.spinner_discord_outbox
     WHERE draw_id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'),
-  'a spin persists first and returns without waiting on Discord delivery'
+  'a v2 spin persists the fixed one-minute lead and five-second round before delivery'
 );
 
 SELECT ok(
@@ -517,21 +954,28 @@ SELECT ok(
 );
 
 SELECT ok(
-  (SELECT timestamp_iso = now()
+  (SELECT timestamp_iso = '2020-02-01T00:00:00.000Z'::timestamptz
       AND timestamp_iso = (receipt ->> 'timestampIso')::timestamptz
+      AND algorithm_version = 'uniform-elimination-uint32-rejection-v2'
+      AND rejection_limit is null AND sampled_words is null AND accepted_word is null
+      AND jsonb_array_length(elimination_plan) = 1
+      AND plan_hash_sha256 = receipt ->> 'planHashSha256'
     FROM public.spinner_draw_receipts
     WHERE draw_id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb')
-  AND (SELECT started_at = now() + interval '3 minutes'
+  AND (SELECT started_at = '2020-02-01T00:01:00.000Z'::timestamptz
+      AND reveal_at = '2020-02-01T00:01:05.000Z'::timestamptz
+      AND duration_ms = 5000
     FROM public.spinner_live_state WHERE singleton_id = 1),
-  'the receipt records selection time separately from the synchronized future start'
+  'the v2 receipt stores its full proof while live state stores the compact elimination plan'
 );
 
 SELECT ok(
-  (SELECT response_snapshot -> 'winner' ->> 'displayName' = 'Jade'
-      AND (response_snapshot ->> 'selectedIndex')::integer = 1
+  (SELECT response_snapshot -> 'winner' = 'null'::jsonb
+      AND response_snapshot -> 'selectedIndex' = 'null'::jsonb
+      AND jsonb_array_length(response_snapshot -> 'rounds') = 1
     FROM public.spinner_commands
     WHERE command_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa6'),
-  'the idempotent command record retains the frozen winner before display reveal'
+  'the spinning v2 command exposes its compact round plan without revealing the final survivor early'
 );
 
 UPDATE public.spinner_discord_outbox
@@ -560,7 +1004,7 @@ WITH replay AS MATERIALIZED (
     'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa6',
     'spin',
     '99999999-9999-4999-8999-999999999999',
-    4,
+    6,
     repeat('f', 64)
   ) AS result
 )
@@ -569,6 +1013,176 @@ SELECT ok(
       AND result -> 'snapshot' -> 'winner' ->> 'displayName' = 'Jade'
     FROM replay),
   'an applied spin replay returns the current revealed winner without changing revision'
+);
+
+CREATE TEMP TABLE spinner_test_mode_side_effect_baseline (
+  outbox_count bigint NOT NULL,
+  media_count bigint NOT NULL,
+  publication_count bigint NOT NULL,
+  test_cycle_publication_count bigint NOT NULL
+) ON COMMIT DROP;
+INSERT INTO spinner_test_mode_side_effect_baseline
+SELECT
+  (SELECT count(*) FROM public.spinner_discord_outbox),
+  (SELECT count(*) FROM public.spinner_media_jobs),
+  (SELECT count(*) FROM public.spinner_raffle_result_publications),
+  (SELECT count(*) FROM public.spinner_raffle_result_publications
+    WHERE cycle_month = '2020-03-01'::date);
+
+SELECT public.spinner_reserve_command(
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa9',
+  'spin',
+  '99999999-9999-4999-8999-999999999999',
+  8,
+  repeat('9', 64)
+);
+SELECT public.spinner_stage_command(
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa9',
+  jsonb_build_object(
+    'version', 2,
+    'receipt', jsonb_build_object(
+      'version', 2,
+      'drawMode', 'test',
+      'drawId', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbe',
+      'timestampIso', '2020-03-01T01:00:00.000Z',
+      'singaporeTime', '01 Mar 2020, 09:00:00 SGT',
+      'appVersion', '2.0.0',
+      'algorithmVersion', 'uniform-elimination-uint32-rejection-v2',
+      'rosterSnapshot', jsonb_build_object(
+        'version', 1,
+        'participants', jsonb_build_array(
+          jsonb_build_object('version', 1, 'id', '11111111-1111-4111-8111-111111111111', 'displayName', 'Lotus'),
+          jsonb_build_object('version', 1, 'id', '22222222-2222-4222-8222-222222222222', 'displayName', 'Jade')
+        )
+      ),
+      'rosterHashSha256', repeat('2', 64),
+      'planHashSha256', '933d1b7765e5c7f2d23f52e09f2d9cf693286ce8a7c11e46abc1ea4eeee7d518',
+      'durationMs', 5000,
+      'startAt', '2020-03-01T01:01:00.000Z',
+      'revealAt', '2020-03-01T01:01:05.000Z',
+      'startRotation', 180,
+      'finalRotation', 2340,
+      'rounds', jsonb_build_array(jsonb_build_object(
+        'roundIndex', 0,
+        'activeCount', 2,
+        'selectedIndex', 0,
+        'eliminatedId', '11111111-1111-4111-8111-111111111111',
+        'eliminatedParticipant', jsonb_build_object(
+          'version', 1,
+          'id', '11111111-1111-4111-8111-111111111111',
+          'displayName', 'Lotus'
+        ),
+        'rejectionLimit', 4294967296,
+        'sampledWords', jsonb_build_array(0),
+        'acceptedWord', 0,
+        'startedAt', '2020-03-01T01:01:00.000Z',
+        'revealAt', '2020-03-01T01:01:05.000Z',
+        'startRotation', 180,
+        'finalRotation', 2520
+      )),
+      'selectedIndex', 1,
+      'winner', jsonb_build_object(
+        'version', 1,
+        'id', '22222222-2222-4222-8222-222222222222',
+        'displayName', 'Jade'
+      )
+    ),
+    'planHashSha256', '933d1b7765e5c7f2d23f52e09f2d9cf693286ce8a7c11e46abc1ea4eeee7d518',
+    'rounds', jsonb_build_array(jsonb_build_object(
+      'roundIndex', 0,
+      'activeCount', 2,
+      'selectedIndex', 0,
+      'eliminatedId', '11111111-1111-4111-8111-111111111111',
+      'eliminatedParticipant', jsonb_build_object(
+        'version', 1,
+        'id', '11111111-1111-4111-8111-111111111111',
+        'displayName', 'Lotus'
+      ),
+      'rejectionLimit', 4294967296,
+      'sampledWords', jsonb_build_array(0),
+      'acceptedWord', 0,
+      'startedAt', '2020-03-01T01:01:00.000Z',
+      'revealAt', '2020-03-01T01:01:05.000Z',
+      'startRotation', 180,
+      'finalRotation', 2520
+    )),
+    'startAt', '2020-03-01T01:01:00.000Z',
+    'revealAt', '2020-03-01T01:01:05.000Z',
+    'durationMs', 5000,
+    'startRotation', 180,
+    'finalRotation', 2340,
+    'animationManifest', jsonb_build_object(
+      'version', 1,
+      'styleVersion', 'mochirii-raffle-film-v1',
+      'width', 1280,
+      'height', 720,
+      'durationMs', 10600,
+      'drawId', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbe',
+      'startAt', '2020-03-01T01:01:00.000Z',
+      'revealAt', '2020-03-01T01:01:05.000Z',
+      'startRotation', 180,
+      'finalRotation', 2340,
+      'rosterHashSha256', repeat('2', 64),
+      'participants', jsonb_build_array(
+        jsonb_build_object('version', 1, 'number', 1, 'label', '1. Lotus'),
+        jsonb_build_object('version', 1, 'number', 2, 'label', '2. Jade')
+      ),
+      'selectedIndex', 1,
+      'winner', jsonb_build_object(
+        'version', 1,
+        'number', 2,
+        'displayName', 'Jade'
+      ),
+      'visualSeedSha256', 'bfe89c772e87dcd9d4773dcb84fdfe08104b040aa24fb00a624e9ef8636883eb'
+    ),
+    'animationManifestHashSha256', 'ed480a7239cf0dc48ba27e492cc4181786e96b68cf395013dd81a3097a042d82',
+    'discordChannelKey', 'raffle_spins',
+    'discordChannelId', '1468667003366674721',
+    'discordStartPayload', jsonb_build_object(
+      'content', 'Mōchirīī private test sequence',
+      'nonce', 'bbbbbbbbbbbbbbbbbbbbbbbbe',
+      'enforce_nonce', true,
+      'allowed_mentions', jsonb_build_object('parse', '[]'::jsonb, 'users', '[]'::jsonb, 'roles', '[]'::jsonb, 'replied_user', false)
+    ),
+    'discordResultPayload', jsonb_build_object(
+      'content', 'Mōchirīī private test complete.',
+      'allowed_mentions', jsonb_build_object('parse', '[]'::jsonb, 'users', '[]'::jsonb, 'roles', '[]'::jsonb, 'replied_user', false)
+    )
+  )
+);
+SELECT public.spinner_apply_command('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa9');
+SELECT ok(
+  (SELECT status = 'applied' AND response_receipt ->> 'drawMode' = 'test'
+      AND response_snapshot -> 'winner' = 'null'::jsonb
+      AND response_snapshot -> 'selectedIndex' = 'null'::jsonb
+    FROM public.spinner_commands
+    WHERE command_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa9')
+  AND (SELECT draw_mode = 'test' AND phase = 'spinning'
+      AND duration_ms = 5000 AND jsonb_array_length(elimination_plan) = 1
+    FROM public.spinner_live_state WHERE singleton_id = 1)
+  AND (SELECT draw_mode = 'test' AND selected_index = 1
+      AND winner ->> 'displayName' = 'Jade'
+    FROM public.spinner_draw_receipts
+    WHERE draw_id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbe'),
+  'the actual staged test-mode v2 sequence uses the same final-survivor contract'
+);
+SELECT ok(
+  (SELECT count(*) FROM public.spinner_discord_outbox) =
+    (SELECT outbox_count FROM spinner_test_mode_side_effect_baseline)
+  AND (SELECT count(*) FROM public.spinner_media_jobs) =
+    (SELECT media_count FROM spinner_test_mode_side_effect_baseline)
+  AND (SELECT count(*) FROM public.spinner_raffle_result_publications) =
+    (SELECT publication_count FROM spinner_test_mode_side_effect_baseline)
+  AND (SELECT count(*) FROM public.spinner_raffle_result_publications
+      WHERE cycle_month = '2020-03-01'::date) =
+    (SELECT test_cycle_publication_count FROM spinner_test_mode_side_effect_baseline)
+  AND NOT EXISTS (SELECT 1 FROM public.spinner_discord_outbox
+    WHERE draw_id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbe')
+  AND NOT EXISTS (SELECT 1 FROM public.spinner_media_jobs
+    WHERE draw_id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbe')
+  AND NOT EXISTS (SELECT 1 FROM public.spinner_raffle_result_publications
+    WHERE source_draw_id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbe'),
+  'the actual test-mode apply creates zero outbox, media, public-result, or monthly side effects'
 );
 
 INSERT INTO public.spinner_commands (
@@ -630,7 +1244,7 @@ SELECT public.spinner_reserve_command(
   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa7',
   'spin',
   '99999999-9999-4999-8999-999999999999',
-  6,
+  9,
   repeat('7', 64)
 );
 UPDATE public.spinner_commands
@@ -643,7 +1257,7 @@ WITH replay AS MATERIALIZED (
     'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa7',
     'spin',
     '99999999-9999-4999-8999-999999999999',
-    6,
+    9,
     repeat('7', 64)
   ) AS result
 )
@@ -659,7 +1273,7 @@ SELECT public.spinner_reserve_command(
   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa8',
   'spin',
   '99999999-9999-4999-8999-999999999999',
-  6,
+  9,
   repeat('8', 64)
 );
 SELECT public.spinner_reject_unstaged_spin(
