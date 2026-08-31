@@ -169,7 +169,7 @@ pairs:
 Standing eligibility remains: verified Mochirii guild membership in good
 standing, age 18 or older, residence in a country approved for the drawing, and
 one account and one opt-in per person per cycle. Keep `No purchase necessary`
-conspicuous on both `/raffle` and `/raffle/rules`.
+conspicuous on `/raffle`.
 
 ### Reward and result presentation
 
@@ -228,7 +228,7 @@ equivalent without replacing or obscuring the governing time. Invalid or
 missing dates fail closed, and every non-inactive cycle must satisfy
 `opensAt < closesAt < drawAt < claimEndsAt`.
 
-`/raffle/rules` distinguishes three layers:
+`/raffle` distinguishes three layers:
 
 - Standing program principles, which remain visible between drawings.
 - Current official drawing rules, which exist only for an approved active
@@ -244,8 +244,10 @@ not found. Do not invent archive records or publish an empty rules shell.
 
 Observed routing and rendering rules:
 
-- `/raffle` and `/raffle/rules` are public, canonical, indexable Server
-  Components that remain useful without JavaScript.
+- `/raffle` is a public, canonical, indexable Server Component that remains
+  useful without JavaScript.
+- `/raffle/rules` permanently redirects to `/raffle`; reviewed
+  `/raffle/rules/[version]` records remain public and canonical.
 - `/raffles` and `/raffles.html` permanently redirect to `/raffle`.
 - The website event-card renderer filters the inactive `monthly-raffle`
   schedule item so Events cannot advertise a drawing while the raffle is
@@ -389,7 +391,7 @@ utils.js -> supabase.js -> site.js -> page-specific script
 Current side-page script order:
 
 - `announcements.html`: `./utils.js` -> `./supabase.js` -> `./site.js` -> `./announcements.js`
-- `/raffle` and `/raffle/rules`: static Next.js Server Components with no page-specific browser script.
+- `/raffle` and versioned raffle-rule records: static Next.js Server Components with no page-specific browser script.
 - `spotify.html`: `./utils.js` -> `./supabase.js` -> `./site.js` -> `./spotify.js`
 - `spotlight.html`: `./utils.js` -> `./supabase.js` -> `./site.js` -> `./spotlight.js`
 
@@ -454,7 +456,8 @@ Use `npm run smoke:gallery` as a general regression check if shared behavior cou
 - `/raffle` loads and says `No raffle is active`, `Entries closed`, `No submissions are being accepted`, and `No purchase necessary`.
 - `/raffle` shows the standing five-standard, up-to-five-bonus, maximum-ten entry model and all five equivalent-free participation methods.
 - `/raffle` describes only the approved provider-neutral electronic-gift, in-game-gift, and community-honor categories.
-- `/raffle/rules` distinguishes standing principles, current official drawing rules, and immutable archived rules; it shows `No active drawing rules` while inactive.
+- `/raffle` distinguishes standing principles, current official drawing rules, and immutable archived rules; it shows `No active drawing rules` while inactive.
+- `/raffle/rules` permanently redirects to `/raffle`.
 - A versioned rules URL renders only reviewed local `rules.versions[]` content; unavailable versions return not found.
 - Signed-out raffle results use only `Winner confirmed` or `Community honor confirmed`; verified-member result-name behavior is tested at the server boundary.
 - UTC+8 remains authoritative for active-cycle dates and visitor-local equivalents do not replace it.

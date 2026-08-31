@@ -136,6 +136,7 @@ const nextConfig: NextConfig = {
       { source: "/announcements.html", destination: "/announcements", permanent: true },
       { source: "/raffles", destination: "/raffle", permanent: true },
       { source: "/raffles.html", destination: "/raffle", permanent: true },
+      { source: "/raffle/rules", destination: "/raffle", permanent: true },
       { source: "/recruitment.html", destination: "/recruitment", permanent: true },
       { source: "/auth.html", destination: "/auth", permanent: true },
       { source: "/account.html", destination: "/account", permanent: true },

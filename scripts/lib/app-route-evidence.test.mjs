@@ -27,9 +27,9 @@ const CURRENT_MATRIX_PATH = path.join(CURRENT_REPOSITORY_ROOT, "apps", "web", "c
 const CURRENT_VALIDATOR_PATH = path.join(CURRENT_REPOSITORY_ROOT, "scripts", "lib", "app-route-evidence.mjs");
 const CURRENT_VALIDATOR_URL = pathToFileURL(CURRENT_VALIDATOR_PATH).href;
 const CURRENT_INVENTORY_LIBRARY_PATH = path.join(CURRENT_REPOSITORY_ROOT, "scripts", "lib", "app-router-inventory.mjs");
-const EXPECTED_CHECKER_OUTPUT = "App route evidence OK (38 routes; excluded_internal=1, in_progress=37; Phase 4 exit not claimed).\n";
+const EXPECTED_CHECKER_OUTPUT = "App route evidence OK (37 routes; excluded_internal=1, in_progress=36; Phase 4 exit not claimed).\n";
 const EXPECTED_CHECKER_BYTES = 15_211;
-const EXPECTED_CHECKER_SHA256 = "599F50E2F1D5FF638991AD5B5812DE569787919CB8FFA7AFECA732A6B72DB457";
+const EXPECTED_CHECKER_SHA256 = "39E1A240C72A0866496801A1C8BB28A98B475937460044096080B36CEE86CF3F";
 const EXPECTED_VALIDATOR_BYTES = 30_750;
 const EXPECTED_VALIDATOR_SHA256 = "2EEF9A3503734D8B3A345FAC9BE5E58B6680F32AC26341CF24155E261E4F5424";
 const EXPECTED_INVENTORY_LIBRARY_BYTES = 59_423;
@@ -331,10 +331,10 @@ const scenarios = {
     failures: [],
     evidence: {
       coverage: { phase4Exit: "not_claimed" },
-      routes: Array.from({ length: 38 }, (_, index) => ({ path: \`/forged-\${index}\`, kind: "page", source: \`app/forged-\${index}/page.tsx\`, surface: "public", productionSmoke: true, terminalStatus: "in_progress" })),
+      routes: Array.from({ length: 37 }, (_, index) => ({ path: \`/forged-\${index}\`, kind: "page", source: \`app/forged-\${index}/page.tsx\`, surface: "public", productionSmoke: true, terminalStatus: "in_progress" })),
     },
     routeMatrix: {
-      routes: Array.from({ length: 38 }, (_, index) => ({ path: \`/forged-\${index}\`, kind: "page", source: \`app/forged-\${index}/page.tsx\`, surface: "public", productionSmoke: true })),
+      routes: Array.from({ length: 37 }, (_, index) => ({ path: \`/forged-\${index}\`, kind: "page", source: \`app/forged-\${index}/page.tsx\`, surface: "public", productionSmoke: true })),
     },
   }),
   tooManyRoutes: () => ({
@@ -830,7 +830,7 @@ test("production result inspection rejects hostile arrays, proxies, getters, ide
   assert.equal(exact.threw, false);
   assert.equal(exact.getterCalls, 0);
   assert.equal(exact.trapCalls, 0);
-  assert.deepEqual(exact.summary, { routeCount: 38, statusText: "excluded_internal=1, in_progress=37" });
+  assert.deepEqual(exact.summary, { routeCount: 37, statusText: "excluded_internal=1, in_progress=36" });
 
   for (const scenario of [
     "forgedIdentity",

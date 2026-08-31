@@ -10,7 +10,6 @@ type PageKey =
   | "events"
   | "announcements"
   | "raffle"
-  | "raffleRules"
   | "gallery"
   | "spotlight"
   | "spotify"
@@ -74,15 +73,8 @@ const pageMeta: Record<
   raffle: {
     title: "Mōchirīī Monthly Raffle",
     description:
-      "Monthly Mōchirīī guild drawings, standing entry limits, possible reward types, current entry status, and results. No purchase necessary.",
+      "Monthly Mōchirīī guild drawings, standing entry limits, possible reward types, current and archived rules, and results. No purchase necessary.",
     path: "/raffle",
-    image: "/assets/img/raffles/hero.webp",
-  },
-  raffleRules: {
-    title: "Mōchirīī Monthly Raffle Rules",
-    description:
-      "Standing Mōchirīī Monthly Raffle eligibility, entry limits, free participation methods, current drawing rules, and completed-drawing archive.",
-    path: "/raffle/rules",
     image: "/assets/img/raffles/hero.webp",
   },
   gallery: {

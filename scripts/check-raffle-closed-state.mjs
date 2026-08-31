@@ -8,7 +8,6 @@ const failures = [];
 
 const files = {
   page: "apps/web/app/raffle/page.tsx",
-  rules: "apps/web/app/raffle/rules/page.tsx",
   ruleVersion: "apps/web/app/raffle/rules/[version]/page.tsx",
   renderFixtureRoute: "apps/web/app/raffle-render-fixtures-internal/[scenario]/page.tsx",
   renderFixtureData: "apps/web/lib/raffle/public-render-fixtures.ts",
@@ -57,6 +56,10 @@ const forbiddenOperationalSurfaces = [
 for (const [label, file] of Object.entries(files)) {
   if (!existsSync(resolve(root, file))) failures.push(`${label}: required file is missing: ${file}`);
 }
+assert(
+  !existsSync(resolve(root, "apps/web/app/raffle/rules/page.tsx")),
+  "duplicate top-level raffle rules page must stay absent",
+);
 
 for (const file of forbiddenOperationalSurfaces) {
   if (existsSync(resolve(root, file))) failures.push(`${file}: operational raffle surface must stay outside the public-page track`);
@@ -111,7 +114,7 @@ for (const phrase of ["Electronic gifts", "In-game gifts", "Guild commendation",
 }
 assert(data.results?.current === null, "raffle data: inactive release must not invent a current result");
 assertDeepEqual(data.results?.previous, [], "raffle data: completed results must not be invented");
-assert(data.rules?.standingRulesUrl === "/raffle/rules", "raffle data: standing rules route must remain local");
+assert(data.rules?.standingRulesUrl === "/raffle", "raffle data: standing rules route must remain local");
 assert(data.rules?.currentRulesState === "inactive", "raffle data: current rules must remain inactive");
 assertDeepEqual(data.rules?.archive, [], "raffle data: archived rules must not be invented");
 assertDeepEqual(data.rules?.versions, [], "raffle data: immutable rule versions must not be invented");
@@ -132,7 +135,6 @@ const raffleMetadataSource = raffleMetadataStart >= 0 && raffleMetadataEnd > raf
   : "";
 const publicSource = [
   read(files.page),
-  read(files.rules),
   read(files.ruleVersion),
   read(files.component),
   read(files.contract),
@@ -204,6 +206,10 @@ assertIncludes("grid contract", tokens, ".col-7{grid-column:span 7;}");
 assertIncludes("grid contract", tokens, ".col-5{grid-column:span 5;}");
 assert(/@media \(max-width:980px\)[\s\S]*\.col-8,.col-7,.col-6,.col-5,.col-4\{grid-column:span 12;\}/.test(tokens), "grid contract: 7/5 columns must become full width at 980px");
 assertIncludes("raffle responsive styles", read(files.sideStyles), ".raffle-method-grid");
+assertIncludes("consolidated raffle rules", read(files.component), "model.entryModel.noAdvantageRules");
+assertIncludes("consolidated raffle rules", read(files.component), "model.rules.currentRulesLabel");
+assertIncludes("consolidated raffle rules", read(files.component), "model.rules.archive");
+assertIncludes("consolidated raffle rules", read(files.component), 'id="raffleRulesStateHeading"');
 const winnerSource = [read(files.winnerComponent), read(files.winnerCore), read(files.winnerServer), read(files.winnerApi)].join("\n");
 assertIncludes("official winner presentation", winnerSource, "Winner Confirmed");
 assertIncludes("official winner presentation", winnerSource, "Monthly guild winner");
@@ -226,15 +232,16 @@ try {
 }
 assert(nextRedirects.get("/raffles") === "/raffle", "Next redirects: missing /raffles -> /raffle");
 assert(nextRedirects.get("/raffles.html") === "/raffle", "Next redirects: missing /raffles.html -> /raffle");
+assert(nextRedirects.get("/raffle/rules") === "/raffle", "Next redirects: missing /raffle/rules -> /raffle");
 assertIncludes("navigation", read(files.navigation), 'href: "/raffle", label: "Raffle", nav: "raffle"');
 assertIncludes("footer", read(files.footer), '{ href: "/raffle", label: "Raffle" }');
 assertIncludes("home bulletin", read(files.home), '"href": "/raffle"');
 assertIncludes("Tome raffle guidance", read(files.tome), "the current raffle status stays public & clearly labeled");
 assertIncludes("website event cards", read(files.scheduleHelper), '.filter((item) => item.id !== "monthly-raffle")');
 assertIncludes("metadata", metadataSource, 'path: "/raffle"');
-assertIncludes("metadata", metadataSource, 'path: "/raffle/rules"');
+assert(!metadataSource.includes('path: "/raffle/rules"'), "metadata: duplicate top-level raffle rules route must stay absent");
 assertIncludes("sitemap", read(files.sitemap), `${SITE_ORIGIN}/raffle</loc>`);
-assertIncludes("sitemap", read(files.sitemap), `${SITE_ORIGIN}/raffle/rules</loc>`);
+assert(!read(files.sitemap).includes(`${SITE_ORIGIN}/raffle/rules</loc>`), "sitemap: duplicate top-level raffle rules route must stay absent");
 
 if (failures.length) {
   console.error(`Raffle public contract failed (${failures.length} issue${failures.length === 1 ? "" : "s"}).`);

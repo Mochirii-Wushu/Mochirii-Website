@@ -7,23 +7,23 @@ import { TextDecoder, types as utilTypes } from "node:util";
 
 const EXPECTED_SOURCE_BASE = "3a59633a9ba9319f35be8ec7de758e9238032a96";
 const EXPECTED_SUMMARY = Object.freeze({
-  metadataRoutes: 29,
-  indexedMetadataRoutes: 18,
+  metadataRoutes: 28,
+  indexedMetadataRoutes: 17,
   nonindexedMetadataRoutes: 11,
   publicFiles: 249,
-  publicBytes: 38_509_476,
-  sourceFiles: 44,
+  publicBytes: 38_509_412,
+  sourceFiles: 43,
 });
-const EXPECTED_PAYLOAD_SHA256 = "CC502514E563E05B422F0511185FAF720DDCF422384DE88A2291706FB1552789";
-const EXPECTED_STABLE_SOURCE_SHA256 = "D922115C17B9D47352C41827A3CB57D8DB57CED8B6F87EBD3899AD3921F60325";
+const EXPECTED_PAYLOAD_SHA256 = "7F2624845BA8A371FEFD8FED219505FC556F521CB8A24897996134EFF905540C";
+const EXPECTED_STABLE_SOURCE_SHA256 = "5BD89CB32A6F516F385A7B900E0DFE5CCEC80191636762C11C6636583A159810";
 const CHECKER_PATH = fileURLToPath(import.meta.url);
 const CHECKER_DIRECTORY = path.dirname(CHECKER_PATH);
 const VALIDATOR_PATH = path.join(CHECKER_DIRECTORY, "lib", "app-static-surface-inventory.mjs");
 const LOCAL_SOURCE_CONTRACT = Object.freeze([
   Object.freeze({
     path: VALIDATOR_PATH,
-    bytes: 24_956,
-    sha256: "AF6A2D5632582D56B92C8E7CD0D7ED0A004712BFCF51091DE2A1AFB50BD63C0A",
+    bytes: 24_913,
+    sha256: "B0370216A311FC19A6206580806CD8312572F2589989C7038359D1F9D7547733",
   }),
   Object.freeze({
     path: path.join(CHECKER_DIRECTORY, "lib", "app-router-inventory.mjs"),
@@ -178,7 +178,7 @@ function validSourceCatalog(sourceCatalog) {
   }
   if ([...MUTABLE_WIRING_PATHS].some((sourcePath) => !paths.has(sourcePath))) return false;
   const stableRows = sourceCatalog.filter((row) => !MUTABLE_WIRING_PATHS.has(row.path));
-  if (stableRows.length !== 39) return false;
+  if (stableRows.length !== 38) return false;
   const digest = createHash("sha256").update(JSON.stringify(stableRows)).digest("hex").toUpperCase();
   return digest === EXPECTED_STABLE_SOURCE_SHA256;
 }

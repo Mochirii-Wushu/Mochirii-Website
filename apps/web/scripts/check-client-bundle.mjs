@@ -22,7 +22,6 @@ const publicRoutes = [
   "/meta-data-deletion",
   "/privacy",
   "/raffle",
-  "/raffle/rules",
   "/raffle/rules/[version]",
   "/ranks",
   "/recruitment",

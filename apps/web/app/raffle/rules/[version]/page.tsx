@@ -75,7 +75,7 @@ export default async function RaffleRuleVersionPage({ params }: RuleVersionPageP
             <h2 className="section-title section-title--sm">No purchase necessary</h2>
             <p>A purchase or payment never improves eligibility, entry counts, or odds.</p>
             <div className="hero-cta-row u-mt-18">
-              <Link className="hero-cta" href="/raffle/rules">Back to raffle rules</Link>
+              <Link className="hero-cta" href="/raffle">Back to raffle</Link>
             </div>
           </section>
         </div>

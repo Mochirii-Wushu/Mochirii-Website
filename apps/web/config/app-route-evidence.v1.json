@@ -10,11 +10,11 @@
   },
   "routeMatrix": {
     "path": "apps/web/config/app-route-matrix.v1.json",
-    "bytes": 9336,
-    "sha256": "7E694D6AD1F8DA8E0B5B0F3753AF6544731D685A675F47F77A38C673C930A1C5",
+    "bytes": 9270,
+    "sha256": "5759D76A177FFE23CDF2A2F9A4DE6A0BDEF7F454D8F9C66C604EEA662E3F97B2",
     "sourceCommit": "92fc424c6434e7baa4fe0387bfccf8d8a6631c4e",
-    "routeCount": 38,
-    "redirectCount": 19
+    "routeCount": 37,
+    "redirectCount": 20
   },
   "stateClasses": [
     "loading",
@@ -32,8 +32,8 @@
       "id": "accessibility-route-matrix",
       "path": "scripts/check-accessibility-route-matrix.mjs",
       "scope": "source-only accessibility route definitions; no browser or assistive-technology claim",
-      "bytes": 18890,
-      "sha256": "E49B7E5CCF2F6AF6CB1669004F7C6AB950A95D320920D2C4795F95F370A6F005",
+      "bytes": 18750,
+      "sha256": "E68A314A33115EB84AAE60CD20D3E619A9CC5E8F3384B6F1FEE80824907D135E",
       "status": "verified_source"
     },
     {
@@ -41,7 +41,7 @@
       "path": "scripts/check-app-route-evidence.mjs",
       "scope": "actual CLI execution and categorical exit contract",
       "bytes": 15211,
-      "sha256": "599F50E2F1D5FF638991AD5B5812DE569787919CB8FFA7AFECA732A6B72DB457",
+      "sha256": "39E1A240C72A0866496801A1C8BB28A98B475937460044096080B36CEE86CF3F",
       "status": "verified_source"
     },
     {
@@ -49,7 +49,7 @@
       "path": "scripts/lib/app-route-evidence.test.mjs",
       "scope": "actual CLI and hostile route-evidence controls",
       "bytes": 46298,
-      "sha256": "10FE198AB6E92AA973B7F2C951B96992DCB500474D2F2419433BE5D5F2A4B73C",
+      "sha256": "F20B98F6739CD8F09897548C836B38E7698A86666162D2B306637D46EB313830",
       "status": "verified_source"
     },
     {
@@ -80,8 +80,8 @@
       "id": "app-route-inventory-tests",
       "path": "scripts/lib/app-router-inventory.test.mjs",
       "scope": "hostile source-only App Router inventory controls",
-      "bytes": 133706,
-      "sha256": "0C4AB968F0D9EB7B170BDD429FA2E078A608B85F29849FED436CDEA3D3E8A15C",
+      "bytes": 133664,
+      "sha256": "73E6BE4C09947D6E0F2090ED747582D7B6B3CF2D6C2954C3E36B93A40E821F0A",
       "status": "verified_source"
     },
     {
@@ -96,16 +96,16 @@
       "id": "metadata-smoke",
       "path": "scripts/check-observability-metadata-smoke.mjs",
       "scope": "offline metadata contract; live mode is not claimed by this ledger",
-      "bytes": 29882,
-      "sha256": "C5E4CD83EDF225A43E95A889A240433D81D3BB3ABCA2176992D57A1F67803913",
+      "bytes": 29788,
+      "sha256": "EFB2A7237B1E502E8E9DE84EA6F0692AED93142837F730B5BE6079A90BC0CF4D",
       "status": "verified_source"
     },
     {
       "id": "next-route-delivery",
       "path": "scripts/check-next-route-delivery.mjs",
       "scope": "source and build-contract route delivery checks; no live delivery claim",
-      "bytes": 8452,
-      "sha256": "60307F7CD0ADCB15794CC205C42FB161DC958068CFE8A7B7A46EE774841D368A",
+      "bytes": 8316,
+      "sha256": "4A65E72234E61507E5B6CE841D5EFF7965846F103C9C04DB7C337B668FB74507",
       "status": "verified_source"
     },
     {
@@ -1202,43 +1202,6 @@
       "stateProfile": "internal-not-applicable",
       "terminalStatus": "excluded_internal",
       "remaining": []
-    },
-    {
-      "path": "/raffle/rules",
-      "kind": "page",
-      "source": "app/raffle/rules/page.tsx",
-      "surface": "public",
-      "productionSmoke": true,
-      "methods": [],
-      "canonicalUrl": "https://mochirii.com/raffle/rules",
-      "routeTemplateUrl": "https://mochirii.com/raffle/rules",
-      "sourceOwner": "Mochirii-Wushu/Mochirii-Website/apps/web",
-      "audience": "matrix-declared public visitors",
-      "authorizationClass": "matrix_declared_public_access",
-      "upstreamData": [
-        "checked-in route source and public data dependencies not yet inventoried"
-      ],
-      "downstreamContracts": [
-        "Next.js document response and shared navigation shell"
-      ],
-      "assessments": {
-        "protectedCopy": "protected-copy-source-pending",
-        "desktopMobileBehavior": "responsive-source-pending",
-        "accessibility": "accessibility-source-pending",
-        "consoleNetwork": "delivery-source-pending",
-        "metadataSecurityHeaders": "metadata-security-source-pending",
-        "cachePrivacy": "cache-privacy-source-pending",
-        "performance": "performance-source-pending",
-        "previewVisualEvidence": "visual-not-run",
-        "automatedTests": "inventory-automated-source",
-        "manualTests": "manual-not-run"
-      },
-      "stateProfile": "phase4-not-run",
-      "terminalStatus": "in_progress",
-      "remaining": [
-        "automated, preview, and manual route evidence remains incomplete",
-        "Phase 4 state coverage remains incomplete"
-      ]
     },
     {
       "path": "/raffle/rules/[version]",
