@@ -1,9 +1,9 @@
 {
   "copy": {
-    "bulletinIntro": "Check the next event, current raffle, and latest announcement.",
-    "doorsIntro": "Use these pages to join the guild, review ranks, find leaders, and read the rules.",
+    "bulletinIntro": "Check the next event, current raffle & latest announcement.",
+    "doorsIntro": "Use these pages to join the guild, review ranks, find leaders & read the rules.",
     "spotlightIntro": "Each month, members recognize one person for a specific contribution.",
-    "galleryIntro": "Recent screenshots from combat, exploration, events, and member gatherings."
+    "galleryIntro": "Recent screenshots from combat, exploration, events & member gatherings."
   },
   "celebrationSplash": {
     "enabled": false,
@@ -16,10 +16,9 @@
   "hero": {
     "image": "./assets/img/hero/hero.webp",
     "atmosphereImage": "",
-    "subtitle": "Asia Pacific • Where Winds Meet Guild",
     "descriptor": [
-      "Mōchirīī is an Asia Pacific guild for casual Where Winds Meet players. We organize group runs, events, raffles, guides, and member projects.",
-      "Discord handles onboarding and event planning. The website keeps guild rules, ranks, leaders, updates, screenshots, social posts, and forums in one place."
+      "Mōchirīī is an Asia Pacific guild for casual Where Winds Meet players. We organize teams, events, raffles, guides & member projects.",
+      "Discord handles onboarding & event planning. The website keeps guild rules, ranks, leaders, updates, screenshots, social posts & forums in one place."
     ],
     "badges": [
       "Cross-Platform",
@@ -33,9 +32,9 @@
     "imageAlt": "Mōchirīī guild seal",
     "verse": [
       "Keep commitments.",
-      "Share useful information.",
-      "Offer help without pressure.",
-      "Address problems directly."
+      "Share information.",
+      "Offer help.",
+      "Address problems."
     ]
   },
   "bulletins": [
@@ -69,14 +68,14 @@
   "tiles": [
     {
       "label": "Join Mōchirīī",
-      "title": "Read the joining steps and open the guild Discord.",
+      "title": "Read the joining steps & open the guild Discord.",
       "image": "./assets/img/tiles/join.webp",
       "alt": "Join Mōchirīī tile artwork",
       "href": "./join.html"
     },
     {
       "label": "Guild Ranks",
-      "title": "See each rank and how recognition works.",
+      "title": "See each rank & how recognition works.",
       "image": "./assets/img/tiles/ranks.webp",
       "alt": "Guild ranks and progression tile artwork",
       "href": "./ranks.html"
@@ -90,7 +89,7 @@
     },
     {
       "label": "Guild Tome",
-      "title": "Read the rules for conduct, events, and recognition.",
+      "title": "Read the rules for conduct, events & recognition.",
       "image": "./assets/img/tiles/tome.webp",
       "alt": "Guild tome and values tile artwork",
       "href": "./tome.html"
@@ -99,12 +98,12 @@
   "spotlight": {
     "tag": "Current Spotlight",
     "title": "Member Spotlight",
-    "summary": "Selected at random from active website members for this month’s guild Spotlight.",
-    "fallbackIntro": "Each month, one active website member is selected at random for the guild Spotlight.",
+    "summary": "Selected from active website members for this month’s guild Spotlight.",
+    "fallbackIntro": "Each month, one active website member is selected for the guild Spotlight.",
     "recognitions": [
       {
         "monthKey": "2026-08-01",
-        "summary": "Recognized for helping members and contributing to guild activities."
+        "summary": "Recognized for helping members & contributing to guild activities."
       }
     ],
     "image": "./assets/img/featured/spotlight.webp",
