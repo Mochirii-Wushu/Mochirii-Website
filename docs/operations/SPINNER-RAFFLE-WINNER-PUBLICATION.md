@@ -15,11 +15,11 @@ This follows the [Next.js server/client composition guidance](https://nextjs.org
 
 ## Official And Test Draws
 
-The controller begins in official mode. **Test spin** is an explicit switch and each spin requires a mode-specific confirmation. The server normalizes `drawMode` and includes it in the command input hash, immutable receipt, persisted live state, viewer snapshot, and recovery key.
+The controller begins in official mode. **Test spin** is an explicit switch and each spin requires a mode-specific confirmation. Both modes use the same exact one-minute countdown and immutable sequence of `N-1` five-second eliminations; only the sole survivor is the final winner. The server normalizes `drawMode` and includes it in the command input hash, immutable receipt, persisted live state, viewer snapshot, and recovery key.
 
-An official draw atomically reserves one result for the Singapore calendar month when its outbox row is created. The result's effective publication time is the authoritative `reveal_at`; the public RPC independently gates on `reveal_at <= now()`. Public visibility therefore does not depend on external guild-message delivery. A unique month constraint rejects a second official result for the same Singapore month.
+An official draw atomically reserves one final-survivor result for the Singapore calendar month when its outbox row is created. Its effective publication time is the final authoritative `reveal_at`, after every elimination round; intermediate landed entrants cannot be published. The public RPC independently gates on `reveal_at <= now()`. Public visibility therefore does not depend on external guild-message delivery. A unique month constraint rejects a second official result for the same Singapore month.
 
-A test receipt is durable for private review, but its outbox insert is suppressed before insertion. The dispatcher trigger is row-level and accepts only a surviving official outbox row, so a suppressed test insert cannot wake delivery for unrelated pending work. Consequently a test spin creates no guild announcement, rendered media, public result, reward side effect, or official-month reservation. The publication validator independently rejects any attempt to insert a result for a test receipt.
+A test receipt durably records the same complete elimination mechanics for private review, but its outbox insert is suppressed before insertion. The dispatcher trigger is row-level and accepts only a surviving official outbox row, so a suppressed test insert cannot wake delivery for unrelated pending work. Consequently a test spin creates no guild announcement, rendered media, public result, reward side effect, or official-month reservation. The publication validator independently rejects any attempt to insert a result for a test receipt.
 
 ## Privacy And Immutability
 

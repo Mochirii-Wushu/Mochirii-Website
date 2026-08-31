@@ -31,7 +31,7 @@ import {
   parseStoredRoster,
   renumberParticipants,
   validateName,
-  type DrawReceiptV1,
+  type DrawReceipt,
   type MotionMode,
   type ParticipantV1,
   type RevealReason,
@@ -50,6 +50,10 @@ import {
   spinnerDrawAnnouncementTransition,
   spinnerLiveHasStarted,
   spinnerLiveMotionRotations,
+  spinnerSequenceRoundMotionRotations,
+  spinnerSequenceRoundTimeline,
+  spinnerSequenceMutationReady,
+  spinnerSequenceReceiptForPromotion,
   spinnerSkipControlVisible,
   spinnerSkipStateForDraw,
   spinnerLiveTimeline,
@@ -57,16 +61,18 @@ import {
   spinnerServerClockNow,
   type PendingSpinnerCommandV1,
   type SpinnerLiveResultV1,
-  type SpinnerLiveSnapshotV1,
+  type SpinnerLiveSnapshot,
+  type SpinnerLiveSnapshotV2,
   type SpinnerServerClockAnchor,
 } from "./live";
-import { useSpinnerCountdown } from "./use-spinner-countdown";
+import { useSpinnerCountdown, useSpinnerSequencePresentation } from "./use-spinner-countdown";
 import { useSpinnerLive } from "./use-spinner-live";
 import { drawWheel } from "./wheel";
 
 type DrawPhase = "idle" | "spinning" | "revealed";
 type WheelMotion = {
   drawId: string;
+  animationKey: string;
   startRotation: number;
   finalRotation: number;
   durationMs: number;
@@ -112,14 +118,14 @@ function downloadJson(filename: string, value: unknown) {
   URL.revokeObjectURL(url);
 }
 
-function receiptTimestamp(receipt: DrawReceiptV1) {
+function receiptTimestamp(receipt: DrawReceipt) {
   const timestamp = new Date(receipt.timestampIso);
   return Number.isNaN(timestamp.valueOf())
     ? "Saved draw"
     : `${formatPublicDateTime(timestamp, "Asia/Singapore")} UTC+8`;
 }
 
-function receiptId(receipt: DrawReceiptV1) {
+function receiptId(receipt: DrawReceipt) {
   const record = receipt as unknown as Record<string, unknown>;
   return typeof record.drawId === "string" ? record.drawId : "draw";
 }
@@ -132,9 +138,9 @@ export function RaffleSpinner() {
   const [participants, setParticipants] = useState<ParticipantV1[]>([]);
   const [motionMode, setMotionMode] = useState<MotionMode>("full");
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
-  const [receipts, setReceipts] = useState<DrawReceiptV1[]>([]);
+  const [receipts, setReceipts] = useState<DrawReceipt[]>([]);
   const [phase, setPhase] = useState<DrawPhase>("idle");
-  const [winnerReceipt, setWinnerReceipt] = useState<DrawReceiptV1 | null>(null);
+  const [winnerReceipt, setWinnerReceipt] = useState<DrawReceipt | null>(null);
   const [status, setStatus] = useState("Add at least two names to begin a fair draw.");
   const [drawAnnouncement, setDrawAnnouncement] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
@@ -161,6 +167,9 @@ export function RaffleSpinner() {
   const [wheelMotionStartedDrawId, setWheelMotionStartedDrawId] = useState<string | null>(null);
   const [testMode, setTestMode] = useState(false);
   const [activeDrawMode, setActiveDrawMode] = useState<SpinnerPersistedDrawMode>("unclassified");
+  const [sequenceSnapshot, setSequenceSnapshot] = useState<SpinnerLiveSnapshotV2 | null>(null);
+  const [liveWinnerParticipantCount, setLiveWinnerParticipantCount] = useState(0);
+  const [sequenceReceipt, setSequenceReceipt] = useState<DrawReceipt | null>(null);
 
   const wheelCanvasRef = useRef<HTMLCanvasElement>(null);
   const wheelFrameRef = useRef<HTMLDivElement>(null);
@@ -172,8 +181,8 @@ export function RaffleSpinner() {
     replay: boolean;
   } | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
-  const pendingReceiptRef = useRef<DrawReceiptV1 | null>(null);
-  const drawAttemptRef = useRef(new DrawAttempt<DrawReceiptV1>());
+  const pendingReceiptRef = useRef<DrawReceipt | null>(null);
+  const drawAttemptRef = useRef(new DrawAttempt<DrawReceipt>());
   const drawLockedRef = useRef(false);
   const skipRequestedRef = useRef(false);
   const skippedDrawIdRef = useRef<string | null>(null);
@@ -185,10 +194,11 @@ export function RaffleSpinner() {
   const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const celebrationRef = useRef<CelebrationHandle | null>(null);
   const liveRevisionRef = useRef(0);
-  const liveSnapshotRef = useRef<SpinnerLiveSnapshotV1 | null>(null);
+  const liveSnapshotRef = useRef<SpinnerLiveSnapshot | null>(null);
   const liveCommandIdRef = useRef<string | null>(null);
   const liveApplyKeyRef = useRef("");
   const receivedReceiptDrawIdRef = useRef<string | null>(null);
+  const promotedSequenceReceiptDrawIdRef = useRef<string | null>(null);
   const commandBusyRef = useRef(false);
   const pendingSpinCommandRef = useRef<PendingSpinnerCommandV1 | null>(null);
   const preparingDrawRef = useRef(false);
@@ -196,12 +206,15 @@ export function RaffleSpinner() {
   const countdownAnnouncementDrawIdRef = useRef<string | null>(null);
   const spinStartedAnnouncementDrawIdRef = useRef<string | null>(null);
   const mountedRef = useRef(true);
+  const refreshLiveSnapshotRef = useRef<(() => void) | null>(null);
 
   const effectiveMotionMode = resolveCelebrationMotionMode(motionMode, prefersReducedMotion);
   const countdown = useSpinnerCountdown(countdownStartedAt, serverClockAnchor);
+  const sequencePresentation = useSpinnerSequencePresentation(sequenceSnapshot, serverClockAnchor);
 
-  const rosterLocked = phase === "spinning" || liveBusy || !liveReady;
+  const rosterLocked = phase === "spinning" || sequenceSnapshot?.phase === "spinning" || liveBusy || !liveReady;
   const numberedParticipants = useMemo(() => renumberParticipants(participants), [participants]);
+  const wheelParticipants = sequencePresentation?.participants ?? participants;
   const canSpin = participants.length >= MIN_PARTICIPANTS
     && participants.length <= MAX_PARTICIPANTS
     && secureRandomAvailable
@@ -326,6 +339,7 @@ export function RaffleSpinner() {
     setWinnerReceipt(receipt);
     setLiveWinner(selectedWinner);
     setLiveWinnerIndex(selectedIndex);
+    setLiveWinnerParticipantCount(snapshot?.participants.length ?? 0);
     if (receipt) {
       setReceipts((current) => [receipt, ...current.filter((item) => receiptId(item) !== receiptId(receipt))]
         .slice(0, RECEIPT_HISTORY_LIMIT));
@@ -342,10 +356,10 @@ export function RaffleSpinner() {
     const { snapshot, receipt, commandId, serverNow } = result;
     if (snapshot.revision < liveRevisionRef.current) return;
     liveCommandIdRef.current = snapshot.drawId ? commandId : null;
-    const applyKey = `${snapshot.revision}:${snapshot.phase}:${snapshot.drawMode}:${snapshot.drawId || "idle"}`;
+    const planKey = snapshot.version === 2 ? snapshot.planHashSha256 : "v1";
+    const applyKey = `${snapshot.version}:${snapshot.revision}:${snapshot.phase}:${snapshot.drawMode}:${snapshot.drawId || "idle"}:${planKey}`;
     const sameSnapshot = liveApplyKeyRef.current === applyKey;
     const newReceipt = receipt && receivedReceiptDrawIdRef.current !== receiptId(receipt);
-    if (sameSnapshot && !newReceipt) return;
     const monotonicNowMs = performance.now();
     const nextClockAnchor = spinnerServerClockAnchorForSnapshot(
       serverClockAnchorRef.current,
@@ -354,14 +368,23 @@ export function RaffleSpinner() {
       !sameSnapshot,
     );
     const serverNowMs = spinnerServerClockNow(nextClockAnchor, monotonicNowMs);
-    if (!sameSnapshot && nextClockAnchor) {
+    if (nextClockAnchor && nextClockAnchor !== serverClockAnchorRef.current) {
       serverClockAnchorRef.current = nextClockAnchor;
       setServerClockAnchor(nextClockAnchor);
     }
+    if (sameSnapshot && !newReceipt) return;
 
     if (receipt) {
       pendingReceiptRef.current = receipt;
       receivedReceiptDrawIdRef.current = receiptId(receipt);
+      if (snapshot.version === 2) setSequenceReceipt(receipt);
+    } else if (!sameSnapshot && snapshot.version === 2) {
+      const retainedReceipt = pendingReceiptRef.current;
+      setSequenceReceipt(
+        retainedReceipt?.version === 2 && retainedReceipt.drawId === snapshot.drawId
+          ? retainedReceipt
+          : null,
+      );
     }
     const storedCommand = pendingSpinCommandRef.current;
     if (receipt || (storedCommand && snapshot.revision > storedCommand.expectedRevision)) {
@@ -369,8 +392,10 @@ export function RaffleSpinner() {
     }
 
     if (sameSnapshot) {
+      if (snapshot.version === 2) return;
       setLiveWinner(receipt?.winner ?? snapshot.winner);
       setLiveWinnerIndex(receipt?.selectedIndex ?? snapshot.selectedIndex);
+      setLiveWinnerParticipantCount(snapshot.participants.length);
       const revealAtMs = snapshot.revealAt ? Date.parse(snapshot.revealAt) : 0;
       if (snapshot.phase === "revealed" || serverNowMs >= revealAtMs) {
         revealPendingWinner("animation-complete");
@@ -385,6 +410,27 @@ export function RaffleSpinner() {
     setParticipants(snapshot.participants);
     setActiveDrawMode(snapshot.drawMode);
 
+    if (snapshot.version === 2) {
+      stopScheduledAnimation();
+      preparingDrawRef.current = false;
+      drawLockedRef.current = true;
+      const skipState = spinnerSkipStateForDraw({
+        skipRequested: skipRequestedRef.current,
+        skippedDrawId: skippedDrawIdRef.current,
+        skippedCommandId: skippedCommandIdRef.current,
+        resultCommandId: commandId,
+        drawId: snapshot.drawId,
+      });
+      skipRequestedRef.current = skipState.skipRequested;
+      skippedDrawIdRef.current = skipState.skippedDrawId;
+      skippedCommandIdRef.current = skipState.skippedCommandId;
+      setWinnerReceipt(null);
+      setSequenceSnapshot(snapshot);
+      return;
+    }
+    setSequenceSnapshot(null);
+    setSequenceReceipt(null);
+
     if (snapshot.phase === "idle") {
       stopScheduledAnimation();
       drawAttemptRef.current.reset();
@@ -396,6 +442,7 @@ export function RaffleSpinner() {
       }
       pendingReceiptRef.current = null;
       receivedReceiptDrawIdRef.current = null;
+      promotedSequenceReceiptDrawIdRef.current = null;
       revealedDrawIdRef.current = null;
       countdownAnnouncementDrawIdRef.current = null;
       spinStartedAnnouncementDrawIdRef.current = null;
@@ -408,6 +455,7 @@ export function RaffleSpinner() {
       setWinnerReceipt(null);
       setLiveWinner(null);
       setLiveWinnerIndex(null);
+      setLiveWinnerParticipantCount(0);
       setStatus(snapshot.participants.length >= MIN_PARTICIPANTS
         ? `${snapshot.participants.length} names are live and ready for a fair draw.`
         : `Add ${Math.max(0, MIN_PARTICIPANTS - snapshot.participants.length)} more ${snapshot.participants.length === 1 ? "name" : "names"} to begin.`);
@@ -427,6 +475,7 @@ export function RaffleSpinner() {
     pendingRotationRef.current = snapshot.finalRotation;
     setLiveWinner(receipt?.winner ?? snapshot.winner);
     setLiveWinnerIndex(receipt?.selectedIndex ?? snapshot.selectedIndex);
+    setLiveWinnerParticipantCount(snapshot.participants.length);
     const revealAtMs = snapshot.revealAt ? Date.parse(snapshot.revealAt) : 0;
     if (snapshot.phase === "revealed" || serverNowMs >= revealAtMs) {
       setWheelRotation(snapshot.finalRotation);
@@ -450,14 +499,14 @@ export function RaffleSpinner() {
     revealedDrawIdRef.current = null;
     setWinnerReceipt(null);
     setPhase("spinning");
-    setCountdownStartedAt(snapshot.startedAt);
+    const countdownPending = !spinnerLiveHasStarted(snapshot, serverNowMs);
+    setCountdownStartedAt(countdownPending ? snapshot.startedAt : null);
     setWheelMotionStartedDrawId(null);
     setWheelMotion(null);
     setWheelRotation(snapshot.startRotation);
     const selectedMotion = effectiveMotionModeRef.current;
     const timeline = spinnerLiveTimeline(snapshot, serverNowMs, selectedMotion);
     const rotations = spinnerLiveMotionRotations(snapshot, selectedMotion);
-    const countdownPending = !spinnerLiveHasStarted(snapshot, serverNowMs);
     const drawStatus = countdownPending
       ? "The roster is locked. The moonwheel countdown is underway."
       : skipRequestedRef.current
@@ -472,20 +521,148 @@ export function RaffleSpinner() {
     spinStartedAnnouncementDrawIdRef.current = announcement.state.spinDrawId;
     if (announcement.announcement) setDrawAnnouncement(announcement.announcement);
 
-    if (timeline.motionDurationMs > 0 && !skipRequestedRef.current) {
+    if (!countdownPending && timeline.motionDurationMs > 0 && !skipRequestedRef.current) {
       setWheelMotion({
         drawId: liveDrawId,
+        animationKey: liveDrawId,
         startRotation: rotations.startRotation,
         finalRotation: rotations.finalRotation,
         durationMs: timeline.motionDurationMs,
         delayMs: timeline.motionDelayMs,
       });
     }
-    revealTimerRef.current = setTimeout(
-      () => revealPendingWinner(selectedMotion === "off" ? "off" : "animation-complete"),
-      timeline.revealDelayMs + 80,
-    );
+    revealTimerRef.current = countdownPending
+      ? setTimeout(() => {
+          liveApplyKeyRef.current = "";
+          void refreshLiveSnapshotRef.current?.();
+        }, timeline.startDelayMs + 60)
+      : setTimeout(
+          () => revealPendingWinner(selectedMotion === "off" ? "off" : "animation-complete"),
+          timeline.revealDelayMs + 80,
+        );
   }, [clearPendingSpinCommand, revealPendingWinner, stopScheduledAnimation]);
+
+  useEffect(() => {
+    const snapshot = sequenceSnapshot;
+    const presentation = sequencePresentation;
+    if (!snapshot || !presentation) return;
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      const drawId = snapshot.drawId;
+      const authoritativeNowMs = spinnerServerClockNow(serverClockAnchorRef.current, performance.now());
+      setActiveDrawMode(snapshot.drawMode);
+      setWheelMotion(null);
+      setWheelMotionStartedDrawId(null);
+      pendingRotationRef.current = presentation.settledRotation;
+
+    if (presentation.stage === "countdown") {
+      stopCelebration();
+      drawLockedRef.current = true;
+      setLiveWinner(null);
+      setLiveWinnerIndex(null);
+      setLiveWinnerParticipantCount(0);
+      setPhase("spinning");
+      setCountdownStartedAt(snapshot.startedAt);
+      setWheelRotation(presentation.settledRotation);
+      setStatus(snapshot.drawMode === "test"
+        ? "Test draw: the roster is locked and the one-minute moonwheel countdown is underway."
+        : "The roster is locked. The one-minute moonwheel countdown is underway.");
+      const announcement = spinnerDrawAnnouncementTransition(drawId, true, {
+        countdownDrawId: countdownAnnouncementDrawIdRef.current,
+        spinDrawId: spinStartedAnnouncementDrawIdRef.current,
+      });
+      countdownAnnouncementDrawIdRef.current = announcement.state.countdownDrawId;
+      spinStartedAnnouncementDrawIdRef.current = announcement.state.spinDrawId;
+      if (announcement.announcement) setDrawAnnouncement(announcement.announcement);
+        return;
+    }
+
+    setCountdownStartedAt(null);
+    if (presentation.stage === "round-spinning" && presentation.round) {
+      const roundNumber = presentation.round.roundIndex + 1;
+      const animationKey = `${drawId}:${presentation.round.roundIndex}`;
+      const selectedMotion = effectiveMotionMode;
+      const timeline = spinnerSequenceRoundTimeline(
+        presentation.round,
+        authoritativeNowMs,
+        selectedMotion,
+      );
+      const rotations = spinnerSequenceRoundMotionRotations(presentation.round, selectedMotion);
+      drawLockedRef.current = true;
+      setLiveWinner(null);
+      setLiveWinnerIndex(null);
+      setLiveWinnerParticipantCount(0);
+      setPhase("spinning");
+      setWheelRotation(presentation.round.startRotation);
+      if (timeline.motionDurationMs > 0 && !skipRequestedRef.current) {
+        setWheelMotion({
+          drawId,
+          animationKey,
+          startRotation: rotations.startRotation,
+          finalRotation: rotations.finalRotation,
+          durationMs: timeline.motionDurationMs,
+          delayMs: timeline.motionDelayMs,
+        });
+      }
+      setStatus(skipRequestedRef.current
+        ? `Effects skipped · elimination round ${roundNumber} of ${presentation.roundCount} continues on server time.`
+        : `${snapshot.drawMode === "test" ? "Test draw · " : ""}Elimination round ${roundNumber} of ${presentation.roundCount}: ${presentation.participants.length} remain.`);
+      setDrawAnnouncement(roundNumber === 1
+        ? "The shared elimination draw is underway."
+        : `Elimination round ${roundNumber} has begun. ${presentation.participants.length} entrants remain.`);
+        return;
+    }
+
+    const finalWinner = presentation.winner;
+    if (!finalWinner) return;
+    const originalIndex = snapshot.participants.findIndex((participant) => participant.id === finalWinner.id);
+    const mutationReady = spinnerSequenceMutationReady(snapshot, presentation);
+    drawLockedRef.current = !mutationReady;
+    setWheelRotation(presentation.settledRotation);
+    setPhase("revealed");
+    setLiveWinner(finalWinner);
+    setLiveWinnerIndex(originalIndex);
+    setLiveWinnerParticipantCount(snapshot.participants.length);
+    const winnerStatus = `Winner: ${finalWinner.displayName}.`;
+    setStatus(winnerStatus);
+    setDrawAnnouncement(winnerStatus);
+    if (revealedDrawIdRef.current !== drawId) {
+      if (skipRequestedRef.current) {
+        revealedDrawIdRef.current = drawId;
+      } else if (!document.hidden) {
+        revealedDrawIdRef.current = drawId;
+        queueCelebration(drawId, snapshot.revealAt);
+      }
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    effectiveMotionMode,
+    queueCelebration,
+    sequencePresentation,
+    sequenceSnapshot,
+    stopCelebration,
+  ]);
+
+  useEffect(() => {
+    if (!sequenceSnapshot || !sequencePresentation) return;
+    const retainedReceipt = spinnerSequenceReceiptForPromotion(
+      sequenceSnapshot,
+      sequencePresentation,
+      sequenceReceipt,
+    );
+    if (!retainedReceipt || promotedSequenceReceiptDrawIdRef.current === retainedReceipt.drawId) return;
+    promotedSequenceReceiptDrawIdRef.current = retainedReceipt.drawId;
+    pendingReceiptRef.current = null;
+    setWinnerReceipt(retainedReceipt);
+    setReceipts((current) => [
+      retainedReceipt,
+      ...current.filter((item) => receiptId(item) !== retainedReceipt.drawId),
+    ].slice(0, RECEIPT_HISTORY_LIMIT));
+  }, [sequencePresentation, sequenceReceipt, sequenceSnapshot]);
 
   const { connected: liveConnected, error: liveError, refresh: refreshLiveSnapshot } = useSpinnerLive({
     enabled: hydrated,
@@ -493,9 +670,16 @@ export function RaffleSpinner() {
   });
 
   useEffect(() => {
+    refreshLiveSnapshotRef.current = () => void refreshLiveSnapshot();
+    return () => {
+      refreshLiveSnapshotRef.current = null;
+    };
+  }, [refreshLiveSnapshot]);
+
+  useEffect(() => {
     const snapshot = liveSnapshotRef.current;
     if (
-      phase !== "spinning" || countdown.remainingSeconds !== 0 || !snapshot?.drawId ||
+      snapshot?.version !== 1 || phase !== "spinning" || countdown.remainingSeconds !== 0 || !snapshot.drawId ||
       spinStartedAnnouncementDrawIdRef.current === snapshot.drawId
     ) return;
     const announcement = spinnerDrawAnnouncementTransition(snapshot.drawId, false, {
@@ -569,7 +753,7 @@ export function RaffleSpinner() {
     previousEffectiveMotionModeRef.current = effectiveMotionMode;
     if (previousMode === effectiveMotionMode) return;
     stopCelebration();
-    if (liveSnapshotRef.current?.phase === "spinning") {
+    if (liveSnapshotRef.current?.version === 1 && liveSnapshotRef.current.phase === "spinning") {
       liveApplyKeyRef.current = "";
       void refreshLiveSnapshot();
     }
@@ -610,7 +794,7 @@ export function RaffleSpinner() {
     const canvas = wheelCanvasRef.current;
     const frame = wheelFrameRef.current;
     if (!canvas || !frame) return;
-    const render = () => drawWheel(canvas, participants);
+    const render = () => drawWheel(canvas, wheelParticipants);
     render();
     void document.fonts?.ready.then(() => {
       if (mountedRef.current) render();
@@ -618,7 +802,7 @@ export function RaffleSpinner() {
     const observer = new ResizeObserver(render);
     observer.observe(frame);
     return () => observer.disconnect();
-  }, [participants, wheelMotion?.drawId]);
+  }, [wheelParticipants, wheelMotion?.animationKey]);
 
   useEffect(() => {
     const onVisibilityChange = () => {
@@ -628,7 +812,16 @@ export function RaffleSpinner() {
           setStatus("The stored draw continues live. Its result will appear at the scheduled reveal time.");
         }
       } else if (!document.hidden && liveSnapshotRef.current?.phase === "spinning") {
-        liveApplyKeyRef.current = "";
+        const snapshot = liveSnapshotRef.current;
+        if (snapshot.version === 1) {
+          liveApplyKeyRef.current = "";
+        } else if (
+          sequencePresentation?.stage === "complete" && !skipRequestedRef.current &&
+          revealedDrawIdRef.current !== snapshot.drawId
+        ) {
+          revealedDrawIdRef.current = snapshot.drawId;
+          queueCelebration(snapshot.drawId, snapshot.revealAt);
+        }
       }
     };
     const onFullscreenChange = () => {
@@ -640,7 +833,7 @@ export function RaffleSpinner() {
       document.removeEventListener("visibilitychange", onVisibilityChange);
       document.removeEventListener("fullscreenchange", onFullscreenChange);
     };
-  }, [stopCelebration]);
+  }, [queueCelebration, sequencePresentation, stopCelebration]);
 
   useEffect(() => {
     if (!liveError) return;
@@ -824,7 +1017,7 @@ export function RaffleSpinner() {
     setNotice("Roster downloaded. The shared roster remains live until a moderator clears it.");
   };
 
-  const exportReceipt = (receipt: DrawReceiptV1) => {
+  const exportReceipt = (receipt: DrawReceipt) => {
     downloadJson(`Mōchirīī-receipt-${receiptId(receipt)}.json`, receipt);
     setNotice("Receipt downloaded. It makes the selection arithmetic replayable, not tamper-proof.");
   };
@@ -848,25 +1041,27 @@ export function RaffleSpinner() {
     setPhase("spinning");
     setNotice(null);
     setStatus("Freezing the live roster and creating one secure draw…");
-    const attempt = new DrawAttempt<DrawReceiptV1>();
+    const attempt = new DrawAttempt<DrawReceipt>();
     drawAttemptRef.current = attempt;
     let command: PendingSpinnerCommandV1 | null = null;
     try {
       const pendingCommand = pendingSpinCommand(liveRevisionRef.current, drawMode);
       command = pendingCommand;
-      let liveResult: SpinnerLiveResultV1 | null = null;
-      const receipt = await attempt.begin(async () => {
-        liveResult = await sendSpinnerLiveCommand({
-          action: "spin",
-          commandId: pendingCommand.commandId,
-          expectedRevision: pendingCommand.expectedRevision,
-          drawMode: pendingCommand.drawMode,
-        });
-        if (!liveResult.receipt) throw new Error("The secure draw receipt was not returned to the moderator.");
-        return liveResult.receipt;
+      const liveResult = await sendSpinnerLiveCommand({
+        action: "spin",
+        commandId: pendingCommand.commandId,
+        expectedRevision: pendingCommand.expectedRevision,
+        drawMode: pendingCommand.drawMode,
       });
-      if (!mountedRef.current || !liveResult) return;
-      pendingReceiptRef.current = receipt;
+      if (!mountedRef.current) return;
+      if (liveResult.snapshot.version === 1) {
+        if (!liveResult.receipt) throw new Error("The secure draw receipt was not returned to the moderator.");
+        const receipt = await attempt.begin(async () => liveResult.receipt!);
+        pendingReceiptRef.current = receipt;
+      } else {
+        drawAttemptRef.current.reset();
+        pendingReceiptRef.current = null;
+      }
       applyLiveResult(liveResult);
     } catch (error) {
       preparingDrawRef.current = false;
@@ -901,7 +1096,10 @@ export function RaffleSpinner() {
   };
 
   const spinAgain = () => {
-    if (commandBusyRef.current || liveBusy || !liveReady) return;
+    if (
+      commandBusyRef.current || liveBusy || !liveReady ||
+      (sequenceSnapshot && !spinnerSequenceMutationReady(sequenceSnapshot, sequencePresentation))
+    ) return;
     commandBusyRef.current = true;
     clearPendingSpinCommand();
     stopCelebration();
@@ -959,7 +1157,9 @@ export function RaffleSpinner() {
       const snapshot = liveSnapshotRef.current;
       if (snapshot?.phase === "spinning") {
         skippedDrawIdRef.current = snapshot.drawId;
-        setWheelRotation(snapshot.startRotation);
+        setWheelRotation(snapshot.version === 2
+          ? sequencePresentation?.settledRotation ?? snapshot.startRotation
+          : snapshot.startRotation);
       }
       setStatus("Effects skipped. The stored result will appear at the shared reveal time.");
     }
@@ -990,18 +1190,26 @@ export function RaffleSpinner() {
 
   const visibleWinner = winnerReceipt?.winner ?? liveWinner;
   const visibleWinnerIndex = winnerReceipt?.selectedIndex ?? liveWinnerIndex;
+  const visibleWinnerParticipantCount = winnerReceipt?.rosterSnapshot.participants.length
+    ?? liveWinnerParticipantCount;
   const wheelMotionHasStarted = phase === "spinning"
-    && wheelMotion?.drawId != null
-    && wheelMotionStartedDrawId === wheelMotion.drawId;
+    && wheelMotion?.animationKey != null
+    && wheelMotionStartedDrawId === wheelMotion.animationKey;
   const skipControlVisible = spinnerSkipControlVisible({
     phase,
-    wheelMotionDrawId: wheelMotion?.drawId ?? null,
+    wheelMotionDrawId: wheelMotion?.animationKey ?? null,
     motionStartedDrawId: wheelMotionStartedDrawId,
     effectsActive,
   });
   const showCountdownTimer = phase === "spinning"
     && countdownStartedAt !== null
     && countdown.remainingSeconds !== null;
+  const activeSequenceRound = sequencePresentation?.stage === "round-spinning"
+    ? sequencePresentation
+    : null;
+  const sequenceMutationReady = sequenceSnapshot
+    ? spinnerSequenceMutationReady(sequenceSnapshot, sequencePresentation)
+    : true;
   const wheelStyle: WheelMotionStyle = {
     transform: `rotate(${wheelRotation}deg)`,
     ...(wheelMotion ? {
@@ -1009,7 +1217,7 @@ export function RaffleSpinner() {
       animationDuration: `${wheelMotion.durationMs}ms`,
       animationDelay: `${wheelMotion.delayMs}ms`,
       animationTimingFunction: "cubic-bezier(0.12, 0.72, 0.12, 1)",
-      animationFillMode: "both",
+      animationFillMode: "forwards",
       "--spinner-wheel-start": `${wheelMotion.startRotation}deg`,
       "--spinner-wheel-finish": `${wheelMotion.finalRotation}deg`,
     } : {}),
@@ -1043,7 +1251,7 @@ export function RaffleSpinner() {
             <small>{testMode ? "No guild announcement or public result" : "Official monthly draw"}</small>
           </label>
           <label className="motion-control">
-            <span>Celebration</span>
+            <span>Motion &amp; celebration</span>
             <select
               value={motionMode}
               disabled={rosterLocked}
@@ -1087,7 +1295,7 @@ export function RaffleSpinner() {
               <span className="eyebrow">Mōchi Selection</span>
               <h2 id="draw-stage-title">Draw Stage</h2>
             </div>
-            <span className="chance-badge">{participants.length || 0} equal {participants.length === 1 ? "chance" : "chances"}</span>
+            <span className="chance-badge">{wheelParticipants.length || 0} equal {wheelParticipants.length === 1 ? "chance" : "chances"}</span>
           </div>
 
           <div
@@ -1096,12 +1304,12 @@ export function RaffleSpinner() {
           >
             <div className="wheel-pointer" aria-hidden="true"><span /></div>
             <div
-              key={wheelMotion?.drawId ?? "settled"}
-              className="wheel-rotor"
+              key={wheelMotion?.animationKey ?? "settled"}
+              className={`wheel-rotor ${wheelMotion ? "has-live-motion" : ""}`}
               style={wheelStyle}
               onAnimationStart={(event) => {
-                if (event.animationName === "spinner-live-wheel-turn" && wheelMotion?.drawId) {
-                  setWheelMotionStartedDrawId(wheelMotion.drawId);
+                if (event.animationName === "spinner-live-wheel-turn" && wheelMotion?.animationKey) {
+                  setWheelMotionStartedDrawId(wheelMotion.animationKey);
                 }
               }}
             >
@@ -1120,7 +1328,7 @@ export function RaffleSpinner() {
               <>
                 <span className="eyebrow">The moonwheel has spoken</span>
                 <h3>{visibleWinner.displayName}</h3>
-                <p>Entry {visibleWinnerIndex + 1} of {participants.length}</p>
+                <p>Entry {visibleWinnerIndex + 1} of {visibleWinnerParticipantCount}</p>
               </>
             ) : (
               showCountdownTimer ? (
@@ -1138,6 +1346,14 @@ export function RaffleSpinner() {
                     {countdown.label}
                   </strong>
                   <p>{countdown.isCountingDown ? "Roster locked · shared server time" : "Fate is turning"}</p>
+                </>
+              ) : activeSequenceRound ? (
+                <>
+                  <span className="eyebrow">Elimination round {(activeSequenceRound.roundIndex ?? 0) + 1} of {activeSequenceRound.roundCount}</span>
+                  <h3>{activeSequenceRound.participants.length} remain</h3>
+                  <p>{activeSequenceRound.lastEliminated
+                    ? `${activeSequenceRound.lastEliminated.displayName} was removed at the last boundary`
+                    : "Each round spins for five seconds"}</p>
                 </>
               ) : (
                 <>
@@ -1165,7 +1381,7 @@ export function RaffleSpinner() {
                 aria-label={testMode ? "Start a test Mōchirīī raffle spin" : "Start the official Mōchirīī monthly raffle draw"}
               >
                 <span>{testMode ? "Run test spin" : "Spin official moonwheel"}</span>
-                <small>{participants.length >= MIN_PARTICIPANTS ? `1 of ${participants.length} equal chances` : `Add ${MIN_PARTICIPANTS - participants.length} more`}</small>
+                <small>{participants.length >= MIN_PARTICIPANTS ? `${participants.length - 1} five-second rounds · one survivor` : `Add ${MIN_PARTICIPANTS - participants.length} more`}</small>
               </button>
             ) : null}
             {skipControlVisible ? (
@@ -1173,8 +1389,10 @@ export function RaffleSpinner() {
             ) : null}
             {phase === "revealed" && visibleWinner ? (
               <>
-                <button type="button" className="button button-primary" onClick={spinAgain}>Spin again</button>
-                <button type="button" className="button button-secondary" onClick={removeWinner}>Remove winner</button>
+                <button type="button" className="button button-primary" disabled={!sequenceMutationReady} onClick={spinAgain}>Spin again</button>
+                {sequenceSnapshot ? null : (
+                  <button type="button" className="button button-secondary" onClick={removeWinner}>Remove winner</button>
+                )}
                 <button type="button" className="button button-secondary" onClick={replayCelebration}>Replay celebration</button>
                 {winnerReceipt ? <button type="button" className="button button-quiet" onClick={() => exportReceipt(winnerReceipt)}>Export receipt</button> : null}
               </>

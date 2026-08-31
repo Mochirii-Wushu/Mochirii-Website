@@ -16,13 +16,12 @@ import {
   canonicalRosterPayload,
   commandRequestHash,
   createLiveDrawPlan,
-  normalizeDurationMs,
   normalizeDrawMode,
   normalizeParticipants,
   readBoundedSpinnerJsonObject,
   serializeSnapshot,
   sha256Hex,
-  type SpinnerSnapshotV1,
+  type SpinnerSnapshot,
 } from "../_shared/spinner-live.ts";
 import {
   animationManifestHash,
@@ -92,7 +91,7 @@ async function handleSnapshot(req: Request): Promise<Response> {
     }, 503);
   }
 
-  let snapshot: SpinnerSnapshotV1;
+  let snapshot: SpinnerSnapshot;
   try {
     snapshot = serializeSnapshot(data);
   } catch (error) {
@@ -234,9 +233,11 @@ async function handleCommand(req: Request): Promise<Response> {
       commandInput = { action, expectedRevision, participants };
       stagedPayload = { participants, rosterHashSha256 };
     } else if (action === "spin") {
-      const durationMs = normalizeDurationMs(body.durationMs);
+      if (Object.prototype.hasOwnProperty.call(body, "durationMs")) {
+        throw new TypeError("Spin duration is fixed by the raffle protocol.");
+      }
       const drawMode = normalizeDrawMode(body.drawMode);
-      commandInput = { action, expectedRevision, durationMs, drawMode };
+      commandInput = { version: 2, action, expectedRevision, drawMode };
     } else {
       commandInput = { action, expectedRevision };
       stagedPayload = {};
@@ -305,14 +306,16 @@ async function handleCommand(req: Request): Promise<Response> {
 
     try {
       const plan = await createLiveDrawPlan(state.participants, {
-        durationMs: Number(commandInput.durationMs),
         startRotation: Number(state.final_rotation || 0),
         drawMode: normalizeDrawMode(commandInput.drawMode),
       });
       const discord = buildDiscordOutboxPayloads(plan.receipt, plan.startAt);
       const animationManifest = await buildAnimationManifest(plan.receipt, plan);
       stagedPayload = {
+        version: 2,
         receipt: plan.receipt,
+        planHashSha256: plan.planHashSha256,
+        rounds: plan.receipt.rounds,
         startAt: plan.startAt,
         revealAt: plan.revealAt,
         durationMs: plan.durationMs,
@@ -560,8 +563,9 @@ function isSpinnerAction(value: unknown): value is SpinnerAction {
   return value === "set_roster" || value === "spin" || value === "reset";
 }
 
-function snapshotEtag(snapshot: SpinnerSnapshotV1): string {
-  return `"spinner-${snapshot.sessionId}-${snapshot.revision}-${snapshot.phase}"`;
+function snapshotEtag(snapshot: SpinnerSnapshot): string {
+  const plan = snapshot.version === 2 ? `-${snapshot.planHashSha256}` : "";
+  return `"spinner-${snapshot.sessionId}-${snapshot.revision}-${snapshot.phase}${plan}"`;
 }
 
 function jsonResponse(

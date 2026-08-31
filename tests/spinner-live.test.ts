@@ -11,6 +11,7 @@ import {
   parseSpinnerLiveSnapshot,
   reconcileSpinnerServerClockAnchor,
   resolveInitialViewerMotion,
+  stabilizeSpinnerSequencePresentation,
   SpinnerLiveRequestError,
   spinnerCountdownSeconds,
   spinnerDrawAnnouncementTransition,
@@ -20,12 +21,21 @@ import {
   spinnerSkipControlVisible,
   spinnerSkipStateForDraw,
   spinnerLiveTimeline,
+  spinnerSequencePresentation,
+  spinnerSequencePresentationBoundaryKey,
+  spinnerSequenceMutationReady,
+  spinnerSequenceReceiptForPromotion,
+  spinnerSequenceRoundMotionRotations,
+  spinnerSequenceRoundTimeline,
   spinnerServerClockAnchorForSnapshot,
   spinnerServerClockNow,
   // @ts-expect-error Node's type-stripping runner needs the explicit source extension.
 } from "../apps/web/components/spinner/live.ts";
 import {
   createDrawReceipt,
+  ELIMINATION_ALGORITHM_VERSION,
+  ELIMINATION_APP_VERSION,
+  ELIMINATION_ROUND_DURATION_MS,
   type ParticipantV1,
   // @ts-expect-error Node's type-stripping runner needs the explicit source extension.
 } from "../apps/web/components/spinner/raffle.ts";
@@ -57,6 +67,14 @@ const PARTICIPANTS: ParticipantV1[] = [
   { version: 1, id: "40000000-0000-4000-8000-000000000004", displayName: "Lotus" },
   { version: 1, id: "50000000-0000-4000-8000-000000000005", displayName: "明月" },
 ];
+
+const SEQUENCE_PARTICIPANTS: ParticipantV1[] = [
+  PARTICIPANTS[0],
+  PARTICIPANTS[1],
+  { version: 1, id: "60000000-0000-4000-8000-000000000006", displayName: "Starlight" },
+  { version: 1, id: "70000000-0000-4000-8000-000000000007", displayName: "Cloud" },
+];
+const PLAN_HASH = "a".repeat(64);
 
 test("browser spinner requests outlive the proxy upstream deadline with response margin", () => {
   assert.equal(SPINNER_PROXY_UPSTREAM_TIMEOUT_MS, 12_000);
@@ -107,6 +125,97 @@ function revealedSnapshot() {
     phase: "revealed",
     selectedIndex: 1,
     winner: PARTICIPANTS[1],
+  };
+}
+
+function sequenceSnapshot(phase: "spinning" | "revealed" = "spinning") {
+  const rounds = [
+    {
+      roundIndex: 0,
+      selectedIndex: 1,
+      eliminatedId: SEQUENCE_PARTICIPANTS[1].id,
+      startedAt: "2026-07-26T18:01:00.000Z",
+      revealAt: "2026-07-26T18:01:05.000Z",
+      startRotation: 0,
+      finalRotation: 2_430,
+    },
+    {
+      roundIndex: 1,
+      selectedIndex: 2,
+      eliminatedId: SEQUENCE_PARTICIPANTS[3].id,
+      startedAt: "2026-07-26T18:01:05.000Z",
+      revealAt: "2026-07-26T18:01:10.000Z",
+      startRotation: 270,
+      finalRotation: 2_640,
+    },
+    {
+      roundIndex: 2,
+      selectedIndex: 0,
+      eliminatedId: SEQUENCE_PARTICIPANTS[0].id,
+      startedAt: "2026-07-26T18:01:10.000Z",
+      revealAt: "2026-07-26T18:01:15.000Z",
+      startRotation: 120,
+      finalRotation: 2_520,
+    },
+  ];
+  return {
+    version: 2,
+    sessionId: SESSION_ID,
+    revision: phase === "spinning" ? 5 : 6,
+    phase,
+    drawMode: "official",
+    participants: SEQUENCE_PARTICIPANTS,
+    startedAt: rounds[0].startedAt,
+    revealAt: rounds.at(-1)?.revealAt,
+    durationMs: 5_000,
+    startRotation: 0,
+    finalRotation: 2_340,
+    selectedIndex: phase === "revealed" ? 2 : null,
+    winner: phase === "revealed" ? SEQUENCE_PARTICIPANTS[2] : null,
+    drawId: DRAW_ID,
+    updatedAt: UPDATED_AT,
+    planHashSha256: PLAN_HASH,
+    rounds,
+  };
+}
+
+function sequenceReceipt() {
+  const snapshot = sequenceSnapshot("revealed");
+  const active = [...SEQUENCE_PARTICIPANTS];
+  const rounds = snapshot.rounds.map((round) => {
+    const activeCount = active.length;
+    const eliminatedParticipant = active[round.selectedIndex];
+    const rejectionLimit = Math.floor(0x1_0000_0000 / activeCount) * activeCount;
+    const receiptRound = {
+      ...round,
+      activeCount,
+      eliminatedParticipant,
+      rejectionLimit,
+      sampledWords: [round.selectedIndex],
+      acceptedWord: round.selectedIndex,
+    };
+    active.splice(round.selectedIndex, 1);
+    return receiptRound;
+  });
+  return {
+    version: 2,
+    drawMode: snapshot.drawMode,
+    drawId: snapshot.drawId,
+    timestampIso: "2026-07-26T18:00:00.000Z",
+    singaporeTime: "2026-07-27 02:00:00 SGT",
+    appVersion: ELIMINATION_APP_VERSION,
+    algorithmVersion: ELIMINATION_ALGORITHM_VERSION,
+    rosterSnapshot: { version: 1, participants: SEQUENCE_PARTICIPANTS },
+    rosterHashSha256: "c".repeat(64),
+    planHashSha256: snapshot.planHashSha256,
+    durationMs: ELIMINATION_ROUND_DURATION_MS,
+    startAt: snapshot.startedAt,
+    revealAt: snapshot.revealAt,
+    startRotation: snapshot.startRotation,
+    finalRotation: snapshot.finalRotation,
+    rounds,
+    selectedIndex: snapshot.selectedIndex,
+    winner: snapshot.winner,
   };
 }
 
@@ -176,6 +285,250 @@ test("malformed and corrupt snapshots are rejected instead of becoming empty sta
   ];
 
   for (const value of cases) assert.equal(parseSpinnerLiveSnapshot(value), null);
+});
+
+test("v2 snapshots bind one compact contiguous five-second elimination plan", () => {
+  const spinning = parseSpinnerLiveSnapshot(sequenceSnapshot());
+  assert.ok(spinning && spinning.version === 2);
+  assert.equal(spinning.rounds.length, SEQUENCE_PARTICIPANTS.length - 1);
+  assert.equal(spinning.durationMs, 5_000);
+  assert.equal(spinning.planHashSha256, PLAN_HASH);
+  assert.equal(spinning.selectedIndex, null);
+  assert.equal(spinning.winner, null);
+
+  const revealed = parseSpinnerLiveSnapshot(sequenceSnapshot("revealed"));
+  assert.ok(revealed && revealed.version === 2);
+  assert.equal(revealed.selectedIndex, 2);
+  assert.deepEqual(revealed.winner, SEQUENCE_PARTICIPANTS[2]);
+});
+
+test("v2 snapshots reject altered duration, order, continuity, selection, and plan identity", () => {
+  const valid = sequenceSnapshot();
+  const badRoundIndex = valid.rounds.map((round, index) => index === 1 ? { ...round, roundIndex: 3 } : round);
+  const badSelection = valid.rounds.map((round, index) => index === 0 ? { ...round, eliminatedId: SEQUENCE_PARTICIPANTS[0].id } : round);
+  const badGap = valid.rounds.map((round, index) => index === 1
+    ? { ...round, startedAt: "2026-07-26T18:01:05.001Z", revealAt: "2026-07-26T18:01:10.001Z" }
+    : round);
+  const extraRoundField = valid.rounds.map((round, index) => index === 0 ? { ...round, participant: SEQUENCE_PARTICIPANTS[1] } : round);
+  for (const hostile of [
+    { ...valid, durationMs: 4_999 },
+    { ...valid, planHashSha256: "not-a-hash" },
+    { ...valid, rounds: valid.rounds.slice(0, -1) },
+    { ...valid, rounds: badRoundIndex },
+    { ...valid, rounds: badSelection },
+    { ...valid, rounds: badGap },
+    { ...valid, rounds: extraRoundField },
+    { ...valid, rounds: valid.rounds.map((round, index) => index === 0 ? { ...round, finalRotation: 270 } : round) },
+    { ...valid, rounds: valid.rounds.map((round, index) => index === 0 ? { ...round, finalRotation: 2_790 } : round) },
+    { ...valid, rounds: valid.rounds.map((round, index) => index === 1 ? { ...round, startRotation: 269 } : round) },
+    { ...valid, finalRotation: 180 },
+    { ...valid, finalRotation: 2_700 },
+    { ...valid, selectedIndex: 2 },
+    { ...sequenceSnapshot("revealed"), selectedIndex: 1 },
+    { ...sequenceSnapshot("revealed"), winner: { ...SEQUENCE_PARTICIPANTS[2], displayName: "Impostor" } },
+  ]) assert.equal(parseSpinnerLiveSnapshot(hostile), null);
+});
+
+test("a complete 100-participant v2 result remains below the 256 KiB browser response ceiling", () => {
+  const participants = Array.from({ length: 100 }, (_, index): ParticipantV1 => ({
+    version: 1,
+    id: `80000000-0000-4000-8000-${index.toString(16).padStart(12, "0")}`,
+    displayName: `Member-${String(index).padStart(3, "0")}-${"x".repeat(29)}`,
+  }));
+  const startAtMs = Date.parse("2026-07-26T18:01:00.000Z");
+  const rounds = participants.slice(0, -1).map((eliminated, roundIndex) => ({
+    roundIndex,
+    selectedIndex: 0,
+    eliminatedId: eliminated.id,
+    startedAt: new Date(startAtMs + roundIndex * 5_000).toISOString(),
+    revealAt: new Date(startAtMs + (roundIndex + 1) * 5_000).toISOString(),
+    startRotation: 0,
+    finalRotation: 2_160,
+  }));
+  const snapshot = {
+    version: 2,
+    sessionId: SESSION_ID,
+    revision: 8,
+    phase: "spinning",
+    drawMode: "test",
+    participants,
+    startedAt: rounds[0].startedAt,
+    revealAt: rounds.at(-1)?.revealAt,
+    durationMs: 5_000,
+    startRotation: 0,
+    finalRotation: 2_163.6,
+    selectedIndex: null,
+    winner: null,
+    drawId: DRAW_ID,
+    updatedAt: UPDATED_AT,
+    planHashSha256: "b".repeat(64),
+    rounds,
+  };
+  const payload = {
+    ok: true,
+    data: {
+      mode: "viewer",
+      snapshot,
+      receipt: null,
+      commandId: null,
+      serverNow: "2026-07-26T18:00:00.000Z",
+    },
+  };
+  const encodedBytes = new TextEncoder().encode(JSON.stringify(payload)).byteLength;
+  assert.ok(encodedBytes < 256 * 1_024, `${encodedBytes} must remain below 256 KiB`);
+  const parsed = parseSpinnerLiveResult(payload);
+  assert.ok(parsed?.snapshot.version === 2);
+  assert.equal(parsed.snapshot.rounds.length, 99);
+});
+
+test("sequence presentation is static for 01:00 then removes one entrant at each exact boundary", () => {
+  const snapshot = parseSpinnerLiveSnapshot(sequenceSnapshot());
+  assert.ok(snapshot && snapshot.version === 2);
+
+  const countdown = spinnerSequencePresentation(snapshot, Date.parse("2026-07-26T18:00:00.000Z"));
+  assert.equal(spinnerCountdownSeconds(snapshot.startedAt, Date.parse("2026-07-26T18:00:00.000Z")), 60);
+  assert.equal(formatSpinnerCountdown(60), "01:00");
+  assert.equal(countdown.stage, "countdown");
+  assert.equal(countdown.round, null);
+  assert.deepEqual(countdown.participants, SEQUENCE_PARTICIPANTS);
+
+  const firstRound = spinnerSequencePresentation(snapshot, Date.parse("2026-07-26T18:01:00.000Z"));
+  assert.equal(firstRound.stage, "round-spinning");
+  assert.equal(firstRound.roundIndex, 0);
+  assert.deepEqual(firstRound.participants, SEQUENCE_PARTICIPANTS);
+
+  const secondRound = spinnerSequencePresentation(snapshot, Date.parse("2026-07-26T18:01:05.000Z"));
+  assert.equal(secondRound.stage, "round-spinning");
+  assert.equal(secondRound.roundIndex, 1);
+  assert.deepEqual(secondRound.participants.map(({ id }) => id), [
+    SEQUENCE_PARTICIPANTS[0].id,
+    SEQUENCE_PARTICIPANTS[2].id,
+    SEQUENCE_PARTICIPANTS[3].id,
+  ]);
+  assert.deepEqual(secondRound.lastEliminated, SEQUENCE_PARTICIPANTS[1]);
+
+  const complete = spinnerSequencePresentation(snapshot, Date.parse("2026-07-26T18:01:15.000Z"));
+  assert.equal(complete.stage, "complete");
+  assert.deepEqual(complete.participants, [SEQUENCE_PARTICIPANTS[2]]);
+  assert.deepEqual(complete.winner, SEQUENCE_PARTICIPANTS[2]);
+  assert.deepEqual(complete.lastEliminated, SEQUENCE_PARTICIPANTS[0]);
+  assert.equal(complete.nextBoundaryAt, null);
+  assert.equal(spinnerSequenceMutationReady(snapshot, complete), false);
+  const revealed = parseSpinnerLiveSnapshot(sequenceSnapshot("revealed"));
+  assert.ok(revealed && revealed.version === 2);
+  assert.equal(spinnerSequenceMutationReady(revealed, complete), true);
+});
+
+test("clock refreshes retain one presentation identity until an actual sequence boundary", () => {
+  const snapshot = parseSpinnerLiveSnapshot(sequenceSnapshot());
+  assert.ok(snapshot && snapshot.version === 2);
+  const earlyRound = spinnerSequencePresentation(snapshot, Date.parse("2026-07-26T18:01:01.000Z"));
+  const refreshedRound = spinnerSequencePresentation(snapshot, Date.parse("2026-07-26T18:01:04.000Z"));
+  assert.equal(
+    spinnerSequencePresentationBoundaryKey(snapshot, earlyRound),
+    spinnerSequencePresentationBoundaryKey(snapshot, refreshedRound),
+  );
+  assert.equal(stabilizeSpinnerSequencePresentation(snapshot, earlyRound, refreshedRound), earlyRound);
+
+  const caughtUpRound = spinnerSequencePresentation(snapshot, Date.parse("2026-07-26T18:01:05.000Z"));
+  assert.notEqual(
+    spinnerSequencePresentationBoundaryKey(snapshot, earlyRound),
+    spinnerSequencePresentationBoundaryKey(snapshot, caughtUpRound),
+  );
+  assert.equal(stabilizeSpinnerSequencePresentation(snapshot, earlyRound, caughtUpRound), caughtUpRound);
+});
+
+test("v2 receipts remain hidden until the matching server reveal can promote them", () => {
+  const receipt = sequenceReceipt();
+  const spinning = parseSpinnerLiveResult({
+    ok: true,
+    data: {
+      mode: "controller",
+      snapshot: sequenceSnapshot(),
+      receipt,
+      commandId: null,
+      serverNow: "2026-07-26T18:00:00.000Z",
+    },
+  });
+  assert.ok(spinning?.snapshot.version === 2 && spinning.receipt?.version === 2);
+  const completeWhileServerSpins = spinnerSequencePresentation(
+    spinning.snapshot,
+    Date.parse(spinning.snapshot.revealAt),
+  );
+  assert.equal(spinnerSequenceReceiptForPromotion(
+    spinning.snapshot,
+    completeWhileServerSpins,
+    spinning.receipt,
+  ), null);
+
+  const revealed = parseSpinnerLiveResult({
+    ok: true,
+    data: {
+      mode: "controller",
+      snapshot: sequenceSnapshot("revealed"),
+      receipt,
+      commandId: null,
+      serverNow: "2026-07-26T18:01:15.000Z",
+    },
+  });
+  assert.ok(revealed?.snapshot.version === 2 && revealed.receipt?.version === 2);
+  const complete = spinnerSequencePresentation(revealed.snapshot, Date.parse(revealed.snapshot.revealAt));
+  assert.deepEqual(
+    spinnerSequenceReceiptForPromotion(revealed.snapshot, complete, revealed.receipt),
+    revealed.receipt,
+  );
+  assert.equal(parseSpinnerLiveResult({
+    ok: true,
+    data: {
+      mode: "controller",
+      snapshot: { ...sequenceSnapshot("revealed"), planHashSha256: "b".repeat(64) },
+      receipt,
+      commandId: null,
+      serverNow: "2026-07-26T18:01:15.000Z",
+    },
+  }), null);
+});
+
+test("each sequence round has exact full motion and deterministic reduced/off landings", () => {
+  const snapshot = parseSpinnerLiveSnapshot(sequenceSnapshot());
+  assert.ok(snapshot && snapshot.version === 2);
+  const round = snapshot.rounds[0];
+  assert.deepEqual(spinnerSequenceRoundTimeline(round, Date.parse(round.startedAt), "full"), {
+    startDelayMs: 0,
+    revealDelayMs: 5_000,
+    motionDurationMs: 5_000,
+    motionDelayMs: 0,
+  });
+  assert.deepEqual(spinnerSequenceRoundTimeline(round, Date.parse(round.startedAt) + 2_000, "full"), {
+    startDelayMs: 0,
+    revealDelayMs: 3_000,
+    motionDurationMs: 5_000,
+    motionDelayMs: -2_000,
+  });
+  assert.deepEqual(spinnerSequenceRoundTimeline(round, Date.parse(round.startedAt), "reduced"), {
+    startDelayMs: 3_350,
+    revealDelayMs: 5_000,
+    motionDurationMs: 1_650,
+    motionDelayMs: 3_350,
+  });
+  assert.deepEqual(spinnerSequenceRoundTimeline(round, Date.parse(round.startedAt), "off"), {
+    startDelayMs: 5_000,
+    revealDelayMs: 5_000,
+    motionDurationMs: 0,
+    motionDelayMs: 5_000,
+  });
+  assert.deepEqual(spinnerSequenceRoundMotionRotations(round, "full"), {
+    startRotation: 0,
+    finalRotation: 2_430,
+  });
+  assert.deepEqual(spinnerSequenceRoundMotionRotations(round, "reduced"), {
+    startRotation: 0,
+    finalRotation: 270,
+  });
+  assert.deepEqual(spinnerSequenceRoundMotionRotations(round, "off"), {
+    startRotation: 0,
+    finalRotation: 0,
+  });
 });
 
 test("live results require a valid server clock and receipt draw-ID consistency", async () => {
@@ -311,7 +664,7 @@ test("monotonic server anchors ignore wall-clock jumps and react to fresh pollin
     spinnerCountdownSeconds(STARTED_AT, spinnerServerClockNow(corrected, 4_750)),
     177,
   );
-  assert.equal(spinnerServerClockNow(corrected, 3_000), corrected.serverNowMs);
+  assert.equal(spinnerServerClockNow(corrected, 500), corrected.serverNowMs);
   assert.equal(reconcileSpinnerServerClockAnchor(corrected, "not-a-clock", 5_000), corrected);
   assert.equal(createSpinnerServerClockAnchor("not-a-clock", 1), null);
   assert.equal(createSpinnerServerClockAnchor(SERVER_NOW, Number.NaN), null);
@@ -336,16 +689,16 @@ test("monotonic server anchors ignore wall-clock jumps and react to fresh pollin
     true,
   );
   assert.ok(scheduled);
-  const unchangedPoll = spinnerServerClockAnchorForSnapshot(
+  const sameSnapshotPoll = spinnerServerClockAnchorForSnapshot(
     scheduled,
     "2026-07-26T18:00:04.000Z",
     22_000,
     false,
   );
-  assert.equal(unchangedPoll, scheduled);
-  const unchangedNowMs = spinnerServerClockNow(unchangedPoll, 22_000);
-  assert.equal(spinnerCountdownSeconds(STARTED_AT, unchangedNowMs), 178);
-  assert.equal(spinnerLiveTimeline(snapshot, unchangedNowMs, "full").motionDelayMs, 178_000);
+  assert.notEqual(sameSnapshotPoll, scheduled);
+  const sameSnapshotNowMs = spinnerServerClockNow(sameSnapshotPoll, 22_000);
+  assert.equal(spinnerCountdownSeconds(STARTED_AT, sameSnapshotNowMs), 176);
+  assert.equal(spinnerLiveTimeline(snapshot, sameSnapshotNowMs, "full").motionDelayMs, 176_000);
 
   const recoveredPoll = spinnerServerClockAnchorForSnapshot(
     scheduled,
@@ -356,6 +709,35 @@ test("monotonic server anchors ignore wall-clock jumps and react to fresh pollin
   const recoveredNowMs = spinnerServerClockNow(recoveredPoll, 22_000);
   assert.equal(spinnerCountdownSeconds(STARTED_AT, recoveredNowMs), 176);
   assert.equal(spinnerLiveTimeline(snapshot, recoveredNowMs, "full").motionDelayMs, 176_000);
+});
+
+test("an unchanged v2 snapshot catches up after a suspended monotonic clock", () => {
+  const snapshot = parseSpinnerLiveSnapshot(sequenceSnapshot());
+  assert.ok(snapshot && snapshot.version === 2);
+  const beforeSleep = createSpinnerServerClockAnchor("2026-07-26T18:00:00.000Z", 1_000);
+  assert.ok(beforeSleep);
+  const stalePresentation = spinnerSequencePresentation(
+    snapshot,
+    spinnerServerClockNow(beforeSleep, 2_000),
+  );
+  assert.equal(stalePresentation.stage, "countdown");
+
+  const afterWake = spinnerServerClockAnchorForSnapshot(
+    beforeSleep,
+    "2026-07-26T18:01:11.000Z",
+    2_000,
+    false,
+  );
+  const caughtUp = spinnerSequencePresentation(
+    snapshot,
+    spinnerServerClockNow(afterWake, 2_000),
+  );
+  assert.equal(caughtUp.stage, "round-spinning");
+  assert.equal(caughtUp.roundIndex, 2);
+  assert.deepEqual(caughtUp.participants.map(({ id }) => id), [
+    SEQUENCE_PARTICIPANTS[0].id,
+    SEQUENCE_PARTICIPANTS[2].id,
+  ]);
 });
 
 test("countdown polling remains normal until the authoritative start", () => {

@@ -14,7 +14,7 @@
     "indexedMetadataRoutes": 17,
     "nonindexedMetadataRoutes": 11,
     "publicFiles": 249,
-    "publicBytes": 38509412,
+    "publicBytes": 38509460,
     "sourceFiles": 43
   },
   "sourceCatalog": [
@@ -206,7 +206,7 @@
     {
       "path": "scripts/check-app-static-surface-inventory.mjs",
       "bytes": 13000,
-      "sha256": "62FF72F44636D9709ADA5834E998F6E4C4EF03E6D3CEAAD4B490A749214AF02C"
+      "sha256": "79835F059A3B2F93F0F1D55CF45A3FBB6127ECD37FAAA64DF957AE5035EF2519"
     },
     {
       "path": "scripts/check-assets.mjs",
@@ -231,7 +231,7 @@
     {
       "path": "scripts/lib/app-static-surface-inventory.test.mjs",
       "bytes": 123877,
-      "sha256": "8A59741E78053B03F0FFDF7DB7F6C606C8BE205059EF07C5054B2174FE203D2D"
+      "sha256": "ADAD9D955592B7620752AA2757E6AB149CFCDDF7470C6A606052422CE239B470"
     }
   ],
   "metadataRoutes": [
@@ -636,8 +636,8 @@
     {
       "url": "/assets/css/member-spinner.css",
       "source": "apps/web/public/assets/css/member-spinner.css",
-      "bytes": 33760,
-      "sha256": "12AAEED77967D0842F02ABDD242E8D6B4238605A804457EACE8F37AD04753D56",
+      "bytes": 33808,
+      "sha256": "9EBD5A8240E25EF72CC7A5840AF381F5B3C8788FC78B32BC63D54B146F163901",
       "category": "asset",
       "format": "css"
     },

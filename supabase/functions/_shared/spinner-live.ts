@@ -1,12 +1,14 @@
-export const SPINNER_APP_VERSION = "1.0.0";
-export const SPINNER_ALGORITHM_VERSION = "uniform-uint32-rejection-v1";
-export const SPINNER_SNAPSHOT_VERSION = 1;
+export const SPINNER_APP_VERSION = "2.0.0";
+export const SPINNER_ALGORITHM_VERSION =
+  "uniform-elimination-uint32-rejection-v2";
+export const SPINNER_SNAPSHOT_VERSION = 2;
 export const SPINNER_MIN_PARTICIPANTS = 2;
 export const SPINNER_MAX_PARTICIPANTS = 100;
 export const SPINNER_MAX_NAME_GRAPHEMES = 40;
 export const SPINNER_MAX_COMMAND_BODY_BYTES = 64 * 1_024;
-export const SPINNER_DEFAULT_DURATION_MS = 4_800;
-export const SPINNER_START_DELAY_MS = 180_000;
+export const SPINNER_DEFAULT_DURATION_MS = 5_000;
+export const SPINNER_ROUND_DURATION_MS = 5_000;
+export const SPINNER_START_DELAY_MS = 60_000;
 export const SPINNER_DISCORD_CHANNEL_KEY = "raffle_spins";
 export const SPINNER_DISCORD_CHANNEL_ID = "1468667003366674721";
 export const SPINNER_LIVE_URL = "https://mochirii.com/account?open=live-draw";
@@ -14,6 +16,7 @@ export const SPINNER_LIVE_URL = "https://mochirii.com/account?open=live-draw";
 const UINT32_RANGE = 0x1_0000_0000;
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const SHA256_PATTERN = /^[0-9a-f]{64}$/u;
 const BIDI_CONTROL_PATTERN = /[\u202a-\u202e\u2066-\u2069]/u;
 const CONTROL_PATTERN = /[\u0000-\u001f\u007f]/u;
 
@@ -54,6 +57,44 @@ export type DrawReceiptV1 = {
   winner: ParticipantV1;
 };
 
+export type SpinnerRoundReceiptV2 = {
+  roundIndex: number;
+  activeCount: number;
+  selectedIndex: number;
+  eliminatedId: string;
+  eliminatedParticipant: ParticipantV1;
+  rejectionLimit: number;
+  sampledWords: number[];
+  acceptedWord: number;
+  startedAt: string;
+  revealAt: string;
+  startRotation: number;
+  finalRotation: number;
+};
+
+export type DrawReceiptV2 = {
+  version: 2;
+  drawMode: SpinnerDrawMode;
+  drawId: string;
+  timestampIso: string;
+  singaporeTime: string;
+  appVersion: string;
+  algorithmVersion: typeof SPINNER_ALGORITHM_VERSION;
+  rosterSnapshot: RosterStateV1;
+  rosterHashSha256: string;
+  planHashSha256: string;
+  durationMs: typeof SPINNER_ROUND_DURATION_MS;
+  startAt: string;
+  revealAt: string;
+  startRotation: number;
+  finalRotation: number;
+  rounds: SpinnerRoundReceiptV2[];
+  selectedIndex: number;
+  winner: ParticipantV1;
+};
+
+export type DrawReceipt = DrawReceiptV1 | DrawReceiptV2;
+
 export type SpinnerSnapshotV1 = {
   version: 1;
   sessionId: string;
@@ -71,6 +112,39 @@ export type SpinnerSnapshotV1 = {
   drawId: string | null;
   updatedAt: string;
 };
+
+export type SpinnerRoundSnapshotV2 = Pick<
+  SpinnerRoundReceiptV2,
+  | "roundIndex"
+  | "selectedIndex"
+  | "eliminatedId"
+  | "startedAt"
+  | "revealAt"
+  | "startRotation"
+  | "finalRotation"
+>;
+
+export type SpinnerSnapshotV2 = {
+  version: 2;
+  sessionId: string;
+  revision: number;
+  phase: "spinning" | "revealed";
+  drawMode: SpinnerDrawMode;
+  participants: ParticipantV1[];
+  startedAt: string;
+  revealAt: string;
+  durationMs: typeof SPINNER_ROUND_DURATION_MS;
+  startRotation: number;
+  finalRotation: number;
+  planHashSha256: string;
+  rounds: SpinnerRoundSnapshotV2[];
+  selectedIndex: number | null;
+  winner: ParticipantV1 | null;
+  drawId: string;
+  updatedAt: string;
+};
+
+export type SpinnerSnapshot = SpinnerSnapshotV1 | SpinnerSnapshotV2;
 
 type RandomWordSource = () => number;
 
@@ -272,14 +346,10 @@ export function canonicalRosterPayload(
 }
 
 export function normalizeDurationMs(value: unknown): number {
-  if (value == null) return SPINNER_DEFAULT_DURATION_MS;
-  const duration = Number(value);
-  if (
-    !Number.isSafeInteger(duration) || duration < 4_000 || duration > 30_000
-  ) {
-    throw new RangeError("Draw duration must be between 4 and 30 seconds.");
+  if (value == null || value === SPINNER_ROUND_DURATION_MS) {
+    return SPINNER_ROUND_DURATION_MS;
   }
-  return duration;
+  throw new RangeError("Each elimination round is fixed at five seconds.");
 }
 
 export function normalizeDrawMode(value: unknown): SpinnerDrawMode {
@@ -328,17 +398,17 @@ export async function createLiveDrawPlan(
   participantsValue: unknown,
   options: {
     now?: Date;
-    durationMs?: number;
     startRotation?: number;
     randomWord?: RandomWordSource;
     uuidFactory?: () => string;
     drawMode?: SpinnerDrawMode;
   } = {},
 ): Promise<{
-  receipt: DrawReceiptV1;
+  receipt: DrawReceiptV2;
+  planHashSha256: string;
   startAt: string;
   revealAt: string;
-  durationMs: number;
+  durationMs: typeof SPINNER_ROUND_DURATION_MS;
   startRotation: number;
   finalRotation: number;
 }> {
@@ -352,7 +422,7 @@ export async function createLiveDrawPlan(
   if (Number.isNaN(now.getTime())) {
     throw new TypeError("The draw timestamp is invalid.");
   }
-  const durationMs = normalizeDurationMs(options.durationMs);
+  const durationMs = SPINNER_ROUND_DURATION_MS;
   const drawMode = normalizeDrawMode(options.drawMode ?? "official");
   const requestedStartRotation = Number(options.startRotation || 0);
   if (!Number.isFinite(requestedStartRotation)) {
@@ -361,7 +431,7 @@ export async function createLiveDrawPlan(
   const startRotation = normalizedRotationDegrees(requestedStartRotation);
 
   // Hash and construct every fallible field before selection. One invocation
-  // owns the rejection loop and its accepted word; callers never resample it.
+  // owns the complete elimination sequence; callers never sample a round.
   const rosterSnapshot: RosterStateV1 = { version: 1, participants };
   const rosterHashSha256 = await sha256Hex(
     canonicalRosterPayload(participants),
@@ -371,24 +441,97 @@ export async function createLiveDrawPlan(
     throw new TypeError("The draw ID is invalid.");
   }
   const timestampIso = now.toISOString();
-  const sample = sampleUniformIndex(
-    participants.length,
-    options.randomWord || secureRandomWord,
-  );
-  const winner = { ...participants[sample.index] };
   const startAtDate = new Date(now.getTime() + SPINNER_START_DELAY_MS);
-  const revealAtDate = new Date(startAtDate.getTime() + durationMs);
-  const targetAngle = normalizedRotationDegrees(
-    targetRotationDegrees(sample.index, participants.length),
+  const randomWord = options.randomWord || secureRandomWord;
+  const activeParticipants = participants.map((participant) => ({
+    ...participant,
+  }));
+  const rounds: SpinnerRoundReceiptV2[] = [];
+  let roundStartRotation = startRotation;
+
+  for (
+    let roundIndex = 0;
+    roundIndex < participants.length - 1;
+    roundIndex += 1
+  ) {
+    const activeCount = activeParticipants.length;
+    const sample = sampleUniformIndex(activeCount, randomWord);
+    const eliminatedParticipant = { ...activeParticipants[sample.index] };
+    const roundStartedAt = new Date(
+      startAtDate.getTime() + roundIndex * SPINNER_ROUND_DURATION_MS,
+    );
+    const roundRevealAt = new Date(
+      roundStartedAt.getTime() + SPINNER_ROUND_DURATION_MS,
+    );
+    const targetAngle = normalizedRotationDegrees(
+      targetRotationDegrees(sample.index, activeCount),
+    );
+    const alignmentTravel = normalizedRotationDegrees(
+      targetAngle - roundStartRotation,
+    );
+    const roundFinalRotation = roundStartRotation + 6 * 360 + alignmentTravel;
+
+    rounds.push({
+      roundIndex,
+      activeCount,
+      selectedIndex: sample.index,
+      eliminatedId: eliminatedParticipant.id,
+      eliminatedParticipant,
+      rejectionLimit: sample.rejectionLimit,
+      sampledWords: [...sample.sampledWords],
+      acceptedWord: sample.acceptedWord,
+      startedAt: roundStartedAt.toISOString(),
+      revealAt: roundRevealAt.toISOString(),
+      startRotation: roundStartRotation,
+      finalRotation: roundFinalRotation,
+    });
+
+    activeParticipants.splice(sample.index, 1);
+    roundStartRotation = normalizedRotationDegrees(roundFinalRotation);
+  }
+
+  const winner = { ...activeParticipants[0] };
+  const selectedIndex = participants.findIndex(({ id }) => id === winner.id);
+  if (selectedIndex < 0) {
+    throw new TypeError("The final survivor is outside the frozen roster.");
+  }
+  const revealAtDate = new Date(
+    startAtDate.getTime() + rounds.length * SPINNER_ROUND_DURATION_MS,
   );
-  const alignmentTravel = normalizedRotationDegrees(
-    targetAngle - startRotation,
+
+  // These top-level rotations remain the bounded final-winner media recap.
+  // Live clients use the per-round rotations above for the elimination wheel.
+  const recapTargetAngle = normalizedRotationDegrees(
+    targetRotationDegrees(selectedIndex, participants.length),
   );
-  const finalRotation = startRotation + 6 * 360 + alignmentTravel;
+  const recapAlignmentTravel = normalizedRotationDegrees(
+    recapTargetAngle - startRotation,
+  );
+  const finalRotation = startRotation + 6 * 360 + recapAlignmentTravel;
+  const startAt = startAtDate.toISOString();
+  const revealAt = revealAtDate.toISOString();
+  const planHashInput: Parameters<typeof canonicalDrawPlanPayload>[0] = {
+    version: 2 as const,
+    drawId,
+    drawMode,
+    algorithmVersion: SPINNER_ALGORITHM_VERSION,
+    rosterHashSha256,
+    durationMs,
+    startAt,
+    revealAt,
+    startRotation,
+    finalRotation,
+    rounds,
+    selectedIndex,
+    winner,
+  };
+  const planHashSha256 = await sha256Hex(
+    canonicalDrawPlanPayload(planHashInput),
+  );
 
   return {
     receipt: {
-      version: 1,
+      version: 2,
       drawMode,
       drawId,
       timestampIso,
@@ -397,18 +540,78 @@ export async function createLiveDrawPlan(
       algorithmVersion: SPINNER_ALGORITHM_VERSION,
       rosterSnapshot,
       rosterHashSha256,
-      rejectionLimit: sample.rejectionLimit,
-      sampledWords: [...sample.sampledWords],
-      acceptedWord: sample.acceptedWord,
-      selectedIndex: sample.index,
+      planHashSha256,
+      durationMs,
+      startAt,
+      revealAt,
+      startRotation,
+      finalRotation,
+      rounds,
+      selectedIndex,
       winner,
     },
-    startAt: startAtDate.toISOString(),
-    revealAt: revealAtDate.toISOString(),
+    planHashSha256,
+    startAt,
+    revealAt,
     durationMs,
     startRotation,
     finalRotation,
   };
+}
+
+export function canonicalDrawPlanPayload(
+  plan: {
+    version: 2;
+    drawId: string;
+    drawMode: SpinnerDrawMode;
+    algorithmVersion: typeof SPINNER_ALGORITHM_VERSION;
+    rosterHashSha256: string;
+    durationMs: typeof SPINNER_ROUND_DURATION_MS;
+    startAt: string;
+    revealAt: string;
+    startRotation: number;
+    finalRotation: number;
+    rounds: readonly SpinnerRoundReceiptV2[];
+    selectedIndex: number;
+    winner: ParticipantV1;
+  },
+): string {
+  return JSON.stringify({
+    version: plan.version,
+    drawId: plan.drawId,
+    drawMode: plan.drawMode,
+    algorithmVersion: plan.algorithmVersion,
+    rosterHashSha256: plan.rosterHashSha256,
+    durationMs: plan.durationMs,
+    startAt: plan.startAt,
+    revealAt: plan.revealAt,
+    startRotation: plan.startRotation,
+    finalRotation: plan.finalRotation,
+    rounds: plan.rounds.map((round) => ({
+      roundIndex: round.roundIndex,
+      activeCount: round.activeCount,
+      selectedIndex: round.selectedIndex,
+      eliminatedId: round.eliminatedId,
+      eliminatedParticipant: {
+        version: round.eliminatedParticipant.version,
+        id: round.eliminatedParticipant.id,
+        displayName: round.eliminatedParticipant.displayName,
+      },
+      rejectionLimit: round.rejectionLimit,
+      sampledWords: [...round.sampledWords],
+      acceptedWord: round.acceptedWord,
+      startedAt: round.startedAt,
+      revealAt: round.revealAt,
+      startRotation: round.startRotation,
+      finalRotation: round.finalRotation,
+    })),
+    selectedIndex: plan.selectedIndex,
+    winner: {
+      version: plan.winner.version,
+      id: plan.winner.id,
+      displayName: plan.winner.displayName,
+    },
+  });
 }
 
 const NO_MENTIONS = Object.freeze({
@@ -430,7 +633,7 @@ export function sanitizeDiscordDisplayName(value: string): string {
 }
 
 export function buildDiscordOutboxPayloads(
-  receipt: DrawReceiptV1,
+  receipt: DrawReceipt,
   startAt: string,
 ): {
   channelKey: string;
@@ -470,11 +673,20 @@ export async function commandRequestHash(value: unknown): Promise<string> {
 export function serializeSnapshot(
   value: unknown,
   now = new Date(),
-): SpinnerSnapshotV1 {
+): SpinnerSnapshot {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new TypeError("Live spinner state is unavailable.");
   }
   const row = value as Record<string, unknown>;
+  return row.version === 2
+    ? serializeSnapshotV2(row)
+    : serializeSnapshotV1(row, now);
+}
+
+function serializeSnapshotV1(
+  row: Record<string, unknown>,
+  now: Date,
+): SpinnerSnapshotV1 {
   const participants = normalizeParticipants(row.participants);
   const storedPhase = row.phase === "spinning" || row.phase === "revealed"
     ? row.phase
@@ -515,9 +727,159 @@ export function serializeSnapshot(
   };
 }
 
+function serializeSnapshotV2(
+  row: Record<string, unknown>,
+): SpinnerSnapshotV2 {
+  const participants = normalizeParticipants(row.participants);
+  const sessionId = String(row.sessionId || "");
+  const revision = Number(row.revision);
+  const phase = row.phase === "spinning" || row.phase === "revealed"
+    ? row.phase
+    : null;
+  const drawMode = row.drawMode === "official" || row.drawMode === "test"
+    ? row.drawMode
+    : null;
+  const startedAt = typeof row.startedAt === "string" ? row.startedAt : "";
+  const revealAt = typeof row.revealAt === "string" ? row.revealAt : "";
+  const drawId = typeof row.drawId === "string" ? row.drawId : "";
+  const planHashSha256 = String(row.planHashSha256 || "");
+  const durationMs = Number(row.durationMs);
+  const startRotation = Number(row.startRotation);
+  const finalRotation = Number(row.finalRotation);
+  const startedAtMs = Date.parse(startedAt);
+  const revealAtMs = Date.parse(revealAt);
+
+  if (
+    participants.length < SPINNER_MIN_PARTICIPANTS ||
+    !UUID_PATTERN.test(sessionId) || !UUID_PATTERN.test(drawId) ||
+    !Number.isSafeInteger(revision) || revision < 0 || !phase || !drawMode ||
+    !SHA256_PATTERN.test(planHashSha256) ||
+    durationMs !== SPINNER_ROUND_DURATION_MS ||
+    !Number.isFinite(startedAtMs) || !Number.isFinite(revealAtMs) ||
+    !Number.isFinite(startRotation) || startRotation < 0 ||
+    startRotation >= 360 || !Number.isFinite(finalRotation) ||
+    finalRotation <= startRotation || finalRotation >= 2_880 ||
+    !Array.isArray(row.rounds) ||
+    row.rounds.length !== participants.length - 1
+  ) {
+    throw new TypeError("Live spinner v2 state is invalid.");
+  }
+
+  const activeParticipants = participants.map((participant) => ({
+    ...participant,
+  }));
+  const rounds: SpinnerRoundSnapshotV2[] = [];
+  let expectedStartedAtMs = startedAtMs;
+  let expectedStartRotation = startRotation;
+
+  for (let roundIndex = 0; roundIndex < row.rounds.length; roundIndex += 1) {
+    const value = row.rounds[roundIndex];
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      throw new TypeError("Live spinner v2 round is invalid.");
+    }
+    const round = value as Record<string, unknown>;
+    const selectedIndex = Number(round.selectedIndex);
+    const eliminatedId = String(round.eliminatedId || "");
+    const roundStartedAt = typeof round.startedAt === "string"
+      ? round.startedAt
+      : "";
+    const roundRevealAt = typeof round.revealAt === "string"
+      ? round.revealAt
+      : "";
+    const roundStartedAtMs = Date.parse(roundStartedAt);
+    const roundRevealAtMs = Date.parse(roundRevealAt);
+    const roundStartRotation = Number(round.startRotation);
+    const roundFinalRotation = Number(round.finalRotation);
+    if (
+      Number(round.roundIndex) !== roundIndex ||
+      !Number.isSafeInteger(selectedIndex) || selectedIndex < 0 ||
+      selectedIndex >= activeParticipants.length ||
+      !UUID_PATTERN.test(eliminatedId) ||
+      activeParticipants[selectedIndex]?.id !== eliminatedId ||
+      roundStartedAtMs !== expectedStartedAtMs ||
+      roundRevealAtMs - roundStartedAtMs !== SPINNER_ROUND_DURATION_MS ||
+      !Number.isFinite(roundStartRotation) || roundStartRotation < 0 ||
+      roundStartRotation >= 360 || !Number.isFinite(roundFinalRotation) ||
+      roundFinalRotation <= roundStartRotation || roundFinalRotation >= 2_880 ||
+      roundStartRotation !== expectedStartRotation ||
+      normalizedRotationDegrees(roundFinalRotation) !==
+        normalizedRotationDegrees(
+          targetRotationDegrees(selectedIndex, activeParticipants.length),
+        )
+    ) {
+      throw new TypeError("Live spinner v2 round is invalid.");
+    }
+
+    rounds.push({
+      roundIndex,
+      selectedIndex,
+      eliminatedId,
+      startedAt: roundStartedAt,
+      revealAt: roundRevealAt,
+      startRotation: roundStartRotation,
+      finalRotation: roundFinalRotation,
+    });
+    activeParticipants.splice(selectedIndex, 1);
+    expectedStartedAtMs = roundRevealAtMs;
+    expectedStartRotation = normalizedRotationDegrees(roundFinalRotation);
+  }
+
+  if (expectedStartedAtMs !== revealAtMs || activeParticipants.length !== 1) {
+    throw new TypeError("Live spinner v2 timeline is invalid.");
+  }
+  const finalSurvivor = activeParticipants[0];
+  const finalSelectedIndex = participants.findIndex(
+    ({ id }) => id === finalSurvivor.id,
+  );
+  if (
+    normalizedRotationDegrees(finalRotation) !==
+      normalizedRotationDegrees(
+        targetRotationDegrees(finalSelectedIndex, participants.length),
+      )
+  ) {
+    throw new TypeError("Live spinner v2 recap rotation is invalid.");
+  }
+  const includeWinner = phase === "revealed";
+  let selectedIndex: number | null = null;
+  let winner: ParticipantV1 | null = null;
+  if (includeWinner) {
+    selectedIndex = Number(row.selectedIndex);
+    winner = normalizeParticipant(row.winner);
+    if (
+      !Number.isSafeInteger(selectedIndex) ||
+      selectedIndex !== finalSelectedIndex || winner.id !== finalSurvivor.id ||
+      winner.displayName !== finalSurvivor.displayName
+    ) {
+      throw new TypeError("Live spinner v2 winner is invalid.");
+    }
+  } else if (row.selectedIndex != null || row.winner != null) {
+    throw new TypeError("Live spinner v2 winner was revealed early.");
+  }
+
+  return {
+    version: 2,
+    sessionId,
+    revision,
+    phase,
+    drawMode,
+    participants,
+    startedAt,
+    revealAt,
+    durationMs: SPINNER_ROUND_DURATION_MS,
+    startRotation,
+    finalRotation,
+    planHashSha256,
+    rounds,
+    selectedIndex,
+    winner,
+    drawId,
+    updatedAt: String(row.updatedAt || revealAt),
+  };
+}
+
 export function buildSnapshotResponseData(
   mode: "controller" | "viewer",
-  snapshot: SpinnerSnapshotV1,
+  snapshot: SpinnerSnapshot,
   serverNow: string,
   receipt?: Record<string, unknown>,
   commandId?: string,

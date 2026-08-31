@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(29);
+SELECT plan(31);
 
 CREATE TEMP TABLE spinner_dispatch_probe (
   call_count integer NOT NULL DEFAULT 0
@@ -493,6 +493,194 @@ SELECT is(
   'a verified guild member receives the reviewed winner display name'
 );
 RESET ROLE;
+
+SELECT public.spinner_reserve_command(
+  '50505050-5050-4050-8050-505050505050',
+  'set_roster',
+  '91919191-9191-4919-8919-919191919191',
+  0,
+  repeat('5', 64)
+);
+SELECT public.spinner_stage_command(
+  '50505050-5050-4050-8050-505050505050',
+  jsonb_build_object(
+    'participants', jsonb_build_array(
+      jsonb_build_object('version', 1, 'id', '53535353-5050-4050-8050-505050505051', 'displayName', 'Lotus'),
+      jsonb_build_object('version', 1, 'id', '53535353-5050-4050-8050-505050505052', 'displayName', 'Jade Lantern'),
+      jsonb_build_object('version', 1, 'id', '53535353-5050-4050-8050-505050505053', 'displayName', 'Moon')
+    ),
+    'rosterHashSha256', 'eae909f14328dc6599a66f7fd445ce5b6884c29570887dfb151776fe176a4e57'
+  )
+);
+SELECT public.spinner_apply_command('50505050-5050-4050-8050-505050505050');
+
+SELECT public.spinner_reserve_command(
+  '51515151-5050-4050-8050-505050505050',
+  'spin',
+  '91919191-9191-4919-8919-919191919191',
+  1,
+  repeat('6', 64)
+);
+WITH fixture AS (
+  SELECT
+    jsonb_build_array(
+      jsonb_build_object('version', 1, 'id', '53535353-5050-4050-8050-505050505051', 'displayName', 'Lotus'),
+      jsonb_build_object('version', 1, 'id', '53535353-5050-4050-8050-505050505052', 'displayName', 'Jade Lantern'),
+      jsonb_build_object('version', 1, 'id', '53535353-5050-4050-8050-505050505053', 'displayName', 'Moon')
+    ) AS participants,
+    jsonb_build_array(
+      jsonb_build_object(
+        'roundIndex', 0,
+        'activeCount', 3,
+        'selectedIndex', 1,
+        'eliminatedId', '53535353-5050-4050-8050-505050505052',
+        'eliminatedParticipant', jsonb_build_object(
+          'version', 1,
+          'id', '53535353-5050-4050-8050-505050505052',
+          'displayName', 'Jade Lantern'
+        ),
+        'rejectionLimit', 4294967295,
+        'sampledWords', jsonb_build_array(4),
+        'acceptedWord', 4,
+        'startedAt', '2026-08-31T02:01:00.000Z',
+        'revealAt', '2026-08-31T02:01:05.000Z',
+        'startRotation', 0,
+        'finalRotation', 2400
+      ),
+      jsonb_build_object(
+        'roundIndex', 1,
+        'activeCount', 2,
+        'selectedIndex', 1,
+        'eliminatedId', '53535353-5050-4050-8050-505050505053',
+        'eliminatedParticipant', jsonb_build_object(
+          'version', 1,
+          'id', '53535353-5050-4050-8050-505050505053',
+          'displayName', 'Moon'
+        ),
+        'rejectionLimit', 4294967296,
+        'sampledWords', jsonb_build_array(1),
+        'acceptedWord', 1,
+        'startedAt', '2026-08-31T02:01:05.000Z',
+        'revealAt', '2026-08-31T02:01:10.000Z',
+        'startRotation', 240,
+        'finalRotation', 2700
+      )
+    ) AS rounds
+), receipt AS (
+  SELECT
+    rounds,
+    jsonb_build_object(
+      'version', 2,
+      'drawMode', 'official',
+      'drawId', '54545454-5050-4050-8050-505050505050',
+      'timestampIso', '2026-08-31T02:00:00.000Z',
+      'singaporeTime', '31 Aug 2026, 10:00:00 SGT',
+      'appVersion', '2.0.0',
+      'algorithmVersion', 'uniform-elimination-uint32-rejection-v2',
+      'rosterSnapshot', jsonb_build_object('version', 1, 'participants', participants),
+      'rosterHashSha256', 'eae909f14328dc6599a66f7fd445ce5b6884c29570887dfb151776fe176a4e57',
+      'planHashSha256', '21d538f460780456f54fa098e52aae689e212521fe03ec55c20bd8822f25bb20',
+      'durationMs', 5000,
+      'startAt', '2026-08-31T02:01:00.000Z',
+      'revealAt', '2026-08-31T02:01:10.000Z',
+      'startRotation', 0,
+      'finalRotation', 2160,
+      'rounds', rounds,
+      'selectedIndex', 0,
+      'winner', participants -> 0
+    ) AS value
+  FROM fixture
+)
+SELECT public.spinner_stage_command(
+  '51515151-5050-4050-8050-505050505050',
+  jsonb_build_object(
+    'version', 2,
+    'receipt', value,
+    'planHashSha256', '21d538f460780456f54fa098e52aae689e212521fe03ec55c20bd8822f25bb20',
+    'rounds', rounds,
+    'startAt', '2026-08-31T02:01:00.000Z',
+    'revealAt', '2026-08-31T02:01:10.000Z',
+    'durationMs', 5000,
+    'startRotation', 0,
+    'finalRotation', 2160,
+    'animationManifest', jsonb_build_object(
+      'version', 1,
+      'styleVersion', 'mochirii-raffle-film-v1',
+      'width', 1280,
+      'height', 720,
+      'durationMs', 10600,
+      'drawId', '54545454-5050-4050-8050-505050505050',
+      'startAt', '2026-08-31T02:01:00.000Z',
+      'revealAt', '2026-08-31T02:01:10.000Z',
+      'startRotation', 0,
+      'finalRotation', 2160,
+      'rosterHashSha256', 'eae909f14328dc6599a66f7fd445ce5b6884c29570887dfb151776fe176a4e57',
+      'participants', jsonb_build_array(
+        jsonb_build_object('version', 1, 'number', 1, 'label', '1. Lotus'),
+        jsonb_build_object('version', 1, 'number', 2, 'label', '2. Jade Lantern'),
+        jsonb_build_object('version', 1, 'number', 3, 'label', '3. Moon')
+      ),
+      'selectedIndex', 0,
+      'winner', jsonb_build_object(
+        'version', 1,
+        'number', 1,
+        'displayName', 'Lotus'
+      ),
+      'visualSeedSha256', '5d44e5cc3ddcb7be75ceb04922eefac352ab9e7804b762a94284a091abf9f95f'
+    ),
+    'animationManifestHashSha256', '2164b43d3c7173ca80d3fd7661057052110ec9f32a9c2dae08d2f78d68fff12c',
+    'discordChannelKey', 'raffle_spins',
+    'discordChannelId', '1468667003366674721',
+    'discordStartPayload', jsonb_build_object(
+      'content', 'Mōchirīī official elimination sequence',
+      'nonce', '5454545450505050505050505',
+      'enforce_nonce', true,
+      'allowed_mentions', jsonb_build_object('parse', '[]'::jsonb, 'users', '[]'::jsonb, 'roles', '[]'::jsonb, 'replied_user', false)
+    ),
+    'discordResultPayload', jsonb_build_object(
+      'content', 'Mōchirīī official survivor confirmed.',
+      'allowed_mentions', jsonb_build_object('parse', '[]'::jsonb, 'users', '[]'::jsonb, 'roles', '[]'::jsonb, 'replied_user', false)
+    )
+  )
+)
+FROM receipt;
+SELECT public.spinner_apply_command('51515151-5050-4050-8050-505050505050');
+
+SELECT ok(
+  (SELECT status = 'applied' FROM public.spinner_commands
+    WHERE command_id = '51515151-5050-4050-8050-505050505050')
+  AND (SELECT algorithm_version = 'uniform-elimination-uint32-rejection-v2'
+      AND selected_index = 0
+      AND winner ->> 'displayName' = 'Lotus'
+      AND rejection_limit is null AND sampled_words is null AND accepted_word is null
+      AND jsonb_array_length(elimination_plan) = 2
+      AND elimination_plan -> 0 ->> 'eliminatedId' = '53535353-5050-4050-8050-505050505052'
+      AND elimination_plan -> 1 ->> 'eliminatedId' = '53535353-5050-4050-8050-505050505053'
+      AND plan_hash_sha256 = '21d538f460780456f54fa098e52aae689e212521fe03ec55c20bd8822f25bb20'
+    FROM public.spinner_draw_receipts
+    WHERE draw_id = '54545454-5050-4050-8050-505050505050')
+  AND (SELECT duration_ms = 5000
+      AND started_at = '2026-08-31T02:01:00.000Z'::timestamptz
+      AND reveal_at = '2026-08-31T02:01:10.000Z'::timestamptz
+      AND winner ->> 'displayName' = 'Lotus'
+    FROM public.spinner_live_state WHERE singleton_id = 1),
+  'the actual official v2 apply eliminates two entrants in contiguous five-second rounds and retains one survivor'
+);
+SELECT ok(
+  (SELECT source_mode = 'official'
+      AND cycle_month = '2026-08-01'::date
+      AND selected_at = '2026-08-31T02:00:00.000Z'::timestamptz
+      AND reveal_at = '2026-08-31T02:01:10.000Z'::timestamptz
+      AND published_at = reveal_at
+      AND winner_display_name = 'Lotus'
+    FROM public.spinner_raffle_result_publications
+    WHERE source_draw_id = '54545454-5050-4050-8050-505050505050')
+  AND (SELECT reveal_after = '2026-08-31T02:01:10.000Z'::timestamptz
+      AND result_payload ->> 'content' = 'Mōchirīī official survivor confirmed.'
+    FROM public.spinner_discord_outbox
+    WHERE draw_id = '54545454-5050-4050-8050-505050505050'),
+  'official publication and delivery bind only the final survivor after the last round'
+);
 
 SELECT * FROM finish();
 ROLLBACK;

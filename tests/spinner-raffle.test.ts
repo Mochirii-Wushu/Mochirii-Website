@@ -5,6 +5,9 @@ import test from "node:test";
 import {
   ALGORITHM_VERSION,
   APP_VERSION,
+  ELIMINATION_ALGORITHM_VERSION,
+  ELIMINATION_APP_VERSION,
+  ELIMINATION_ROUND_DURATION_MS,
   DrawAttempt,
   MAX_NAME_GRAPHEMES,
   MAX_PARTICIPANTS,
@@ -28,6 +31,7 @@ import {
   targetRotationDegrees,
   validateName,
   type DrawReceiptV1,
+  type DrawReceiptV2,
   type ParticipantV1,
   type RosterStateV1,
   type RevealReason,
@@ -46,6 +50,59 @@ function roster(count = 3): RosterStateV1 {
   return {
     version: 1,
     participants: Array.from({ length: count }, (_, index) => participant(index + 1)),
+  };
+}
+
+function eliminationReceipt(): DrawReceiptV2 {
+  const rosterSnapshot = roster(3);
+  return {
+    version: 2,
+    drawMode: "official",
+    drawId: uuid(700),
+    timestampIso: "2026-07-26T00:00:00.000Z",
+    singaporeTime: "26 Jul 2026, 08:00:00 SGT",
+    appVersion: ELIMINATION_APP_VERSION,
+    algorithmVersion: ELIMINATION_ALGORITHM_VERSION,
+    rosterSnapshot,
+    rosterHashSha256: "a".repeat(64),
+    planHashSha256: "b".repeat(64),
+    durationMs: ELIMINATION_ROUND_DURATION_MS,
+    startAt: "2026-07-26T00:01:00.000Z",
+    revealAt: "2026-07-26T00:01:10.000Z",
+    startRotation: 0,
+    finalRotation: 2_280,
+    rounds: [
+      {
+        roundIndex: 0,
+        activeCount: 3,
+        selectedIndex: 1,
+        eliminatedId: uuid(2),
+        eliminatedParticipant: participant(2),
+        rejectionLimit: 4_294_967_295,
+        sampledWords: [4_294_967_295, 1],
+        acceptedWord: 1,
+        startedAt: "2026-07-26T00:01:00.000Z",
+        revealAt: "2026-07-26T00:01:05.000Z",
+        startRotation: 0,
+        finalRotation: 2_400,
+      },
+      {
+        roundIndex: 1,
+        activeCount: 2,
+        selectedIndex: 0,
+        eliminatedId: uuid(1),
+        eliminatedParticipant: participant(1),
+        rejectionLimit: 4_294_967_296,
+        sampledWords: [0],
+        acceptedWord: 0,
+        startedAt: "2026-07-26T00:01:05.000Z",
+        revealAt: "2026-07-26T00:01:10.000Z",
+        startRotation: 240,
+        finalRotation: 2_520,
+      },
+    ],
+    selectedIndex: 2,
+    winner: participant(3),
   };
 }
 
@@ -424,4 +481,41 @@ test("stored receipts discard corrupted entries and cap history at the latest 10
   assert.deepEqual(parseStoredReceipts([tampered]), []);
   assert.deepEqual(parseStoredReceipts("not json"), []);
   assert.deepEqual(parseStoredReceipts({ version: 2, receipts: history }), []);
+});
+
+test("stored v2 receipts validate the complete shrinking-roster elimination chain", () => {
+  const source = eliminationReceipt();
+  const parsed = parseStoredReceipts([source]);
+  assert.equal(parsed.length, 1);
+  assert.equal(parsed[0]?.version, 2);
+  assert.notStrictEqual(parsed[0], source);
+  if (parsed[0]?.version !== 2) assert.fail("Expected a v2 receipt.");
+  assert.equal(parsed[0].rounds.length, source.rosterSnapshot.participants.length - 1);
+  assert.deepEqual(parsed[0].rosterSnapshot, source.rosterSnapshot);
+  assert.equal(parsed[0].winner.id, uuid(3));
+
+  const duplicateElimination = structuredClone(source);
+  duplicateElimination.rounds[1].eliminatedId = uuid(2);
+  duplicateElimination.rounds[1].eliminatedParticipant = participant(2);
+  assert.deepEqual(parseStoredReceipts([duplicateElimination]), []);
+
+  const timingDrift = structuredClone(source);
+  timingDrift.rounds[1].startedAt = "2026-07-26T00:01:05.001Z";
+  assert.deepEqual(parseStoredReceipts([timingDrift]), []);
+
+  const brokenStart = structuredClone(source);
+  brokenStart.rounds[0].startRotation = 1;
+  assert.deepEqual(parseStoredReceipts([brokenStart]), []);
+
+  const wrongSample = structuredClone(source);
+  wrongSample.rounds[0].acceptedWord = 2;
+  wrongSample.rounds[0].sampledWords[wrongSample.rounds[0].sampledWords.length - 1] = 2;
+  assert.deepEqual(parseStoredReceipts([wrongSample]), []);
+
+  const earlyWinner = structuredClone(source);
+  earlyWinner.winner = participant(1);
+  earlyWinner.selectedIndex = 0;
+  assert.deepEqual(parseStoredReceipts([earlyWinner]), []);
+
+  assert.deepEqual(parseStoredReceipts([{ ...source, appVersion: APP_VERSION }]), []);
 });

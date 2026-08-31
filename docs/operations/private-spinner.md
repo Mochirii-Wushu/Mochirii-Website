@@ -16,13 +16,13 @@ The route is dynamically rendered, `noindex`, `nofollow`, `noarchive`, excluded 
 
 ## Controller And Viewer Surfaces
 
-The controller can add, edit, delete, reorder, bulk-paste, clear, import, and export a 0–100-name live roster. Numbering and equal wheel segments always derive from current order. A draw requires 2–100 unique names and locks roster mutation until the stored result is revealed.
+The controller can add, edit, delete, reorder, bulk-paste, clear, import, and export a 0–100-name live roster. Numbering and equal wheel segments always derive from current order. A draw requires 2–100 unique names and locks roster mutation until the complete stored elimination sequence is revealed.
 
-The viewer receives a separate lazy client bundle with the shared wheel, numbered roster, status, winner, and celebration. It has no button, input, select, form, link, mutation request, click handler, or editable control. Its Full, Reduced, or Off preference is saved from Account. First use is Full unless the operating system requests reduced motion; an explicit stored choice remains authoritative, while the operating-system reduced-motion preference still overrides Full. Reduced motion ends at the same authoritative reveal boundary, while Off holds the pre-draw angle and snaps only at reveal.
+The viewer receives a separate lazy client bundle with the shared wheel, numbered roster, elimination status, final winner, and final celebration. It has no button, input, select, form, link, mutation request, click handler, or editable control. Its Full, Reduced, or Off preference is saved from Account. First use is Full unless the operating system requests reduced motion; an explicit stored choice remains authoritative, while the operating-system reduced-motion preference still overrides Full. Reduced and Off preserve the same authoritative eliminations and final survivor without requiring the full visual motion.
 
-The moderator's **Test spin** switch is off by default. Starting either mode requires a mode-specific confirmation. Official and test modes are frozen into the command hash, durable receipt, and shared live snapshot before the draw is applied. A test draw remains visible on the private controller and viewer stages, but creates no guild-delivery outbox, rendered media job, public monthly result, or official-month reservation. It cannot be promoted later. See [`SPINNER-RAFFLE-WINNER-PUBLICATION.md`](./SPINNER-RAFFLE-WINNER-PUBLICATION.md) for the public-result boundary.
+The moderator's **Test spin** switch is off by default. Starting either mode requires a mode-specific confirmation. Official and test modes use the same one-minute countdown, five-second rounds, secure elimination plan, final-survivor rule, and shared presentation contract; mode is frozen into the command hash, durable receipt, and live snapshot before the draw is applied. A test draw remains visible on the private controller and viewer stages, but creates no guild-delivery outbox, rendered media job, public monthly result, or official-month reservation. It cannot be promoted later. See [`SPINNER-RAFFLE-WINNER-PUBLICATION.md`](./SPINNER-RAFFLE-WINNER-PUBLICATION.md) for the public-result boundary.
 
-Full-screen mode is scoped to the controller's spinner container. Decorative canvases are hidden from assistive technology; roster, status, and winner remain persistent DOM text. Every effect run is bounded below five seconds, particle counts and device-pixel ratio are capped, and no production animation dependency is used.
+Full-screen mode is scoped to the controller's spinner container. Decorative canvases are hidden from assistive technology; roster, elimination status, and winner remain persistent DOM text. Each Full wheel round is exactly five seconds, final celebration effects remain separately bounded, particle counts and device-pixel ratio are capped, and no production animation dependency is used.
 
 ## Live State, Privacy, And Retention
 
@@ -42,13 +42,13 @@ The controller also keeps a local roster backup, motion setting, pending idempot
 
 ## Fairness And Synchronization
 
-On Spin, the backend reserves an idempotent command, freezes the exact ordered roster, hashes it with SHA-256, and samples one unsigned 32-bit word at a time from the secure runtime random source. Rejection sampling discards out-of-range words and prevents modulo bias. The stored result is created once before animation; retries, dropped responses, repeated clicks, reduced/off motion, hidden tabs, animation failures, or Skip never resample it.
+On Spin, the backend reserves an idempotent command, freezes the exact ordered roster, hashes it with SHA-256, and builds all `N-1` eliminations before any animation. Each round samples one unsigned 32-bit word at a time against the shrinking roster. Rejection sampling discards out-of-range words and prevents modulo bias. The compact plan, its hash, every accepted and rejected word, each eliminated identity, and the sole survivor are staged once before apply; retries, dropped responses, repeated clicks, reduced/off motion, hidden tabs, animation failures, or Skip never resample or advance it.
 
 If processing is interrupted after command reservation but before the selected result is durably staged, that command ID becomes terminal and cannot be retried or resampled. The controller reports that no winner was retained and requires a new, explicit Spin action with a new command ID.
 
-The server schedules an exact three-minute lead-in and returns its current clock with every snapshot. Both clients derive the visible countdown from the absolute `started_at` value, so refreshes, clock skew, focus changes, and late joins cannot restart it. Full viewers use the same animation start, duration, start angle, and final angle; late joiners use a negative animation offset instead of replaying the path faster. Reduced motion starts later but ends at the common reveal. Off and Skip do not point at the winning segment early.
+The server schedules an exact one-minute lead-in followed by contiguous, exact five-second rounds. The wheel has no animation object, delay fill, aura, or transform change before authoritative zero. Both clients derive the countdown, current shrinking roster, round boundary, and final reveal from the frozen plan and monotonic server-clock anchor, so refreshes, clock skew, focus changes, hidden tabs, and late joins cannot restart or duplicate a round. Full viewers use the same start, duration, angles, and bounded negative offset for an in-progress round. At each boundary the landed entrant is removed; after `N-1` rounds the sole survivor is the winner and only then may the celebration begin. Reduced and Off reach the same boundaries with less or no motion.
 
-Ordinary viewer responses withhold the selected index, winner, and receipt until reveal. This is presentation control, not cryptographic secrecy: a technically skilled authorized viewer can infer the target from the frozen roster and deterministic final rotation. Receipts make the selection arithmetic replayable, but they are not independently tamper-proof.
+Ordinary viewer responses withhold the top-level winner and receipt until final reveal. The authenticated snapshot includes the bounded compact round plan so every connected page can cross five-second boundaries without becoming a selection authority or depending on a per-round server write. This is presentation control, not cryptographic secrecy: a technically skilled authorized viewer can inspect or infer future eliminations. Receipts make the complete selection arithmetic replayable, but they are not independently tamper-proof.
 
 ## Reaper Delivery
 
@@ -66,8 +66,8 @@ The dispatcher never receives the participant roster. It receives only prebuilt 
 
 Source, tests, migration, and function code may be reviewed in a PR. The following remain separate owner-approved provider mutations:
 
-- applying `20260727054717_enforce_three_minute_spinner_countdown.sql` after
-  the released spinner and media migrations;
+- applying `20260831154230_spinner_elimination_sequence.sql` after the released
+  spinner, media, publication, and historical three-minute migrations;
 - allowing the connected production integration to redeploy all 33 Edge Functions declared in `supabase/config.toml`, including the new `spinner-live-session` and `reaper-spinner-dispatch` functions;
 - setting `DISCORD_RAFFLE_CHANNEL_ID`, `REAPER_SPINNER_DISPATCH_SECRET`, or changing any existing bot secret;
 - adding the matching Vault values used by scheduled dispatch;
@@ -75,7 +75,7 @@ Source, tests, migration, and function code may be reviewed in a PR. The followi
 
 During an approved release, merge the migration and function source from the same validated commit. Configure the channel allowlist to the exact target, generate a distinct dispatcher secret, and store the project URL and matching dispatcher secret in Vault as documented by the dispatcher runbook. Never paste secret values into source, PR text, logs, or command transcripts.
 
-Pause moderator draws before the three-minute timing migration or matching function and Website code begins deploying. Keep draws paused through the compatibility window, and resume only after the production migration, functions, Website deployment, unauthorized 404, and authorized session handoff are verified at the same merged commit.
+Pause moderator draws before the v2 elimination migration or matching function and Website code begins deploying. Keep draws paused through the compatibility window, and resume only after the production migration, functions, Website deployment, unauthorized 404, and authorized session handoff are verified at the same merged commit.
 
 ## Production Integration Blast Radius
 
@@ -158,7 +158,7 @@ Run the count query again and require zero. This proves configuration and an emp
 
 ## Genuine Live Channel Canary
 
-Do not create a synthetic guild result. Use the first genuine moderator draw after the synchronized Website and database release as the production canary, with one authorized controller and one active verified viewer on a second device. Confirm both pages show the same roster, `03:00` countdown, timing, wheel result, and winner.
+Do not create a synthetic guild result. Use the first genuine moderator draw after the synchronized Website and database release as the production canary, with one authorized controller and one active verified viewer on a second device. Confirm both pages show the same frozen roster and static `01:00` countdown, exactly `N-1` five-second Full-motion rounds, the same landed entrant disappearing at every boundary, no intermediate celebration, and one matching final survivor and celebration.
 
 For channel `1468667003366674721`, require exactly one start message with the localized authoritative start time and `https://mochirii.com/account?open=live-draw`, followed by exactly one later edit of that same message ID containing the sanitized winner, draw ID, and roster hash. Confirm the message has no user, role, `@here`, or `@everyone` mention. Do not test another channel, alter channel permissions, register commands, send an extra draw, or delete the genuine result. Export the receipt when required, verify the outbox row reaches `completed`, and record only no-secret identifiers/status evidence.
 

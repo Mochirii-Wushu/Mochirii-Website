@@ -1,5 +1,8 @@
 export const APP_VERSION = "1.0.0";
 export const ALGORITHM_VERSION = "uniform-uint32-rejection-v1";
+export const ELIMINATION_APP_VERSION = "2.0.0";
+export const ELIMINATION_ALGORITHM_VERSION = "uniform-elimination-uint32-rejection-v2";
+export const ELIMINATION_ROUND_DURATION_MS = 5_000;
 
 export const MIN_PARTICIPANTS = 2;
 export const MAX_PARTICIPANTS = 100;
@@ -55,6 +58,44 @@ export interface DrawReceiptV1 {
   selectedIndex: number;
   winner: ParticipantV1;
 }
+
+export interface EliminationReceiptRoundV2 {
+  roundIndex: number;
+  activeCount: number;
+  selectedIndex: number;
+  eliminatedId: string;
+  eliminatedParticipant: ParticipantV1;
+  rejectionLimit: number;
+  sampledWords: number[];
+  acceptedWord: number;
+  startedAt: string;
+  revealAt: string;
+  startRotation: number;
+  finalRotation: number;
+}
+
+export interface DrawReceiptV2 {
+  version: 2;
+  drawMode: SpinnerDrawMode;
+  drawId: string;
+  timestampIso: string;
+  singaporeTime: string;
+  appVersion: typeof ELIMINATION_APP_VERSION;
+  algorithmVersion: typeof ELIMINATION_ALGORITHM_VERSION;
+  rosterSnapshot: RosterStateV1;
+  rosterHashSha256: string;
+  planHashSha256: string;
+  durationMs: typeof ELIMINATION_ROUND_DURATION_MS;
+  startAt: string;
+  revealAt: string;
+  startRotation: number;
+  finalRotation: number;
+  rounds: EliminationReceiptRoundV2[];
+  selectedIndex: number;
+  winner: ParticipantV1;
+}
+
+export type DrawReceipt = DrawReceiptV1 | DrawReceiptV2;
 
 export type NumberedParticipant = ParticipantV1 & { number: number };
 
@@ -605,7 +646,7 @@ function isUint32(value: unknown): value is number {
   );
 }
 
-function parseReceiptCandidate(value: unknown): DrawReceiptV1 | null {
+function parseReceiptV1Candidate(value: unknown): DrawReceiptV1 | null {
   if (
     !isRecord(value) ||
     value.version !== 1 ||
@@ -685,7 +726,158 @@ function parseReceiptCandidate(value: unknown): DrawReceiptV1 | null {
   };
 }
 
-export function parseStoredReceipts(input: unknown): DrawReceiptV1[] {
+function finiteNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function normalizedRotationDegrees(value: number): number {
+  return ((value % 360) + 360) % 360;
+}
+
+function parseIso(value: unknown): string | null {
+  if (typeof value !== "string" || !Number.isFinite(Date.parse(value))) return null;
+  return new Date(value).toISOString();
+}
+
+function rotationsLandOnIndex(
+  startRotation: number,
+  finalRotation: number,
+  selectedIndex: number,
+  count: number,
+): boolean {
+  const travel = finalRotation - startRotation;
+  if (travel < 6 * 360 || travel >= 7 * 360) return false;
+  const target = normalizedRotationDegrees(-selectedIndex * (360 / count));
+  const actual = normalizedRotationDegrees(finalRotation);
+  const error = Math.abs(actual - target);
+  return Math.min(error, 360 - error) <= 1e-7;
+}
+
+function parseReceiptV2Candidate(value: unknown): DrawReceiptV2 | null {
+  if (
+    !isRecord(value) || value.version !== 2 ||
+    (value.drawMode !== "official" && value.drawMode !== "test") ||
+    typeof value.drawId !== "string" || !UUID_PATTERN.test(value.drawId) ||
+    value.appVersion !== ELIMINATION_APP_VERSION ||
+    value.algorithmVersion !== ELIMINATION_ALGORITHM_VERSION ||
+    typeof value.singaporeTime !== "string" || !value.singaporeTime ||
+    typeof value.rosterHashSha256 !== "string" || !SHA256_PATTERN.test(value.rosterHashSha256) ||
+    typeof value.planHashSha256 !== "string" || !SHA256_PATTERN.test(value.planHashSha256) ||
+    value.durationMs !== ELIMINATION_ROUND_DURATION_MS ||
+    !Array.isArray(value.rounds)
+  ) return null;
+
+  const timestampIso = parseIso(value.timestampIso);
+  const startAt = parseIso(value.startAt);
+  const revealAt = parseIso(value.revealAt);
+  const rosterSnapshot = parseRosterCandidate(value.rosterSnapshot);
+  const startRotation = finiteNumber(value.startRotation);
+  const finalRotation = finiteNumber(value.finalRotation);
+  if (
+    !timestampIso || !startAt || !revealAt || !rosterSnapshot ||
+    rosterSnapshot.participants.length < MIN_PARTICIPANTS ||
+    startRotation == null || startRotation < 0 || startRotation >= 360 || finalRotation == null ||
+    value.rounds.length !== rosterSnapshot.participants.length - 1 ||
+    Date.parse(startAt) - Date.parse(timestampIso) !== 60_000 ||
+    Date.parse(revealAt) - Date.parse(startAt) !== value.rounds.length * ELIMINATION_ROUND_DURATION_MS
+  ) return null;
+
+  const remaining = rosterSnapshot.participants.map((participant) => ({ ...participant }));
+  const rounds: EliminationReceiptRoundV2[] = [];
+  let previousRotation: number | null = null;
+  for (let roundIndex = 0; roundIndex < value.rounds.length; roundIndex += 1) {
+    const source = value.rounds[roundIndex];
+    if (!isRecord(source)) return null;
+    const selectedIndex = Number(source.selectedIndex);
+    const activeCount = Number(source.activeCount);
+    const rejectionLimit = Number(source.rejectionLimit);
+    const acceptedWord = Number(source.acceptedWord);
+    const sampledWords = source.sampledWords;
+    const roundStartedAt = parseIso(source.startedAt);
+    const roundRevealAt = parseIso(source.revealAt);
+    const roundStartRotation = finiteNumber(source.startRotation);
+    const roundFinalRotation = finiteNumber(source.finalRotation);
+    const expectedLimit = Math.floor(UINT32_RANGE / remaining.length) * remaining.length;
+    const expectedStartMs = Date.parse(startAt) + roundIndex * ELIMINATION_ROUND_DURATION_MS;
+    const eliminated = remaining[selectedIndex];
+    if (
+      source.roundIndex !== roundIndex || activeCount !== remaining.length ||
+      !Number.isSafeInteger(selectedIndex) || selectedIndex < 0 || selectedIndex >= remaining.length ||
+      rejectionLimit !== expectedLimit || !Array.isArray(sampledWords) || sampledWords.length < 1 ||
+      !sampledWords.every(isUint32) || !isUint32(acceptedWord) ||
+      sampledWords.at(-1) !== acceptedWord ||
+      sampledWords.slice(0, -1).some((word) => word < expectedLimit) ||
+      acceptedWord >= expectedLimit || acceptedWord % remaining.length !== selectedIndex ||
+      typeof source.eliminatedId !== "string" || source.eliminatedId !== eliminated?.id ||
+      !isValidParticipant(source.eliminatedParticipant) ||
+      source.eliminatedParticipant.id !== eliminated?.id ||
+      source.eliminatedParticipant.displayName !== eliminated?.displayName ||
+      !roundStartedAt || !roundRevealAt || Date.parse(roundStartedAt) !== expectedStartMs ||
+      Date.parse(roundRevealAt) !== expectedStartMs + ELIMINATION_ROUND_DURATION_MS ||
+      roundStartRotation == null || roundStartRotation < 0 || roundStartRotation >= 360 ||
+      roundFinalRotation == null ||
+      (roundIndex === 0 && roundStartRotation !== startRotation) ||
+      (previousRotation != null && roundStartRotation !== normalizedRotationDegrees(previousRotation)) ||
+      !rotationsLandOnIndex(roundStartRotation, roundFinalRotation, selectedIndex, remaining.length)
+    ) return null;
+
+    rounds.push({
+      roundIndex,
+      activeCount,
+      selectedIndex,
+      eliminatedId: eliminated.id,
+      eliminatedParticipant: { ...eliminated },
+      rejectionLimit,
+      sampledWords: [...sampledWords],
+      acceptedWord,
+      startedAt: roundStartedAt,
+      revealAt: roundRevealAt,
+      startRotation: roundStartRotation,
+      finalRotation: roundFinalRotation,
+    });
+    previousRotation = roundFinalRotation;
+    remaining.splice(selectedIndex, 1);
+  }
+
+  const winner = remaining[0];
+  const selectedIndex = Number(value.selectedIndex);
+  if (
+    remaining.length !== 1 || !winner || !Number.isSafeInteger(selectedIndex) ||
+    selectedIndex < 0 || selectedIndex >= rosterSnapshot.participants.length ||
+    rosterSnapshot.participants[selectedIndex]?.id !== winner.id ||
+    !isValidParticipant(value.winner) || value.winner.id !== winner.id ||
+    value.winner.displayName !== winner.displayName ||
+    !rotationsLandOnIndex(startRotation, finalRotation, selectedIndex, rosterSnapshot.participants.length)
+  ) return null;
+
+  return {
+    version: 2,
+    drawMode: value.drawMode,
+    drawId: value.drawId,
+    timestampIso,
+    singaporeTime: value.singaporeTime,
+    appVersion: ELIMINATION_APP_VERSION,
+    algorithmVersion: ELIMINATION_ALGORITHM_VERSION,
+    rosterSnapshot,
+    rosterHashSha256: value.rosterHashSha256.toLowerCase(),
+    planHashSha256: value.planHashSha256.toLowerCase(),
+    durationMs: ELIMINATION_ROUND_DURATION_MS,
+    startAt,
+    revealAt,
+    startRotation,
+    finalRotation,
+    rounds,
+    selectedIndex,
+    winner: { ...winner },
+  };
+}
+
+function parseReceiptCandidate(value: unknown): DrawReceipt | null {
+  if (!isRecord(value)) return null;
+  return value.version === 2 ? parseReceiptV2Candidate(value) : parseReceiptV1Candidate(value);
+}
+
+export function parseStoredReceipts(input: unknown): DrawReceipt[] {
   const decoded = decodeStoredValue(input);
   const candidates =
     isRecord(decoded) && decoded.version === 1 && Array.isArray(decoded.receipts)
@@ -697,6 +889,6 @@ export function parseStoredReceipts(input: unknown): DrawReceiptV1[] {
 
   return candidates
     .map(parseReceiptCandidate)
-    .filter((receipt): receipt is DrawReceiptV1 => receipt !== null)
+    .filter((receipt): receipt is DrawReceipt => receipt !== null)
     .slice(0, 100);
 }

@@ -19,8 +19,11 @@ Provider changes remain approval-gated. During an approved Supabase release:
 1. Apply `20260726180052_add_private_live_spinner.sql`, the additive
    `20260726213000_add_spinner_foreign_key_indexes.sql` follow-up, and
    `20260727033342_add_spinner_media_jobs.sql`, followed by
-   `20260727054717_enforce_three_minute_spinner_countdown.sql`, from validated
-   protected commits. Keep `spinner-live-session` and
+   `20260727054717_enforce_three_minute_spinner_countdown.sql`,
+   `20260727160000_add_official_spinner_raffle_publications.sql`,
+   `20260727211442_classify_reviewed_sya_spinner_draw.sql`, and finally
+   `20260831154230_spinner_elimination_sequence.sql`, from validated protected
+   commits. Keep `spinner-live-session` and
    `reaper-spinner-dispatch` on the matching protected source. The connected
    production integration redeploys all 33 functions declared in
    `supabase/config.toml`, not only these two; require the exact-head Preview,
@@ -111,12 +114,13 @@ reusing that command ID can never invoke the random source again. If staging
 committed but its response was lost, the frozen payload is retained and
 replayed without resampling.
 
-The ordinary viewer response withholds the selected index and winner until the
-authoritative reveal time. This is presentation control, not cryptographic
-secrecy: the frozen roster and deterministic final wheel rotation allow a
-technically skilled observer to infer the target before the visible reveal.
-Receipts make the selection arithmetic replayable but are not independently
-tamper-proof.
+The ordinary viewer response withholds the top-level selected index and winner
+until the final authoritative reveal. Its compact frozen elimination plan lets
+viewers cross every five-second round boundary without network-timing drift.
+This is presentation control, not cryptographic secrecy: an authorized viewer
+may inspect or infer future eliminations from that plan before their visible
+reveal. Receipts make the selection arithmetic replayable but are not
+independently tamper-proof.
 
 No function deployment, Vault or function-secret mutation, database push, or
 Discord request is performed by adding these source files. Applying the
