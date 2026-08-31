@@ -97,7 +97,7 @@ export function SiteFooter({
 
             <div className="footer-brand-text">
               <p className="footer-desc">
-                An Asia Pacific Where Winds Meet guild, with events scheduled in UTC+8.
+                Mōchirīī is an Asia Pacific Where Winds Meet guild for casual players, guild events, and member projects.
               </p>
 
               <div className="footer-actions">
@@ -112,7 +112,7 @@ export function SiteFooter({
                 </a>
 
                 <Link className="footer-link" href="/recruitment">
-                  Recruitment Note
+                  View Recruitment
                 </Link>
               </div>
             </div>

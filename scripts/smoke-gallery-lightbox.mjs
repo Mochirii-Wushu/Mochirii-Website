@@ -67,7 +67,7 @@ const syntheticSafeAreaCases = [
 const surfaces = [
   {
     key: "home",
-    label: "Home Screenshot Spotlight",
+    label: "Home Guild Gallery",
     path: "/",
     trigger: "#galleryGrid .home-thumb",
     minimumTriggers: 4,

@@ -100,6 +100,7 @@ assertIncludes("SiteHeader lazy moderator trigger", header, `void ensureModerato
 assertIncludes("SiteHeader mobile moderator trigger", header, "setMobileOpen(true)");
 assertIncludes("SiteHeader official profiles", header, 'placement="header"');
 assertIncludes("SiteHeader mobile official profiles", header, 'placement="mobile"');
+assertIncludes("SiteHeader mobile social profile label", header, "Official Social Profiles");
 assertIncludes("SiteHeader account controls", header, `aria-controls="nav-menu-account"`);
 assertIncludes("SiteHeader account controls", header, `aria-haspopup="true"`);
 assertIncludes("SiteHeader account controls", header, `aria-expanded={openGroup === "account"}`);
@@ -140,11 +141,12 @@ assertIncludes("SiteFooter Discord destination", footer, "href={DISCORD_INVITE_U
 assertCount("SiteFooter Join CTA", footer, `Join Mōchirīī<span className="footer-cta-glint" aria-hidden="true" />`, 1);
 assertIncludes("SiteFooter recruitment link", footer, [
   `                <Link className="footer-link" href="/recruitment">`,
-  "                  Recruitment Note",
+  "                  View Recruitment",
   "                </Link>",
 ].join("\n"));
 assertCount("SiteFooter recruitment link", footer, `href="/recruitment"`, 1);
 assertNotIncludes("SiteFooter retired recruitment label", footer, "Recruitment Tips");
+assertNotIncludes("SiteFooter retired recruitment label", footer, "Recruitment Note");
 assertIncludes("Home Discord destination", homePage, "href={DISCORD_INVITE_URL}");
 assertIncludes("Account Discord destination", accountPanel, "href={DISCORD_INVITE_URL}");
 assertIncludes("Join Discord destination", discordServerPreview, "href={DISCORD_INVITE_URL}");
@@ -157,6 +159,8 @@ assertNotIncludes("SiteFooter signed-out HTML", footer, `href="/spinner"`);
 assertIncludes("SiteFooter authenticated Spinner", footer, "<SpinnerViewerNavLink");
 assertIncludes("SiteFooter authenticated Spinner", footer, "hidden={!authState.spinnerViewer}");
 assertIncludes("SiteFooter official profiles", footer, '<OfficialGuildProfiles placement="footer" />');
+assertIncludes("Official social profile heading", officialGuildProfiles, "Official Social Profiles");
+assertNotIncludes("Official social profile heading", officialGuildProfiles, "Official profiles");
 assertIncludes("SiteFooter legal navigation", footer, 'aria-label="Privacy and support"');
 assertIncludes("SiteFooter Privacy", footer, '<Link href="/privacy">Privacy</Link>');
 assertIncludes("SiteFooter Data Deletion", footer, '<Link href="/meta-data-deletion">Data Deletion</Link>');
@@ -212,9 +216,9 @@ for (const unsupportedClaim of [
   assertNotIncludes("scoped privacy and deletion copy", legalPageSource, unsupportedClaim);
 }
 assertIncludes("official profile semantics", officialGuildProfiles, 'role="group"');
-assertIncludes("official profile semantics", officialGuildProfiles, "Official Mōchirīī profiles in the Guild menu");
-assertIncludes("official profile semantics", officialGuildProfiles, "Official Mōchirīī profiles in the mobile menu");
-assertIncludes("official profile semantics", officialGuildProfiles, "Official Mōchirīī profiles in the footer");
+assertIncludes("official profile semantics", officialGuildProfiles, "Official Mōchirīī social profiles in the Guild menu");
+assertIncludes("official profile semantics", officialGuildProfiles, "Official Mōchirīī social profiles in the mobile menu");
+assertIncludes("official profile semantics", officialGuildProfiles, "Official Mōchirīī social profiles in the footer");
 
 if (JSON.stringify(OFFICIAL_GUILD_PROFILES.map((profile) => profile.href)) !== JSON.stringify(expectedOfficialGuildProfileUrls)) {
   failures.push("official guild channel URLs or handle choices do not match the reviewed candidate set.");

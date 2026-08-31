@@ -2,21 +2,21 @@
 
 ## 1. Site Structure
 
-This is a static HTML/CSS/vanilla JavaScript site.
+The canonical public Website is the Next.js App Router application under `apps/web`.
 
-- Page shells live in root `.html` files.
-- Page content lives mostly in `apps/web/public/data/*.json`.
-- Shared header and footer markup live in `header.html` and `footer.html`, then load through `site.js`.
-- Shared browser helpers live in `utils.js`; keep it loaded before `site.js` and page scripts.
+- Page routes and layouts live in `apps/web/app`.
+- Public page content lives mostly in `apps/web/public/data/*.json`.
+- Shared header, footer, and public-page rendering live in `apps/web/components`.
+- Shared server/client helpers live in `apps/web/lib`; keep client-only behavior in focused client components.
 - For Home and shared shell conventions, see [`docs/home-shell-guide.md`](home-shell-guide.md).
 - Images, audio, icons, and Lottie placeholders live under `apps/web/public/assets/`.
 
-Keep the static architecture unless a future task explicitly calls for a larger change.
+Do not restore or edit a parallel root static site.
 
 ## 2. Editing JSON Content
 
 - Keep JSON valid: no trailing commas, comments, or unquoted keys.
-- Preserve existing keys and array shapes unless you also update the matching page script.
+- Preserve existing keys and array shapes unless you also update the matching renderer.
 - Keep public copy concise enough for cards, hero sections, and mobile layouts.
 - Avoid inline HTML inside JSON; page scripts render text safely.
 - Prefer existing content patterns from nearby entries before inventing a new structure.
@@ -26,6 +26,11 @@ Keep the static architecture unless a future task explicitly calls for a larger 
 
 - For Events-specific date and filter conventions, see [`docs/events-guide.md`](events-guide.md).
 - Use `YYYY-MM-DD` for date-only values.
+- Render public calendar dates as `D MMM YYYY` using the exact English abbreviations `Jan`, `Feb`, `Mar`, `Apr`,
+  `May`, `Jun`, `Jul`, `Aug`, `Sep`, `Oct`, `Nov`, and `Dec`.
+- Render public clock times as `h:mm AM/PM`, including `:00` for whole hours and uppercase `AM` or `PM`.
+- Render combined public instants as `D MMM YYYY, h:mm AM/PM`. Keep the governing time-zone label beside the
+  value; any visitor-local raffle equivalent uses the same presentation.
 - Date rendering is UTC-safe, so date-only values should not shift backward in US time zones.
 - Avoid natural-language dates in structured date fields.
 - After editing events or announcements, spot-check rendered dates locally.
@@ -54,7 +59,7 @@ The restoration source of truth is [`reports/audio-original-restore.md`](../repo
 - Lightbox/full images should use the optimized full gallery path, not `/thumbs/`.
 - Preserve `data-full` or the equivalent full-image field when editing gallery cards.
 - Regression check: opening a gallery item must not load a `/thumbs/` image in the lightbox.
-- When Gallery CSS or JS changes affect visible behavior, update the Gallery page's small `?v=` query on its CSS/JS references so production edges fetch the new files after `gallery.html` refreshes.
+- Next emits content-hashed Gallery CSS and JavaScript bundles; do not add manual cache-query versions.
 - Run `npm run smoke:gallery` when gallery behavior changes, with a local server running on port `8765`.
 
 ## 6. Links
@@ -92,7 +97,10 @@ The restoration source of truth is [`reports/audio-original-restore.md`](../repo
 - Each page should have a distinct job. Home invites, Join orients, Events schedules, Gallery remembers, Ranks explains progression, Leaders directs contact, Tome defines conduct, Recruitment preserves philosophy, and side pages keep their own focus.
 - Use cultivation, path, hall, lantern, jade, lotus, bamboo, moon, frost, and qi imagery sparingly. Clear meaning comes first.
 - Keep Cupcake warmth as a playful thread, not a repeated motif.
-- The exact phrase “Where Winds Meet” may remain in the approved Home subtitle `Asia Pacific • Where Winds Meet Guild`, titles, metadata, JSON-LD, validation scripts, docs, reports, header, and footer. Avoid it elsewhere in regular visible body copy when a clear phrase like the game, the Jianghu, the guild road, or the path works better.
+- The exact phrase “Where Winds Meet” may remain in the approved first Hero paragraph phrase
+  `casual Where Winds Meet players`, titles, metadata, JSON-LD, validation scripts, docs, reports, header, and footer.
+  Avoid it elsewhere in regular visible body copy when a clear phrase like
+  the game, the Jianghu, the guild road, or the path works better.
 - Do not imitate named authors, copy poem/article phrases, force rhyme, blur functional labels, or repeat the same vocabulary across pages without purpose.
 
 ## 9. Validation Before PR

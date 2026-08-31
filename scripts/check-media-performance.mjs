@@ -254,7 +254,7 @@ for (const [index, item] of homeGalleryFallbacks.entries()) {
   const homeFull = publicAssetPath(item.full || item.image);
   assert(
     galleryStaticPairs.has(galleryStaticPairKey(homeThumbnail, homeFull)),
-    `Home Screenshot Spotlight fallback ${index + 1}: thumbnail/full pair must belong to the validated static Gallery inventory.`,
+    `Home Guild Gallery fallback ${index + 1}: thumbnail/full pair must belong to the validated static Gallery inventory.`,
   );
 }
 

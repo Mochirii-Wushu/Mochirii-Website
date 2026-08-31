@@ -1,3 +1,5 @@
+import { formatPublicTime } from "./public-date.ts";
+
 export type GuildScheduleData = {
   timezone?: {
     displayLabel?: string;
@@ -137,26 +139,37 @@ function parseTime(value: unknown): { hour: number; minute: number } {
 }
 
 function formatScheduleTime(value: unknown, schedule: GuildScheduleData): string {
-  const parsed = parseTime(value);
+  const raw = String(value ?? "").trim();
+  const match = raw.match(/^(\d{2}):(\d{2})$/);
+  if (!match) return "";
+  const parsed = { hour: Number(match[1]), minute: Number(match[2]) };
+  if (parsed.hour < 0 || parsed.hour > 23 || parsed.minute < 0 || parsed.minute > 59) return "";
   const instant = new Date(
     Date.UTC(2026, 0, 1, parsed.hour, parsed.minute) - offsetMinutes(schedule) * 60 * 1000,
   );
-  const parts = new Intl.DateTimeFormat("en-SG", {
-    timeZone: scheduleIanaZone(schedule),
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  }).formatToParts(instant);
-  const hour = parts.find((part) => part.type === "hour")?.value || String(parsed.hour % 12 || 12);
-  const minute = parts.find((part) => part.type === "minute")?.value || pad(parsed.minute);
-  const period = (parts.find((part) => part.type === "dayPeriod")?.value || (parsed.hour >= 12 ? "PM" : "AM")).toUpperCase();
-  return `${hour}${minute === "00" ? "" : `:${minute}`} ${period}`;
+  return formatPublicTime(instant, scheduleIanaZone(schedule));
+}
+
+function normalizeFallbackTime(value: unknown): string {
+  const raw = String(value ?? "").trim();
+  const match = raw.match(/^(1[0-2]|[1-9])(?::([0-5]\d))?\s*(AM|PM)$/iu);
+  if (!match) return "";
+  return `${Number(match[1])}:${match[2] || "00"} ${match[3].toUpperCase()}`;
+}
+
+function normalizeFallbackTimeText(value: unknown): string {
+  const raw = String(value ?? "").trim();
+  const range = raw.match(/^(.+?)\s+-\s+(.+)$/u);
+  if (!range) return normalizeFallbackTime(raw);
+  const start = normalizeFallbackTime(range[1]);
+  const end = normalizeFallbackTime(range[2]);
+  return start && end ? `${start} - ${end}` : "";
 }
 
 function timeRangeText(startTime: unknown, endTime: unknown, schedule: GuildScheduleData, fallback?: unknown): string {
   const start = formatScheduleTime(startTime, schedule);
   const end = formatScheduleTime(endTime, schedule);
-  return start && end ? `${start} - ${end}` : String(fallback || "").trim();
+  return start && end ? `${start} - ${end}` : normalizeFallbackTimeText(fallback);
 }
 
 function localToUtcIso(dateKey: string, time: string, schedule: GuildScheduleData): string {
@@ -277,14 +290,18 @@ export function nextWeeklyOccurrence(
   };
 }
 
-export function scheduleLine(item: GuildWeeklyScheduleItem): string {
-  return `${item.title || "Event"}: ${item.dayText || ""} - ${item.timeText || ""}`;
+export function scheduleLine(item: GuildWeeklyScheduleItem, schedule: GuildScheduleData): string {
+  const title = item.title || "Event";
+  const details = [item.dayText, timeRangeText(item.startTime, item.endTime, schedule, item.timeText)]
+    .filter(Boolean)
+    .join(" - ");
+  return details ? `${title}: ${details}` : title;
 }
 
 export function weeklyScheduleLines(schedule: GuildScheduleData): string[] {
   return (schedule.weekly || [])
     .filter((item) => item.showOnEventsBoard !== true)
-    .map(scheduleLine);
+    .map((item) => scheduleLine(item, schedule));
 }
 
 export function eventBoardItemsFromSchedule(schedule: GuildScheduleData, now = new Date()): ScheduledEventOccurrence[] {
@@ -383,7 +400,7 @@ export function websiteEventCardsFromSchedule(schedule: GuildScheduleData, now =
       const title = occurrence?.title;
       if (!occurrence || !id || !title) return [];
 
-      const timeText = occurrence.timeText || timeRangeText(occurrence.startTime, occurrence.endTime, schedule);
+      const timeText = timeRangeText(occurrence.startTime, occurrence.endTime, schedule, occurrence.timeText);
       return [{
         ...occurrence,
         id,

@@ -25,15 +25,15 @@ const libraryUrl = pathToFileURL(libraryPath).href;
 const appRouterLibraryPath = path.join(root, "scripts", "lib", "app-router-inventory.mjs");
 const productionCheckerPath = path.join(root, "scripts", "check-production.mjs");
 const configPath = path.join(root, "apps", "web", "config", "app-static-surface-inventory.v1.json");
-const expectedSuccess = "App static surface inventory OK (29 metadata routes, 249 public files, 38509641 bytes).\n";
+const expectedSuccess = "App static surface inventory OK (29 metadata routes, 249 public files, 38509476 bytes).\n";
 const expectedCheckerBytes = 13_000;
-const expectedCheckerSha256 = "A8B1FACCF375FF117CF3624899E11AB8CBF2F86B23134053C2FC414025A7DD06";
+const expectedCheckerSha256 = "20C7A5DC206F489877900E30DB5F76F8393DEBD2A6E3367BC3FFCC7D6A1A7128";
 const expectedLibraryBytes = 24_956;
 const expectedLibrarySha256 = "AF6A2D5632582D56B92C8E7CD0D7ED0A004712BFCF51091DE2A1AFB50BD63C0A";
 const expectedAppRouterLibraryBytes = 59_423;
 const expectedAppRouterLibrarySha256 = "5051994396F6B0EAC3033F13CF2DC41BD2DCD8FF3102CF11DC49F8B53F780D84";
-const expectedProductionCheckerBytes = 155_239;
-const expectedProductionCheckerSha256 = "B51B60431165B4E3FF2480E3B1F045B24576389C297607CAC99897F6820166CF";
+const expectedProductionCheckerBytes = 155_114;
+const expectedProductionCheckerSha256 = "220FD71AEEBE508B06B7DCD65C6A10B5337BF2893605A9D13CE4E0C21A72BA24";
 
 function sha256(buffer) {
   return createHash("sha256").update(buffer).digest("hex").toUpperCase();
@@ -257,7 +257,7 @@ test("current source builds the complete source-only inventory", () => {
     indexedMetadataRoutes: 18,
     nonindexedMetadataRoutes: 11,
     publicFiles: 249,
-    publicBytes: 38_509_641,
+    publicBytes: 38_509_476,
     sourceFiles: 44,
   });
   assert.deepEqual(inventory.coverage, {
@@ -324,7 +324,7 @@ test("public inventory covers every ordinary file with exact aggregate categorie
       .map((category) => [category, rows.filter((row) => row.category === category).length]),
   );
   assert.equal(rows.length, 249);
-  assert.equal(rows.reduce((sum, row) => sum + row.bytes, 0), 38_509_641);
+  assert.equal(rows.reduce((sum, row) => sum + row.bytes, 0), 38_509_476);
   assert.deepEqual(categoryCounts, {
     asset: 231,
     discovery: 3,
@@ -1373,7 +1373,7 @@ test("production checker actual home consumer binds Spotlight normalization and 
     resealHomeSpotlightFlightStream(),
     resealHomeSpotlightFlightStream({
       order: ["26", "23", "1f", "21", "24"],
-      title: "Congratulations to: Lián 🌸.",
+      title: "Lián 🌸",
     }),
   ];
   for (const stream of streams) {
@@ -1393,7 +1393,7 @@ test("production checker actual home consumer binds Spotlight normalization and 
   const sentinel = "MOCHIRII_SPOTLIGHT_PRIVATE_SENTINEL";
   const messages = [];
   const hostileStream = resealHomeSpotlightFlightStream({
-    title: `Congratulations to: ${sentinel}\u202e.`,
+    title: `${sentinel}\u202e`,
   });
   const hostile = resealFixture({
     resourcePaths: new Set(["/"]),
@@ -1410,8 +1410,7 @@ test("production checker actual home consumer binds Spotlight normalization and 
   assert(messages.length > 0);
   assert(messages.every((message) => typeof message === "string"
     && message.length <= 128
-    && !message.includes(sentinel)
-    && !message.includes("Congratulations to:")));
+    && !message.includes(sentinel)));
 
   const footerMessages = [];
   const footerHostile = resealFixture({
@@ -1649,7 +1648,7 @@ test("home Flight normalization binds the exact Spotlight graph and async termin
   for (const order of validSchedules) {
     const stream = resealHomeSpotlightFlightStream({
       order,
-      title: "Congratulations to: Lián 🌸.",
+      title: "Lián 🌸",
     });
     assert.equal(
       canonicalizeProductionFlightResourceEnvelopeStream(stream, new Set(), null, null, true),
@@ -1665,7 +1664,7 @@ test("home Flight normalization binds the exact Spotlight graph and async termin
   }
 
   for (const name of ["A", "山茶", "@member", "<member>", "A\\B", "A`B", "A".repeat(118) + "🌸"]) {
-    const stream = resealHomeSpotlightFlightStream({ title: `Congratulations to: ${name}.` });
+    const stream = resealHomeSpotlightFlightStream({ title: name });
     assert.equal(
       canonicalizeProductionFlightResourceEnvelopeStream(stream, new Set(), null, null, true),
       expected,
@@ -1674,7 +1673,7 @@ test("home Flight normalization binds the exact Spotlight graph and async termin
 
   const alternateSchedule = resealHomeSpotlightFlightStream({
     order: ["26", "23", "1f", "21", "24"],
-    title: "Congratulations to: Lián 🌸.",
+    title: "Lián 🌸",
   });
   assert.notEqual(
     canonicalizeProductionFlightResourceEnvelopeStream(alternateSchedule, new Set()),
@@ -1695,14 +1694,15 @@ test("home Flight normalization rejects graph, title, cohort, and noncohort drif
   }).join("\n");
 
   const invalidTitles = [
-    "Congratulations to: .",
-    `Congratulations to: ${"A".repeat(121)}.`,
-    "Congratulations for: A.",
-    "Congratulations to: A  B.",
-    "Congratulations to: A\u00a0B.",
-    "Congratulations to: A\nB.",
-    "Congratulations to: A\u202eB.",
-    `Congratulations to: ${String.fromCharCode(0xd800)}.`,
+    "",
+    "A".repeat(121),
+    " A",
+    "A ",
+    "A  B",
+    "A\u00a0B",
+    "A\nB",
+    "A\u202eB",
+    `A${String.fromCharCode(0xd800)}`,
   ];
   for (const title of invalidTitles) {
     assert.equal(normalize(resealHomeSpotlightFlightStream({ title })), null);
@@ -1754,8 +1754,8 @@ test("home Flight normalization rejects graph, title, cohort, and noncohort drif
   for (const stream of hostileStreams) assert.equal(normalize(stream), null);
 
   for (const title of [
-    "Congratulations to: Synthetic Alpha.",
-    "Congratulations to: Synthetic Beta.",
+    "Synthetic Alpha",
+    "Synthetic Beta",
   ]) {
     assert.equal(normalize(withReachableDeferredReturn(
       resealHomeSpotlightFlightStream({ title }), "24",
@@ -1790,8 +1790,8 @@ test("home Flight normalization rejects graph, title, cohort, and noncohort drif
   ];
   for (const reference of titleReferenceAliases) {
     for (const title of [
-      "Congratulations to: A.",
-      "Congratulations to: Much Longer Name.",
+      "A",
+      "Much Longer Name",
     ]) {
       assert.equal(normalize(withReachableFlightReference(
         resealHomeSpotlightFlightStream({ title }), reference,
@@ -1801,8 +1801,8 @@ test("home Flight normalization rejects graph, title, cohort, and noncohort drif
 
   for (const field of ["c", "q", "m", "r", "s", "a", "l", "p", "d"]) {
     for (const title of [
-      "Congratulations to: A.",
-      "Congratulations to: Much Longer Name.",
+      "A",
+      "Much Longer Name",
     ]) {
       assert.equal(normalize(withRootFlightReference(
         resealHomeSpotlightFlightStream({ title }), field, "$24:length",
@@ -1811,8 +1811,8 @@ test("home Flight normalization rejects graph, title, cohort, and noncohort drif
   }
 
   for (const title of [
-    "Congratulations to: A.",
-    "Congratulations to: Much Longer Name.",
+    "A",
+    "Much Longer Name",
   ]) {
     assert.equal(normalize(withFlightImportReference(
       resealHomeSpotlightFlightStream({ title }), "$24:length",
@@ -1826,10 +1826,10 @@ test("home Flight normalization rejects graph, title, cohort, and noncohort drif
   }
 
   const decoyAlpha = retained.replace(
-    "26:I", '25:"Congratulations to: Synthetic Alpha."\n26:I',
+    "26:I", '25:"Synthetic Alpha"\n26:I',
   );
   const decoyBeta = retained.replace(
-    "26:I", '25:"Congratulations to: Synthetic Beta."\n26:I',
+    "26:I", '25:"Synthetic Beta"\n26:I',
   );
   const normalizedDecoyAlpha = normalize(decoyAlpha);
   const normalizedDecoyBeta = normalize(decoyBeta);
@@ -2185,7 +2185,7 @@ async function render(order, winnerName) {
     return React.createElement(
       React.Fragment,
       null,
-      "Congratulations to: " + winnerName + ".",
+      winnerName,
     );
   }
 
@@ -2291,8 +2291,8 @@ async function render(order, winnerName) {
   assert.deepEqual(rowIds(otherFirst), ["0", "2", "1"]);
   assert.match(winnerFirst, /"children":"\$L1"/);
   assert.match(otherFirst, /"children":"\$L1"/);
-  assert.match(winnerFirst, /^1:"Congratulations to: Synthetic Alpha\."$/m);
-  assert.match(otherFirst, /^1:"Congratulations to: Synthetic Beta\."$/m);
+  assert.match(winnerFirst, /^1:"Synthetic Alpha"$/m);
+  assert.match(otherFirst, /^1:"Synthetic Beta"$/m);
   assert.match(winnerFirst, /^2:\["\$","em",null,\{"children":"fixed-other"\}\]$/m);
   assert.match(otherFirst, /^2:\["\$","em",null,\{"children":"fixed-other"\}\]$/m);
 });

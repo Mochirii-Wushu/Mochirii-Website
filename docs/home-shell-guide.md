@@ -15,6 +15,9 @@ Home should route visitors onward without duplicating:
 - Leaders contact structure.
 - Twills personal profile.
 
+Current Home order is Hero with Guild Seal, Guild Bulletin, Guild Guide, Member Spotlight, Guild Gallery, then the
+global footer. Keep current/actionable information and primary destinations ahead of supporting identity material.
+
 ## 2. Data Source
 
 - Home data lives in `apps/web/public/data/home.json`.
@@ -32,19 +35,27 @@ Current Home data shape:
 - `seal`: `title`, `image`, `imageAlt`, `verse`
 - `bulletins[]`: `pinned`, `type`, `title`, `date`, `image`, `imageAlt`, `href`, optional `summary`
 - `tiles[]`: `label`, `title`, `image`, `alt`, `href`, optional `subtitle`
-- `spotlight`: `tag`, `title`, `summary`, `image`, `imageAlt`, `href`
+- `spotlight`: `tag`, `title`, `summary`, `fallbackIntro`, `recognitions[]`, `image`, `imageAlt`, `href`
 - `gallery[]`: `image`, `full`, `alt`, optional `caption`
 
 Renderer notes:
 
-- `apps/web/app/page.tsx` imports `home.json`, `gallery.json`, and `guild-schedule.json` at build time and renders the canonical `/` route.
-- Monthly gathering and raffle dates come from `guild-schedule.json` when a bulletin has `scheduleId`.
-- `SpotlightWinnerTitle` uses the same current-month, randomly selected Website member name returned by
-  `get-current-spotlight-winner` as the dedicated Spotlight page. The path is name-only and must not expose account
-  IDs, Discord data, profile links, avatars, selection audit details, or candidate lists. Home is dynamically rendered
-  and reads that bounded DTO without a page cache, matching the dedicated page on the first request after selection.
-- `HomeGallerySpotlight` and `HomeGalleryLightboxModal` own Screenshot Spotlight selection and dialog behavior.
-- Home descriptor strings render as paragraphs, badges render as plain spans, and bulletin dates use the UTC formatter in `page.tsx`.
+- `apps/web/app/page.tsx` imports `home.json`, `gallery.json`, `guild-schedule.json`, `raffles.json`, and
+  `recruitment.json` at build time and renders the canonical `/` route.
+- Scheduled event dates come from `guild-schedule.json` when a bulletin has `scheduleId`. Open/closed raffle state
+  and its closing instant come from `raffles.json`.
+- The Hero recruitment chip and primary action derive from the single `recruitment.json` `meta.status` value. Supported
+  states are `open`, `limited`, and `paused`; unknown values fail closed to the paused presentation.
+- Home reads the same current-month, randomly selected Website member name returned by `get-current-spotlight-winner`
+  as the dedicated Spotlight page and passes that single result to `SpotlightWinnerTitle`. The path is name-only and
+  must not expose account IDs, Discord data, profile links, avatars, selection audit details, or candidate lists. Home
+  is dynamically rendered without a page cache, matching the dedicated page on the first request after selection.
+- Reviewed contribution copy may be keyed by `monthKey` in `home.json` `spotlight.recognitions`, but static content must
+  never persist the member name. The contribution renders only when the bounded current-winner response has that exact
+  month; otherwise Home retains the truthful random-selection fallback.
+- `HomeGallerySpotlight` and `HomeGalleryLightboxModal` own Guild Gallery selection and dialog behavior.
+- Home descriptor strings render as paragraphs, badges render as plain spans, and public date-only labels use
+  unambiguous `D MMM YYYY` presentation.
 - Door, bulletin, spotlight, and gallery media render from controlled data fields through owned image components or elements.
 - Inline HTML and Markdown are not supported in Home JSON copy.
 - Home kicker, `h1`, primary CTA labels, section headings, metadata, header, footer, and navigation are component-owned rather than data-driven.
@@ -55,7 +66,9 @@ The protected guild seal poem lives at:
 
 - `apps/web/public/data/home.json` `seal.verse`
 
-The guild seal poem is protected. Do not alter wording, punctuation, line breaks, spelling, capitalization, diacritics, order, or structure. Future edits may revise other non-seal Home fields only if needed, supported by the canonical Next Home route, and intentionally scoped. Any seal poem change requires explicit user approval.
+The guild seal poem is protected. Do not alter wording, punctuation, line breaks, spelling, capitalization,
+diacritics, order, or structure. Future edits may revise other non-seal Home fields only if needed, supported by the
+canonical Next Home route, and intentionally scoped. Any seal poem change requires explicit user approval.
 
 ## 4. Header / Navigation
 
@@ -80,7 +93,7 @@ Current mobile navigation:
 - Close button, scrim click, and mobile link click close the menu.
 - Closing by Escape or close button returns focus to the trigger.
 - Tab is trapped inside the open menu.
-- The dedicated Official profiles group reuses the same five approved profile records as desktop.
+- The dedicated Official Social Profiles group reuses the same five approved profile records as desktop.
 
 Current dropdown behavior:
 
@@ -104,10 +117,12 @@ Current footer content:
 - Brand link to Home.
 - Emblem image.
 - Compact identity description.
+- Exact identity description: `Mōchirīī is an Asia Pacific Where Winds Meet guild for casual players, guild events, and member projects.`
 - Discord `Join Mōchirīī` CTA with `target="_blank"` and `rel="noopener noreferrer"`.
-- Recruitment Note link.
+- `View Recruitment` link.
 - Guild, Culture, and Updates navigation columns.
-- Official profiles render from the shared canonical profile collection. Facebook, Instagram, TikTok, Twitch, and YouTube appear in both header and footer.
+- `Official Social Profiles` renders from the shared canonical profile collection. Facebook, Instagram, TikTok,
+  Twitch, and YouTube appear in both header and footer.
 - Copyright year rendered by the Footer component.
 - Footer metadata line with the game name.
 - Privacy and Data Deletion links.
@@ -119,7 +134,10 @@ removal of third-party copies. Provider and counsel-backed statements remain sep
 
 Keep the footer compact. It should remain a shared navigation and identity surface, not a full mission statement or duplicate Recruitment/Join content.
 
-Official profiles are direct HTTPS links, not embeds. Keep provider URLs out of components, never add social widgets or SDKs, and do not load provider assets or requests before a visitor activates a link. General-purpose provider marks belong only under `apps/web/public/assets/social-profiles` and must satisfy that directory's provenance and permission contract; authentication-provider marks are not reusable.
+Official Social Profiles are direct HTTPS links, not embeds. Keep provider URLs out of components, never add social
+widgets or SDKs, and do not load provider assets or requests before a visitor activates a link. General-purpose
+provider marks belong only under `apps/web/public/assets/social-profiles` and must satisfy that directory's provenance
+and permission contract; authentication-provider marks are not reusable.
 
 ## 6. App Router Ownership
 
@@ -137,14 +155,16 @@ Official profiles are direct HTTPS links, not embeds. Keep provider URLs out of 
 - Home should feel clear, human, xianxia-inspired, and Mōchirīī-specific.
 - Cupcake warmth may appear lightly.
 - Do not overuse Cupcake language.
-- Keep the approved `apps/web/public/data/home.json` `hero.subtitle` exactly `Asia Pacific • Where Winds Meet Guild`; this is the sole Home body-copy exception for the exact game name.
+- The explicitly approved first hero paragraph may say `casual Where Winds Meet players`; this Hero string is the
+  only regular visible Home body-copy exception for the exact game name.
 - Do not use `Where Winds Meet` elsewhere in regular visible Home body copy.
 - Keep functional labels clear.
 - Avoid generic AI-like language.
 - Avoid forced rhyme.
 - Do not duplicate page-specific content from other sections.
 
-The exact game name may remain in the approved Home subtitle, header/footer, titles, metadata, SEO, JSON-LD, internal code, docs, reports, and validation scripts.
+The exact game name may remain in the approved Hero string, header/footer, titles, metadata, SEO, JSON-LD,
+internal code, docs, reports, and validation scripts.
 
 ## 8. Metadata and Social Preview
 
@@ -152,11 +172,13 @@ Root Home metadata is owned by the typed `metadata` and `viewport` exports in `a
 
 Current conventions:
 
-- Title: `Mōchirīī • Where Winds Meet Guild`
-- Description: `Join Mōchirīī, an Asia Pacific Where Winds Meet guild full of yummy cupcakes for everyone & pretty people to share them all with.`
+- Title: `Mōchirīī | Asia Pacific Where Winds Meet Guild`
+- Description: `Mōchirīī is an Asia Pacific Where Winds Meet guild for casual players, group runs, events, raffles, guides, and member projects.`
+- Open Graph title: `Mōchirīī | Where Winds Meet Guild`
+- Open Graph description: `Join an Asia Pacific guild for group runs, events, raffles, guides, and member projects.`
 - Canonical: `https://mochirii.com/`
 - Open Graph tags for type, locale `en_SG`, site name, title, description, URL, and image.
-- Twitter summary-large-image tags for title, description, and image.
+- Twitter summary-large-image tags use the reviewed Open Graph title, description, and image.
 - A home-only JSON-LD graph containing `WebSite` and `Organization`, with canonical IDs, `en-SG`, Asia Pacific service area, and only verified identity links.
 - Favicon and Apple touch icon references.
 - Home hero preload.
@@ -172,7 +194,8 @@ Home image behavior:
 - Seal image: `./assets/img/brand/emblem.webp`
 - Bulletin, door, and spotlight images render from `apps/web/public/data/home.json`; Home Gallery candidates come from `apps/web/public/data/gallery.json`, with `home.json` gallery entries retained only as fallback.
 - Home gallery thumbnails should use thumbnail paths where intended, and `full` should point to the full image used by the lightbox.
-- Home Screenshot Spotlight uses the same fluid, proportional lightbox geometry as `/gallery`; shared sizing belongs in `apps/web/app/styles/shell-lightbox.css`, not Home- or Gallery-only CSS.
+- Home Guild Gallery uses the same fluid, proportional lightbox geometry as `/gallery`; shared sizing belongs in
+  `apps/web/app/styles/shell-lightbox.css`, not Home- or Gallery-only CSS.
 
 Birthday splash toggle:
 
@@ -193,7 +216,8 @@ Image expectations:
 Next app shared hero presentation:
 
 - Shared `PageHero` routes and Home use the same stable `3 / 2` hero image frame inside the tokenized `--hero-frame-max-width` container.
-- The hero image frame renders first, then Home may place the intro card and guild seal together in a slim row below it with positive spacing. Main page content follows below the hero header.
+- The hero image frame renders first, then Home may place the intro card and guild seal together in a slim row below
+  it with positive spacing. Main page content follows below the hero header.
 - Hero images should render with `object-fit: contain` and `object-position: center`, with no crop, scrim, tint, CSS filter, transform, or overlay covering the image.
 - Do not use negative `--hero-image-to-card-gap` values, page-scoped hero geometry tokens, one-off hero margins, or page-local hero aspect/size overrides.
 - Surface tiers should remain explicit: hero shell, primary content card, quiet card, tool panel, and admin/member panel.
@@ -266,11 +290,12 @@ responsive contract on that production-mode Next app at `127.0.0.1:8765`.
 - Home hero renders.
 - Shared route heroes render full-frame without crop, tint, scrim, CSS filter, or intro-card overlap.
 - Home cards/doors render.
-- Home Screenshot Spotlight opens the selected full image in the same bounded proportional viewer as `/gallery`.
+- Home Guild Gallery opens the selected full image in the same bounded proportional viewer as `/gallery`.
 - The lightbox passes mobile portrait/landscape, tablet, desktop, reflow, long-caption, keyboard, and touch checks without horizontal overflow.
 - Seal poem renders unchanged.
 - Key links resolve.
-- The exact approved Facebook, Instagram, TikTok, Twitch, and YouTube profiles appear in the desktop Guild dropdown, mobile Official profiles group, and footer without provider requests before activation.
+- The exact approved Facebook, Instagram, TikTok, Twitch, and YouTube profiles appear in the desktop Guild dropdown,
+  mobile Official Social Profiles group, and footer without provider requests before activation.
 - Mobile widths `360px`, `390px`, and `768px` have no horizontal overflow.
 - No console-breaking errors occur.
 - Supabase page shell does not cause signed-out runtime errors.

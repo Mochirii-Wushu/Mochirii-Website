@@ -201,7 +201,7 @@ function validateGenericValue(filePath, valuePath, key, value, parent) {
     const isAllowedGameNamePath =
       keyName === "title" ||
       valuePath.includes(".meta.") ||
-      fullPath === "apps/web/public/data/home.json.hero.subtitle";
+      fullPath === "apps/web/public/data/home.json.hero.descriptor.0";
     if (/Where Winds Meet/i.test(value) && !isAllowedGameNamePath) {
       addFailure(`${fullPath}: visible body copy should not contain the exact game name outside allowed title/metadata contexts.`);
     }
@@ -325,6 +325,34 @@ function validateHome(data) {
     checkLocalAsset("data/home.json", `gallery.${index}.full`, item?.full, { rejectThumb: true });
     if (!isNonEmptyString(item?.alt)) addFailure(`${base}.alt: fallback Gallery alt text is required.`);
   });
+
+  const recognitions = data?.spotlight?.recognitions;
+  if (!Array.isArray(recognitions)) {
+    addFailure("data/home.json.spotlight.recognitions: expected an array.");
+    return;
+  }
+  const recognitionMonths = new Set();
+  recognitions.forEach((item, index) => {
+    const base = `data/home.json.spotlight.recognitions.${index}`;
+    const keys = isPlainObject(item) ? Object.keys(item).sort() : [];
+    if (JSON.stringify(keys) !== JSON.stringify(["monthKey", "summary"])) {
+      addFailure(`${base}: expected exact keys monthKey and summary.`);
+    }
+    if (!isDateOnly(item?.monthKey) || !String(item.monthKey).endsWith("-01")) {
+      addFailure(`${base}.monthKey: expected the first day of a month as YYYY-MM-01.`);
+    }
+    if (recognitionMonths.has(item?.monthKey)) {
+      addFailure(`${base}.monthKey: duplicate monthly recognition.`);
+    }
+    recognitionMonths.add(item?.monthKey);
+    if (!isNonEmptyString(item?.summary)) addFailure(`${base}.summary: expected a verifiable contribution sentence.`);
+  });
+}
+
+function validateRecruitment(data) {
+  if (!["open", "limited", "paused"].includes(data?.meta?.status)) {
+    addFailure("data/recruitment.json.meta.status: expected open, limited, or paused.");
+  }
 }
 
 function validateEvents(data) {
@@ -420,6 +448,7 @@ function validateAllData() {
 
     if (fileName === "gallery.json") validateGallery(data);
     if (fileName === "home.json") validateHome(data);
+    if (fileName === "recruitment.json") validateRecruitment(data);
     if (fileName === "events.json") validateEvents(data);
     if (fileName === "guild-schedule.json") validateGuildSchedule(data);
     if (fileName === "spotify.json") validateSpotify(data);

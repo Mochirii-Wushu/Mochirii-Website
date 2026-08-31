@@ -128,12 +128,16 @@ if (!/<div className="container hero-overlap">\s*<div className="home-hero-row">
 
 const homeHeroStart = homePage.indexOf('<section className="page-hero');
 const homeOverlapStart = homePage.indexOf('<div className="container hero-overlap">');
+const homeHeaderEnd = homePage.indexOf("</header>", homeOverlapStart);
 if (homeHeroStart === -1 || homeOverlapStart === -1 || homeOverlapStart < homeHeroStart) {
   fail(`Home hero image section must appear before the hero-overlap row in ${homePagePath}.`);
 } else {
   const homeImageFrame = homePage.slice(homeHeroStart, homeOverlapStart);
   if (homeImageFrame.includes("home-guild-seal")) {
     fail(`Home guild seal must not be inside the page-hero image frame in ${homePagePath}.`);
+  }
+  if (homeHeaderEnd === -1 || !homePage.slice(homeOverlapStart, homeHeaderEnd).includes('className="home-guild-seal"')) {
+    fail(`Home guild seal must remain inside the hero-overlap row in ${homePagePath}.`);
   }
 }
 

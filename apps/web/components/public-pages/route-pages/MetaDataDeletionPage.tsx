@@ -39,7 +39,7 @@ export function MetaDataDeletionPage() {
           <div className="grid-12 grid-gap">
             <section className="col-8 glass-card glass-card--primary glass-pad" aria-labelledby="deletionRequestTitle">
               <p className="kicker">
-                Last updated <time dateTime="2026-08-13">August 13, 2026</time>
+                Last updated <time dateTime="2026-08-13">13 Aug 2026</time>
               </p>
               <h2 className="section-title" id="deletionRequestTitle">How to make a request</h2>
               <ol className="list-stack legal-steps">

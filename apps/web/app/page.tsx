@@ -11,14 +11,19 @@ import Link from "next/link";
 import homeData from "@/public/data/home.json";
 import galleryData from "@/public/data/gallery.json";
 import guildScheduleData from "@/public/data/guild-schedule.json";
+import raffleData from "@/public/data/raffles.json";
+import recruitmentData from "@/public/data/recruitment.json";
 import { HomeGallerySpotlight } from "@/components/HomeGallerySpotlight";
 import { type GallerySpotlightItem } from "@/components/HomeGalleryLightbox";
 import { BodyPageMarker } from "@/components/public-pages/BodyPageMarker";
 import { SpotlightWinnerTitle } from "@/components/public-pages/SpotlightWinnerTitle";
+import { spotlightWinnerName } from "@/components/public-pages/spotlight-content";
 import { StaticImage } from "@/components/public-pages/common";
 import { monthlyScheduleDate } from "@/lib/guild-schedule";
+import { formatPublicDate } from "@/lib/public-date";
 import { DISCORD_INVITE_URL, SITE_ORIGIN, SOCIAL_HOST } from "@/lib/public-urls";
 import { SITE_DESCRIPTION, SITE_LANGUAGE } from "@/lib/site-metadata";
+import { getCurrentSpotlightWinner } from "@/lib/supabase/spotlight";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +32,25 @@ type GalleryData = typeof galleryData;
 type Bulletin = HomeData["bulletins"][number];
 type DoorTile = HomeData["tiles"][number];
 type GalleryAlbumItem = GalleryData["albums"][number]["items"][number];
+
+const homeGalleryPresentation = new Map<string, { alt: string; accessibleLabel: string }>([
+  ["shot-01", {
+    alt: "Character standing among pink flowers",
+    accessibleLabel: "Open screenshot of a character standing among pink flowers",
+  }],
+  ["shot-02", {
+    alt: "Armored character during combat",
+    accessibleLabel: "Open screenshot of an armored character during combat",
+  }],
+  ["shot-03", {
+    alt: "White-robed character using an emote",
+    accessibleLabel: "Open screenshot of a white-robed character using an emote",
+  }],
+  ["shot-04", {
+    alt: "Party facing a horned enemy in a cave",
+    accessibleLabel: "Open screenshot of a party facing a horned enemy in a cave",
+  }],
+]);
 
 const organizationId = `${SITE_ORIGIN}/#organization`;
 const websiteId = `${SITE_ORIGIN}/#website`;
@@ -123,32 +147,91 @@ function cleanRoute(value: unknown, fallback = "#") {
   return mapped ? `${mapped}${match[2] || ""}` : raw;
 }
 
-function formatDateUTC(value: unknown) {
+function formatDate(value: unknown, timeZone = "UTC") {
   const raw = String(value ?? "").trim();
   if (!raw) return "";
 
-  const date = new Date(`${raw}T00:00:00Z`);
+  const date = new Date(/^\d{4}-\d{2}-\d{2}$/.test(raw) ? `${raw}T00:00:00Z` : raw);
   if (Number.isNaN(date.valueOf())) return raw;
 
-  return new Intl.DateTimeFormat("en-US", {
-    timeZone: "UTC",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(date);
+  return formatPublicDate(date, timeZone);
 }
 
-function typeLabel(value: unknown) {
-  const type = cleanLabel(value).toLowerCase();
-  const labels: Record<string, string> = {
-    event: "Event",
-    raffle: "Raffle",
-    announcement: "Announcement",
-    member: "Member",
-    meta: "Update",
-  };
+function recruitmentPresentation(value: unknown) {
+  const state = cleanLabel(value).toLowerCase();
+  if (state === "open") return { badge: "Recruitment Open", paused: false };
+  if (state === "limited") return { badge: "Limited Recruitment", paused: false };
+  return { badge: "Recruitment Paused", paused: true };
+}
 
-  return labels[type] || "Update";
+function spotlightRecognition(
+  spotlight: HomeData["spotlight"],
+  winner: Awaited<ReturnType<typeof getCurrentSpotlightWinner>>,
+) {
+  const winnerName = spotlightWinnerName(winner);
+  if (!winnerName || !winner?.monthKey) return null;
+
+  return spotlight.recognitions.find((item) => (
+    cleanLabel(item.monthKey) === winner.monthKey
+  )) || null;
+}
+
+function bulletinPresentation(item: Bulletin, date: string) {
+  const type = cleanLabel(item.type).toLowerCase();
+  const title = cleanLabel(item.title);
+
+  if (type === "event") {
+    const eventTitle = title || "No event is scheduled.";
+    return {
+      label: "Next Event",
+      date: date ? `${formatDate(date)} • UTC+8` : "",
+      title: eventTitle,
+      ariaLabel: title ? `View ${eventTitle} details` : "View all events",
+      cta: "View All Events",
+    };
+  }
+
+  if (type === "raffle") {
+    if (raffleData.publicView.cycleStatus === "open") {
+      const raffleTitle = cleanLabel(raffleData.programName) || title || "Current raffle";
+      const closesAt = cleanLabel(raffleData.publicView.closesAt);
+      return {
+        label: "Current Raffle",
+        date: closesAt ? `Closes ${formatDate(closesAt, "Asia/Singapore")}` : "",
+        title: raffleTitle,
+        ariaLabel: `View ${raffleTitle} details`,
+        cta: "View the Raffle",
+      };
+    }
+
+    return {
+      label: "Raffle Status",
+      date: date ? `Updated ${formatDate(date)}` : "",
+      title: "No raffle is open.",
+      ariaLabel: "View the raffle page",
+      cta: "View Raffle History",
+    };
+  }
+
+  if (type === "announcement") {
+    return {
+      label: "Latest Announcement",
+      date: formatDate(date),
+      title: title || "No announcement has been posted.",
+      ariaLabel: title === "Leadership roles are open."
+        ? "Read the leadership announcement"
+        : "Read the announcement",
+      cta: "View All Announcements",
+    };
+  }
+
+  return {
+    label: "Guild Update",
+    date: formatDate(date),
+    title: title || "No update has been posted.",
+    ariaLabel: "View the guild update",
+    cta: "View Updates",
+  };
 }
 
 function joinLabel(parts: unknown[]) {
@@ -156,7 +239,9 @@ function joinLabel(parts: unknown[]) {
 }
 
 function pickFeatured(bulletins: Bulletin[]) {
-  return bulletins.find((item) => item.pinned === true) || bulletins[0] || null;
+  return bulletins.find((item) => item.pinned === true && cleanLabel(item.type).toLowerCase() === "event")
+    || bulletins.find((item) => cleanLabel(item.type).toLowerCase() === "event")
+    || null;
 }
 
 function normalizeSlug(value: unknown) {
@@ -186,7 +271,8 @@ function normalizeGalleryItem(
   if (!full || !image) return null;
 
   const category = galleryCategory(item);
-  const alt = cleanLabel(item.alt || item.caption || "Gallery image");
+  const presentation = homeGalleryPresentation.get(cleanLabel(item.id));
+  const alt = presentation?.alt || cleanLabel(item.alt || item.caption || "Gallery image");
   const caption = cleanLabel(item.caption);
 
   return {
@@ -195,6 +281,7 @@ function normalizeGalleryItem(
     full,
     alt,
     caption,
+    accessibleLabel: presentation?.accessibleLabel,
     href: galleryHref(category),
     addedAt: cleanLabel(item.galleryAddedAt),
   };
@@ -221,6 +308,7 @@ function getFallbackGallerySpotlightItems(fallback: HomeData["gallery"]): Galler
       full: publicPath(item.full || item.image),
       alt: cleanLabel(item.alt || "Guild screenshot"),
       caption: cleanLabel(optionalText(item, "caption")),
+      accessibleLabel: [...homeGalleryPresentation.values()][index]?.accessibleLabel,
     }))
     .filter((item) => item.image && item.full);
 }
@@ -253,8 +341,14 @@ function BulletinList({ items }: { items: Bulletin[] }) {
     <div id="bulletinList" className="home-bulletins" aria-label="More bulletins">
       {items.slice(0, 5).map((item) => {
         const date = monthlyScheduleDate(guildScheduleData, optionalText(item, "scheduleId"), item.date);
+        const presentation = bulletinPresentation(item, date);
         return (
-          <a className="home-bulletin" href={cleanRoute(item.href)} key={item.title}>
+          <a
+            className="home-bulletin"
+            href={cleanRoute(item.href)}
+            aria-label={presentation.ariaLabel}
+            key={item.title}
+          >
             <div className="home-bulletin__media">
               <StaticImage
                 className="home-bulletin__img"
@@ -265,12 +359,15 @@ function BulletinList({ items }: { items: Bulletin[] }) {
                 sizes="(max-width: 900px) calc(100vw - 68px), 320px"
               />
               <div className="home-bulletin__scrim" aria-hidden="true" />
-              <div className="home-bulletin__tag">{typeLabel(item.type)}</div>
+              <div className="home-bulletin__tag">{presentation.label}</div>
             </div>
             <div className="home-bulletin__body">
-              <div className="home-bulletin__date">{formatDateUTC(date)}</div>
-              <div className="home-bulletin__title">{item.title}</div>
-              <div className="home-bulletin__summary">{optionalText(item, "summary")}</div>
+              <div className="home-bulletin__date">{presentation.date}</div>
+              <h3 className="home-bulletin__title">{presentation.title}</h3>
+              {optionalText(item, "summary") ? (
+                <p className="home-bulletin__summary">{optionalText(item, "summary")}</p>
+              ) : null}
+              <span className="home-link" aria-hidden="true">{presentation.cta}</span>
             </div>
           </a>
         );
@@ -281,9 +378,14 @@ function BulletinList({ items }: { items: Bulletin[] }) {
 
 function DoorGrid({ tiles }: { tiles: DoorTile[] }) {
   return (
-    <div id="doorsGrid" className="home-doors" aria-label="Door links">
+    <div id="doorsGrid" className="home-doors" aria-label="Guild guide links">
       {tiles.slice(0, 4).map((tile) => (
-        <a className="home-door" href={cleanRoute(tile.href)} key={tile.label}>
+        <a
+          className="home-door"
+          href={cleanRoute(tile.href)}
+          aria-label={joinLabel([tile.label, tile.title])}
+          key={tile.href}
+        >
           <div className="home-door__media">
             <StaticImage
               className="home-door__img"
@@ -294,11 +396,13 @@ function DoorGrid({ tiles }: { tiles: DoorTile[] }) {
               sizes="(max-width: 900px) calc(100vw - 68px), 280px"
             />
             <div className="home-door__scrim" aria-hidden="true" />
-            <div className="home-door__label">{tile.label}</div>
+            <h3 className="home-door__label">{tile.label}</h3>
           </div>
           <div className="home-door__plate">
-            <div className="home-door__title">{tile.title}</div>
-            <div className="home-door__subtitle">{optionalText(tile, "subtitle")}</div>
+            <p className="home-door__title">{tile.title}</p>
+            {optionalText(tile, "subtitle") ? (
+              <p className="home-door__subtitle">{optionalText(tile, "subtitle")}</p>
+            ) : null}
           </div>
         </a>
       ))}
@@ -306,16 +410,33 @@ function DoorGrid({ tiles }: { tiles: DoorTile[] }) {
   );
 }
 
-export default function Home() {
+export default async function Home() {
+  const winner = await getCurrentSpotlightWinner();
+  const winnerName = spotlightWinnerName(winner);
+  const recruitment = recruitmentPresentation(recruitmentData.meta.status);
   const heroDescriptor = homeData.hero.descriptor.map(cleanLabel).filter(Boolean);
-  const heroBadges = homeData.hero.badges.map(cleanLabel).filter(Boolean);
+  const heroBadges = [recruitment.badge, ...homeData.hero.badges.map(cleanLabel).filter(Boolean)];
   const sealVerse = homeData.seal.verse.map(cleanLabel).filter(Boolean);
   const featured = pickFeatured(homeData.bulletins);
   const secondaryBulletins = homeData.bulletins.filter((item) => item !== featured);
   const galleryItems = getGallerySpotlightCandidates(galleryData);
   const fallbackGalleryItems = getFallbackGallerySpotlightItems(homeData.gallery);
   const spotlight = homeData.spotlight;
+  const recognition = spotlightRecognition(spotlight, winner);
+  const spotlightIntro = recognition ? homeData.copy.spotlightIntro : spotlight.fallbackIntro;
+  const spotlightSummary = recognition?.summary || spotlight.summary;
   const featuredDate = featured ? monthlyScheduleDate(guildScheduleData, optionalText(featured, "scheduleId"), featured.date) : "";
+  const featuredPresentation = featured ? bulletinPresentation(featured, featuredDate) : null;
+  const spotlightDisplayName = winnerName || spotlight.title;
+  const spotlightImageAlt = winnerName
+    ? `Member Spotlight cover for ${winnerName}`
+    : "Member Spotlight cover";
+  const spotlightOpenLabel = winnerName
+    ? `Open ${winnerName}’s Member Spotlight`
+    : "Open the Member Spotlight";
+  const spotlightCta = winnerName
+    ? `Read ${winnerName}’s Spotlight`
+    : "Read the Member Spotlight";
 
   return (
     <>
@@ -332,7 +453,7 @@ export default function Home() {
             <StaticImage
               id="heroImage"
               src={publicPath(homeData.hero.image, "/assets/img/hero/hero.webp")}
-              alt="Hero artwork for Mōchirīī guild"
+              alt=""
               className="page-hero__img"
               width="1536"
               height="1024"
@@ -359,10 +480,6 @@ export default function Home() {
             <section className="glass-card glass-card--strong glass-pad hero-intro">
               <p className="kicker" id="homeKicker">Jianghu Guild Hall</p>
               <h1 className="display-title" id="homeHeading">Mōchirīī</h1>
-              <p className="meta-text u-mt-10" id="homeSubtitle">
-                {homeData.hero.subtitle}
-              </p>
-
               <div id="heroDescriptor" className="prose-stack" aria-live="polite">
                 <Descriptor lines={heroDescriptor} />
               </div>
@@ -374,16 +491,22 @@ export default function Home() {
               </div>
 
               <div className="hero-cta-row" aria-label="Primary actions">
-                <a
-                  className="hero-cta hero-cta--primary"
-                  href={DISCORD_INVITE_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Join Discord
-                </a>
+                {recruitment.paused ? (
+                  <Link className="hero-cta hero-cta--primary" href="/recruitment">
+                    View Recruitment Status
+                  </Link>
+                ) : (
+                  <a
+                    className="hero-cta hero-cta--primary"
+                    href={DISCORD_INVITE_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Join on Discord
+                  </a>
+                )}
                 <Link className="hero-cta" href="/join">
-                  How to Join
+                  Read the Joining Guide
                 </Link>
               </div>
             </section>
@@ -424,6 +547,7 @@ export default function Home() {
                 id="featuredBulletin"
                 className="home-featured"
                 href={cleanRoute(featured.href)}
+                aria-label={featuredPresentation?.ariaLabel}
               >
                 <StaticImage
                   id="featuredBulletinImage"
@@ -438,32 +562,39 @@ export default function Home() {
 
                 <div className="home-featured__meta">
                   <span id="featuredBulletinType" className="home-pill">
-                    {typeLabel(featured.type)}
+                    {featuredPresentation?.label}
                   </span>
                   <span id="featuredBulletinDate" className="home-date">
-                    {formatDateUTC(featuredDate)}
+                    {featuredPresentation?.date}
                   </span>
                 </div>
 
                 <div className="home-featured__plate">
                   <h3 id="featuredBulletinTitle" className="home-title">
-                    {featured.title}
+                    {featuredPresentation?.title}
                   </h3>
-                  <p id="featuredBulletinSummary" className="home-summary">
-                    {optionalText(featured, "summary")}
-                  </p>
+                  {optionalText(featured, "summary") ? (
+                    <p id="featuredBulletinSummary" className="home-summary">
+                      {optionalText(featured, "summary")}
+                    </p>
+                  ) : null}
+                  <span className="home-link" aria-hidden="true">
+                    {featuredPresentation?.cta}
+                  </span>
                 </div>
               </a>
-            ) : null}
+            ) : (
+              <p className="muted">No event is scheduled.</p>
+            )}
 
             <BulletinList items={secondaryBulletins} />
           </section>
 
           <section
             className="glass-card glass-card--primary glass-pad u-mt-24"
-            aria-label="Four doors"
+            aria-label="Guild guide"
           >
-            <h2 className="section-title">Four Doors</h2>
+            <h2 className="section-title">Guild Guide</h2>
             <p className="muted" id="doorsIntro">
               {homeData.copy.doorsIntro}
             </p>
@@ -476,7 +607,7 @@ export default function Home() {
           >
             <h2 className="section-title">Member Spotlight</h2>
             <p className="muted" id="spotlightIntro">
-              {homeData.copy.spotlightIntro}
+              {spotlightIntro}
             </p>
 
             <div
@@ -485,15 +616,14 @@ export default function Home() {
               role="group"
               aria-label={joinLabel([
                 "Member spotlight",
-                spotlight.tag,
-                spotlight.summary,
-                "Spotlight Appreciation",
+                spotlightDisplayName,
+                spotlightSummary,
               ])}
             >
               <StaticImage
                 id="spotlightImage"
                 src={publicPath(spotlight.image, "/assets/img/featured/spotlight.webp")}
-                alt={cleanLabel(spotlight.imageAlt)}
+                alt={spotlightImageAlt}
                 className="home-spotlight__img"
                 width={1536}
                 height={1024}
@@ -503,14 +633,9 @@ export default function Home() {
               <Link
                 className="home-spotlight__surface-link"
                 href={cleanRoute(spotlight.href)}
-                aria-label={joinLabel([
-                  "Open member spotlight",
-                  spotlight.tag,
-                  spotlight.summary,
-                  "Spotlight Appreciation",
-                ])}
+                aria-label={spotlightOpenLabel}
               >
-                <span className="sr-only">Spotlight Appreciation</span>
+                <span className="sr-only">{spotlightOpenLabel}</span>
               </Link>
 
               <div className="home-spotlight__plate">
@@ -518,13 +643,13 @@ export default function Home() {
                   {spotlight.tag}
                 </span>
                 <h3 id="spotlightTitle" className="home-title">
-                  <SpotlightWinnerTitle fallbackTitle={spotlight.title} template="home" />
+                  <SpotlightWinnerTitle fallbackTitle={spotlight.title} template="home" winner={winner} />
                 </h3>
                 <p id="spotlightSummary" className="home-summary">
-                  {spotlight.summary}
+                  {spotlightSummary}
                 </p>
                 <span className="home-link" aria-hidden="true">
-                  Spotlight Appreciation
+                  {spotlightCta}
                 </span>
               </div>
             </div>
@@ -532,13 +657,16 @@ export default function Home() {
 
           <section
             className="glass-card glass-card--primary glass-pad u-mt-24"
-            aria-label="Screenshot spotlight"
+            aria-label="Guild gallery"
           >
-            <h2 className="section-title">Screenshot Spotlight</h2>
+            <h2 className="section-title">Guild Gallery</h2>
             <p className="muted" id="galleryIntro">
               {homeData.copy.galleryIntro}
             </p>
             <HomeGallerySpotlight candidates={galleryItems} fallbackItems={fallbackGalleryItems} />
+            <Link className="hero-cta home-section-cta" href="/gallery">
+              View Guild Gallery
+            </Link>
           </section>
         </div>
       </main>

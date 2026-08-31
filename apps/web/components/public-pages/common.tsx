@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { Fragment, type CSSProperties, type ReactNode } from "react";
+import { formatPublicDate } from "@/lib/public-date";
 
 const htmlRouteMap = new Map<string, string>([
   ["index.html", "/"],
@@ -54,28 +55,14 @@ export function isExternalHref(href: string) {
   return /^https?:\/\//i.test(href);
 }
 
-export function formatDateUTC(
-  value: unknown,
-  options: Intl.DateTimeFormatOptions = {
-    year: "numeric",
-    month: "short",
-    day: "2-digit",
-  },
-) {
+export function formatDateUTC(value: unknown) {
   const raw = text(value);
   if (!raw) return "";
 
   const date = new Date(`${raw}T00:00:00Z`);
   if (Number.isNaN(date.valueOf())) return raw;
 
-  return new Intl.DateTimeFormat("en-US", {
-    timeZone: "UTC",
-    ...options,
-  }).format(date);
-}
-
-export function monthYearUTC(value: unknown) {
-  return formatDateUTC(value, { year: "numeric", month: "long" });
+  return formatPublicDate(date);
 }
 
 export function BadgeRow({

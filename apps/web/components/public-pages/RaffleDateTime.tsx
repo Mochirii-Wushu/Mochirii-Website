@@ -12,27 +12,24 @@ type RaffleDateTimeProps = {
   label: string;
 };
 
-const serverLocaleSnapshot = JSON.stringify({ locale: "en", timeZone: RAFFLE_TIME_ZONE });
-const subscribeToLocale = () => () => undefined;
+const serverTimeZoneSnapshot = RAFFLE_TIME_ZONE;
+const subscribeToTimeZone = () => () => undefined;
 
-function readBrowserLocale() {
-  return JSON.stringify({
-    locale: navigator.language || "en",
-    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || RAFFLE_TIME_ZONE,
-  });
+function readBrowserTimeZone() {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone || RAFFLE_TIME_ZONE;
 }
 
 export function RaffleDateTime({ instant, label }: RaffleDateTimeProps) {
   const singaporeTime = formatRaffleTime(instant);
-  const localeSnapshot = useSyncExternalStore(
-    subscribeToLocale,
-    readBrowserLocale,
-    () => serverLocaleSnapshot,
+  const timeZoneSnapshot = useSyncExternalStore(
+    subscribeToTimeZone,
+    readBrowserTimeZone,
+    () => serverTimeZoneSnapshot,
   );
-  const { locale, timeZone } = JSON.parse(localeSnapshot) as { locale: string; timeZone: string };
+  const timeZone = timeZoneSnapshot;
   const visitorTime = timeZone === RAFFLE_TIME_ZONE
     ? null
-    : formatRaffleTimeForZone(instant, timeZone, locale);
+    : formatRaffleTimeForZone(instant, timeZone);
 
   return (
     <div>

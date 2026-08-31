@@ -532,7 +532,7 @@ const PRODUCTION_SAFE_COMPOUND_CLASS_NAMES = new Set([
   "glass-card glass-card--primary glass-pad u-mt-24", "glass-card glass-card--soft glass-pad center-stack",
   "glass-card glass-card--strong glass-pad hero-intro",
   "glass-card glass-card--strong glass-pad hero-intro center-stack", "grid-12 grid-gap",
-  "hero-cta hero-cta--primary", "hero-cta-row u-mt-18", "home-seal-verse muted",
+  "hero-cta hero-cta--primary", "hero-cta home-section-cta", "hero-cta-row u-mt-18", "home-seal-verse muted",
   "home-thumb responsive-gallery-frame", "list-stack legal-steps", "meta-text u-mt-10",
   "mobile-link is-active", "nav-item is-active", "nav-link is-active", "nav-link nav-auth-link",
   "nav-link nav-trigger", "official-profiles official-profiles--footer",
@@ -666,7 +666,7 @@ const PRODUCTION_ANCHOR_ATTRIBUTE_NAMES = new Set([
 ]);
 const PRODUCTION_SAFE_ANCHOR_CLASS_NAMES = new Set([
   "", "brand", "brand brand--mobile", "cta", "footer-brand-link", "footer-cta", "footer-link", "footer-nav",
-  "hero-cta", "hero-cta hero-cta--primary", "home-bulletin", "home-door", "home-featured",
+  "hero-cta", "hero-cta hero-cta--primary", "hero-cta home-section-cta", "home-bulletin", "home-door", "home-featured",
   "home-spotlight__surface-link", "mobile-link", "mobile-link is-active", "nav-item", "nav-item is-active",
   "nav-link", "nav-link is-active", "nav-link nav-auth-link", "official-profile-link", "skip-link",
 ]);
@@ -2045,14 +2045,9 @@ export function canonicalizeProductionFlightResourceEnvelopeStream(
 
     const titleFrame = frameById.get("24");
     const title = titleFrame.record?.type === "string" ? titleFrame.record.value : null;
-    const prefix = "Congratulations to: ";
     const fallbackTitle = "Member Spotlight";
     if (typeof title !== "string" || titleFrame.payload !== JSON.stringify(title)) return null;
-    if (title !== fallbackTitle) {
-      if (!title.startsWith(prefix) || !title.endsWith(".")) return null;
-      const name = title.slice(prefix.length, -1);
-      if (!productionFlightHomeSpotlightNameIsSafe(name)) return null;
-    }
+    if (title !== fallbackTitle && !productionFlightHomeSpotlightNameIsSafe(title)) return null;
     replacements.push(Object.freeze({
       end: titleFrame.payloadOffset + titleFrame.record.end,
       start: titleFrame.payloadOffset + titleFrame.record.start,

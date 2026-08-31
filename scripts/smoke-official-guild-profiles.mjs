@@ -230,7 +230,7 @@ async function verifyMobileMenu(page) {
 
   const profiles = dialog.locator('[data-official-profiles="mobile"]');
   await profiles.scrollIntoViewIfNeeded();
-  await verifyProfileSection(profiles, headerProfiles, "mobile Official profiles group");
+  await verifyProfileSection(profiles, headerProfiles, "mobile Official Social Profiles group");
   await assertElementInsideViewport(page, page.locator(".mobile-sheet"), "mobile menu sheet");
   await assertDocumentReflow(page, "open mobile menu");
 
@@ -259,8 +259,8 @@ async function verifyFooter(page) {
   const footer = page.locator(".site-footer");
   await footer.scrollIntoViewIfNeeded();
   const profiles = footer.locator('[data-official-profiles="footer"]');
-  await verifyProfileSection(profiles, footerProfiles, "footer Official profiles");
-  await assertElementInsideViewport(page, profiles, "footer Official profiles");
+  await verifyProfileSection(profiles, footerProfiles, "footer Official Social Profiles");
+  await assertElementInsideViewport(page, profiles, "footer Official Social Profiles");
 
   const legal = footer.getByRole("navigation", { name: "Privacy and support", exact: true });
   assert(await legal.count() === 1, "footer Privacy and support navigation is missing or duplicated");
@@ -280,10 +280,10 @@ async function verifyFooter(page) {
 async function verifyProfileSection(section, expectedProfiles, label) {
   assert(await section.count() === 1, `${label} section is missing or duplicated`);
   const expectedSectionLabel = label.startsWith("desktop")
-    ? "Official Mōchirīī profiles in the Guild menu"
+    ? "Official Mōchirīī social profiles in the Guild menu"
     : label.startsWith("mobile")
-      ? "Official Mōchirīī profiles in the mobile menu"
-      : "Official Mōchirīī profiles in the footer";
+      ? "Official Mōchirīī social profiles in the mobile menu"
+      : "Official Mōchirīī social profiles in the footer";
   assert(await section.getAttribute("role") === "group", `${label} must be a non-landmark group`);
   assert(await section.getAttribute("aria-label") === expectedSectionLabel, `${label} has an incorrect accessible label`);
 

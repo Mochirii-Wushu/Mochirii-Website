@@ -24,7 +24,7 @@ export function spotlightWinnerTitle(
 ) {
   const name = spotlightWinnerName(winner);
   if (!name) return clean(fallbackTitle, template === "home" ? "Member Spotlight" : "This Month's Spotlight");
-  return template === "home" ? `Congratulations to: ${name}.` : `This Month: ${name}`;
+  return template === "home" ? name : `This Month: ${name}`;
 }
 
 export function spotlightAppreciationLines(

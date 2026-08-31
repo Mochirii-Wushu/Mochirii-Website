@@ -23,7 +23,7 @@ export function EventsPage(props: EventsPageProps) {
   const featuredHref = text(featuredEvent?.href || featured.href);
   const featuredMeta = [
     featured.tag,
-    featuredEvent?.date ? formatDateUTC(featuredEvent.date) : featured.date,
+    formatDateUTC(featuredEvent?.date || featured.date),
     featuredEvent?.dayText,
     featuredEvent?.timeText || featured.time,
     featuredEvent?.timezone || featured.timezone || scheduleTimezoneLabel(guildScheduleData),

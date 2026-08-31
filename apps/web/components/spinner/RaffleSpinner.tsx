@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { formatPublicDateTime } from "@/lib/public-date";
 import {
   type CSSProperties,
   type ChangeEvent,
@@ -112,11 +113,10 @@ function downloadJson(filename: string, value: unknown) {
 }
 
 function receiptTimestamp(receipt: DrawReceiptV1) {
-  const record = receipt as unknown as Record<string, unknown>;
-  for (const key of ["singaporeTime", "singaporeTimeDisplay", "timestampSingapore", "timestampIso", "timestamp"]) {
-    if (typeof record[key] === "string") return record[key];
-  }
-  return "Saved draw";
+  const timestamp = new Date(receipt.timestampIso);
+  return Number.isNaN(timestamp.valueOf())
+    ? "Saved draw"
+    : `${formatPublicDateTime(timestamp, "Asia/Singapore")} UTC+8`;
 }
 
 function receiptId(receipt: DrawReceiptV1) {

@@ -15,9 +15,9 @@ function profilesFor(placement: OfficialGuildProfilesProps["placement"]) {
 }
 
 const placementLabels: Record<OfficialGuildProfilesProps["placement"], string> = {
-  header: "Official Mōchirīī profiles in the Guild menu",
-  mobile: "Official Mōchirīī profiles in the mobile menu",
-  footer: "Official Mōchirīī profiles in the footer",
+  header: "Official Mōchirīī social profiles in the Guild menu",
+  mobile: "Official Mōchirīī social profiles in the mobile menu",
+  footer: "Official Mōchirīī social profiles in the footer",
 };
 
 function OfficialGuildProfileLink({
@@ -73,9 +73,9 @@ export function OfficialGuildProfiles({ placement, onNavigate }: OfficialGuildPr
       data-official-profiles={placement}
     >
       {placement === "footer" ? (
-        <h2 className="footer-col-title official-profiles-title">Official profiles</h2>
+        <h2 className="footer-col-title official-profiles-title">Official Social Profiles</h2>
       ) : placement === "header" ? (
-        <div className="official-profiles-title">Official profiles</div>
+        <div className="official-profiles-title">Official Social Profiles</div>
       ) : null}
       <ul className="official-profile-list">
         {profiles.map((profile) => (
