@@ -1009,7 +1009,6 @@ test("raffle", () => {
   const copiedFiles = [
     "apps/web/config/public-urls.json",
     "apps/web/app/raffle/page.tsx",
-    "apps/web/app/raffle/rules/page.tsx",
     "apps/web/app/raffle/rules/[version]/page.tsx",
     "apps/web/app/raffle-render-fixtures-internal/[scenario]/page.tsx",
     "apps/web/lib/raffle/public-render-fixtures.ts",
@@ -3350,7 +3349,7 @@ test("members", () => {
 test("binding", () => {
   const nextConfigPath = path.resolve("apps/web/next.config.ts");
   const source = readFileSync(nextConfigPath, "utf8");
-  assert.equal(parseNextConfigLegacyRedirects(source).length, 19);
+  assert.equal(parseNextConfigLegacyRedirects(source).length, 20);
 
   for (const prefix of [
     `process.getBuiltinModule("node:vm").runInThisContext("Array.prototype.map = () => [];");\n`,
@@ -3380,7 +3379,7 @@ test("binding", () => {
       methodStart,
       `  async redirects() {\n    // reviewed comment${terminator}    return [`,
     );
-    assert.equal(parseNextConfigLegacyRedirects(commentOnlyBody).length, 19);
+    assert.equal(parseNextConfigLegacyRedirects(commentOnlyBody).length, 20);
   }
 });
 

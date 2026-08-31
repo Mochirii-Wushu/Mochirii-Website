@@ -190,13 +190,6 @@
       "productionSmoke": false
     },
     {
-      "path": "/raffle/rules",
-      "kind": "page",
-      "source": "app/raffle/rules/page.tsx",
-      "surface": "public",
-      "productionSmoke": true
-    },
-    {
       "path": "/raffle/rules/[version]",
       "kind": "page",
       "source": "app/raffle/rules/[version]/page.tsx",
@@ -364,6 +357,11 @@
     {
       "source": "/leaders.html",
       "destination": "/leaders",
+      "permanent": true
+    },
+    {
+      "source": "/raffle/rules",
+      "destination": "/raffle",
       "permanent": true
     },
     {

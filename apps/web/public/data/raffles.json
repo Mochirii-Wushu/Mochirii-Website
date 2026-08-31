@@ -116,7 +116,7 @@
     "publicEvidence": null
   },
   "rules": {
-    "standingRulesUrl": "/raffle/rules",
+    "standingRulesUrl": "/raffle",
     "currentRulesState": "inactive",
     "currentRulesLabel": "No active drawing rules",
     "archive": [],

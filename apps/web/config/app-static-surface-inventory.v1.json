@@ -10,12 +10,12 @@
     "phase4Exit": "not_claimed"
   },
   "summary": {
-    "metadataRoutes": 29,
-    "indexedMetadataRoutes": 18,
+    "metadataRoutes": 28,
+    "indexedMetadataRoutes": 17,
     "nonindexedMetadataRoutes": 11,
     "publicFiles": 249,
-    "publicBytes": 38509476,
-    "sourceFiles": 44
+    "publicBytes": 38509412,
+    "sourceFiles": 43
   },
   "sourceCatalog": [
     {
@@ -125,13 +125,8 @@
     },
     {
       "path": "apps/web/app/raffle/rules/[version]/page.tsx",
-      "bytes": 3385,
-      "sha256": "C01788B12E79C5704C78E28C0E7CEEEC446F6F1E39DDA386A25A61DE77996FA3"
-    },
-    {
-      "path": "apps/web/app/raffle/rules/page.tsx",
-      "bytes": 6070,
-      "sha256": "7393534F994539E2BC2887E0878B922024F736DF395E5BB89B3CD2F391FB64D4"
+      "bytes": 3373,
+      "sha256": "BDDEAED4E7AEA7AD6E7BCCE852280F87A3D3B1908EFDCB3126F1CD280C7EE39C"
     },
     {
       "path": "apps/web/app/ranks/page.tsx",
@@ -185,18 +180,18 @@
     },
     {
       "path": "apps/web/components/public-pages/metadata.ts",
-      "bytes": 5706,
-      "sha256": "B99FC79E2BB683F709E080741D44251C14BE3DBB04D411418820156BA611BF3F"
+      "bytes": 5383,
+      "sha256": "C23A9E63A88372EAD86CF4CD9B3BE66E1F6BFC7C27381FC1310A40B562BF1FAB"
     },
     {
       "path": "apps/web/config/app-route-evidence.v1.json",
-      "bytes": 68506,
-      "sha256": "086651BB33A5C2D9E4BF516F27E6BA43B177124CA20FB7E225A48D5E5FF4BD01"
+      "bytes": 66970,
+      "sha256": "5A127A8CFA0CAB8A724A5320BB621D1BBDF4740DD7925F2B73739B5196E371C4"
     },
     {
       "path": "apps/web/config/app-route-matrix.v1.json",
-      "bytes": 9336,
-      "sha256": "7E694D6AD1F8DA8E0B5B0F3753AF6544731D685A675F47F77A38C673C930A1C5"
+      "bytes": 9270,
+      "sha256": "5759D76A177FFE23CDF2A2F9A4DE6A0BDEF7F454D8F9C66C604EEA662E3F97B2"
     },
     {
       "path": "package.json",
@@ -211,7 +206,7 @@
     {
       "path": "scripts/check-app-static-surface-inventory.mjs",
       "bytes": 13000,
-      "sha256": "20C7A5DC206F489877900E30DB5F76F8393DEBD2A6E3367BC3FFCC7D6A1A7128"
+      "sha256": "62FF72F44636D9709ADA5834E998F6E4C4EF03E6D3CEAAD4B490A749214AF02C"
     },
     {
       "path": "scripts/check-assets.mjs",
@@ -220,8 +215,8 @@
     },
     {
       "path": "scripts/check-observability-metadata-smoke.mjs",
-      "bytes": 29882,
-      "sha256": "C5E4CD83EDF225A43E95A889A240433D81D3BB3ABCA2176992D57A1F67803913"
+      "bytes": 29788,
+      "sha256": "EFB2A7237B1E502E8E9DE84EA6F0692AED93142837F730B5BE6079A90BC0CF4D"
     },
     {
       "path": "scripts/lib/app-router-inventory.mjs",
@@ -230,13 +225,13 @@
     },
     {
       "path": "scripts/lib/app-static-surface-inventory.mjs",
-      "bytes": 24956,
-      "sha256": "AF6A2D5632582D56B92C8E7CD0D7ED0A004712BFCF51091DE2A1AFB50BD63C0A"
+      "bytes": 24913,
+      "sha256": "B0370216A311FC19A6206580806CD8312572F2589989C7038359D1F9D7547733"
     },
     {
       "path": "scripts/lib/app-static-surface-inventory.test.mjs",
-      "bytes": 123900,
-      "sha256": "8B157DFBEB68DC4DA8BE1FC5D1047C197FC09663E4F6B2DF7D48237EFDBBA2AB"
+      "bytes": 123877,
+      "sha256": "8A59741E78053B03F0FFDF7DB7F6C606C8BE205059EF07C5054B2174FE203D2D"
     }
   ],
   "metadataRoutes": [
@@ -473,19 +468,6 @@
       "sitemapPolicy": "excluded",
       "previewPolicy": "suppressed",
       "terminalStatus": "excluded_internal"
-    },
-    {
-      "path": "/raffle/rules",
-      "source": "apps/web/app/raffle/rules/page.tsx",
-      "surface": "public",
-      "productionSmoke": true,
-      "metadataSource": "apps/web/components/public-pages/metadata.ts",
-      "profile": "indexed_public_static",
-      "canonicalPolicy": "exact_route",
-      "robotsPolicy": "default_index_follow",
-      "sitemapPolicy": "included",
-      "previewPolicy": "shared_public_image",
-      "terminalStatus": "in_progress"
     },
     {
       "path": "/raffle/rules/[version]",
@@ -2534,8 +2516,8 @@
     {
       "url": "/data/raffles.json",
       "source": "apps/web/public/data/raffles.json",
-      "bytes": 5770,
-      "sha256": "DDDDC4AE9ECF3E91709BC997582D6AE0158BA460EE050CC7BE400AD6D9DC55F3",
+      "bytes": 5764,
+      "sha256": "9B8AC72FABA09DADB2EBBD785DF485FDF574F9F1EC03E6CCCFAB5CFE8904744D",
       "category": "public_data",
       "format": "json"
     },
@@ -2606,8 +2588,8 @@
     {
       "url": "/sitemap.xml",
       "source": "apps/web/public/sitemap.xml",
-      "bytes": 1030,
-      "sha256": "D348E93B07936B016AAA544EE8CC5C78FA9CF02CCE59B06F40B327C260A63068",
+      "bytes": 972,
+      "sha256": "E4D628A14A3F8264D9C61E330ED30039208C3A8DEED12B970753C1A651AA0231",
       "category": "discovery",
       "format": "xml"
     }

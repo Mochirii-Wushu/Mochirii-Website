@@ -83,7 +83,7 @@ export function RafflePage({
                   </div>
                 </dl>
                 <div className="hero-cta-row u-mt-18">
-                  <Link className="hero-cta" href={view.rulesUrl || model.rules.standingRulesUrl}>Read raffle rules</Link>
+                  <Link className="hero-cta" href={view.rulesUrl || "#standingRulesHeading"}>Read raffle rules</Link>
                 </div>
               </div>
             </aside>
@@ -132,6 +132,9 @@ export function RafflePage({
                 </li>
               ))}
             </ol>
+            <ul className="list-stack u-mt-18">
+              {model.entryModel.noAdvantageRules.map((rule) => <li key={rule}>{rule}</li>)}
+            </ul>
           </section>
 
           <div className="grid-12 grid-gap u-mt-24 raffle-reward-grid">
@@ -179,9 +182,46 @@ export function RafflePage({
               {model.standingPrinciples.map((principle) => <li key={principle}>{principle}</li>)}
             </ul>
             <div className="hero-cta-row u-mt-18">
-              <Link className="hero-cta" href={model.rules.standingRulesUrl}>Read standing and drawing rules</Link>
+              <Link className="hero-cta" href="#raffleRulesStateHeading">Read standing and drawing rules</Link>
             </div>
           </section>
+
+          <div className="grid-12 grid-gap u-mt-24 raffle-rules-state-grid">
+            <section className="col-7">
+              <div className="glass-card glass-card--primary glass-pad raffle-fill-card">
+                <p className="kicker">Current official drawing rules</p>
+                <h2 className="section-title" id="raffleRulesStateHeading">{model.rules.currentRulesLabel}</h2>
+                {view.rulesUrl ? (
+                  <>
+                    <p>The current drawing has its own immutable dates, reward, eligibility, claim period, and location-specific terms.</p>
+                    <div className="hero-cta-row u-mt-18">
+                      <Link className="hero-cta" href={view.rulesUrl}>Read current drawing rules</Link>
+                    </div>
+                  </>
+                ) : (
+                  <p>No raffle is active. No dates, reward, eligible locations, claim period, or location-specific terms are currently in effect.</p>
+                )}
+              </div>
+            </section>
+
+            <aside className="col-5" aria-labelledby="rulesArchiveHeading">
+              <div className="glass-card glass-card--soft glass-pad raffle-fill-card">
+                <p className="kicker">Completed drawings</p>
+                <h2 className="section-title section-title--sm" id="rulesArchiveHeading">Rules archive</h2>
+                {model.rules.archive.length ? (
+                  <ul className="list-stack">
+                    {model.rules.archive.map((entry) => (
+                      <li key={entry.cycleLabel}>
+                        <Link href={entry.rulesUrl}>{entry.cycleLabel}</Link>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="muted">No archived drawing rules are available.</p>
+                )}
+              </div>
+            </aside>
+          </div>
         </div>
       </main>
     </>

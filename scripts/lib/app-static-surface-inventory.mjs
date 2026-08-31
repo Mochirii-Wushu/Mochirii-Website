@@ -185,7 +185,6 @@ const METADATA_ROUTE_PROFILES = Object.freeze({
     previewPolicy: "suppressed",
     terminalStatus: "excluded_internal",
   }),
-  "/raffle/rules": SHARED_INDEXED_PROFILE,
   "/raffle/rules/[version]": metadataProfile({
     metadataSource: "apps/web/app/raffle/rules/[version]/page.tsx",
     profile: "indexed_public_dynamic",

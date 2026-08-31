@@ -7,9 +7,9 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const INVENTORY_COMMIT = "92fc424c6434e7baa4fe0387bfccf8d8a6631c4e";
 const CHECKER_FAILURE = "app route evidence checker failed closed [CHECKER_FAILURE]";
-const EXPECTED_ROUTE_COUNT = 38;
+const EXPECTED_ROUTE_COUNT = 37;
 const EXPECTED_INTERNAL_ROUTE = "/raffle-render-fixtures-internal/[scenario]";
-const EXPECTED_ROUTE_IDENTITY_SHA256 = "FB955893603287931B3021E2A1E7557F55772FED73ACC06D04E785D69968649F";
+const EXPECTED_ROUTE_IDENTITY_SHA256 = "42813A4E2A893698FE5939FE2B86A51DD7505B6FB6B5B4DCE9A57C27FE53A049";
 const RESULT_KEYS = Object.freeze(["failures", "evidence", "routeMatrix"]);
 const EVIDENCE_KEYS = Object.freeze([
   "schemaVersion",
@@ -274,13 +274,13 @@ export function summarizeAppRouteEvidenceResult(result) {
     }
   }
   if (excludedInternal !== 1
-    || inProgress !== 37
+    || inProgress !== 36
     || createHash("sha256").update(JSON.stringify(identityProjection)).digest("hex").toUpperCase() !== EXPECTED_ROUTE_IDENTITY_SHA256) {
     return null;
   }
   return {
     routeCount: EXPECTED_ROUTE_COUNT,
-    statusText: "excluded_internal=1, in_progress=37",
+    statusText: "excluded_internal=1, in_progress=36",
   };
 }
 

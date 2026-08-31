@@ -115,7 +115,7 @@ export type RafflePageModel = {
     publicEvidence: RafflePublicEvidence | null;
   };
   rules: {
-    standingRulesUrl: "/raffle/rules";
+    standingRulesUrl: "/raffle";
     currentRulesState: "inactive" | "active";
     currentRulesLabel: string;
     archive: Array<{
@@ -314,7 +314,7 @@ export function parseRafflePageModel(value: unknown): RafflePageModel {
 
   const rules = expectRecord(root.rules, "raffle.rules");
   expectExactKeys(rules, ["archive", "currentRulesLabel", "currentRulesState", "standingRulesUrl", "versions"], "raffle.rules");
-  if (rules.standingRulesUrl !== "/raffle/rules") fail("raffle standing rules URL must remain /raffle/rules");
+  if (rules.standingRulesUrl !== "/raffle") fail("raffle standing rules URL must remain /raffle");
   const currentRulesState = expectOneOf(rules.currentRulesState, ["active", "inactive"], "raffle.rules.currentRulesState");
   expectString(rules.currentRulesLabel, "raffle.rules.currentRulesLabel");
   const archivedRuleUrls = new Set<string>();
