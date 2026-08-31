@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { DISCORD_INVITE_URL } from "@/lib/public-urls";
 import { eventStatusAt, parseReferenceTime } from "@/lib/events/reference-time";
+import { formatPublicDate } from "@/lib/public-date";
 import { StaticImage } from "./common";
 
 type EventItem = {
@@ -69,12 +70,7 @@ function formatDateUTC(value: unknown) {
   if (!raw) return "";
   const date = new Date(`${raw}T00:00:00Z`);
   if (Number.isNaN(date.valueOf())) return raw;
-  return new Intl.DateTimeFormat("en-US", {
-    timeZone: "UTC",
-    year: "numeric",
-    month: "short",
-    day: "2-digit",
-  }).format(date);
+  return formatPublicDate(date);
 }
 
 function isExternal(href: string) {

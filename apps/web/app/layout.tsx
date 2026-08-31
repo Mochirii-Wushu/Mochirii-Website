@@ -3,7 +3,14 @@ import localFont from "next/font/local";
 import type { ReactNode } from "react";
 import { SiteRouteShell } from "@/components/SiteRouteShell";
 import { SITE_ORIGIN } from "@/lib/public-urls";
-import { SITE_DESCRIPTION, SITE_LANGUAGE, SITE_OG_LOCALE, SITE_TITLE } from "@/lib/site-metadata";
+import {
+  SITE_DESCRIPTION,
+  SITE_LANGUAGE,
+  SITE_OG_DESCRIPTION,
+  SITE_OG_LOCALE,
+  SITE_OG_TITLE,
+  SITE_TITLE,
+} from "@/lib/site-metadata";
 import "./styles/font-fallbacks.css";
 import "./styles/tokens-base.css";
 import "./styles/shared-ui.css";
@@ -44,8 +51,8 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     siteName: "Mōchirīī",
-    title: SITE_TITLE,
-    description: SITE_DESCRIPTION,
+    title: SITE_OG_TITLE,
+    description: SITE_OG_DESCRIPTION,
     locale: SITE_OG_LOCALE,
     url: SITE_ORIGIN,
     images: [
@@ -59,8 +66,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: SITE_TITLE,
-    description: SITE_DESCRIPTION,
+    title: SITE_OG_TITLE,
+    description: SITE_OG_DESCRIPTION,
     images: ["/assets/img/hero/hero.webp"],
   },
   icons: {

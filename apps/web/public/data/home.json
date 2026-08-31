@@ -1,9 +1,9 @@
 {
   "copy": {
-    "bulletinIntro": "Hall notes, events, raffle updates & little scrolls keep the guild lanterns glowing.",
-    "doorsIntro": "Explore the ways that guide Mōchirīī along its wanderers filled path.",
-    "spotlightIntro": "Each month, one active website member is selected at random for a little extra lantern glow.",
-    "galleryIntro": "Screenshots from baddie smashing, pretty roads, lantern-lit detours & small moments that become guild memory."
+    "bulletinIntro": "Check the next event, current raffle, and latest announcement.",
+    "doorsIntro": "Use these pages to join the guild, review ranks, find leaders, and read the rules.",
+    "spotlightIntro": "Each month, members recognize one person for a specific contribution.",
+    "galleryIntro": "Recent screenshots from combat, exploration, events, and member gatherings."
   },
   "celebrationSplash": {
     "enabled": false,
@@ -18,25 +18,24 @@
     "atmosphereImage": "",
     "subtitle": "Asia Pacific • Where Winds Meet Guild",
     "descriptor": [
-      "Mōchirīī is a cozy little guild for wanderers seeking friendly company, whimsical events, baddie smashing battles & lots of cupcakes with a place to rest along the cultivation road.",
-      "Optional Discord, come follow the joining path & grow at your own pace beneath the lantern glow. Read the event notes, RSVP to events that interest you & bring a little frosting warmth to the guild as we wander onward together."
+      "Mōchirīī is an Asia Pacific guild for casual Where Winds Meet players. We organize group runs, events, raffles, guides, and member projects.",
+      "Discord handles onboarding and event planning. The website keeps guild rules, ranks, leaders, updates, screenshots, social posts, and forums in one place."
     ],
     "badges": [
-      "Recruitment Open",
       "Cross-Platform",
-      "Casual Members",
-      "Always Welcome"
+      "Casual Play",
+      "UTC+8 Events"
     ]
   },
   "seal": {
-    "title": "Guild Seal",
+    "title": "Guild Standards",
     "image": "./assets/img/brand/emblem.webp",
     "imageAlt": "Mōchirīī guild seal",
     "verse": [
-      "Silvered jade softly gleams, where quiet petals fall,",
-      "Bamboo stands in patient grace, a guardian to all.",
-      "Hearts gather here in gentle light, unhurried, warm & true,",
-      "A seal of trust, of shared resolve, where kindred spirits grew."
+      "Keep commitments.",
+      "Share useful information.",
+      "Offer help without pressure.",
+      "Address problems directly."
     ]
   },
   "bulletins": [
@@ -52,7 +51,7 @@
     },
     {
       "type": "raffle",
-      "title": "Mōchirīī Monthly Raffle status: no current drawing.",
+      "title": "No raffle is open.",
       "date": "2026-07-26",
       "image": "./assets/img/bulletins/raffle.webp",
       "imageAlt": "Raffle bulletin cover",
@@ -60,7 +59,7 @@
     },
     {
       "type": "announcement",
-      "title": "Leadership roles are open for members ready to carry a lantern for others.",
+      "title": "Leadership roles are open.",
       "date": "2026-02-01",
       "image": "./assets/img/bulletins/announcement.webp",
       "imageAlt": "Leadership announcement cover",
@@ -69,62 +68,69 @@
   ],
   "tiles": [
     {
-      "label": "Join",
-      "title": "Step into Mōchirīī, join Discord & get oriented.",
+      "label": "Join Mōchirīī",
+      "title": "Read the joining steps and open the guild Discord.",
       "image": "./assets/img/tiles/join.webp",
       "alt": "Join Mōchirīī tile artwork",
       "href": "./join.html"
     },
     {
-      "label": "Ranks",
-      "title": "See how presence & contribution are recognized.",
+      "label": "Guild Ranks",
+      "title": "See each rank and how recognition works.",
       "image": "./assets/img/tiles/ranks.webp",
-      "alt": "Guild ranks & progression tile artwork",
+      "alt": "Guild ranks and progression tile artwork",
       "href": "./ranks.html"
     },
     {
-      "label": "Leaders",
-      "title": "Find the people who answer questions, guide others & keep the peace & prosperity.",
+      "label": "Guild Leaders",
+      "title": "Find the right leader for questions or concerns.",
       "image": "./assets/img/tiles/leaders.webp",
       "alt": "Guild leadership tile artwork",
       "href": "./leaders.html"
     },
     {
-      "label": "Tome",
-      "title": "Read the values, etiquette, event rhythm & community standards we share.",
+      "label": "Guild Tome",
+      "title": "Read the rules for conduct, events, and recognition.",
       "image": "./assets/img/tiles/tome.webp",
-      "alt": "Guild tome & values tile artwork",
+      "alt": "Guild tome and values tile artwork",
       "href": "./tome.html"
     }
   ],
   "spotlight": {
-    "tag": "Spotlight",
+    "tag": "Current Spotlight",
     "title": "Member Spotlight",
-    "summary": "Celebrating one randomly selected active website member this month.",
+    "summary": "Selected at random from active website members for this month’s guild Spotlight.",
+    "fallbackIntro": "Each month, one active website member is selected at random for the guild Spotlight.",
+    "recognitions": [
+      {
+        "monthKey": "2026-08-01",
+        "summary": "Recognized for helping members and contributing to guild activities."
+      }
+    ],
     "image": "./assets/img/featured/spotlight.webp",
-    "imageAlt": "Spotlight cover",
+    "imageAlt": "Member Spotlight cover",
     "href": "./spotlight.html"
   },
   "gallery": [
     {
-      "image": "./assets/img/gallery/thumbs/shot-23.webp",
-      "full": "./assets/img/gallery/shot-23.webp",
-      "alt": "Guild screenshot"
+      "image": "./assets/img/gallery/thumbs/shot-01.webp",
+      "full": "./assets/img/gallery/shot-01.webp",
+      "alt": "Character standing among pink flowers"
     },
     {
-      "image": "./assets/img/gallery/thumbs/shot-57.webp",
-      "full": "./assets/img/gallery/shot-57.webp",
-      "alt": "Three figures in ornate robes seated together on stone steps."
+      "image": "./assets/img/gallery/thumbs/shot-02.webp",
+      "full": "./assets/img/gallery/shot-02.webp",
+      "alt": "Armored character during combat"
     },
     {
-      "image": "./assets/img/gallery/thumbs/shot-60.webp",
-      "full": "./assets/img/gallery/shot-60.webp",
-      "alt": "Two figures posed closely together in a bright indoor portrait."
+      "image": "./assets/img/gallery/thumbs/shot-03.webp",
+      "full": "./assets/img/gallery/shot-03.webp",
+      "alt": "White-robed character using an emote"
     },
     {
-      "image": "./assets/img/gallery/thumbs/shot-65.webp",
-      "full": "./assets/img/gallery/shot-65.webp",
-      "alt": "Three figures standing beside a pale horse under a full moon."
+      "image": "./assets/img/gallery/thumbs/shot-04.webp",
+      "full": "./assets/img/gallery/shot-04.webp",
+      "alt": "Party facing a horned enemy in a cave"
     }
   ]
 }

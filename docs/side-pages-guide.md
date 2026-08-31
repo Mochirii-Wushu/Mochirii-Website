@@ -338,6 +338,9 @@ How to add or update Spotlight safely:
   returned by `get-current-spotlight-winner`. The public path may display only the selected website display name and
   month; it must not expose account IDs, Discord data, profile links, avatars, pool size, audit details, or candidate
   lists.
+- Home may join reviewed contribution copy keyed only by month from `home.json` to that same bounded current-winner
+  DTO at render time. Static data must never persist the member name, account/profile identifiers, selection evidence,
+  or candidate data; if the exact winner month has no reviewed contribution, Home uses its random-selection fallback.
 - The database-owned selector begins at `00:05 UTC+8` on the first day of each month and retries daily until that
   month has one immutable winner. Eligibility is every current `active` member profile backed by a non-deleted,
   non-banned Website account. The draw must not require a Discord link or persist the candidate roster.
@@ -474,7 +477,7 @@ Use `npm run smoke:gallery` as a general regression check if shared behavior cou
 - Protected recruitment body remains unchanged.
 - Protected recruitment conclusion remains unchanged.
 - Twills protected body remains unchanged.
-- Guild seal poem remains unchanged.
+- The four approved Guild Standards lines remain unchanged.
 
 ## 13. Protected Content
 

@@ -56,7 +56,7 @@ Protected content:
 - `apps/web/public/data/recruitment.json` `content.paragraphs` is protected and must not be altered.
 - `apps/web/public/data/recruitment.json` `content.conclusion` is protected and must not be altered.
 
-The current Tome implementation does not host or render the protected guild seal poem. The protected seal poem is in `apps/web/public/data/home.json` `seal.verse`.
+The current Tome implementation does not host or render the protected Guild Standards. The four approved standards are in `apps/web/public/data/home.json` `seal.verse`.
 
 Do not change protected verse wording, punctuation, line breaks, spelling, capitalization, diacritics, order, or placement.
 

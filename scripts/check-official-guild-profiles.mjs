@@ -160,9 +160,9 @@ for (const snippet of [
 assertNotIncludes("SiteRouteShell", routeShell, "OfficialGuildProfiles");
 assertIncludes("profile component", component, 'role="group"');
 assertIncludes("profile component", component, 'aria-label={placementLabels[placement]}');
-assertIncludes("profile component", component, 'Official Mōchirīī profiles in the Guild menu');
-assertIncludes("profile component", component, 'Official Mōchirīī profiles in the mobile menu');
-assertIncludes("profile component", component, 'Official Mōchirīī profiles in the footer');
+assertIncludes("profile component", component, 'Official Mōchirīī social profiles in the Guild menu');
+assertIncludes("profile component", component, 'Official Mōchirīī social profiles in the mobile menu');
+assertIncludes("profile component", component, 'Official Mōchirīī social profiles in the footer');
 assertNotIncludes("profile component", component, "<section");
 assertIncludes("profile component", component, 'className="sr-only"> external profile');
 assertIncludes("profile component", component, '<span className="sr-only">{profile.label}</span>');

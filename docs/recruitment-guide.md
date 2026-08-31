@@ -19,24 +19,27 @@ Keep the page focused on recruiting philosophy and participation. The protected 
 
 - Recruitment data lives in `apps/web/public/data/recruitment.json`.
 - Keep JSON valid.
-- Preserve the current schema unless `recruitment.js` changes in the same scoped task.
-- Add only fields that `recruitment.js` actually supports.
+- Preserve the current schema unless `RecruitmentPage.tsx` or an explicitly documented shared consumer changes in the same scoped task.
+- Add only fields that the canonical Next renderers actually support.
 - Keep non-body supporting copy concise.
 - Keep functional labels plain.
 
 Current data shape:
 
 - `hero`: `image`, `alt`, `atmosphere`
-- `meta`: `kicker`, `heading`, `author`, `updated`, `intro`, `badges`
+- `meta`: `status`, `kicker`, `heading`, `author`, `updated`, `intro`, `badges`
 - `audio`: `title`, `description`, `sources`
 - `audio.sources[]`: `src`, optional `type`
 - `content`: `title`, `paragraphs`, `conclusion`
 
 Renderer notes:
 
-- `recruitment.js` loads `apps/web/public/data/recruitment.json` through `MochiriiUtils.fetchJson`.
-- `meta.updated` renders as month and year through `MochiriiUtils.formatDateUTC`.
-- Text renders with `textContent`; inline HTML and Markdown are not supported.
+- `RecruitmentPage.tsx` imports the canonical JSON and renders `/recruitment`; Home reads only `meta.status` for its
+  recruitment chip and primary CTA.
+- `meta.status` accepts exactly `open`, `limited`, or `paused`. Unknown values fail closed to the paused Home
+  presentation; transition the public state by editing this one canonical field.
+- `meta.updated` renders as month and year through the shared public date formatter.
+- Text renders as React text; inline HTML and Markdown are not supported.
 - Badges render as plain spans, not links.
 - Audio sources render as native `<source>` elements under a hidden `#recruitmentAudio`, while visitors use the custom themed audio player.
 - There is no data-driven CTA or link renderer.
@@ -48,20 +51,23 @@ The protected Recruitment fields are:
 - `apps/web/public/data/recruitment.json` `content.paragraphs`
 - `apps/web/public/data/recruitment.json` `content.conclusion`
 
-`recruitment.js` renders them with:
+`RecruitmentPage.tsx` renders them with:
 
-- `addProseBlocks($("#recruitmentBody"), safeArray(data?.content?.paragraphs))`
-- `addProseBlocks($("#recruitmentConclusion"), safeArray(data?.content?.conclusion))`
+- `<ProseStack id="recruitmentBody" lines={content.paragraphs} />`
+- `<ProseStack id="recruitmentConclusion" lines={content.conclusion} />`
 
-These fields are protected. Do not alter wording, punctuation, paragraph breaks, apostrophes, capitalization, diacritics, or structure. Future edits may revise other non-body fields only if needed, supported by `recruitment.js`, and intentionally scoped. Any body or conclusion change requires explicit user approval.
+These fields are protected. Do not alter wording, punctuation, paragraph breaks, apostrophes, capitalization,
+diacritics, or structure. Future edits may revise other non-body fields only if needed, supported by the canonical
+Next renderers, and intentionally scoped. Any body or conclusion change requires explicit user approval.
 
 ## 4. Non-Body Recruitment Fields
 
-The following current fields are non-body fields rendered by `recruitment.js` and may be revised in future scoped work when needed:
+The following current fields are non-body fields used by the canonical Next renderers and may be revised in future scoped work when needed:
 
 - `hero.image`
 - `hero.alt`
 - `hero.atmosphere`
+- `meta.status`
 - `meta.kicker`
 - `meta.heading`
 - `meta.author`
@@ -155,7 +161,7 @@ Use `npm run smoke:gallery` as a general regression check when shared behavior c
 - No console-breaking errors occur.
 - Supabase page shell does not cause signed-out runtime errors.
 - Twills protected body remains unchanged.
-- Guild seal poem remains unchanged.
+- The four approved Guild Standards lines remain unchanged.
 
 ## 10. Protected Content
 

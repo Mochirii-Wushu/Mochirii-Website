@@ -76,7 +76,7 @@
   pointer-events:auto;
 }
 
-/* Shared image-viewer geometry for Gallery and Home Screenshot Spotlight. */
+/* Shared image-viewer geometry for Gallery and the Home Guild Gallery. */
 .lightbox-card{
   box-sizing:border-box;
   grid-row:2;

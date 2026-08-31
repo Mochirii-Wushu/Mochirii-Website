@@ -316,9 +316,14 @@ body[data-page="home"] .page-main section[aria-label="Guild bulletin"]{
   --home-rim-b:var(--home-jade);
 }
 
-body[data-page="home"] .page-main section[aria-label="Four doors"]{
+body[data-page="home"] .page-main section[aria-label="Guild guide"]{
   --home-rim-a:var(--home-jade);
   --home-rim-b:var(--home-frost);
+}
+
+body[data-page="home"] .page-main section[aria-label="Guild standards"]{
+  --home-rim-a:var(--home-lotus);
+  --home-rim-b:var(--home-moon);
 }
 
 body[data-page="home"] .page-main section[aria-label="Member spotlight"]{
@@ -326,7 +331,7 @@ body[data-page="home"] .page-main section[aria-label="Member spotlight"]{
   --home-rim-b:var(--home-lantern);
 }
 
-body[data-page="home"] .page-main section[aria-label="Screenshot spotlight"]{
+body[data-page="home"] .page-main section[aria-label="Guild gallery"]{
   --home-rim-a:var(--home-moon);
   --home-rim-b:var(--home-frost);
 }
@@ -564,10 +569,15 @@ body[data-page="home"] .home-door:nth-child(4){
   }
 
   body[data-page="home"] .page-main section[aria-label="Member spotlight"],
-  body[data-page="home"] .page-main section[aria-label="Screenshot spotlight"]{
+  body[data-page="home"] .page-main section[aria-label="Guild gallery"]{
     width:min(100%, 1080px);
     justify-self:center;
   }
+}
+
+body[data-page="home"] .home-section-cta{
+  display:inline-flex;
+  margin-top:clamp(16px, 2.4vw, 24px);
 }
 
 @media (max-width:900px){

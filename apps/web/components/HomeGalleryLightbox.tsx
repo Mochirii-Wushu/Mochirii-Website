@@ -27,6 +27,7 @@ export type GallerySpotlightItem = {
   full: string;
   alt: string;
   caption: string;
+  accessibleLabel?: string;
 };
 
 function HomeGalleryLightboxFallback({
@@ -140,7 +141,7 @@ export function HomeGalleryLightbox({
           <button
             className="home-thumb responsive-gallery-frame"
             type="button"
-            aria-label={`Open image: ${item.caption || item.alt || "Guild screenshot"}`}
+            aria-label={item.accessibleLabel || `Open screenshot: ${item.alt || "Guild screenshot"}`}
             key={item.key}
             onClick={(event) => openModal(index, event.currentTarget)}
           >

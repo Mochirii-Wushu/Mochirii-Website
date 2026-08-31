@@ -88,8 +88,8 @@
       "id": "content-guardrails",
       "path": "scripts/check-content-guardrails.mjs",
       "scope": "source-only public content and protected-copy guardrails",
-      "bytes": 19301,
-      "sha256": "B7B46E2D998894143929AB5BAAB14A975A2B8E9369F7686758E04A324B2C67B8",
+      "bytes": 20670,
+      "sha256": "877FACEBB156B7C16D34066607487D52A31190316F01310DBC71DE9E83879B35",
       "status": "verified_source"
     },
     {
@@ -160,8 +160,8 @@
       "id": "site-navigation",
       "path": "scripts/check-site-navigation.mjs",
       "scope": "source-only shared navigation contract; no browser journey claim",
-      "bytes": 27190,
-      "sha256": "296C8A099DBB2D4690FBA625598E08BDED34361BCE7B4E366D8C1BFB4E71083C",
+      "bytes": 27592,
+      "sha256": "0120BC5039AD87A9D1B34CB1EF5DD0AE28E5054A4A51E85F37720CAA4C5D08F7",
       "status": "verified_source"
     }
   ],

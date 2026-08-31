@@ -242,7 +242,13 @@ test("result names remain generic unless the current verified-member DTO supplie
 
 test("raffle instants use Singapore authority and strict visitor-local formatting", () => {
   const instant = "2026-08-01T13:30:00.000Z";
+  const septemberInstant = "2026-09-02T13:30:00.000Z";
   assert.equal(parseRaffleInstant(instant).toISOString(), instant);
+  assert.equal(formatRaffleTime(septemberInstant), "2 Sep 2026, 9:30 PM");
+  assert.equal(
+    formatRaffleTimeForZone(septemberInstant, "America/Los_Angeles"),
+    "2 Sep 2026, 6:30 AM",
+  );
   assert.match(formatRaffleTime(instant), /9:30\s*PM/i);
   assert.match(formatRaffleTimeForZone(instant, "America/Los_Angeles"), /6:30\s*AM/i);
   assert.match(formatRaffleTimeForZone(instant, "Europe/London"), /2:30\s*PM/i);

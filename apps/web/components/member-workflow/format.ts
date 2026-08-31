@@ -1,6 +1,7 @@
 import { DISCORD_REQUIRED_ROLE_NAMES } from "@/lib/supabase/config";
 import { hasRecentVerification, signedInName } from "@/lib/supabase/profile";
 import { text, type GallerySubmission, type MemberAccessResponse, type MemberProfile } from "@/lib/supabase/types";
+import { formatPublicDate, formatPublicDateTime } from "@/lib/public-date";
 import type { User } from "@supabase/supabase-js";
 
 export const editableProfileFields = [
@@ -33,24 +34,16 @@ export function formatDate(value: unknown, fallback = "Not checked") {
   if (!value) return fallback;
   const date = new Date(String(value));
   if (Number.isNaN(date.getTime())) return fallback;
-  return date.toLocaleString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  return formatPublicDateTime(date, timeZone);
 }
 
 export function formatDateShort(value: unknown, fallback = "Not set") {
   if (!value) return fallback;
   const date = new Date(String(value));
   if (Number.isNaN(date.getTime())) return fallback;
-  return date.toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  return formatPublicDate(date, timeZone);
 }
 
 export function formatBytes(value: unknown) {

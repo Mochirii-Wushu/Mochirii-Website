@@ -137,7 +137,7 @@ Use `npm run smoke:gallery` as a general regression check when shared behavior c
 - No console-breaking errors occur.
 - Supabase page shell does not cause signed-out runtime errors.
 - Protected recruitment body remains unchanged.
-- Guild seal poem remains unchanged.
+- The four approved Guild Standards lines remain unchanged.
 
 ## 10. Protected Content
 

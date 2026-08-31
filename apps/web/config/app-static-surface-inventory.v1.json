@@ -14,7 +14,7 @@
     "indexedMetadataRoutes": 18,
     "nonindexedMetadataRoutes": 11,
     "publicFiles": 249,
-    "publicBytes": 38509641,
+    "publicBytes": 38509462,
     "sourceFiles": 44
   },
   "sourceCatalog": [
@@ -75,8 +75,8 @@
     },
     {
       "path": "apps/web/app/layout.tsx",
-      "bytes": 2300,
-      "sha256": "165BFCC391E66DE222B3150BAF8E4DA967A23231E888183EC3FD89FE1AFD5801"
+      "bytes": 2361,
+      "sha256": "3176BB878FBDEC921355229611F5F7DA33CBE3EA27C8C847AE78B4745E3AE68E"
     },
     {
       "path": "apps/web/app/leader-dashboard/page.tsx",
@@ -105,8 +105,8 @@
     },
     {
       "path": "apps/web/app/page.tsx",
-      "bytes": 19177,
-      "sha256": "F3B9017DEC45B3ADF14F90986103E3B79B73A66427B2A7C61923080EE6E792A0"
+      "bytes": 24619,
+      "sha256": "FC4EA6D8CB10BDBAF929B3E6F04FB2336D20DF6B72E0C03C9E340CB4339A321F"
     },
     {
       "path": "apps/web/app/privacy/page.tsx",
@@ -191,7 +191,7 @@
     {
       "path": "apps/web/config/app-route-evidence.v1.json",
       "bytes": 68506,
-      "sha256": "5A0598034AE559827ECB872A65DF1AEFB62E771EA81E25B0B30C28487455AB51"
+      "sha256": "F7D68C5640F03D0B356120AEF4A8D0B441F59F0DFCDD0DAEDADE1D77AACB736E"
     },
     {
       "path": "apps/web/config/app-route-matrix.v1.json",
@@ -211,7 +211,7 @@
     {
       "path": "scripts/check-app-static-surface-inventory.mjs",
       "bytes": 13000,
-      "sha256": "A8B1FACCF375FF117CF3624899E11AB8CBF2F86B23134053C2FC414025A7DD06"
+      "sha256": "2927AAB46886EF07159D7723EB700CA8F8538AE92B98207EA2691D18D822172C"
     },
     {
       "path": "scripts/check-assets.mjs",
@@ -235,8 +235,8 @@
     },
     {
       "path": "scripts/lib/app-static-surface-inventory.test.mjs",
-      "bytes": 124505,
-      "sha256": "151A0C9010D8E2DDEF9F40A52BCCB4DD5FF324693DA5C21E6AED9F312EFDC295"
+      "bytes": 123900,
+      "sha256": "0FE5B5D27F24F0602B0FB9CFD02DFD8F595D5DD8743E4A34297377702D077C9F"
     }
   ],
   "metadataRoutes": [
@@ -2510,8 +2510,8 @@
     {
       "url": "/data/home.json",
       "source": "apps/web/public/data/home.json",
-      "bytes": 4780,
-      "sha256": "537A859DBFC32CA57E3A4CE46770E5FFC1F54E25C9F1D3FA17B8103790D2FDD5",
+      "bytes": 4579,
+      "sha256": "1540E2551398506277CFB86C03FAE4138799D45906E624745D22D4F5A4FB6131",
       "category": "public_data",
       "format": "json"
     },
@@ -2550,8 +2550,8 @@
     {
       "url": "/data/recruitment.json",
       "source": "apps/web/public/data/recruitment.json",
-      "bytes": 3695,
-      "sha256": "3427F0735FBE27D14511BB4F76B2AA557A5F22412B6C43D329CFC256139DD2F4",
+      "bytes": 3717,
+      "sha256": "DAC72FCB4E5384AB2FFECF22F1A2781BAE55DB1521C1126473D8F0775E396474",
       "category": "public_data",
       "format": "json"
     },

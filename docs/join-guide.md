@@ -154,7 +154,7 @@ Use `npm run smoke:gallery` as a general regression check when relevant to the r
 - Confirm focus states are visible.
 - Confirm there are no console-breaking errors.
 - Confirm protected recruitment body remains unchanged.
-- Confirm guild seal poem remains unchanged.
+- Confirm the four approved Guild Standards lines remain unchanged.
 
 ## 10. Protected Content
 

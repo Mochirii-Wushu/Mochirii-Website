@@ -375,7 +375,7 @@ export function SiteHeader({
             ))}
 
             <div className="mobile-group">
-              <div className="mobile-group-title">Official profiles</div>
+              <div className="mobile-group-title">Official Social Profiles</div>
               <OfficialGuildProfiles
                 placement="mobile"
                 onNavigate={() => closeMobile()}

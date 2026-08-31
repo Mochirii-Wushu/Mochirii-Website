@@ -34,7 +34,7 @@ export async function SpotlightPage() {
             winner={winner}
           />
         }
-        meta={<MetaRow items={[spotlightDate ? formatDateUTC(spotlightDate, { year: "numeric", month: "long", day: "2-digit" }) : "", spotlight.tag]} />}
+        meta={<MetaRow items={[spotlightDate ? formatDateUTC(spotlightDate) : "", spotlight.tag]} />}
         intro={
           <p id="spotlightIntro" className="lede">
             {text(spotlight.intro)}

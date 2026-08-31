@@ -1,9 +1,6 @@
-export const RAFFLE_TIME_ZONE = "Asia/Singapore" as const;
+import { formatPublicDateTime } from "../public-date.ts";
 
-const dateTimeOptions: Intl.DateTimeFormatOptions = {
-  dateStyle: "long",
-  timeStyle: "short",
-};
+export const RAFFLE_TIME_ZONE = "Asia/Singapore" as const;
 
 export function formatRaffleTime(instant: string) {
   return formatRaffleTimeForZone(instant, RAFFLE_TIME_ZONE);
@@ -11,7 +8,7 @@ export function formatRaffleTime(instant: string) {
 
 export function formatRaffleTimeForZone(instant: string, timeZone: string, locale = "en") {
   const date = parseRaffleInstant(instant);
-  return new Intl.DateTimeFormat(locale, { ...dateTimeOptions, timeZone }).format(date);
+  return formatPublicDateTime(date, timeZone, locale);
 }
 
 export function parseRaffleInstant(instant: string) {
