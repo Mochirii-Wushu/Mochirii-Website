@@ -2,6 +2,7 @@ import {
   MAX_PARTICIPANTS,
   parseStoredReceipts,
   parseStoredRoster,
+  SPINNER_ROTATION_TOLERANCE_DEGREES,
   targetRotationDegrees,
   type DrawReceipt,
   type DrawReceiptV2,
@@ -340,13 +341,16 @@ function rotationsLandOnIndex(
 ): boolean {
   if (startRotation < 0 || startRotation >= 360) return false;
   const travel = finalRotation - startRotation;
-  if (travel < 6 * 360 || travel >= 7 * 360) return false;
+  if (
+    travel < 6 * 360 - SPINNER_ROTATION_TOLERANCE_DEGREES ||
+    travel > 7 * 360 + SPINNER_ROTATION_TOLERANCE_DEGREES
+  ) return false;
   const target = normalizedRotationDegrees(
     targetRotationDegrees(selectedIndex, participantCount),
   );
   const actual = normalizedRotationDegrees(finalRotation);
   const error = Math.abs(actual - target);
-  return Math.min(error, 360 - error) <= 1e-7;
+  return Math.min(error, 360 - error) <= SPINNER_ROTATION_TOLERANCE_DEGREES;
 }
 
 function parseSpinnerLiveSnapshotV1(source: Record<string, unknown>): SpinnerLiveSnapshotV1 | null {
@@ -506,7 +510,8 @@ function parseSpinnerLiveSnapshotV2(source: Record<string, unknown>): SpinnerLiv
     if (!round || round.roundIndex !== index || round.selectedIndex >= active.length) return null;
     if (previousRevealAt !== null && round.startedAt !== previousRevealAt) return null;
     if (
-      round.startRotation !== expectedStartRotation ||
+      Math.abs(round.startRotation - expectedStartRotation) >
+        SPINNER_ROTATION_TOLERANCE_DEGREES ||
       !rotationsLandOnIndex(
         round.startRotation,
         round.finalRotation,
