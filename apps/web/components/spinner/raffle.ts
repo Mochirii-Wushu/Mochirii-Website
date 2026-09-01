@@ -3,6 +3,7 @@ export const ALGORITHM_VERSION = "uniform-uint32-rejection-v1";
 export const ELIMINATION_APP_VERSION = "2.0.0";
 export const ELIMINATION_ALGORITHM_VERSION = "uniform-elimination-uint32-rejection-v2";
 export const ELIMINATION_ROUND_DURATION_MS = 5_000;
+export const SPINNER_ROTATION_TOLERANCE_DEGREES = 1e-9;
 
 export const MIN_PARTICIPANTS = 2;
 export const MAX_PARTICIPANTS = 100;
@@ -746,11 +747,14 @@ function rotationsLandOnIndex(
   count: number,
 ): boolean {
   const travel = finalRotation - startRotation;
-  if (travel < 6 * 360 || travel >= 7 * 360) return false;
+  if (
+    travel < 6 * 360 - SPINNER_ROTATION_TOLERANCE_DEGREES ||
+    travel > 7 * 360 + SPINNER_ROTATION_TOLERANCE_DEGREES
+  ) return false;
   const target = normalizedRotationDegrees(-selectedIndex * (360 / count));
   const actual = normalizedRotationDegrees(finalRotation);
   const error = Math.abs(actual - target);
-  return Math.min(error, 360 - error) <= 1e-7;
+  return Math.min(error, 360 - error) <= SPINNER_ROTATION_TOLERANCE_DEGREES;
 }
 
 function parseReceiptV2Candidate(value: unknown): DrawReceiptV2 | null {
@@ -816,8 +820,11 @@ function parseReceiptV2Candidate(value: unknown): DrawReceiptV2 | null {
       Date.parse(roundRevealAt) !== expectedStartMs + ELIMINATION_ROUND_DURATION_MS ||
       roundStartRotation == null || roundStartRotation < 0 || roundStartRotation >= 360 ||
       roundFinalRotation == null ||
-      (roundIndex === 0 && roundStartRotation !== startRotation) ||
-      (previousRotation != null && roundStartRotation !== normalizedRotationDegrees(previousRotation)) ||
+      (roundIndex === 0 &&
+        Math.abs(roundStartRotation - startRotation) > SPINNER_ROTATION_TOLERANCE_DEGREES) ||
+      (previousRotation != null &&
+        Math.abs(roundStartRotation - normalizedRotationDegrees(previousRotation)) >
+          SPINNER_ROTATION_TOLERANCE_DEGREES) ||
       !rotationsLandOnIndex(roundStartRotation, roundFinalRotation, selectedIndex, remaining.length)
     ) return null;
 

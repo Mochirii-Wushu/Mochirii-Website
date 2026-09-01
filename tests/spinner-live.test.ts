@@ -36,6 +36,7 @@ import {
   ELIMINATION_ALGORITHM_VERSION,
   ELIMINATION_APP_VERSION,
   ELIMINATION_ROUND_DURATION_MS,
+  parseStoredReceipts,
   type ParticipantV1,
   // @ts-expect-error Node's type-stripping runner needs the explicit source extension.
 } from "../apps/web/components/spinner/raffle.ts";
@@ -179,6 +180,112 @@ function sequenceSnapshot(phase: "spinning" | "revealed" = "spinning") {
   };
 }
 
+function fractionalSequenceResult(drawMode: "official" | "test") {
+  const participants: ParticipantV1[] = Array.from({ length: 7 }, (_, index) => ({
+    version: 1,
+    id: `80000000-0000-4000-8000-${(index + 1).toString().padStart(12, "0")}`,
+    displayName: `Synthetic ${index + 1}`,
+  }));
+  const selectedIndices = [5, 1, 4, 0, 1, 0];
+  const startAtMs = Date.parse("2026-08-31T20:22:48.712Z");
+  const startRotation = 102.85714285714312;
+  const active = [...participants];
+  let roundStartRotation = startRotation;
+  const receiptRounds = selectedIndices.map((selectedIndex, roundIndex) => {
+    const activeCount = active.length;
+    const eliminatedParticipant = active[selectedIndex];
+    assert.ok(eliminatedParticipant);
+    const targetRotation = (((6 * 360 - selectedIndex * (360 / activeCount)) % 360) + 360) % 360;
+    const alignmentTravel = ((targetRotation - roundStartRotation) % 360 + 360) % 360;
+    const finalRotation = roundStartRotation + 6 * 360 + alignmentTravel;
+    const startedAt = new Date(startAtMs + roundIndex * 5_000).toISOString();
+    const revealAt = new Date(startAtMs + (roundIndex + 1) * 5_000).toISOString();
+    const round = {
+      roundIndex,
+      activeCount,
+      selectedIndex,
+      eliminatedId: eliminatedParticipant.id,
+      eliminatedParticipant,
+      rejectionLimit: Math.floor(0x1_0000_0000 / activeCount) * activeCount,
+      sampledWords: [selectedIndex],
+      acceptedWord: selectedIndex,
+      startedAt,
+      revealAt,
+      startRotation: roundStartRotation,
+      finalRotation,
+    };
+    active.splice(selectedIndex, 1);
+    roundStartRotation = ((finalRotation % 360) + 360) % 360;
+    return round;
+  });
+  const winner = active[0];
+  assert.ok(winner);
+  const selectedIndex = participants.findIndex(({ id }) => id === winner.id);
+  const recapTarget = (((6 * 360 - selectedIndex * (360 / participants.length)) % 360) + 360) % 360;
+  const finalRotation = startRotation + 6 * 360 +
+    ((recapTarget - startRotation) % 360 + 360) % 360;
+  const startedAt = receiptRounds[0]?.startedAt;
+  const revealAt = receiptRounds.at(-1)?.revealAt;
+  assert.ok(startedAt && revealAt);
+  const rounds = receiptRounds.map(({
+    roundIndex,
+    selectedIndex: roundSelectedIndex,
+    eliminatedId,
+    startedAt: roundStartedAt,
+    revealAt: roundRevealAt,
+    startRotation: roundStart,
+    finalRotation: roundFinal,
+  }) => ({
+    roundIndex,
+    selectedIndex: roundSelectedIndex,
+    eliminatedId,
+    startedAt: roundStartedAt,
+    revealAt: roundRevealAt,
+    startRotation: roundStart,
+    finalRotation: roundFinal,
+  }));
+  const receipt = {
+    version: 2,
+    drawMode,
+    drawId: DRAW_ID,
+    timestampIso: "2026-08-31T20:21:48.712Z",
+    singaporeTime: "01 Sep 2026, 04:21:48 GMT+8",
+    appVersion: ELIMINATION_APP_VERSION,
+    algorithmVersion: ELIMINATION_ALGORITHM_VERSION,
+    rosterSnapshot: { version: 1, participants },
+    rosterHashSha256: "b".repeat(64),
+    planHashSha256: PLAN_HASH,
+    durationMs: ELIMINATION_ROUND_DURATION_MS,
+    startAt: startedAt,
+    revealAt,
+    startRotation,
+    finalRotation,
+    rounds: receiptRounds,
+    selectedIndex,
+    winner,
+  };
+  const snapshot = {
+    version: 2,
+    sessionId: SESSION_ID,
+    revision: 30,
+    phase: "revealed",
+    drawMode,
+    participants,
+    startedAt,
+    revealAt,
+    durationMs: ELIMINATION_ROUND_DURATION_MS,
+    startRotation,
+    finalRotation,
+    selectedIndex,
+    winner,
+    drawId: DRAW_ID,
+    updatedAt: UPDATED_AT,
+    planHashSha256: PLAN_HASH,
+    rounds,
+  };
+  return { receipt, snapshot };
+}
+
 function sequenceReceipt() {
   const snapshot = sequenceSnapshot("revealed");
   const active = [...SEQUENCE_PARTICIPANTS];
@@ -300,6 +407,53 @@ test("v2 snapshots bind one compact contiguous five-second elimination plan", ()
   assert.ok(revealed && revealed.version === 2);
   assert.equal(revealed.selectedIndex, 2);
   assert.deepEqual(revealed.winner, SEQUENCE_PARTICIPANTS[2]);
+});
+
+test("v2 clients accept the server-valid fractional seven-entry result in both draw modes", () => {
+  for (const drawMode of ["official", "test"] as const) {
+    const { receipt, snapshot } = fractionalSequenceResult(drawMode);
+    assert.equal(snapshot.rounds[0]?.finalRotation - snapshot.rounds[0]?.startRotation, 7 * 360);
+    const parsed = parseSpinnerLiveResult({
+      ok: true,
+      data: {
+        mode: "controller",
+        snapshot,
+        receipt,
+        commandId: OTHER_DRAW_ID,
+        serverNow: SERVER_NOW,
+      },
+    });
+    assert.ok(parsed?.snapshot.version === 2);
+    assert.ok(parsed.receipt?.version === 2);
+    assert.equal(parsed.snapshot.rounds.length, 6);
+    assert.equal(parsed.receipt.rounds.length, 6);
+    assert.equal(parsed.snapshot.drawMode, drawMode);
+    assert.equal(parsed.receipt.drawMode, drawMode);
+  }
+});
+
+test("v2 clients share the server rotation tolerance for continuity and landing", () => {
+  const { receipt, snapshot } = fractionalSequenceResult("test");
+  const withinToleranceSnapshot = structuredClone(snapshot);
+  const withinToleranceReceipt = structuredClone(receipt);
+  withinToleranceSnapshot.rounds[1]!.startRotation += 5e-10;
+  withinToleranceReceipt.rounds[1]!.startRotation += 5e-10;
+  assert.ok(parseSpinnerLiveSnapshot(withinToleranceSnapshot));
+  assert.equal(parseStoredReceipts({ version: 1, receipts: [withinToleranceReceipt] }).length, 1);
+
+  const badContinuitySnapshot = structuredClone(snapshot);
+  const badContinuityReceipt = structuredClone(receipt);
+  badContinuitySnapshot.rounds[1]!.startRotation += 2e-9;
+  badContinuityReceipt.rounds[1]!.startRotation += 2e-9;
+  assert.equal(parseSpinnerLiveSnapshot(badContinuitySnapshot), null);
+  assert.equal(parseStoredReceipts({ version: 1, receipts: [badContinuityReceipt] }).length, 0);
+
+  const badLandingSnapshot = structuredClone(snapshot);
+  const badLandingReceipt = structuredClone(receipt);
+  badLandingSnapshot.rounds.at(-1)!.finalRotation += 2e-9;
+  badLandingReceipt.rounds.at(-1)!.finalRotation += 2e-9;
+  assert.equal(parseSpinnerLiveSnapshot(badLandingSnapshot), null);
+  assert.equal(parseStoredReceipts({ version: 1, receipts: [badLandingReceipt] }).length, 0);
 });
 
 test("v2 snapshots reject altered duration, order, continuity, selection, and plan identity", () => {
