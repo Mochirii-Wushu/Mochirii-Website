@@ -19,6 +19,7 @@ const UUID_PATTERN =
 const SHA256_PATTERN = /^[0-9a-f]{64}$/u;
 const BIDI_CONTROL_PATTERN = /[\u202a-\u202e\u2066-\u2069]/u;
 const CONTROL_PATTERN = /[\u0000-\u001f\u007f]/u;
+const SPINNER_ROTATION_TOLERANCE_DEGREES = 1e-9;
 
 export type ParticipantV1 = {
   version: 1;
@@ -378,6 +379,17 @@ export function targetRotationDegrees(
 
 function normalizedRotationDegrees(value: number): number {
   return ((value % 360) + 360) % 360;
+}
+
+function rotationsAreEquivalent(
+  left: number,
+  right: number,
+): boolean {
+  const difference = Math.abs(
+    normalizedRotationDegrees(left) - normalizedRotationDegrees(right),
+  );
+  return Math.min(difference, 360 - difference) <=
+    SPINNER_ROTATION_TOLERANCE_DEGREES;
 }
 
 function formatSingaporeTime(date: Date): string {
@@ -801,11 +813,12 @@ function serializeSnapshotV2(
       !Number.isFinite(roundStartRotation) || roundStartRotation < 0 ||
       roundStartRotation >= 360 || !Number.isFinite(roundFinalRotation) ||
       roundFinalRotation <= roundStartRotation || roundFinalRotation >= 2_880 ||
-      roundStartRotation !== expectedStartRotation ||
-      normalizedRotationDegrees(roundFinalRotation) !==
-        normalizedRotationDegrees(
-          targetRotationDegrees(selectedIndex, activeParticipants.length),
-        )
+      Math.abs(roundStartRotation - expectedStartRotation) >
+        SPINNER_ROTATION_TOLERANCE_DEGREES ||
+      !rotationsAreEquivalent(
+        roundFinalRotation,
+        targetRotationDegrees(selectedIndex, activeParticipants.length),
+      )
     ) {
       throw new TypeError("Live spinner v2 round is invalid.");
     }
@@ -832,10 +845,10 @@ function serializeSnapshotV2(
     ({ id }) => id === finalSurvivor.id,
   );
   if (
-    normalizedRotationDegrees(finalRotation) !==
-      normalizedRotationDegrees(
-        targetRotationDegrees(finalSelectedIndex, participants.length),
-      )
+    !rotationsAreEquivalent(
+      finalRotation,
+      targetRotationDegrees(finalSelectedIndex, participants.length),
+    )
   ) {
     throw new TypeError("Live spinner v2 recap rotation is invalid.");
   }

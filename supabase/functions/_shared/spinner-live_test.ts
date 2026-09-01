@@ -443,6 +443,84 @@ Deno.test("v2 snapshots validate the frozen round chain and trust the database p
   );
 });
 
+Deno.test("v2 snapshots accept fractional wheel angles within the database tolerance", async () => {
+  const roster: ParticipantV1[] = Array.from({ length: 7 }, (_, index) => ({
+    version: 1,
+    id: `00000000-0000-4000-8000-${(index + 1).toString().padStart(12, "0")}`,
+    displayName: `Member ${index + 1}`,
+  }));
+  const words = [5, 1, 4, 0, 1, 0];
+  const plan = await createLiveDrawPlan(roster, {
+    now: new Date("2026-08-31T20:21:48.712Z"),
+    startRotation: 102.85714285714312,
+    randomWord: () => words.shift()!,
+    uuidFactory: () => "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  });
+  const rounds = plan.receipt.rounds.map((round) => ({
+    roundIndex: round.roundIndex,
+    selectedIndex: round.selectedIndex,
+    eliminatedId: round.eliminatedId,
+    startedAt: round.startedAt,
+    revealAt: round.revealAt,
+    startRotation: round.startRotation,
+    finalRotation: round.finalRotation,
+  }));
+  const spinningRow = JSON.parse(JSON.stringify({
+    version: 2,
+    sessionId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    revision: 30,
+    phase: "spinning",
+    drawMode: "test",
+    participants: roster,
+    startedAt: plan.startAt,
+    revealAt: plan.revealAt,
+    durationMs: plan.durationMs,
+    startRotation: plan.startRotation,
+    finalRotation: plan.finalRotation,
+    planHashSha256: plan.planHashSha256,
+    rounds,
+    selectedIndex: null,
+    winner: null,
+    drawId: plan.receipt.drawId,
+    updatedAt: "2026-08-31T20:21:49.216Z",
+  }));
+
+  const spinning = serializeSnapshot(spinningRow);
+  assert(spinning.version === 2, "the fractional row must remain v2");
+  assertEquals(spinning.rounds, rounds);
+  const revealedRow = {
+    ...spinningRow,
+    phase: "revealed",
+    selectedIndex: plan.receipt.selectedIndex,
+    winner: plan.receipt.winner,
+  };
+  const revealed = serializeSnapshot(revealedRow);
+  assertEquals(revealed.selectedIndex, plan.receipt.selectedIndex);
+  assertEquals(revealed.winner, plan.receipt.winner);
+
+  const changedRound = rounds.length - 1;
+  assertThrows(
+    () =>
+      serializeSnapshot({
+        ...spinningRow,
+        rounds: rounds.map((round, index) =>
+          index === changedRound
+            ? { ...round, finalRotation: round.finalRotation + 1e-6 }
+            : round
+        ),
+      }),
+    "a round landing beyond the shared tolerance must fail",
+  );
+  assertThrows(
+    () =>
+      serializeSnapshot({
+        ...spinningRow,
+        finalRotation: plan.finalRotation + 1e-6,
+      }),
+    "a recap landing beyond the shared tolerance must fail",
+  );
+});
+
 Deno.test("controller polling can recover the current receipt while viewer polling cannot", async () => {
   const { receipt } = await createLiveDrawPlan(PARTICIPANTS, {
     now: new Date("2026-07-26T12:34:56.000Z"),
