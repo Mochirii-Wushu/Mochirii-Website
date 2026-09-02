@@ -6,11 +6,11 @@
     "galleryIntro": "Recent screenshots from combat, exploration, events & member gatherings."
   },
   "celebrationSplash": {
-    "enabled": false,
+    "enabled": true,
     "startsAt": "",
     "endsAt": "",
-    "title": "Happy Birthday Sinbell!!",
-    "message": "Mochi spirits love you!!",
+    "title": "Mōchirīī Guild PvP Tournament!!",
+    "message": "1 Oct 2026 • UTC+8 - Hosted in SEA · All WWM players welcome. - Total Prize pool = $275 USD!!",
     "storageKey": "sinbell-birthday-2026"
   },
   "hero": {
