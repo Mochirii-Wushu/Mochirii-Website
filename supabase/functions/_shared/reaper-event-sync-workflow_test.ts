@@ -287,6 +287,21 @@ async function withHarness(
 const sync = (deps: ReaperEventSyncDependencies, mode = "apply") =>
   processEventSync(mode, "test-interaction-token", "523456789012345678", deps);
 
+async function seedPartialScheduledEvents(h: ReturnType<typeof harness>) {
+  const desired = desiredEventsFromSchedule(h.schedule).slice(0, 6);
+  equal(desired.map((event) => event.key), ["monthly-gathering", "monthly-raffle", "guild-party-0", "guild-party-1", "guild-party-2", "guild-party-3"]);
+  const events: JsonRecord[] = [];
+  const resources: JsonRecord[] = [];
+  for (let i = 0; i < desired.length; i++) {
+    const event = desired[i];
+    const id = event.canonicalEventId || String(623456789012345678n + BigInt(i));
+    events.push({ ...await scheduledEventBody(event, false), recurrence_rule: event.recurrenceRule, id, guild_id: guildId, status: 1, entity_id: null, image: "b".repeat(32) });
+    resources.push({ id: `partial-${i}`, kind: "scheduled_event", discord_id: id, discord_parent_id: guildId, enabled: true, metadata: { managedBy: "reaper-event-sync", siteEventKey: event.key, coverImageUrl: event.coverImageUrl } });
+  }
+  h.setExisting(events);
+  h.setResources(resources);
+}
+
 Deno.test("concurrent actual workflows serialize per guild before any Discord write", () =>
   withHarness(async (h) => {
     await Promise.all([
@@ -790,6 +805,165 @@ Deno.test("actual transport 429 checkpoints five writes then a fresh approved in
     equal(h.registryWrites.length, 17);
     equal(h.runs.get(nextInteractionId)?.state, "completed");
     equal((h.messages.at(-1)!.match(/Unchanged:/g) || []).length, 5);
+  }));
+
+Deno.test("actual read-bucket exhaustion completes six cover updates and eleven creates, then no-ops all seventeen", () =>
+  withHarness(async (h) => {
+    await seedPartialScheduledEvents(h);
+    const originalApi = h.deps.discordApi;
+    let wireMutations = 0;
+    let waits = 0;
+    const fetcher: typeof fetch = async (input, init = {}) => {
+      const path = new URL(String(input)).pathname.slice("/api/v10".length);
+      if (init.method !== "GET") {
+        wireMutations++;
+        equal(h.rpcCalls.at(-1), "reaper_begin_event_sync_write");
+      }
+      const result = await originalApi(path, init, async () => {});
+      return Response.json(result.data, {
+        status: result.status,
+        headers: init.method === "GET"
+          ? { "X-RateLimit-Bucket": "scheduled-events-read", "X-RateLimit-Remaining": "0", "X-RateLimit-Reset-After": "10.787" }
+          : { "X-RateLimit-Bucket": "scheduled-events-write", "X-RateLimit-Remaining": "1" },
+      });
+    };
+    const newApi = () => createEventSyncDiscordApi("https://discord.com/api/v10", {
+      fetch: fetcher,
+      monotonicNow: () => 0,
+      wallNow: () => Date.now(),
+      wait: () => { waits++; return Promise.resolve(); },
+    });
+    h.deps.discordApi = newApi();
+    await sync(h.deps);
+    equal(wireMutations, 17);
+    equal(h.writes.filter((write) => write.method === "PATCH").length, 6);
+    equal(h.writes.filter((write) => write.method === "POST").length, 11);
+    equal(h.registryWrites.length, 17);
+    equal(h.runs.get(interactionId)?.state, "completed");
+    equal(waits, 0);
+    const receipts = structuredClone(h.resources());
+    assert(receipts.every((row) => /^[A-F0-9]{64}$/.test(String((row.metadata as JsonRecord).coverImageSha256)) && (row.metadata as JsonRecord).discordImageHash === "a".repeat(32)));
+    h.deps.discordApi = newApi();
+    await sync({ ...h.deps, interactionId: nextInteractionId });
+    equal(wireMutations, 17);
+    equal(h.registryWrites.length, 17);
+    equal(h.resources(), receipts);
+    equal(h.runs.get(nextInteractionId)?.state, "completed");
+    equal((h.messages.at(-1)!.match(/Unchanged:/g) || []).length, 17);
+    equal(waits, 0);
+  }));
+
+Deno.test("actual known write-bucket wait preserves the prior receipt and refences before the next wire", () =>
+  withHarness(async (h) => {
+    await seedPartialScheduledEvents(h);
+    const originalApi = h.deps.discordApi;
+    const wall = Date.now();
+    let clock = 0;
+    let wireMutations = 0;
+    let fencesBeforeWait: number | null = null;
+    const waits: number[] = [];
+    const fetcher: typeof fetch = async (input, init = {}) => {
+      const path = new URL(String(input)).pathname.slice("/api/v10".length);
+      if (init.method !== "GET") {
+        wireMutations++;
+        equal(h.rpcCalls.at(-1), "reaper_begin_event_sync_write");
+        if (fencesBeforeWait !== null) {
+          equal(h.rpcCalls.filter((name) => name === "reaper_begin_event_sync_write").length, fencesBeforeWait + 1);
+          fencesBeforeWait = null;
+        }
+      }
+      const result = await originalApi(path, init, async () => {});
+      return Response.json(result.data, { status: result.status, headers: wireMutations === 1 && init.method === "PATCH"
+        ? { "X-RateLimit-Bucket": "scheduled-events-patch", "X-RateLimit-Remaining": "0", "X-RateLimit-Reset-After": "0.025" }
+        : { "X-RateLimit-Bucket": init.method === "GET" ? "scheduled-events-read" : "scheduled-events-patch", "X-RateLimit-Remaining": "1" } });
+    };
+    h.deps.discordApi = createEventSyncDiscordApi("https://discord.com/api/v10", {
+      fetch: fetcher, monotonicNow: () => clock, wallNow: () => wall + clock,
+      wait: (milliseconds) => {
+        waits.push(milliseconds);
+        equal(wireMutations, 1);
+        equal(h.registryWrites.length, 1);
+        const metadata = h.resources().find((row) => row.discord_id === h.writes[0].path.split("/").at(-1))!.metadata as JsonRecord;
+        assert(/^[A-F0-9]{64}$/.test(String(metadata.coverImageSha256)));
+        equal(metadata.discordImageHash, "a".repeat(32));
+        fencesBeforeWait = h.rpcCalls.filter((name) => name === "reaper_begin_event_sync_write").length;
+        clock += milliseconds;
+        return Promise.resolve();
+      },
+    });
+    await sync(h.deps);
+    equal(waits, [25]);
+    equal(wireMutations, 17);
+    equal(h.writes.length, 17);
+    equal(h.registryWrites.length, 17);
+    equal(h.runs.get(interactionId)?.state, "completed");
+    assert(!h.rpcCalls.includes("reaper_pause_event_sync"));
+  }));
+
+Deno.test("actual write-bucket cooldown beyond the request budget safely pauses after its durable receipt", () =>
+  withHarness(async (h) => {
+    await seedPartialScheduledEvents(h);
+    const originalApi = h.deps.discordApi;
+    const wall = Date.now();
+    let wireMutations = 0;
+    let waits = 0;
+    const fetcher: typeof fetch = async (input, init = {}) => {
+      const path = new URL(String(input)).pathname.slice("/api/v10".length);
+      if (init.method !== "GET") wireMutations++;
+      const result = await originalApi(path, init, async () => {});
+      return Response.json(result.data, { status: result.status, headers: init.method === "PATCH"
+        ? { "X-RateLimit-Bucket": "scheduled-events-patch", "X-RateLimit-Remaining": "0", "X-RateLimit-Reset-After": "100.25" }
+        : { "X-RateLimit-Bucket": "scheduled-events-read", "X-RateLimit-Remaining": "1" } });
+    };
+    h.deps.discordApi = createEventSyncDiscordApi("https://discord.com/api/v10", {
+      fetch: fetcher, monotonicNow: () => 0, wallNow: () => wall,
+      wait: () => { waits++; return Promise.resolve(); },
+    });
+    await sync(h.deps);
+    equal(wireMutations, 1);
+    equal(h.writes.length, 1);
+    equal(h.registryWrites.length, 1);
+    equal(waits, 0);
+    equal(h.runs.get(interactionId)?.state, "paused");
+    equal(h.runs.get(interactionId)?.retryNotBefore, new Date(wall + 100_250).toISOString());
+    const updated = h.resources().find((row) => row.discord_id === h.writes[0].path.split("/").at(-1))!;
+    equal((updated.metadata as JsonRecord).discordImageHash, "a".repeat(32));
+    assert(/^[A-F0-9]{64}$/.test(String((updated.metadata as JsonRecord).coverImageSha256)));
+    equal((h.messages.at(-1)!.match(/Updated:/g) || []).length, 1);
+    assert(!h.messages.at(-1)?.includes("Event sync finished"));
+  }));
+
+Deno.test("actual owner fence lost during a write-bucket wait prevents another wire and preserves the checkpoint", () =>
+  withHarness(async (h) => {
+    await seedPartialScheduledEvents(h);
+    const originalApi = h.deps.discordApi;
+    let clock = 0;
+    let wireMutations = 0;
+    let checkpoint: JsonRecord[] = [];
+    const fetcher: typeof fetch = async (input, init = {}) => {
+      const path = new URL(String(input)).pathname.slice("/api/v10".length);
+      if (init.method !== "GET") wireMutations++;
+      const result = await originalApi(path, init, async () => {});
+      return Response.json(result.data, { status: result.status, headers: init.method === "PATCH"
+        ? { "X-RateLimit-Bucket": "scheduled-events-patch", "X-RateLimit-Remaining": "0", "X-RateLimit-Reset-After": "0.025" }
+        : { "X-RateLimit-Bucket": "scheduled-events-read", "X-RateLimit-Remaining": "1" } });
+    };
+    h.deps.discordApi = createEventSyncDiscordApi("https://discord.com/api/v10", {
+      fetch: fetcher, monotonicNow: () => clock,
+      wait: (milliseconds) => {
+        checkpoint = structuredClone(h.resources());
+        clock += milliseconds;
+        h.loseOwnership();
+        return Promise.resolve();
+      },
+    });
+    await sync(h.deps);
+    equal(wireMutations, 1);
+    equal(h.registryWrites.length, 1);
+    equal(h.resources(), checkpoint);
+    equal(h.runs.get(interactionId)?.state, "blocked");
+    assert(!h.rpcCalls.includes("reaper_pause_event_sync"));
+    assert(h.messages.at(-1)?.includes("Do not retry apply"));
   }));
 
 for (const beforeCommit of [true, false]) {
