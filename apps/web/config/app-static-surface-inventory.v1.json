@@ -14,7 +14,7 @@
     "indexedMetadataRoutes": 17,
     "nonindexedMetadataRoutes": 11,
     "publicFiles": 250,
-    "publicBytes": 47846783,
+    "publicBytes": 47847257,
     "sourceFiles": 43
   },
   "sourceCatalog": [
@@ -206,7 +206,7 @@
     {
       "path": "scripts/check-app-static-surface-inventory.mjs",
       "bytes": 13000,
-      "sha256": "DA84F07FB4F028B072783E6F0E656E7BEE6AC91204B592714C1CC26E99389FC5"
+      "sha256": "150F4885E7C90E58BCAA032F55980DDD37438B159A873F1D330CA1A1AD38F7B1"
     },
     {
       "path": "scripts/check-assets.mjs",
@@ -231,7 +231,7 @@
     {
       "path": "scripts/lib/app-static-surface-inventory.test.mjs",
       "bytes": 133123,
-      "sha256": "27BA02CA98C0D6DE94C18A71B77B46D567A48B521688805BBA51EFA14872DB73"
+      "sha256": "B44F12DB49DACC40DE28FA7CC16E6B3F130D44FB7E7E26018F3A311AD7335EB8"
     }
   ],
   "metadataRoutes": [
@@ -2468,8 +2468,8 @@
     {
       "url": "/data/announcements.json",
       "source": "apps/web/public/data/announcements.json",
-      "bytes": 1896,
-      "sha256": "5F9B41CACF796D5C949924E28602702580AE3F5D1CDAB06D84A7E5545A46BA58",
+      "bytes": 2370,
+      "sha256": "AB160AE5A473A08CB2D5099DA44FC77E2BF53F2E2BC20E57A6A5B7CF2DE47BD9",
       "category": "public_data",
       "format": "json"
     },

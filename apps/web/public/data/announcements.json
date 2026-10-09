@@ -6,7 +6,7 @@
     "updated": "2026-10-09",
     "badges": [
       "Check weekly",
-      "Times based on UTC +8",
+      "All times UTC+8",
       "Pinned items first"
     ],
     "hero": {
@@ -18,14 +18,17 @@
     {
       "id": "weekly-schedule",
       "pinned": true,
-      "date": "2026-02-07",
-      "title": "Weekly Schedule Posted",
-      "summary": "These windows help members gather, plan & make room for fun without stress.",
+      "date": "2026-10-09",
+      "title": "Guild Schedule Updated",
+      "summary": "All times use UTC+8. Midnight ends fall on the following day. The monthly gathering is first-Sunday 24:00–25:00: the following Monday, 12:00 AM–1:00 AM.",
       "details": [
-        "Guild Party: Every Day - 9:30 PM - 10 PM",
-        "Breaking Army: Mondays & Wednesdays - 10 PM - 12 AM",
-        "Showdown: Tuesdays & Thursdays - 10 PM - 12 AM",
-        "Guild Wars: Saturdays & Sundays - 8:30 PM - 11:00 PM"
+        "Guild Party: Every Day - 9:30 PM - 10:00 PM - UTC+8",
+        "Breaking Army: Mondays & Wednesdays - 10:00 PM - 12:00 AM - UTC+8 (ends the following day)",
+        "Showdown: Tuesdays & Thursdays - 10:00 PM - 12:00 AM - UTC+8 (ends the following day)",
+        "Guild Wars: Saturdays & Sundays - 8:30 PM - 11:00 PM - UTC+8",
+        "Guild Hero's Realm: Weekly Coordination: Fridays - 11:00 PM - 12:00 AM - UTC+8 (ends the following day)",
+        "Skyward Bond: Fridays - 10:00 PM - 11:00 PM - UTC+8",
+        "Monthly Guild Gathering: Monday after the first Sunday - 12:00 AM - 1:00 AM - UTC+8"
       ],
       "tags": ["schedule", "events"]
     },
@@ -46,8 +49,8 @@
       "id": "training-focus",
       "pinned": false,
       "date": "2026-02-21",
-      "title": "Training Focus: Fundamentals",
-      "summary": "This month we return to the basics: movement discipline, positioning, combos & mystics.",
+      "title": "Training Focus: Fundamentals — February 2026",
+      "summary": "February 2026's training focus was the basics: movement discipline, positioning, combos & mystics.",
       "details": [
         "Brief tips & tricks before events",
         "One improvement goal per member",
