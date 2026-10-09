@@ -399,7 +399,7 @@ function validateGuildSchedule(data) {
   if (data?.timezone?.offsetMinutes !== 480) addFailure(`${filePath}.timezone.offsetMinutes: expected 480.`);
 
   const monthlyRules = {
-    gathering: "next-first-wednesday",
+    gathering: "next-first-sunday",
     raffle: "next-first-saturday",
   };
   Object.entries(monthlyRules).forEach(([key, expectedRule]) => {
@@ -412,6 +412,9 @@ function validateGuildSchedule(data) {
     if (item.rule !== expectedRule) addFailure(`${filePath}.monthly.${key}.rule: expected ${expectedRule}.`);
     if (!isTime24(item.startTime)) addFailure(`${filePath}.monthly.${key}.startTime: expected HH:MM.`);
     if (!isTime24(item.endTime)) addFailure(`${filePath}.monthly.${key}.endTime: expected HH:MM.`);
+    if (key === "gathering" && item.startDayOffset !== 1) {
+      addFailure(`${filePath}.monthly.${key}.startDayOffset: expected 1 for first-Sunday overnight timing.`);
+    }
   });
 
   if (data?.spotlight?.rule !== "first-day-current-month") {

@@ -14,6 +14,204 @@ import {
   supersededManagedEventResources,
 } from "./reaper-event-sync-workflow.ts";
 import { siteUrl } from "./public-origins.ts";
+import guildScheduleData from "../../../apps/web/public/data/guild-schedule.json" with { type: "json" };
+import { websiteEventCardsFromSchedule } from "../../../apps/web/lib/guild-schedule.ts";
+
+const firstWednesdaySchedule = {
+  ...guildScheduleData,
+  monthly: {
+    ...guildScheduleData.monthly,
+    gathering: {
+      ...guildScheduleData.monthly.gathering,
+      rule: "next-first-wednesday",
+      startDayOffset: 0,
+      startTime: "21:30",
+      endTime: "22:00",
+      discordRecurrenceRule: { frequency: 1, interval: 1, by_n_weekday: [{ n: 1, day: 2 }] },
+    },
+  },
+};
+
+Deno.test("supported first-Wednesday fixture uses end-exclusive November, December and January rollover", () => {
+  for (const [instant, expectedDate] of [
+    ["2026-11-04T21:29:00+08:00", "2026-11-04"],
+    ["2026-11-04T21:30:00+08:00", "2026-11-04"],
+    ["2026-11-04T21:59:59.999+08:00", "2026-11-04"],
+    ["2026-11-04T22:00:00+08:00", "2026-12-02"],
+    ["2026-11-04T22:00:00.001+08:00", "2026-12-02"],
+    ["2026-12-02T22:00:00+08:00", "2027-01-06"],
+    ["2026-12-31T23:59:59.999+08:00", "2027-01-06"],
+    ["2027-01-01T00:00:00+08:00", "2027-01-06"],
+    ["2027-01-06T22:00:00+08:00", "2027-02-03"],
+  ]) {
+    const gathering = desiredEventsFromSchedule(firstWednesdaySchedule, new Date(instant))
+      .find((event) => event.key === "monthly-gathering");
+    assertEquals(gathering?.startIso, `${expectedDate}T13:30:00.000Z`);
+    assertEquals(gathering?.endIso, `${expectedDate}T14:00:00.000Z`);
+    assertEquals(gathering?.recurrenceRule?.start, gathering?.startIso);
+  }
+});
+
+Deno.test("monthly and weekly overnight occurrences remain current after UTC+8 midnight", () => {
+  const schedule = {
+    timezone: guildScheduleData.timezone,
+    monthly: { gathering: { ...firstWednesdaySchedule.monthly.gathering, startTime: "23:30", endTime: "01:00" } },
+    weekly: [{ id: "overnight", title: "Overnight", discord: true, days: [3], startTime: "23:00", endTime: "01:00" }],
+  };
+  const beforeEnd = desiredEventsFromSchedule(schedule, new Date("2026-11-05T00:59:59.999+08:00"));
+  assertEquals(beforeEnd.find((event) => event.key === "monthly-gathering")?.startIso, "2026-11-04T15:30:00.000Z");
+  assertEquals(beforeEnd.find((event) => event.key === "overnight-3")?.startIso, "2026-11-04T15:00:00.000Z");
+  const atEnd = desiredEventsFromSchedule(schedule, new Date("2026-11-05T01:00:00+08:00"));
+  assertEquals(atEnd.find((event) => event.key === "monthly-gathering")?.startIso, "2026-12-02T15:30:00.000Z");
+  assertEquals(atEnd.find((event) => event.key === "overnight-3")?.startIso, "2026-11-11T15:00:00.000Z");
+});
+
+Deno.test("existing first-Saturday raffle scheduling rolls at the exclusive end", () => {
+  for (const [instant, expectedDate] of [
+    ["2026-11-07T21:59:59.999+08:00", "2026-11-07"],
+    ["2026-11-07T22:00:00+08:00", "2026-12-05"],
+    ["2026-12-05T22:00:00+08:00", "2027-01-02"],
+  ]) {
+    const raffle = desiredEventsFromSchedule(guildScheduleData, new Date(instant))
+      .find((event) => event.key === "monthly-raffle");
+    assertEquals(raffle?.startIso, `${expectedDate}T13:30:00.000Z`);
+    assertEquals(raffle?.endIso, `${expectedDate}T14:00:00.000Z`);
+  }
+});
+
+Deno.test("Reaper timing descriptions include UTC+8 while existing descriptions and summaries remain intact", () => {
+  const events = desiredEventsFromSchedule(guildScheduleData, new Date("2026-10-09T20:00:00+08:00"));
+  const timingIds = ["guild-party", "breaking-army", "showdown", "guild-wars"];
+  for (const id of timingIds) {
+    const item = guildScheduleData.weekly.find((entry) => entry.id === id);
+    assert(item, `${id} schedule must exist`);
+    const instances = events.filter((event) => event.key.startsWith(`${id}-`));
+    assert(instances.length > 0, `${id} events must exist`);
+    for (const event of instances) assertEquals(event.description, `${item.timeText} - UTC+8`);
+  }
+  assertEquals(events.find((event) => event.key === "monthly-gathering")?.description, guildScheduleData.monthly.gathering.description);
+  assertEquals(events.find((event) => event.key === "monthly-raffle")?.description, guildScheduleData.monthly.raffle.description);
+  for (const id of ["guild-heros-realm", "united-resolve"]) {
+    const item = guildScheduleData.weekly.find((entry) => entry.id === id);
+    assertEquals(events.find((event) => event.key === `${id}-5`)?.description, item?.summary);
+  }
+});
+
+Deno.test("confirmed Guild Wars close at 23:00 UTC+8 while Saturday and Sunday keys remain stable", () => {
+  for (const [instant, expectedSaturday, expectedSunday] of [
+    ["2026-10-10T22:59:59.999+08:00", "2026-10-10", "2026-10-11"],
+    ["2026-10-10T23:00:00+08:00", "2026-10-17", "2026-10-11"],
+    ["2026-10-10T23:00:00.001+08:00", "2026-10-17", "2026-10-11"],
+    ["2026-10-11T22:59:59.999+08:00", "2026-10-17", "2026-10-11"],
+    ["2026-10-11T23:00:00+08:00", "2026-10-17", "2026-10-18"],
+    ["2026-10-11T23:00:00.001+08:00", "2026-10-17", "2026-10-18"],
+  ]) {
+    const now = new Date(instant);
+    const events = desiredEventsFromSchedule(guildScheduleData, now);
+    for (const [key, date] of [["guild-wars-6", expectedSaturday], ["guild-wars-0", expectedSunday]]) {
+      const wars = events.find((event) => event.key === key);
+      assertEquals(wars?.startIso, `${date}T12:30:00.000Z`);
+      assertEquals(wars?.endIso, `${date}T15:00:00.000Z`);
+      assertEquals(wars?.description, "8:30 PM - 11:00 PM - UTC+8");
+    }
+    const card = websiteEventCardsFromSchedule(guildScheduleData, now).find((item) => item.id === "guild-wars");
+    assert(events.some((event) => event.key.startsWith("guild-wars-") && event.startIso === card?.startIso && event.endIso === card?.endIso));
+  }
+});
+
+Deno.test("Reaper matches every Website occurrence across handoff, midnight and gathering boundaries", () => {
+  for (const instant of [
+    "2026-10-09T22:59:59.999+08:00", "2026-10-09T23:00:00+08:00",
+    "2026-10-09T23:59:59.999+08:00", "2026-10-10T00:00:00+08:00",
+    "2026-11-04T21:29:00+08:00", "2026-11-04T21:30:00+08:00",
+    "2026-11-04T21:59:59.999+08:00", "2026-11-04T22:00:00+08:00",
+    "2026-11-04T22:00:00.001+08:00", "2026-12-31T23:59:59.999+08:00",
+    "2027-01-01T00:00:00+08:00",
+    "2026-11-01T23:59:59.999+08:00", "2026-11-02T00:00:00+08:00",
+    "2026-11-02T00:59:59.999+08:00", "2026-11-02T01:00:00+08:00",
+    "2026-11-02T01:00:00.001+08:00", "2027-02-01T00:00:00+08:00",
+  ]) {
+    const now = new Date(instant);
+    const desired = desiredEventsFromSchedule(guildScheduleData, now);
+    const cards = websiteEventCardsFromSchedule(guildScheduleData, now);
+    for (const card of cards) {
+      assert(desired.some((event) =>
+        (event.key === card.id || event.key.startsWith(`${card.id}-`)) &&
+        event.startIso === card.startIso && event.endIso === card.endIso && event.websiteLocation === card.location
+      ), `${card.id} must match at ${instant}`);
+    }
+    assert(desired.some((event) => event.key === "monthly-raffle"), "existing Reaper raffle remains pending a decision");
+    assert(!cards.some((card) => card.id === "monthly-raffle"), "public raffle remains inactive");
+  }
+});
+
+Deno.test("collision suppression requires exact start, end and Website location and preserves weekday keys", () => {
+  const now = new Date("2026-11-04T21:30:00+08:00");
+  const collided = desiredEventsFromSchedule(firstWednesdaySchedule, now);
+  assertEquals(collided.find((event) => event.key === "guild-party-3")?.startIso, "2026-11-11T13:30:00.000Z");
+  assertEquals(collided.filter((event) => event.key.startsWith("guild-party-")).length, 7);
+  for (const change of [{ startTime: "21:31" }, { endTime: "22:01" }, { location: "https://mochirii.com/events#other" }]) {
+    const schedule = {
+      ...firstWednesdaySchedule,
+      monthly: { gathering: { ...firstWednesdaySchedule.monthly.gathering, ...change } },
+    };
+    const desired = desiredEventsFromSchedule(schedule, now);
+    assertEquals(desired.find((event) => event.key === "guild-party-3")?.startIso, "2026-11-04T13:30:00.000Z");
+  }
+});
+
+Deno.test("confirmed gathering occurs after the first Sunday with a Sunday UTC recurrence and exclusive end", () => {
+  for (const [instant, utcDate] of [
+    ["2026-11-01T23:59:59.999+08:00", "2026-11-01"],
+    ["2026-11-02T00:00:00+08:00", "2026-11-01"],
+    ["2026-11-02T00:59:59.999+08:00", "2026-11-01"],
+    ["2026-11-02T01:00:00+08:00", "2026-12-06"],
+    ["2026-11-02T01:00:00.001+08:00", "2026-12-06"],
+    ["2026-12-07T01:00:00+08:00", "2027-01-03"],
+    ["2026-12-31T23:59:59.999+08:00", "2027-01-03"],
+    ["2027-01-01T00:00:00+08:00", "2027-01-03"],
+    ["2027-01-04T01:00:00+08:00", "2027-02-07"],
+    ["2027-02-01T00:00:00+08:00", "2027-02-07"],
+    ["2027-02-08T00:59:59.999+08:00", "2027-02-07"],
+    ["2027-02-08T01:00:00+08:00", "2027-03-07"],
+  ]) {
+    const gathering = desiredEventsFromSchedule(guildScheduleData, new Date(instant)).find((event) => event.key === "monthly-gathering");
+    assertEquals(gathering?.startIso, `${utcDate}T16:00:00.000Z`);
+    assertEquals(gathering?.endIso, `${utcDate}T17:00:00.000Z`);
+    assertEquals(gathering?.recurrenceRule?.start, gathering?.startIso);
+    assertEquals(gathering?.recurrenceRule?.by_n_weekday, [{ n: 1, day: 6 }]);
+  }
+});
+
+Deno.test("current gathering leaves daily Guild Party keys and occurrences intact", () => {
+  const now = new Date("2026-11-01T21:30:00+08:00");
+  const desired = desiredEventsFromSchedule(guildScheduleData, now);
+  assertEquals(desired.find((event) => event.key === "guild-party-0")?.startIso, "2026-11-01T13:30:00.000Z");
+  assertEquals(desired.find((event) => event.key === "monthly-gathering")?.startIso, "2026-11-01T16:00:00.000Z");
+  assertEquals(desired.filter((event) => event.key.startsWith("guild-party-")).length, 7);
+});
+
+Deno.test("Skyward Bond hands off to Hero's Realm at 23:00 and Hero's Realm closes at UTC+8 midnight", () => {
+  for (const [instant, skywardDate, heroDate] of [
+    ["2026-10-09T21:59:59.999+08:00", "2026-10-09", "2026-10-09"],
+    ["2026-10-09T22:00:00+08:00", "2026-10-09", "2026-10-09"],
+    ["2026-10-09T22:59:59.999+08:00", "2026-10-09", "2026-10-09"],
+    ["2026-10-09T23:00:00+08:00", "2026-10-16", "2026-10-09"],
+    ["2026-10-09T23:00:00.001+08:00", "2026-10-16", "2026-10-09"],
+    ["2026-10-09T23:59:59.999+08:00", "2026-10-16", "2026-10-09"],
+    ["2026-10-10T00:00:00+08:00", "2026-10-16", "2026-10-16"],
+  ]) {
+    const desired = desiredEventsFromSchedule(guildScheduleData, new Date(instant));
+    const skyward = desired.find((item) => item.key === "united-resolve-5");
+    const hero = desired.find((item) => item.key === "guild-heros-realm-5");
+    assertEquals(skyward?.startIso, `${skywardDate}T14:00:00.000Z`);
+    assertEquals(skyward?.endIso, `${skywardDate}T15:00:00.000Z`);
+    assertEquals(hero?.startIso, `${heroDate}T15:00:00.000Z`);
+    assertEquals(hero?.endIso, `${heroDate}T16:00:00.000Z`);
+    assertEquals(desired.find((item) => item.key === "united-resolve-5")?.title, "Skyward Bond");
+    assertEquals(desired.filter((item) => item.key === "united-resolve-5").length, 1);
+  }
+});
 
 Deno.test("desiredEventsFromSchedule shapes monthly and weekly website schedule events", () => {
   const events = desiredEventsFromSchedule(
@@ -171,16 +369,16 @@ Deno.test("eventCoverImageData sends Discord-safe headers and rejects unsupporte
         userAgent: String(new Headers(init?.headers).get("User-Agent") || ""),
       });
       return Promise.resolve(
-        new Response(new Uint8Array([1, 2, 3]), {
+        new Response(new Uint8Array([255, 216, 255]), {
           headers: { "Content-Type": "image/jpeg" },
         }),
       );
     }) as typeof fetch;
 
-    const data = await eventCoverImageData(siteUrl("assets/test-cover.jpg?case=valid"), "Mochirii-Test/1.0");
+    const data = await eventCoverImageData(siteUrl("assets/img/discord-events/test-cover.jpg?v=valid"), "Mochirii-Test/1.0");
     assert(data.startsWith("data:image/jpeg;base64,"));
     assertEquals(calls[0], {
-      url: siteUrl("assets/test-cover.jpg?case=valid"),
+      url: siteUrl("assets/img/discord-events/test-cover.jpg?v=valid"),
       accept: "image/png,image/jpeg,image/webp",
       userAgent: "Mochirii-Test/1.0",
     });
@@ -193,7 +391,7 @@ Deno.test("eventCoverImageData sends Discord-safe headers and rejects unsupporte
       )) as typeof fetch;
 
     await assertRejects(
-      () => eventCoverImageData(siteUrl("assets/test-cover.html?case=invalid"), "Mochirii-Test/1.0"),
+      () => eventCoverImageData(siteUrl("assets/img/discord-events/test-cover.png?v=invalid"), "Mochirii-Test/1.0"),
       "unsupported content type should reject",
     );
   } finally {

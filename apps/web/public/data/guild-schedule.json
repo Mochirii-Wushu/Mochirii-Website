@@ -5,15 +5,16 @@
     "ianaZone": "Asia/Singapore",
     "offsetMinutes": 480
   },
-  "discordCoverVersion": "2026-06-10-event-panels",
+  "discordCoverVersion": "2026-10-09-uniform-covers",
   "monthly": {
     "gathering": {
       "id": "monthly-gathering",
       "title": "Monthly Guild Gathering",
-      "rule": "next-first-wednesday",
-      "time": "9:30 PM",
-      "startTime": "21:30",
-      "endTime": "22:00",
+      "rule": "next-first-sunday",
+      "startDayOffset": 1,
+      "time": "12:00 AM",
+      "startTime": "00:00",
+      "endTime": "01:00",
       "location": "https://mochirii.com/events",
       "discordCoverImage": "./assets/img/discord-events/monthly-gathering.png",
       "discordRecurrenceRule": {
@@ -22,7 +23,7 @@
         "by_n_weekday": [
           {
             "n": 1,
-            "day": 2
+            "day": 6
           }
         ]
       },
@@ -100,8 +101,8 @@
       "days": [6, 0],
       "dayText": "Saturdays & Sundays",
       "startTime": "20:30",
-      "endTime": "23:30",
-      "timeText": "8:30 PM - 11:30 PM",
+      "endTime": "23:00",
+      "timeText": "8:30 PM - 11:00 PM",
       "location": "https://mochirii.com/events",
       "discordCoverImage": "./assets/img/discord-events/guild-wars.png",
       "discord": true
@@ -111,9 +112,9 @@
       "title": "Guild Hero's Realm: Weekly Coordination",
       "days": [5],
       "dayText": "Fridays",
-      "startTime": "22:00",
-      "endTime": "23:00",
-      "timeText": "10 PM - 11 PM",
+      "startTime": "23:00",
+      "endTime": "00:00",
+      "timeText": "11 PM - 12 AM",
       "timezone": "UTC+8",
       "summary": "A weekly Friday window for the guild hero's realm. Show up, ask questions & we'll match groups together.",
       "image": "./assets/img/events/upcoming-01.webp",
@@ -125,18 +126,18 @@
     },
     {
       "id": "united-resolve",
-      "title": "United Resolve",
+      "title": "Skyward Bond",
       "days": [5],
       "dayText": "Fridays",
-      "startTime": "23:00",
-      "endTime": "00:00",
-      "timeText": "11 PM - 12 AM",
+      "startTime": "22:00",
+      "endTime": "23:00",
+      "timeText": "10 PM - 11 PM",
       "timezone": "UTC+8",
-      "summary": "A Friday guild window for members gathering after Hero's Realm.",
+      "summary": "A Friday guild window for Skyward Bond.",
       "image": "./assets/img/events/upcoming-01.webp",
       "href": "https://discord.com/invite/9HQKz6rqF4",
       "location": "https://mochirii.com/events",
-      "discordCoverImage": "./assets/img/discord-events/united-resolve.png",
+      "discordCoverImage": "./assets/img/discord-events/skyward-bond.png",
       "discord": true,
       "showOnEventsBoard": true
     }

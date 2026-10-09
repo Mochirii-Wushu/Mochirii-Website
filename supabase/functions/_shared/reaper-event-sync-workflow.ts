@@ -1,8 +1,10 @@
-import { asArray, asRecord, safeString, type JsonRecord } from "./discord-interaction-helpers.ts";
+import { asArray, asRecord, safeString, snowflake, type JsonRecord } from "./discord-interaction-helpers.ts";
 import {
   DISCORD_EVENT_ENTITY_EXTERNAL,
   desiredEventsFromSchedule,
+  eventCoverImageData,
   eventLocation,
+  fetchGuildSchedule,
   managedEventLine,
   scheduledEventBody,
   type ScheduleEvent,
@@ -10,6 +12,7 @@ import {
 
 type SupabaseAdminClient = {
   from(table: string): any;
+  rpc(name: string, args: JsonRecord): PromiseLike<{ data: unknown; error: { code?: string } | null }>;
 };
 
 type DiscordApiResult = {
@@ -19,6 +22,7 @@ type DiscordApiResult = {
 };
 
 export type ReaperEventSyncDependencies = {
+  interactionId: string;
   expectedGuildId: string;
   guildScheduleUrl: string;
   discordApiUserAgent: string;
@@ -28,34 +32,19 @@ export type ReaperEventSyncDependencies = {
   serviceAdminClient(purpose: string): SupabaseAdminClient;
 };
 
-async function fetchGuildSchedule(deps: ReaperEventSyncDependencies): Promise<JsonRecord> {
-  const scheduleUrl = Deno.env.get("GUILD_SCHEDULE_URL") || deps.guildScheduleUrl;
-  const response = await fetch(scheduleUrl, {
-    headers: {
-      Accept: "application/json",
-      "User-Agent": deps.discordApiUserAgent,
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`Schedule fetch failed with HTTP ${response.status}.`);
-  }
-
-  return asRecord(await response.json());
-}
-
 async function loadManagedEventResources(deps: ReaperEventSyncDependencies): Promise<JsonRecord[]> {
   const adminClient = deps.serviceAdminClient("event registry lookup");
   const { data, error } = await adminClient
     .from("discord_resources")
-    .select("id,label,discord_id,metadata,enabled")
+    .select("id,label,discord_id,discord_parent_id,metadata,enabled")
     .eq("kind", "scheduled_event")
+    .eq("discord_parent_id", deps.expectedGuildId)
     .eq("enabled", true);
 
-  if (error) {
+  if (error || !Array.isArray(data)) {
     console.error("reaper-discord-interactions scheduled event registry lookup failed", {
-      code: error.code,
-      message: error.message,
+      code: error?.code,
+      message: error?.message,
     });
     throw new Error("Scheduled event registry could not be read.");
   }
@@ -84,7 +73,10 @@ export function selectExistingScheduledEvent(
   desired: ScheduleEvent,
   resource: JsonRecord | undefined,
 ): JsonRecord | null {
-  const resourceEventId = safeString(resource?.discord_id, 24);
+  const resourceMetadata = asRecord(resource?.metadata);
+  const resourceEventId = resource?.enabled === true && resourceMetadata.managedBy === "reaper-event-sync" && resourceMetadata.siteEventKey === desired.key
+    ? snowflake(resource.discord_id)
+    : null;
   const explicitIds = [...new Set(
     [desired.canonicalEventId, resourceEventId].filter((value): value is string => Boolean(value)),
   )];
@@ -108,7 +100,13 @@ export function selectExistingScheduledEvent(
     throw new Error(`Discord scheduled event identity conflicts for ${desired.key}.`);
   }
 
-  return explicit || exact;
+  if (exact && !explicit) {
+    throw new Error(`Unregistered Discord event requires explicit adoption for ${desired.key}.`);
+  }
+  if (explicit && Number(explicit.entity_type) !== DISCORD_EVENT_ENTITY_EXTERNAL) {
+    throw new Error(`Discord event type conflicts for ${desired.key}.`);
+  }
+  return explicit;
 }
 
 export function supersededManagedEventResources(resources: JsonRecord[], currentEventId: string): JsonRecord[] {
@@ -123,6 +121,7 @@ async function retireSupersededEventResources(
   resources: JsonRecord[],
   currentEventId: string,
   desired: ScheduleEvent,
+  beforeWrite: () => Promise<void>,
 ): Promise<void> {
   const superseded = supersededManagedEventResources(resources, currentEventId);
   if (!superseded.length) return;
@@ -133,6 +132,7 @@ async function retireSupersededEventResources(
     if (!resourceId) {
       throw new Error("Superseded scheduled event registry id is missing.");
     }
+    await beforeWrite();
     const { error } = await adminClient
       .from("discord_resources")
       .update({
@@ -165,14 +165,16 @@ async function upsertDiscordEventResource(
   event: JsonRecord,
   desired: ScheduleEvent,
   priorResources: JsonRecord[],
+  beforeWrite: () => Promise<void>,
 ): Promise<void> {
-  const eventId = safeString(event.id, 24);
+  const eventId = snowflake(event.id);
 
   if (!eventId) {
     throw new Error("Discord scheduled event id is missing.");
   }
 
   const adminClient = deps.serviceAdminClient("event registry updates");
+  await beforeWrite();
   const { error } = await adminClient
     .from("discord_resources")
     .upsert(
@@ -209,15 +211,17 @@ async function upsertDiscordEventResource(
     throw new Error("Scheduled event was changed but could not be recorded in the website registry.");
   }
 
-  await retireSupersededEventResources(deps, priorResources, eventId, desired);
+  await retireSupersededEventResources(deps, priorResources, eventId, desired, beforeWrite);
 }
 
 async function disableDuplicateEventResource(
   deps: ReaperEventSyncDependencies,
   eventId: string,
   desired: ScheduleEvent,
+  beforeWrite: () => Promise<void>,
 ): Promise<void> {
   const adminClient = deps.serviceAdminClient("duplicate event registry updates");
+  await beforeWrite();
   const { error } = await adminClient
     .from("discord_resources")
     .update({
@@ -250,6 +254,7 @@ async function processDuplicateScheduledEvents(
   desired: ScheduleEvent,
   existingEvents: JsonRecord[],
   lines: string[],
+  beforeWrite: () => Promise<void>,
 ): Promise<void> {
   for (const duplicateId of desired.duplicateEventIds) {
     if (!duplicateId || duplicateId === desired.canonicalEventId) continue;
@@ -262,15 +267,15 @@ async function processDuplicateScheduledEvents(
     lines.push(managedEventLine(apply ? "Removed duplicate" : "Would remove duplicate", desired, `event ${duplicateId}`));
     if (!apply) continue;
 
+    await beforeWrite();
     const response = await deps.discordApi(`/guilds/${deps.expectedGuildId}/scheduled-events/${duplicateId}`, {
       method: "DELETE",
       headers: deps.discordApiHeaders(),
     });
     if (!response.ok) {
-      lines[lines.length - 1] = managedEventLine("Blocked duplicate removal", desired, `Discord API ${response.status}`);
-      continue;
+      throw new Error(`Duplicate removal could not be confirmed (Discord API ${response.status}).`);
     }
-    await disableDuplicateEventResource(deps, duplicateId, desired);
+    await disableDuplicateEventResource(deps, duplicateId, desired, beforeWrite);
   }
 }
 
@@ -282,18 +287,64 @@ export async function processEventSync(
 ): Promise<void> {
   const apply = mode === "apply";
   const lines: string[] = [];
+  const ownerId = crypto.randomUUID();
+  let reserved = false;
+  let reservationAttempted = false;
+  let writing = false;
+  const reservationArgs = {
+    p_guild_id: deps.expectedGuildId,
+    p_interaction_id: deps.interactionId,
+    p_owner_id: ownerId,
+  };
+  const transition = async (name: string, extra: JsonRecord = {}): Promise<unknown> => {
+    const { data, error } = await deps.serviceAdminClient("event sync reservation").rpc(name, { ...reservationArgs, ...extra });
+    if (error) throw new Error("Event sync reservation could not be verified.");
+    return data;
+  };
+  const beforeWrite = async () => {
+    if (!reserved || await transition("reaper_begin_event_sync_write") !== true) {
+      throw new Error("Event sync reservation ownership was lost.");
+    }
+    // Set before sending: a failed/aborted HTTP request does not prove that
+    // Discord rejected it. Never replay or automatically release that writer.
+    writing = true;
+  };
 
   try {
+    if (!["apply", "preview"].includes(mode) || !/^\d{17,20}$/.test(deps.interactionId) || !/^\d{17,20}$/.test(deps.expectedGuildId)) {
+      throw new Error("Event sync interaction identity is invalid.");
+    }
     if (!Deno.env.get("DISCORD_BOT_TOKEN")) {
       await deps.editOriginalInteractionResponse(applicationId, interactionToken, "Reaper event sync is missing the Discord bot token.");
       return;
     }
 
-    const schedule = await fetchGuildSchedule(deps);
+    if (apply) {
+      reservationAttempted = true;
+      const result = await transition("reaper_reserve_event_sync");
+      if (result !== "acquired") {
+        reservationAttempted = false;
+        await deps.editOriginalInteractionResponse(applicationId, interactionToken, result === "duplicate"
+          ? "This event sync interaction was already handled. Use a new preview; it will not be replayed."
+          : "Event sync apply is blocked by an active or unresolved guild reservation. Reconcile the prior run before retrying.");
+        return;
+      }
+      reserved = true;
+    }
+
+    const schedule = await fetchGuildSchedule(Deno.env.get("GUILD_SCHEDULE_URL") || deps.guildScheduleUrl, deps.discordApiUserAgent);
     const desiredEvents = desiredEventsFromSchedule(schedule);
     if (!desiredEvents.length) {
-      await deps.editOriginalInteractionResponse(applicationId, interactionToken, "Reaper event sync found no website schedule events.");
-      return;
+      throw new Error("Website schedule has no events.");
+    }
+    const desiredKeys = new Set<string>();
+    const duplicateEventIds = new Set<string>();
+    for (const desired of desiredEvents) {
+      if (desiredKeys.has(desired.key)) {
+        throw new Error(`Website scheduled event key is ambiguous for ${desired.key}.`);
+      }
+      desiredKeys.add(desired.key);
+      for (const id of desired.duplicateEventIds) duplicateEventIds.add(id);
     }
 
     const [resources, eventsResponse] = await Promise.all([
@@ -304,15 +355,15 @@ export async function processEventSync(
     ]);
 
     if (!eventsResponse.ok) {
-      await deps.editOriginalInteractionResponse(
-        applicationId,
-        interactionToken,
-        "Reaper could not read Discord scheduled events. Check bot event permissions.",
-      );
-      return;
+      throw new Error("Discord scheduled events could not be read.");
     }
 
-    const existingEvents = asArray(eventsResponse.data).map(asRecord);
+    if (!Array.isArray(eventsResponse.data)) throw new Error("Discord scheduled event response is malformed.");
+    const existingEvents = eventsResponse.data.map(asRecord);
+    const existingIds = existingEvents.map((event) => snowflake(event.id));
+    if (existingIds.some((id) => !id) || new Set(existingIds).size !== existingIds.length) {
+      throw new Error("Discord scheduled event identities are malformed.");
+    }
     const resourceByKey = indexManagedEventResources(resources);
     const resolutions = desiredEvents.map((desired) => {
       const resource = resourceByKey.get(desired.key);
@@ -322,6 +373,32 @@ export async function processEventSync(
         existing: selectExistingScheduledEvent(existingEvents, desired, resource),
       };
     });
+    const targetIds = new Set<string>();
+    for (const { desired, existing } of resolutions) {
+      if (!existing) continue;
+      const targetId = snowflake(existing.id)!;
+      if (targetIds.has(targetId) || duplicateEventIds.has(targetId)) {
+        throw new Error(`Discord scheduled event target conflicts for ${desired.key}.`);
+      }
+      targetIds.add(targetId);
+    }
+
+    // Preflight every identity and image before the first mutation. Preview
+    // exercises the same readiness checks without reserving or writing.
+    const bodies = new Map<string, JsonRecord>();
+    const coverData = new Map<string, string>();
+    for (const { desired } of resolutions) {
+      const body = await scheduledEventBody(desired, false);
+      if (desired.coverImageUrl) {
+        let image = coverData.get(desired.coverImageUrl);
+        if (!image) {
+          image = await eventCoverImageData(desired.coverImageUrl, deps.discordApiUserAgent);
+          coverData.set(desired.coverImageUrl, image);
+        }
+        body.image = image;
+      }
+      bodies.set(desired.key, body);
+    }
 
     for (const { desired, resource, existing } of resolutions) {
       const priorResources = resource ? [resource] : [];
@@ -329,63 +406,66 @@ export async function processEventSync(
       if (existing) {
         lines.push(managedEventLine(apply ? "Updated" : "Would update", desired, `event ${safeString(existing.id, 24) || "unknown"}`));
         if (apply) {
-          let body: JsonRecord;
-          try {
-            body = await scheduledEventBody(desired, true, { userAgent: deps.discordApiUserAgent });
-          } catch {
-            lines[lines.length - 1] = managedEventLine("Blocked", desired, "cover image unavailable");
-            continue;
-          }
+          await beforeWrite();
           const response = await deps.discordApi(`/guilds/${deps.expectedGuildId}/scheduled-events/${safeString(existing.id, 24)}`, {
             method: "PATCH",
             headers: deps.discordApiHeaders(true),
-            body: JSON.stringify(body),
+            body: JSON.stringify(bodies.get(desired.key)),
           });
           if (!response.ok) {
-            lines[lines.length - 1] = managedEventLine("Blocked", desired, `Discord API ${response.status}`);
-            continue;
+            throw new Error(`Event update could not be confirmed (Discord API ${response.status}).`);
           }
-          await upsertDiscordEventResource(deps, asRecord(response.data), desired, priorResources);
+          await upsertDiscordEventResource(deps, asRecord(response.data), desired, priorResources, beforeWrite);
         }
-        await processDuplicateScheduledEvents(deps, apply, desired, existingEvents, lines);
+        await processDuplicateScheduledEvents(deps, apply, desired, existingEvents, lines, beforeWrite);
         continue;
       }
 
       lines.push(managedEventLine(apply ? "Created" : "Would create", desired, "external scheduled event"));
       if (apply) {
-        let body: JsonRecord;
-        try {
-          body = await scheduledEventBody(desired, true, { userAgent: deps.discordApiUserAgent });
-        } catch {
-          lines[lines.length - 1] = managedEventLine("Blocked", desired, "cover image unavailable");
-          continue;
-        }
+        await beforeWrite();
         const response = await deps.discordApi(`/guilds/${deps.expectedGuildId}/scheduled-events`, {
           method: "POST",
           headers: deps.discordApiHeaders(true),
-          body: JSON.stringify(body),
+          body: JSON.stringify(bodies.get(desired.key)),
         });
         if (!response.ok) {
-          lines[lines.length - 1] = managedEventLine("Blocked", desired, `Discord API ${response.status}`);
-          continue;
+          throw new Error(`Event creation could not be confirmed (Discord API ${response.status}).`);
         }
-        await upsertDiscordEventResource(deps, asRecord(response.data), desired, priorResources);
+        await upsertDiscordEventResource(deps, asRecord(response.data), desired, priorResources, beforeWrite);
       }
-      await processDuplicateScheduledEvents(deps, apply, desired, existingEvents, lines);
+      await processDuplicateScheduledEvents(deps, apply, desired, existingEvents, lines, beforeWrite);
     }
 
+    if (reserved) {
+      if (await transition("reaper_finish_event_sync", { p_outcome: "completed" }) !== true) {
+        throw new Error("Event sync completion could not be recorded.");
+      }
+      reserved = false;
+      reservationAttempted = false;
+    }
     const intro = apply
       ? "Event sync finished. Only Reaper-managed external Discord events were created or updated."
       : "Event sync preview. No Discord scheduled events were changed.";
     await deps.editOriginalInteractionResponse(applicationId, interactionToken, `${intro}\n${lines.slice(0, 25).join("\n")}`);
   } catch (error) {
+    let recoveryRequired = reserved && writing;
+    if (reservationAttempted) {
+      try {
+        if (await transition("reaper_finish_event_sync", { p_outcome: writing ? "blocked" : "rejected" }) !== true) recoveryRequired = true;
+      } catch {
+        recoveryRequired = true;
+      }
+    }
     console.error("reaper-discord-interactions event sync failed", {
       message: error instanceof Error ? error.message : String(error),
     });
     await deps.editOriginalInteractionResponse(
       applicationId,
       interactionToken,
-      "Reaper event sync could not be completed. Check configuration and try preview again.",
+      recoveryRequired
+        ? "Event sync requires reconciliation after an uncertain write or reservation failure. Do not retry apply: reconcile Discord and the registry after the prior worker has terminated, then verify or release its reservation through the approved recovery procedure."
+        : "Reaper event sync could not be completed. Check schedule, cover readiness and event ownership, then run a new preview. Unregistered matching events require explicit adoption.",
     );
   }
 }

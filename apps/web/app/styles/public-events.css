@@ -1,7 +1,7 @@
 /* =========================================================
    EVENTS â€” Visual schedule pilot
    ========================================================= */
-body[data-page="events"]{
+:is(body[data-page="events"], .events-page){
   --events-lantern:rgba(218,181,94,.66);
   --events-lantern-soft:rgba(218,181,94,.16);
   --events-ember:rgba(205,103,61,.44);
@@ -16,7 +16,7 @@ body[data-page="events"]{
   --events-muted:rgba(237,230,212,.70);
 }
 
-body[data-page="events"] .page-hero{
+:is(body[data-page="events"], .events-page) .page-hero{
   border:1px solid transparent;
   background:
     linear-gradient(rgba(10,8,7,.10), rgba(10,8,7,.18)) padding-box,
@@ -27,8 +27,8 @@ body[data-page="events"] .page-hero{
     0 0 44px rgba(218,181,94,.10);
 }
 
-body[data-page="events"] .hero-intro,
-body[data-page="events"] .page-main .glass-card{
+:is(body[data-page="events"], .events-page) .hero-intro,
+:is(body[data-page="events"], .events-page) .page-main .glass-card{
   position:relative;
   overflow:hidden;
   isolation:isolate;
@@ -45,8 +45,8 @@ body[data-page="events"] .page-main .glass-card{
     inset 0 1px 0 rgba(255,255,255,.09);
 }
 
-body[data-page="events"] .hero-intro::before,
-body[data-page="events"] .page-main .glass-card::before{
+:is(body[data-page="events"], .events-page) .hero-intro::before,
+:is(body[data-page="events"], .events-page) .page-main .glass-card::before{
   content:"";
   position:absolute;
   inset:1px;
@@ -59,7 +59,7 @@ body[data-page="events"] .page-main .glass-card::before{
     linear-gradient(180deg, rgba(255,255,255,.035), transparent 48%);
 }
 
-body[data-page="events"] .hero-intro{
+:is(body[data-page="events"], .events-page) .hero-intro{
   background:
     radial-gradient(circle at 20% 0%, rgba(218,181,94,.22), transparent 34%),
     radial-gradient(circle at 88% 14%, rgba(205,103,61,.14), transparent 32%),
@@ -67,26 +67,26 @@ body[data-page="events"] .hero-intro{
     linear-gradient(135deg, var(--events-lantern), rgba(205,103,61,.24), rgba(48,178,143,.28)) border-box;
 }
 
-body[data-page="events"] .page-main .grid-gap{
+:is(body[data-page="events"], .events-page) .page-main .grid-gap{
   gap:clamp(22px, 3vw, 34px);
 }
 
-body[data-page="events"] .glass-pad{
+:is(body[data-page="events"], .events-page) .glass-pad{
   padding:clamp(20px, 3vw, 30px);
 }
 
-body[data-page="events"] .kicker,
-body[data-page="events"] .meta-text,
-body[data-page="events"] .muted{
+:is(body[data-page="events"], .events-page) .kicker,
+:is(body[data-page="events"], .events-page) .meta-text,
+:is(body[data-page="events"], .events-page) .muted{
   color:var(--events-muted);
 }
 
-body[data-page="events"] .display-title,
-body[data-page="events"] .section-title{
+:is(body[data-page="events"], .events-page) .display-title,
+:is(body[data-page="events"], .events-page) .section-title{
   text-shadow:0 10px 26px rgba(218,181,94,.15);
 }
 
-body[data-page="events"] .badge-row > span{
+:is(body[data-page="events"], .events-page) .badge-row > span{
   animation:none;
   border:1px solid rgba(218,181,94,.32);
   background:
@@ -97,7 +97,7 @@ body[data-page="events"] .badge-row > span{
     0 8px 20px rgba(0,0,0,.24);
 }
 
-body[data-page="events"] .events-toolbar{
+:is(body[data-page="events"], .events-page) .events-toolbar{
   display:flex;
   flex-direction:column;
   gap:12px;
@@ -111,7 +111,7 @@ body[data-page="events"] .events-toolbar{
   box-shadow:inset 0 1px 0 rgba(255,255,255,.07);
 }
 
-body[data-page="events"] .events-filters{
+:is(body[data-page="events"], .events-page) .events-filters{
   display:flex;
   flex-wrap:wrap;
   gap:8px;
@@ -121,9 +121,14 @@ body[data-page="events"] .events-filters{
   background:rgba(0,0,0,.20);
 }
 
-body[data-page="events"] .events-filter{
+/* The server-rendered schedule stays readable before client filtering is available. */
+body:not([data-page="events"]) .events-page .events-filters{
+  display:none;
+}
+
+:is(body[data-page="events"], .events-page) .events-filter{
   min-height:44px;
-  flex:1 1 0;
+  flex:1 1 auto;
   display:inline-flex;
   align-items:center;
   justify-content:center;
@@ -136,19 +141,20 @@ body[data-page="events"] .events-filter{
   font:inherit;
   font-size:13px;
   font-weight:700;
+  white-space:nowrap;
   cursor:pointer;
   transition:transform .18s var(--ease), border-color .18s var(--ease), background .18s var(--ease), color .18s var(--ease), box-shadow .18s var(--ease);
 }
 
-body[data-page="events"] .events-filter:hover,
-body[data-page="events"] .events-filter:focus-visible{
+:is(body[data-page="events"], .events-page) .events-filter:hover,
+:is(body[data-page="events"], .events-page) .events-filter:focus-visible{
   transform:translateY(-1px);
   border-color:rgba(218,181,94,.44);
   color:var(--events-ink);
   box-shadow:0 0 0 3px rgba(218,181,94,.11);
 }
 
-body[data-page="events"] .events-filter:focus-visible{
+:is(body[data-page="events"], .events-page) .events-filter:focus-visible{
   outline:2px solid rgba(250,247,237,.78);
   outline-offset:3px;
   box-shadow:
@@ -156,7 +162,7 @@ body[data-page="events"] .events-filter:focus-visible{
     0 0 0 6px rgba(48,178,143,.12);
 }
 
-body[data-page="events"] .events-filter[aria-pressed="true"]{
+:is(body[data-page="events"], .events-page) .events-filter[aria-pressed="true"]{
   border-color:rgba(218,181,94,.58);
   background:
     radial-gradient(circle at 50% 0%, rgba(218,181,94,.24), transparent 62%),
@@ -168,7 +174,7 @@ body[data-page="events"] .events-filter[aria-pressed="true"]{
     0 0 18px rgba(218,181,94,.09);
 }
 
-body[data-page="events"] .events-count{
+:is(body[data-page="events"], .events-page) .events-count{
   align-self:flex-start;
   margin:0;
   padding:6px 10px;
@@ -180,7 +186,7 @@ body[data-page="events"] .events-count{
   color:var(--events-muted);
 }
 
-body[data-page="events"] .events-board-card{
+:is(body[data-page="events"], .events-page) .events-board-card{
   box-sizing:border-box;
   display:flex;
   flex-direction:column;
@@ -188,12 +194,12 @@ body[data-page="events"] .events-board-card{
   min-height:0;
 }
 
-body[data-page="events"] .events-board-card > .section-title,
-body[data-page="events"] .events-board-card .events-toolbar{
+:is(body[data-page="events"], .events-page) .events-board-card > .section-title,
+:is(body[data-page="events"], .events-page) .events-board-card .events-toolbar{
   flex:0 0 auto;
 }
 
-body[data-page="events"] .events-board-card .events-upcoming{
+:is(body[data-page="events"], .events-page) .events-board-card .events-upcoming{
   flex:1 1 auto;
   min-height:0;
   overflow-x:hidden;
@@ -204,22 +210,22 @@ body[data-page="events"] .events-board-card .events-upcoming{
   scrollbar-width:thin;
 }
 
-body[data-page="events"] .events-board-card .events-upcoming::-webkit-scrollbar{
+:is(body[data-page="events"], .events-page) .events-board-card .events-upcoming::-webkit-scrollbar{
   width:8px;
 }
 
-body[data-page="events"] .events-board-card .events-upcoming::-webkit-scrollbar-track{
+:is(body[data-page="events"], .events-page) .events-board-card .events-upcoming::-webkit-scrollbar-track{
   border-radius:999px;
   background:rgba(255,255,255,.07);
 }
 
-body[data-page="events"] .events-board-card .events-upcoming::-webkit-scrollbar-thumb{
+:is(body[data-page="events"], .events-page) .events-board-card .events-upcoming::-webkit-scrollbar-thumb{
   border:2px solid rgba(8,10,10,.76);
   border-radius:999px;
   background:linear-gradient(180deg, rgba(218,181,94,.72), rgba(48,178,143,.50));
 }
 
-body[data-page="events"] .events-board-card .events-upcoming:focus-visible{
+:is(body[data-page="events"], .events-page) .events-board-card .events-upcoming:focus-visible{
   outline:2px solid rgba(250,247,237,.78);
   outline-offset:4px;
   box-shadow:
@@ -228,19 +234,19 @@ body[data-page="events"] .events-board-card .events-upcoming:focus-visible{
 }
 
 @media (max-width:980px){
-  body[data-page="events"] .events-board-card{
+  :is(body[data-page="events"], .events-page) .events-board-card{
     max-height:70vh;
   }
 }
 
-body[data-page="events"] .events-upcoming{
+:is(body[data-page="events"], .events-page) .events-upcoming{
   display:flex;
   flex-direction:column;
   gap:14px;
 }
 
-body[data-page="events"] .events-list__item,
-body[data-page="events"] .events-empty{
+:is(body[data-page="events"], .events-page) .events-list__item,
+:is(body[data-page="events"], .events-page) .events-empty{
   border-radius:18px;
   border:1px solid transparent;
   background:
@@ -251,13 +257,13 @@ body[data-page="events"] .events-empty{
     0 14px 32px rgba(0,0,0,.26);
 }
 
-body[data-page="events"] .events-list__item{
+:is(body[data-page="events"], .events-page) .events-list__item{
   padding:16px;
   transition:transform .18s var(--ease), box-shadow .18s var(--ease), border-color .18s var(--ease);
 }
 
-body[data-page="events"] .events-list__item:hover,
-body[data-page="events"] .events-list__item:focus-within{
+:is(body[data-page="events"], .events-page) .events-list__item:hover,
+:is(body[data-page="events"], .events-page) .events-list__item:focus-within{
   transform:translateY(-1px);
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,.10),
@@ -265,8 +271,8 @@ body[data-page="events"] .events-list__item:focus-within{
     0 0 0 1px rgba(218,181,94,.12);
 }
 
-body[data-page="events"] .events-list__item .kicker,
-body[data-page="events"] .events-featured .kicker{
+:is(body[data-page="events"], .events-page) .events-list__item .kicker,
+:is(body[data-page="events"], .events-page) .events-featured .kicker{
   width:fit-content;
   padding:5px 9px;
   border-radius:999px;
@@ -275,16 +281,16 @@ body[data-page="events"] .events-featured .kicker{
   color:rgba(250,247,237,.82);
 }
 
-body[data-page="events"] .events-list__item .section-title{
+:is(body[data-page="events"], .events-page) .events-list__item .section-title{
   margin:12px 0 10px;
 }
 
-body[data-page="events"] .events-list__item .muted{
+:is(body[data-page="events"], .events-page) .events-list__item .muted{
   margin:0;
   line-height:1.55;
 }
 
-body[data-page="events"] .events-empty{
+:is(body[data-page="events"], .events-page) .events-empty{
   margin:0;
   padding:16px;
   line-height:1.6;
@@ -294,28 +300,28 @@ body[data-page="events"] .events-empty{
     linear-gradient(135deg, rgba(220,235,255,.32), rgba(218,181,94,.26), rgba(48,178,143,.18)) border-box;
 }
 
-body[data-page="events"] .events-featured{
+:is(body[data-page="events"], .events-page) .events-featured{
   margin-top:18px;
 }
 
-body[data-page="events"] #featuredCard img,
-body[data-page="events"] .events-list__item img{
+:is(body[data-page="events"], .events-page) #featuredCard img,
+:is(body[data-page="events"], .events-page) .events-list__item img{
   box-shadow:
     0 16px 34px rgba(0,0,0,.30),
     0 0 0 1px rgba(218,181,94,.10);
 }
 
-body[data-page="events"] #featuredCard .lede{
+:is(body[data-page="events"], .events-page) #featuredCard .lede{
   color:var(--events-ink);
 }
 
-body[data-page="events"] #featuredCard .list-stack,
-body[data-page="events"] #eventsRecurring .list-stack{
+:is(body[data-page="events"], .events-page) #featuredCard .list-stack,
+:is(body[data-page="events"], .events-page) #eventsRecurring .list-stack{
   gap:11px;
 }
 
-body[data-page="events"] #featuredCard .list-stack li,
-body[data-page="events"] #eventsRecurring .list-stack li{
+:is(body[data-page="events"], .events-page) #featuredCard .list-stack li,
+:is(body[data-page="events"], .events-page) #eventsRecurring .list-stack li{
   padding:12px 12px 12px 18px;
   border-radius:16px;
   border:1px solid rgba(218,181,94,.14);
@@ -323,14 +329,14 @@ body[data-page="events"] #eventsRecurring .list-stack li{
     linear-gradient(135deg, rgba(218,181,94,.07), rgba(0,0,0,.14));
 }
 
-body[data-page="events"] #featuredCard .list-stack li::before,
-body[data-page="events"] #eventsRecurring .list-stack li::before{
+:is(body[data-page="events"], .events-page) #featuredCard .list-stack li::before,
+:is(body[data-page="events"], .events-page) #eventsRecurring .list-stack li::before{
   left:8px;
   top:19px;
   background:linear-gradient(180deg, var(--events-lantern), var(--events-jade));
 }
 
-body[data-page="events"] #eventsParticipation > div{
+:is(body[data-page="events"], .events-page) #eventsParticipation > div{
   padding:13px 14px;
   border-radius:16px;
   border:1px solid rgba(255,255,255,.09);
@@ -339,11 +345,11 @@ body[data-page="events"] #eventsParticipation > div{
   box-shadow:inset 0 1px 0 rgba(255,255,255,.06);
 }
 
-body[data-page="events"] #eventsParticipation > div + div{
+:is(body[data-page="events"], .events-page) #eventsParticipation > div + div{
   margin-top:10px;
 }
 
-body[data-page="events"] .badge-row > span > a{
+:is(body[data-page="events"], .events-page) .badge-row > span > a{
   display:inline-flex;
   align-items:center;
   min-height:44px;
@@ -353,8 +359,8 @@ body[data-page="events"] .badge-row > span > a{
   text-decoration:none;
 }
 
-body[data-page="events"] .badge-row > span:hover,
-body[data-page="events"] .badge-row > span:focus-within{
+:is(body[data-page="events"], .events-page) .badge-row > span:hover,
+:is(body[data-page="events"], .events-page) .badge-row > span:focus-within{
   border-color:rgba(250,247,237,.42);
   background:
     linear-gradient(135deg, rgba(218,181,94,.20), rgba(48,178,143,.12));
@@ -364,7 +370,7 @@ body[data-page="events"] .badge-row > span:focus-within{
     0 0 0 1px rgba(218,181,94,.12);
 }
 
-body[data-page="events"] .badge-row > span > a:focus-visible{
+:is(body[data-page="events"], .events-page) .badge-row > span > a:focus-visible{
   outline:2px solid rgba(250,247,237,.78);
   outline-offset:4px;
   box-shadow:

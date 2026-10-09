@@ -21,6 +21,7 @@ export type GuildMonthlyScheduleItem = {
   id?: string;
   title?: string;
   rule?: string;
+  startDayOffset?: number;
   time?: string;
   startTime?: string;
   endTime?: string;
@@ -72,10 +73,12 @@ export type WebsiteEventCard = Omit<
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const MONTHLY_RULE_WEEKDAYS: Readonly<Record<string, number>> = {
+  "next-first-sunday": 0,
   "next-first-saturday": 6,
   "next-first-wednesday": 3,
 };
 const MONTHLY_RULE_LABELS: Readonly<Record<string, string>> = {
+  "next-first-sunday": "After the first Sunday",
   "next-first-saturday": "First Saturday",
   "next-first-wednesday": "First Wednesday",
 };
@@ -195,14 +198,23 @@ function firstWeekdayOfMonth(year: number, month: number, weekday: number): stri
   return localDateKeyFromParts(year, month, 1 + offset);
 }
 
-function nextFirstWeekday(schedule: GuildScheduleData, weekday: number, now: Date): string {
+function nextFirstWeekday(
+  schedule: GuildScheduleData,
+  weekday: number,
+  now: Date,
+  item?: GuildMonthlyScheduleItem,
+): string {
   const parts = localParts(now, offsetMinutes(schedule));
-  const currentMonth = firstWeekdayOfMonth(parts.year, parts.month, weekday);
+  const startDayOffset = item?.startDayOffset === 1 ? 1 : 0;
+  const currentMonth = addDays(firstWeekdayOfMonth(parts.year, parts.month, weekday), startDayOffset);
   const today = localDateKeyFromParts(parts.year, parts.month, parts.day);
-  if (today <= currentMonth) return currentMonth;
+  const currentStillUpcoming = item
+    ? eventEndTimestamp(currentMonth, item.startTime || "00:00", item.endTime || "00:00", schedule) > now.getTime()
+    : today <= currentMonth;
+  if (currentStillUpcoming) return currentMonth;
 
   const nextMonthDate = new Date(Date.UTC(parts.year, parts.month, 1));
-  return firstWeekdayOfMonth(nextMonthDate.getUTCFullYear(), nextMonthDate.getUTCMonth() + 1, weekday);
+  return addDays(firstWeekdayOfMonth(nextMonthDate.getUTCFullYear(), nextMonthDate.getUTCMonth() + 1, weekday), startDayOffset);
 }
 
 export function nextFirstSaturday(schedule: GuildScheduleData, now = new Date()): string {
@@ -227,7 +239,7 @@ export function monthlyScheduleDate(
   const id = String(scheduleId || "");
   const item = Object.values(schedule.monthly || {}).find((entry) => entry.id === id);
   const weekday = MONTHLY_RULE_WEEKDAYS[String(item?.rule || "")];
-  if (Number.isInteger(weekday)) return nextFirstWeekday(schedule, weekday, now);
+  if (Number.isInteger(weekday) && item) return nextFirstWeekday(schedule, weekday, now, item);
   return String(fallback || "");
 }
 
@@ -236,15 +248,15 @@ export function spotlightScheduleDate(schedule: GuildScheduleData, fallback: unk
   return String(fallback || "");
 }
 
-function localMinute(parts: ReturnType<typeof localParts>): number {
-  return parts.hour * 60 + parts.minute;
-}
-
 function eventEndDate(startDate: string, startTime: string, endTime: string): string {
   const start = parseTime(startTime);
   const end = parseTime(endTime);
   const crossesMidnight = end.hour * 60 + end.minute <= start.hour * 60 + start.minute;
   return crossesMidnight ? addDays(startDate, 1) : startDate;
+}
+
+function eventEndTimestamp(startDate: string, startTime: string, endTime: string, schedule: GuildScheduleData): number {
+  return Date.parse(localToUtcIso(eventEndDate(startDate, startTime, endTime), endTime, schedule));
 }
 
 export function nextWeeklyOccurrence(
@@ -257,20 +269,17 @@ export function nextWeeklyOccurrence(
 
   const parts = localParts(now, offsetMinutes(schedule));
   const today = localDateKeyFromParts(parts.year, parts.month, parts.day);
-  const nowMinutes = localMinute(parts);
-  const start = parseTime(item.startTime);
-  const end = parseTime(item.endTime);
-  const startMinutes = start.hour * 60 + start.minute;
-  const endMinutes = end.hour * 60 + end.minute;
+  const startTime = item.startTime || "00:00";
+  const endTime = item.endTime || "00:00";
+  const nowMs = now.getTime();
 
   let bestDate = "";
   let bestDelta = Number.POSITIVE_INFINITY;
   for (const day of days) {
     let delta = (day - parts.weekday + 7) % 7;
-    if (delta === 0) {
-      const stillUpcoming = endMinutes <= startMinutes ? nowMinutes < 24 * 60 : nowMinutes < endMinutes;
-      if (!stillUpcoming) delta = 7;
-    }
+    const previousDate = addDays(today, delta - 7);
+    if (eventEndTimestamp(previousDate, startTime, endTime, schedule) > nowMs) delta -= 7;
+    else if (delta === 0 && eventEndTimestamp(today, startTime, endTime, schedule) <= nowMs) delta = 7;
     if (delta < bestDelta) {
       bestDelta = delta;
       bestDate = addDays(today, delta);
@@ -292,7 +301,8 @@ export function nextWeeklyOccurrence(
 
 export function scheduleLine(item: GuildWeeklyScheduleItem, schedule: GuildScheduleData): string {
   const title = item.title || "Event";
-  const details = [item.dayText, timeRangeText(item.startTime, item.endTime, schedule, item.timeText)]
+  const timeText = timeRangeText(item.startTime, item.endTime, schedule, item.timeText);
+  const details = [item.dayText, timeText, timeText ? scheduleTimezoneLabel(schedule) : ""]
     .filter(Boolean)
     .join(" - ");
   return details ? `${title}: ${details}` : title;
@@ -383,7 +393,6 @@ export function websiteEventCardsFromSchedule(schedule: GuildScheduleData, now =
         timeText,
         timezone,
         location: item.location,
-        href: item.location,
         summary: firstParagraph(item.description) || timeText,
         image: item.discordCoverImage || "",
         discordCoverImage: item.discordCoverImage,
@@ -411,7 +420,7 @@ export function websiteEventCardsFromSchedule(schedule: GuildScheduleData, now =
         timezone,
         summary: occurrence.summary || [occurrence.dayText, timeText].filter(Boolean).join(" - "),
         image: occurrence.discordCoverImage || "",
-        href: occurrence.href || occurrence.location,
+        href: occurrence.href,
       }];
     });
 
@@ -419,4 +428,19 @@ export function websiteEventCardsFromSchedule(schedule: GuildScheduleData, now =
     const delta = new Date(a.startIso).getTime() - new Date(b.startIso).getTime();
     return delta || String(a.id || a.title).localeCompare(String(b.id || b.title));
   });
+}
+
+export function currentOrUpcomingEvent(
+  cards: readonly WebsiteEventCard[],
+  now: Date,
+): WebsiteEventCard | undefined {
+  const nowMs = now.getTime();
+  return cards
+    .filter((card) => Date.parse(card.endIso) > nowMs)
+    .sort((a, b) => {
+      const aStart = Date.parse(a.startIso);
+      const bStart = Date.parse(b.startIso);
+      const activeFirst = Number(bStart <= nowMs) - Number(aStart <= nowMs);
+      return activeFirst || aStart - bStart || a.id.localeCompare(b.id);
+    })[0];
 }

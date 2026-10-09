@@ -19,6 +19,7 @@ Keep this page focused on times, RSVP notes, runs, and the rhythm of gathering.
 - Events shell copy lives in `apps/web/public/data/events.json`.
 - Rolling event timing and the live Next Events board live in `apps/web/public/data/guild-schedule.json`.
 - The live Next Events board is schedule-first: it renders one card per Discord/Reaper-managed event type from `websiteEventCardsFromSchedule`, using schedule-derived dates, the public `UTC+8` label, and `discordCoverImage` art.
+- Event covers are complete 1600×640 artwork at 5:2, with one evenly inset frame and matching title/caption layout. Do not extract offset panels from a contact sheet or add blurred letterbox padding. Website image URLs include the authority's `discordCoverVersion`, which must change with replacement artwork at the existing paths so image caches receive a new URL.
 - `apps/web/public/data/guild-schedule.json` keeps `timezone.label` and `timezone.displayLabel` as `UTC+8`, plus `offsetMinutes` as `480`, for public display and machine compatibility. `timezone.ianaZone` remains `Asia/Singapore` as the internal IANA calculation zone and is not rendered as the public time label.
 - `apps/web/public/data/events.json` is page-shell copy only for the Next app: meta, hero, featured lead/bullets fallback, recurring intro, participation text, and fallback content.
 - Keep JSON valid: no trailing commas, comments, or unquoted keys.
@@ -26,6 +27,8 @@ Keep this page focused on times, RSVP notes, runs, and the rhythm of gathering.
 - Add only fields that `events.js` actually supports.
 - Do not invent fixed schedules.
 - Keep event copy concise and page-specific.
+
+For cover exports, `npm run generate:discord-event-covers -- --source-dir <standalone-PNG-directory> --output-dir <separate-export-directory>` normalizes the eight configured standalone covers to 1600×640 without cropping or padding. Source artwork must already be opaque and 5:2, allowing at most one source pixel of width rounding. Use a fresh output directory, visually review the full artwork and text before replacing the existing public paths, then update the approved cover hashes and asset inventory bindings. The exporter never changes those approval bindings itself.
 
 Current data shape:
 
@@ -52,8 +55,8 @@ Not currently implemented:
 - `events.js` parses date-only values with a strict UTC pattern before classifying events.
 - Invalid or missing event dates are treated as upcoming by the current renderer.
 - Event-board and featured fallback dates render through the shared Next public-date helper.
-- Featured event dates in the Next app derive from the first upcoming schedule card; `featured.date` is fallback shell data only.
-- Monthly schedule items declare their own supported rule (`next-first-saturday` or `next-first-wednesday`); Website and Reaper helpers must derive each item independently rather than applying one shared weekday.
+- Featured event dates in the Next app derive from the shared current or upcoming schedule card; `featured.date` is fallback shell data only.
+- Monthly schedule items declare their own supported rule (`next-first-saturday`, `next-first-wednesday`, or `next-first-sunday`); Website and Reaper helpers derive each item independently. The gathering uses `next-first-sunday` with `startDayOffset: 1` and normalized `00:00`–`01:00`: first-Sunday 24:00–25:00 means the following Monday. Displays use that Monday date and “After the first Sunday,” never a first-Monday approximation.
 - If a monthly event and weekly event share the exact start, end, and Website location, the monthly event owns that slot. The Website selects the weekly event's next non-conflicting day, while Reaper advances that stable weekday event key by seven days so an existing managed Discord event can be updated rather than orphaned.
 - Reaper's `/sync-events` command reads the mirrored guild schedule JSON and must stay aligned with the website schedule helpers.
 - The Next `/events` route waits for a real request, generates one ISO reference time on the server, and passes it through the complete Event Board render. This keeps status current without calling `Date.now()` or a no-argument `new Date()` during client hydration.
@@ -82,7 +85,7 @@ Filter behavior:
 - Buttons are real `button` elements.
 - Active state uses `aria-pressed`.
 - The event count updates in a polite live region.
-- The live Next event board renders the eight Discord/Reaper-managed schedule event types from `apps/web/public/data/guild-schedule.json`.
+- The live Next event board renders seven schedule event types from `apps/web/public/data/guild-schedule.json`; the inactive public raffle remains excluded while its Reaper record awaits a separate decision.
 - The live Next event board is a bounded scroll panel: filters and count stay visible, while the event-card results list scrolls internally.
 
 ## 5. Empty States

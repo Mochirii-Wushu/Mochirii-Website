@@ -20,6 +20,7 @@ const expectedManagedEventCount = 17;
 const expectedGuildId = "1078630751077142608";
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const monthlyRuleWeekdays = {
+  "next-first-sunday": 0,
   "next-first-saturday": 6,
   "next-first-wednesday": 3,
 };
@@ -118,34 +119,35 @@ function eventEndDate(startDate, startTime, endTime) {
   return end.hour * 60 + end.minute <= start.hour * 60 + start.minute ? addDays(startDate, 1) : startDate;
 }
 
-function nextFirstWeekday(schedule, weekday, now) {
+function eventEndTimestamp(schedule, localDate, item) {
+  const startTime = String(item.startTime || "");
+  const endTime = String(item.endTime || "");
+  return Date.parse(localToUtcIso(schedule, eventEndDate(localDate, startTime, endTime), endTime));
+}
+
+function nextFirstWeekday(schedule, weekday, item, now) {
   const parts = scheduleLocalParts(schedule, now);
+  const startDayOffset = item.startDayOffset === 1 ? 1 : 0;
   const first = new Date(Date.UTC(parts.year, parts.month - 1, 1));
-  const current = dateKey(parts.year, parts.month, 1 + ((weekday - first.getUTCDay() + 7) % 7));
-  const today = dateKey(parts.year, parts.month, parts.day);
-  if (today <= current) return current;
+  const current = addDays(dateKey(parts.year, parts.month, 1 + ((weekday - first.getUTCDay() + 7) % 7)), startDayOffset);
+  if (eventEndTimestamp(schedule, current, item) > now.getTime()) return current;
   const nextMonth = new Date(Date.UTC(parts.year, parts.month, 1));
   const nextFirst = new Date(Date.UTC(nextMonth.getUTCFullYear(), nextMonth.getUTCMonth(), 1));
-  return dateKey(
+  return addDays(dateKey(
     nextMonth.getUTCFullYear(),
     nextMonth.getUTCMonth() + 1,
     1 + ((weekday - nextFirst.getUTCDay() + 7) % 7),
-  );
+  ), startDayOffset);
 }
 
 function nextWeeklyDate(schedule, item, day, now) {
   const parts = scheduleLocalParts(schedule, now);
   const today = dateKey(parts.year, parts.month, parts.day);
-  const start = parseTime(item.startTime);
-  const end = parseTime(item.endTime);
-  const nowMinutes = parts.hour * 60 + parts.minute;
-  const startMinutes = start.hour * 60 + start.minute;
-  const endMinutes = end.hour * 60 + end.minute;
+  const nowMs = now.getTime();
   let delta = (day - parts.weekday + 7) % 7;
-  if (delta === 0) {
-    const stillUpcoming = endMinutes <= startMinutes ? nowMinutes < 24 * 60 : nowMinutes < endMinutes;
-    if (!stillUpcoming) delta = 7;
-  }
+  const previousDate = addDays(today, delta - 7);
+  if (eventEndTimestamp(schedule, previousDate, item) > nowMs) delta -= 7;
+  else if (delta === 0 && eventEndTimestamp(schedule, today, item) <= nowMs) delta = 7;
   return addDays(today, delta);
 }
 
@@ -178,7 +180,7 @@ function localEventInstances(schedule, now) {
     const id = String(item.id || "");
     const weekday = monthlyRuleWeekdays[String(item.rule || "")];
     if (!id || !Number.isInteger(weekday)) continue;
-    monthlyInstances.push(eventInstance(schedule, item, id, id, nextFirstWeekday(schedule, weekday, now)));
+    monthlyInstances.push(eventInstance(schedule, item, id, id, nextFirstWeekday(schedule, weekday, item, now)));
   }
 
   const monthlySlots = new Set(
@@ -308,9 +310,16 @@ const keys = instances.map((event) => event.key);
 assert(keys.length === new Set(keys).size, "Managed event instance keys must be unique.");
 const slots = instances.map((event) => [event.startIso, event.endIso, event.websiteLocation].join("\n"));
 assert(slots.length === new Set(slots).size, "Managed event instances must not share an exact Website time-and-location slot.");
+Object.values(asObject(schedule.monthly)).forEach((value) => {
+  const item = asObject(value);
+  assert(item.startDayOffset === undefined || item.startDayOffset === 0 || item.startDayOffset === 1,
+    `${item.id}: monthly startDayOffset must be 0 or 1 when present.`);
+});
 
 instances.forEach((event) => {
   assert(event.title, `${event.key}: title is required.`);
+  assert(Date.parse(event.startIso) < Date.parse(event.endIso), `${event.key}: start must precede the exclusive end.`);
+  assert(Date.parse(event.endIso) > referenceNow.getTime(), `${event.key}: occurrence must not have ended at the reference instant.`);
   assert(/^\d{2}:\d{2}$/.test(event.startTime), `${event.key}: startTime must be HH:mm.`);
   assert(/^\d{2}:\d{2}$/.test(event.endTime), `${event.key}: endTime must be HH:mm.`);
   assert(event.location, `${event.key}: location is required.`);
@@ -332,12 +341,14 @@ assert(raffle?.recurrenceRule?.by_n_weekday?.[0]?.n === 1, "Monthly raffle recur
 assert(raffle?.recurrenceRule?.by_n_weekday?.[0]?.day === 5, "Monthly raffle recurrence must target Saturday in Discord's recurrence enum.");
 
 const gathering = instances.find((event) => event.key === "monthly-gathering");
-assert(gathering?.startTime === "21:30", "Monthly gathering must start at 21:30 UTC+8.");
-assert(gathering?.endTime === "22:00", "Monthly gathering must end at 22:00 UTC+8.");
+assert(schedule.monthly?.gathering?.rule === "next-first-sunday", "Monthly gathering must follow the first Sunday rule.");
+assert(schedule.monthly?.gathering?.startDayOffset === 1, "Monthly gathering must start on the day after the first Sunday.");
+assert(gathering?.startTime === "00:00", "Monthly gathering must start at 00:00 UTC+8 after the first Sunday.");
+assert(gathering?.endTime === "01:00", "Monthly gathering must end at 01:00 UTC+8 after the first Sunday.");
 assert(gathering?.recurrenceRule?.frequency === 1, "Monthly gathering recurrence frequency must be monthly.");
 assert(gathering?.recurrenceRule?.interval === 1, "Monthly gathering recurrence interval must be 1.");
 assert(gathering?.recurrenceRule?.by_n_weekday?.[0]?.n === 1, "Monthly gathering recurrence must target first weekday instance.");
-assert(gathering?.recurrenceRule?.by_n_weekday?.[0]?.day === 2, "Monthly gathering recurrence must target Wednesday in Discord's recurrence enum.");
+assert(gathering?.recurrenceRule?.by_n_weekday?.[0]?.day === 6, "Monthly gathering recurrence must target Sunday UTC in Discord's recurrence enum.");
 
 [
   "MANAGE_EVENTS_PERMISSION",

@@ -65,6 +65,7 @@ import {
 type JsonRecord = SharedJsonRecord;
 type SupabaseAdminClient = {
   from(table: string): any;
+  rpc(name: string, args: JsonRecord): PromiseLike<{ data: unknown; error: { code?: string } | null }>;
 };
 
 declare const EdgeRuntime: {
@@ -827,6 +828,7 @@ Deno.serve(async (req: Request) => {
     }
 
     EdgeRuntime.waitUntil(processEventSync(mode, interactionToken, applicationId, {
+      interactionId,
       expectedGuildId: EXPECTED_DISCORD_GUILD_ID,
       guildScheduleUrl: GUILD_SCHEDULE_URL,
       discordApiUserAgent: DISCORD_API_USER_AGENT,

@@ -29,11 +29,11 @@ const CURRENT_VALIDATOR_URL = pathToFileURL(CURRENT_VALIDATOR_PATH).href;
 const CURRENT_INVENTORY_LIBRARY_PATH = path.join(CURRENT_REPOSITORY_ROOT, "scripts", "lib", "app-router-inventory.mjs");
 const EXPECTED_CHECKER_OUTPUT = "App route evidence OK (37 routes; excluded_internal=1, in_progress=36; Phase 4 exit not claimed).\n";
 const EXPECTED_CHECKER_BYTES = 15_211;
-const EXPECTED_CHECKER_SHA256 = "39E1A240C72A0866496801A1C8BB28A98B475937460044096080B36CEE86CF3F";
+const EXPECTED_CHECKER_SHA256 = "79A7DE8A85E6DB4D74B1086583C7C2E8031882E8693727755A463A3CC754BE28";
 const EXPECTED_VALIDATOR_BYTES = 30_750;
 const EXPECTED_VALIDATOR_SHA256 = "2EEF9A3503734D8B3A345FAC9BE5E58B6680F32AC26341CF24155E261E4F5424";
 const EXPECTED_INVENTORY_LIBRARY_BYTES = 59_423;
-const EXPECTED_INVENTORY_LIBRARY_SHA256 = "5051994396F6B0EAC3033F13CF2DC41BD2DCD8FF3102CF11DC49F8B53F780D84";
+const EXPECTED_INVENTORY_LIBRARY_SHA256 = "D3D31B84E7F8FD14CBCCFFE5B38C6E665446EA2AA708E3F3C052678D6DA06056";
 const CURRENT_IMPLEMENTATION_SOURCE_IDS = new Set([
   "app-route-evidence-checker",
   "app-route-evidence-tests",
@@ -795,7 +795,7 @@ test("catalog closes every direct local import used by the evidence implementati
   assert.equal(checkerSource.match(/\bimport\s*\(/g)?.length, 1);
   assert(checkerSource.includes("await import(${JSON.stringify(pathToFileURL(VALIDATOR_PATH).href)})"));
   assert(checkerSource.includes(EXPECTED_VALIDATOR_SHA256));
-  assert(checkerSource.includes("5051994396F6B0EAC3033F13CF2DC41BD2DCD8FF3102CF11DC49F8B53F780D84"));
+  assert(checkerSource.includes("D3D31B84E7F8FD14CBCCFFE5B38C6E665446EA2AA708E3F3C052678D6DA06056"));
   assert(!checkerSource.includes("require("));
   assert(!checkerSource.includes("createRequire"));
   assert(!checkerSource.includes("getBuiltinModule"));

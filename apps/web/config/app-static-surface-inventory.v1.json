@@ -13,8 +13,8 @@
     "metadataRoutes": 28,
     "indexedMetadataRoutes": 17,
     "nonindexedMetadataRoutes": 11,
-    "publicFiles": 249,
-    "publicBytes": 38509460,
+    "publicFiles": 250,
+    "publicBytes": 47846783,
     "sourceFiles": 43
   },
   "sourceCatalog": [
@@ -105,8 +105,8 @@
     },
     {
       "path": "apps/web/app/page.tsx",
-      "bytes": 24431,
-      "sha256": "D5011BC58D52C3603CB545DD50FED8E1AA5424300494B5E6CFA8B2BCEEF9C2BF"
+      "bytes": 23183,
+      "sha256": "BCBA1AE6F660CBCD04C58D134AF7673CE7699124A6DA26BB75CDF85A3D86659B"
     },
     {
       "path": "apps/web/app/privacy/page.tsx",
@@ -185,8 +185,8 @@
     },
     {
       "path": "apps/web/config/app-route-evidence.v1.json",
-      "bytes": 66970,
-      "sha256": "5A127A8CFA0CAB8A724A5320BB621D1BBDF4740DD7925F2B73739B5196E371C4"
+      "bytes": 66971,
+      "sha256": "96A4B3ED5572929F904CAAC009BACD35C5F094235CA28C9AC81A6BAC43A75B3D"
     },
     {
       "path": "apps/web/config/app-route-matrix.v1.json",
@@ -195,18 +195,18 @@
     },
     {
       "path": "package.json",
-      "bytes": 17609,
-      "sha256": "CDD60C4E2F7DE3CB05D7E13CBF5E2709D8688ED1D8C0A758AACF8E719A39841B"
+      "bytes": 18072,
+      "sha256": "14FE52E8A7186140378CC68C5CD730AB72FA0CA0580FB3B4E35B2A6AC41530FD"
     },
     {
       "path": "scripts/check-all.mjs",
-      "bytes": 12973,
-      "sha256": "466FB6E397E9006EE2964261A48525D23F801460CE2C54E4FE6D1809B18C33CB"
+      "bytes": 13316,
+      "sha256": "F875B7B2AFA91A97C26DB813E89BCAD66623E8E6B16F67F13224879A2E9307DE"
     },
     {
       "path": "scripts/check-app-static-surface-inventory.mjs",
       "bytes": 13000,
-      "sha256": "79835F059A3B2F93F0F1D55CF45A3FBB6127ECD37FAAA64DF957AE5035EF2519"
+      "sha256": "EA66182044742655DDB92B2255D86EEE9224BCFD8AF68439B5B098A794B35BD9"
     },
     {
       "path": "scripts/check-assets.mjs",
@@ -221,7 +221,7 @@
     {
       "path": "scripts/lib/app-router-inventory.mjs",
       "bytes": 59423,
-      "sha256": "5051994396F6B0EAC3033F13CF2DC41BD2DCD8FF3102CF11DC49F8B53F780D84"
+      "sha256": "D3D31B84E7F8FD14CBCCFFE5B38C6E665446EA2AA708E3F3C052678D6DA06056"
     },
     {
       "path": "scripts/lib/app-static-surface-inventory.mjs",
@@ -231,7 +231,7 @@
     {
       "path": "scripts/lib/app-static-surface-inventory.test.mjs",
       "bytes": 133123,
-      "sha256": "0E86184D991613A18C7990BEE359CCE8C1E9B0EC9D6E7716DC6B9088E656CC66"
+      "sha256": "480D0AA93D8C90831EF2219E0B558494225F052CF02B877C1933E04E196DC33C"
     }
   ],
   "metadataRoutes": [
@@ -708,56 +708,64 @@
     {
       "url": "/assets/img/discord-events/breaking-army.png",
       "source": "apps/web/public/assets/img/discord-events/breaking-army.png",
-      "bytes": 426101,
-      "sha256": "81318E370E5FB5FF50E59D2E3FC8A4370DB050A16D4ADBBB24BC8B5555C2A0AA",
+      "bytes": 1673162,
+      "sha256": "F850B1AA64C7CBAAFD1FCC9BF6405EAFC2FE3DA03C755B9D32F93AA91D4F86CC",
       "category": "asset",
       "format": "png"
     },
     {
       "url": "/assets/img/discord-events/guild-heros-realm.png",
       "source": "apps/web/public/assets/img/discord-events/guild-heros-realm.png",
-      "bytes": 438319,
-      "sha256": "0D66DBB2B4A52909AA718B09DD756F9B910E2359DED52A9E63628BE2750BDF52",
+      "bytes": 1597855,
+      "sha256": "CC2DAEAA96AC67BE56CF03BC8720F4470B582E79BCF7FE97ACCAF3350F750E21",
       "category": "asset",
       "format": "png"
     },
     {
       "url": "/assets/img/discord-events/guild-party.png",
       "source": "apps/web/public/assets/img/discord-events/guild-party.png",
-      "bytes": 444376,
-      "sha256": "01EEF38A5EEDFE29EE0F4EEA47BC708042F1664DD738B935F300C72922FF2178",
+      "bytes": 1616983,
+      "sha256": "8D4842162E70E50683831D193CA620A9EF0B06D435BF02912E3F8CB57606ED8B",
       "category": "asset",
       "format": "png"
     },
     {
       "url": "/assets/img/discord-events/guild-wars.png",
       "source": "apps/web/public/assets/img/discord-events/guild-wars.png",
-      "bytes": 433241,
-      "sha256": "678BA46C68FBE9D5D182916FFAC3CB3388E2336539DE55E50115C958D116F617",
+      "bytes": 1484490,
+      "sha256": "4DE3F1FB017E1EB6140B0F85B330F396837D9301E404E706C0C0F5651CCAD850",
       "category": "asset",
       "format": "png"
     },
     {
       "url": "/assets/img/discord-events/monthly-gathering.png",
       "source": "apps/web/public/assets/img/discord-events/monthly-gathering.png",
-      "bytes": 420022,
-      "sha256": "7ED90FF1E25E7F95E2B88CCE72CEB3A2355AF36EA6AF47FB0A3742CDA5CE9846",
+      "bytes": 1451737,
+      "sha256": "014652AC59A32DA57BE5FC90B44BAD677BA1A0CEF8D14805E70006F009FA2023",
       "category": "asset",
       "format": "png"
     },
     {
       "url": "/assets/img/discord-events/monthly-raffle.png",
       "source": "apps/web/public/assets/img/discord-events/monthly-raffle.png",
-      "bytes": 432249,
-      "sha256": "21C4E9D4D00A435B726126E6D59B089CEB2A4BC733E0EE040D25C5C4C012AF0E",
+      "bytes": 1503080,
+      "sha256": "F249289301AB7F6FD12A7CCDBFE44091E2F49ABAE3803B6606A3ECA0C576A45B",
       "category": "asset",
       "format": "png"
     },
     {
       "url": "/assets/img/discord-events/showdown.png",
       "source": "apps/web/public/assets/img/discord-events/showdown.png",
-      "bytes": 405952,
-      "sha256": "CA37FB4FE3505D42835458E4B846CA320FD166CD2099A7BB06DE9E6AB70F8FE9",
+      "bytes": 1612265,
+      "sha256": "3854C80B3850321A78EE94E39B763D3DCB9A598421BBBFC587AF7D670EBAABCA",
+      "category": "asset",
+      "format": "png"
+    },
+    {
+      "url": "/assets/img/discord-events/skyward-bond.png",
+      "source": "apps/web/public/assets/img/discord-events/skyward-bond.png",
+      "bytes": 1398038,
+      "sha256": "46AFB9F9A134AF35591750686F070DE714EDC70C44701D9BFC8611604A9E3FE9",
       "category": "asset",
       "format": "png"
     },
@@ -2461,15 +2469,15 @@
       "url": "/data/announcements.json",
       "source": "apps/web/public/data/announcements.json",
       "bytes": 1896,
-      "sha256": "4C3FE4D6F818C4FF99BF08E57CBA7C886D06126AA6B9F283EFE771D88E9FFE07",
+      "sha256": "5F9B41CACF796D5C949924E28602702580AE3F5D1CDAB06D84A7E5545A46BA58",
       "category": "public_data",
       "format": "json"
     },
     {
       "url": "/data/events.json",
       "source": "apps/web/public/data/events.json",
-      "bytes": 2491,
-      "sha256": "D0173E26404C04EF5B923D20C4775BEA423C3332930A884A3F3B239298E43766",
+      "bytes": 2465,
+      "sha256": "CB6273D11588C4E5A0EEFBE47CCDA2B5B2EFDA42F20594DA16B9C9413F548A55",
       "category": "public_data",
       "format": "json"
     },
@@ -2484,8 +2492,8 @@
     {
       "url": "/data/guild-schedule.json",
       "source": "apps/web/public/data/guild-schedule.json",
-      "bytes": 4942,
-      "sha256": "7C0DA314B5DCFAE48B43DDD80321F153ECE52DAE63AFC2F8A177116D9A507923",
+      "bytes": 4941,
+      "sha256": "C6ACC5061022C524B6695BE231DB27E4453B4685636D10A11167A77977597820",
       "category": "public_data",
       "format": "json"
     },

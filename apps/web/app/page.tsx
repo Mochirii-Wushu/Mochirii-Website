@@ -10,17 +10,17 @@ import { Fragment } from "react";
 import Link from "next/link";
 import homeData from "@/public/data/home.json";
 import galleryData from "@/public/data/gallery.json";
-import guildScheduleData from "@/public/data/guild-schedule.json";
 import raffleData from "@/public/data/raffles.json";
 import recruitmentData from "@/public/data/recruitment.json";
 import { HomeGallerySpotlight } from "@/components/HomeGallerySpotlight";
 import { type GallerySpotlightItem } from "@/components/HomeGalleryLightbox";
 import { BodyPageMarker } from "@/components/public-pages/BodyPageMarker";
+import { HomeNextEvent } from "@/components/public-pages/HomeNextEvent";
 import { SpotlightWinnerTitle } from "@/components/public-pages/SpotlightWinnerTitle";
 import { spotlightWinnerName } from "@/components/public-pages/spotlight-content";
 import { StaticImage } from "@/components/public-pages/common";
-import { monthlyScheduleDate } from "@/lib/guild-schedule";
 import { formatPublicDate } from "@/lib/public-date";
+import { publicGuildSchedule } from "@/lib/events/public-schedule";
 import { DISCORD_INVITE_URL, SITE_ORIGIN, SOCIAL_HOST } from "@/lib/public-urls";
 import { SITE_DESCRIPTION, SITE_LANGUAGE } from "@/lib/site-metadata";
 import { getCurrentSpotlightWinner } from "@/lib/supabase/spotlight";
@@ -340,7 +340,7 @@ function BulletinList({ items }: { items: Bulletin[] }) {
   return (
     <div id="bulletinList" className="home-bulletins" aria-label="More bulletins">
       {items.slice(0, 5).map((item) => {
-        const date = monthlyScheduleDate(guildScheduleData, optionalText(item, "scheduleId"), item.date);
+        const date = item.date;
         const presentation = bulletinPresentation(item, date);
         return (
           <a
@@ -412,21 +412,20 @@ function DoorGrid({ tiles }: { tiles: DoorTile[] }) {
 
 export default async function Home() {
   const winner = await getCurrentSpotlightWinner();
+  const referenceTime = new Date().toISOString();
   const winnerName = spotlightWinnerName(winner);
   const recruitment = recruitmentPresentation(recruitmentData.meta.status);
   const heroDescriptor = homeData.hero.descriptor.map(cleanLabel).filter(Boolean);
   const heroBadges = [recruitment.badge, ...homeData.hero.badges.map(cleanLabel).filter(Boolean)];
   const sealVerse = homeData.seal.verse.map(cleanLabel).filter(Boolean);
   const featured = pickFeatured(homeData.bulletins);
-  const secondaryBulletins = homeData.bulletins.filter((item) => item !== featured);
+  const secondaryBulletins = homeData.bulletins.filter((item) => cleanLabel(item.type).toLowerCase() !== "event");
   const galleryItems = getGallerySpotlightCandidates(galleryData);
   const fallbackGalleryItems = getFallbackGallerySpotlightItems(homeData.gallery);
   const spotlight = homeData.spotlight;
   const recognition = spotlightRecognition(spotlight, winner);
   const spotlightIntro = recognition ? homeData.copy.spotlightIntro : spotlight.fallbackIntro;
   const spotlightSummary = recognition?.summary || spotlight.summary;
-  const featuredDate = featured ? monthlyScheduleDate(guildScheduleData, optionalText(featured, "scheduleId"), featured.date) : "";
-  const featuredPresentation = featured ? bulletinPresentation(featured, featuredDate) : null;
   const spotlightDisplayName = winnerName || spotlight.title;
   const spotlightImageAlt = winnerName
     ? `Member Spotlight cover for ${winnerName}`
@@ -542,50 +541,21 @@ export default async function Home() {
               {homeData.copy.bulletinIntro}
             </p>
 
-            {featured ? (
-              <a
-                id="featuredBulletin"
-                className="home-featured"
-                href={cleanRoute(featured.href)}
-                aria-label={featuredPresentation?.ariaLabel}
-              >
-                <StaticImage
-                  id="featuredBulletinImage"
-                  src={publicPath(featured.image, "/assets/img/bulletins/featured.webp")}
-                  alt={cleanLabel(featured.imageAlt)}
-                  className="home-featured__img"
-                  width={1280}
-                  height={720}
-                  sizes="(max-width: 1232px) calc(100vw - 68px), 1120px"
-                />
-                <div className="home-featured__scrim" aria-hidden="true" />
-
-                <div className="home-featured__meta">
-                  <span id="featuredBulletinType" className="home-pill">
-                    {featuredPresentation?.label}
-                  </span>
-                  <span id="featuredBulletinDate" className="home-date">
-                    {featuredPresentation?.date}
-                  </span>
-                </div>
-
-                <div className="home-featured__plate">
-                  <h3 id="featuredBulletinTitle" className="home-title">
-                    {featuredPresentation?.title}
-                  </h3>
-                  {optionalText(featured, "summary") ? (
-                    <p id="featuredBulletinSummary" className="home-summary">
-                      {optionalText(featured, "summary")}
-                    </p>
-                  ) : null}
-                  <span className="home-link" aria-hidden="true">
-                    {featuredPresentation?.cta}
-                  </span>
-                </div>
-              </a>
-            ) : (
-              <p className="muted">No event is scheduled.</p>
-            )}
+            <Link id="featuredBulletin" className="home-featured" href="/events">
+              <StaticImage
+                id="featuredBulletinImage"
+                src={publicPath(featured?.image, "/assets/img/bulletins/featured.webp")}
+                alt={cleanLabel(featured?.imageAlt || "Guild event bulletin cover")}
+                className="home-featured__img"
+                width={1280}
+                height={720}
+                sizes="(max-width: 1232px) calc(100vw - 68px), 1120px"
+              />
+              <div className="home-featured__scrim" aria-hidden="true" />
+              <HomeNextEvent referenceTime={referenceTime} scheduleData={publicGuildSchedule}>
+                <span className="home-link">View All Events</span>
+              </HomeNextEvent>
+            </Link>
 
             <BulletinList items={secondaryBulletins} />
           </section>

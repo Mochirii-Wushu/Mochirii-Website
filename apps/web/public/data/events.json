@@ -3,7 +3,7 @@
     "kicker": "Guild calendar",
     "title": "Events",
     "intro": "Events gather the guild around posted times, goals & RSVP notes so runs feel calm instead of rushed.",
-    "updated": "2026-07-28",
+    "updated": "2026-10-09",
     "timezoneLabel": "UTC+8",
     "badges": ["RSVP in Discord when planning is needed"],
     "hero": {
@@ -30,7 +30,7 @@
     {
       "scheduleId": "guild-heros-realm",
       "date": "2026-02-27",
-      "time": "10 PM - 11 PM",
+      "time": "11 PM - 12 AM",
       "timezone": "UTC+8",
       "title": "Guild Hero's Realm: Weekly Coordination",
       "summary": "A weekly Friday window for the guild hero's realm. Show up, ask questions & we'll match groups together.",
@@ -40,10 +40,10 @@
     {
       "scheduleId": "united-resolve",
       "date": "2026-02-27",
-      "time": "11 PM - 12 AM",
+      "time": "10 PM - 11 PM",
       "timezone": "UTC+8",
-      "title": "United Resolve",
-      "summary": "A Friday guild window for members gathering after Hero's Realm.",
+      "title": "Skyward Bond",
+      "summary": "A Friday guild window for Skyward Bond.",
       "image": "./assets/img/events/upcoming-01.webp",
       "href": "https://discord.com/invite/9HQKz6rqF4"
     }
