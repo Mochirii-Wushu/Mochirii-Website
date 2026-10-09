@@ -1,10 +1,13 @@
 import {
   processEventSync,
+  scheduledEventFieldsMatch,
   type ReaperEventSyncDependencies,
   selectExistingScheduledEvent,
 } from "./reaper-event-sync-workflow.ts";
 import { desiredEventsFromSchedule } from "./reaper-discord-events.ts";
 import type { JsonRecord } from "./discord-interaction-helpers.ts";
+import { createEventSyncDiscordApi, EventSyncPause } from "./reaper-event-sync-transport.ts";
+import { scheduledEventBody } from "./reaper-discord-events.ts";
 import scheduleData from "../../../apps/web/public/data/guild-schedule.json" with {
   type: "json",
 };
@@ -23,7 +26,7 @@ function equal(actual: unknown, expected: unknown) {
     `Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`,
   );
 }
-type Run = { owner: unknown; state: string };
+type Run = { owner: unknown; state: string; retryNotBefore?: string };
 
 function harness() {
   const schedule = structuredClone(scheduleData);
@@ -43,6 +46,13 @@ function harness() {
   let loseOwnershipAfterWrite = false;
   let rpcFailure = "";
   let nextId = 423456789012345678n;
+  let pauseAfter = -1;
+  let pauseReason: "rate_limit" | "deadline" = "rate_limit";
+  let malformedResponse = "";
+  let wireFenceFailure = false;
+  let rpcFailureBeforeCommit = false;
+  let coverBytes = png;
+  let registryUpdateFailure = false;
   const admin = {
     from(table: string) {
       equal(table, "discord_resources");
@@ -61,17 +71,21 @@ function harness() {
           return query;
         },
         then(resolve: (value: unknown) => void) {
-          if (update) registryWrites.push(update);
+          if (update) {
+            registryWrites.push(update);
+            resources = resources.map((row) => Object.entries(filters).every(([key, value]) => row[key] === value) ? { ...row, ...update } : row);
+          }
           else {
             equal(filters.discord_parent_id, guildId);
             equal(filters.enabled, true);
           }
-          return Promise.resolve({ data: resources, error: null }).then(
+          return Promise.resolve({ data: resources, error: update && registryUpdateFailure ? { code: "TEST_UPDATE" } : null }).then(
             resolve,
           );
         },
         upsert(value: JsonRecord) {
           registryWrites.push(value);
+          if (!registryFailure) resources = [...resources.filter((row) => row.discord_id !== value.discord_id), { id: `registry-${value.discord_id}`, ...value }];
           return Promise.resolve({
             error: registryFailure
               ? { code: "TEST_FAILURE", message: "test" }
@@ -85,6 +99,10 @@ function harness() {
       rpcCalls.push(name);
       const key = String(args.p_interaction_id);
       const run = runs.get(key);
+      if (name === rpcFailure && rpcFailureBeforeCommit) {
+        rpcFailure = "";
+        return Promise.resolve({ data: null, error: { code: "TEST_RPC_AMBIGUITY" } });
+      }
       let data: unknown = false;
       if (name === "reaper_reserve_event_sync") {
         if (run) data = "duplicate";
@@ -93,6 +111,7 @@ function harness() {
             ["reserved", "writing", "blocked"].includes(entry.state)
           )
         ) data = "busy";
+        else if ([...runs.values()].some((entry) => entry.state === "paused" && Date.parse(entry.retryNotBefore || "") > Date.now())) data = "cooldown";
         else {
           runs.set(key, { owner: args.p_owner_id, state: "reserved" });
           data = "acquired";
@@ -103,6 +122,11 @@ function harness() {
       ) {
         if (name === "reaper_begin_event_sync_write" && !loseOwnership) {
           run.state = "writing";
+          data = true;
+        }
+        if (name === "reaper_pause_event_sync") {
+          run.state = "paused";
+          run.retryNotBefore = String(args.p_retry_not_before);
           data = true;
         }
         if (
@@ -134,11 +158,16 @@ function harness() {
       messages.push(message);
       return Promise.resolve();
     },
-    discordApi(path, init = {}) {
+    async discordApi(path, init = {}, beforeAttempt) {
       const method = init.method || "GET";
       if (method === "GET") {
-        return Promise.resolve({ ok: true, status: 200, data: existing });
+        if (providerFailure === "pause-get") throw new EventSyncPause("deadline", new Date(Date.now() + 60_000).toISOString());
+        return { ok: true, status: 200, data: existing };
       }
+      assert(beforeAttempt, "Every actual provider attempt requires its own fence");
+      if (wireFenceFailure) loseOwnership = true;
+      await beforeAttempt();
+      if (writes.length === pauseAfter) throw new EventSyncPause(pauseReason, new Date(Date.now() + 60_000).toISOString());
       assert(
         [...runs.values()].some((run) => run.state === "writing"),
         "Provider writes require a durable writing reservation",
@@ -155,10 +184,23 @@ function harness() {
       if (providerFailure === "500") {
         return Promise.resolve({ ok: false, status: 500, data: {} });
       }
+      if (providerFailure === "pause-lookalike") throw Object.assign(new Error("Untrusted pause"), { reason: "rate_limit", notBeforeIso: new Date().toISOString() });
+      if (method === "DELETE") {
+        existing = (existing as JsonRecord[]).filter((item) => item.id !== path.split("/").at(-1));
+        return { ok: true, status: 204, data: null };
+      }
       const id = method === "PATCH"
         ? path.split("/").at(-1)!
         : String(nextId++);
-      return Promise.resolve({ ok: true, status: 200, data: { id } });
+      const body = init.body ? JSON.parse(String(init.body)) : {};
+      const event = { ...body, id, guild_id: guildId, status: 1, entity_id: null,
+        image: body.image ? "a".repeat(32) : null };
+      if (malformedResponse === "id") event.id = "923456789012345678";
+      if (malformedResponse === "guild") event.guild_id = "923456789012345678";
+      if (malformedResponse === "fields") delete event.scheduled_end_time;
+      if (malformedResponse === "image") event.image = "invalid";
+      existing = [...(Array.isArray(existing) ? existing.filter((item) => item.id !== id) : []), event];
+      return { ok: true, status: 200, data: event };
     },
   };
   const fetcher = ((url: unknown) => {
@@ -167,7 +209,7 @@ function harness() {
     }
     covers++;
     return Promise.resolve(
-      new Response(coverFailureAt === covers ? "invalid" : png, {
+      new Response(coverFailureAt === covers ? "invalid" : coverBytes, {
         headers: {
           "Content-Type": coverFailureAt === covers ? "text/html" : "image/png",
         },
@@ -207,9 +249,18 @@ function harness() {
     loseOwnershipAfterWrite() {
       loseOwnershipAfterWrite = true;
     },
-    failRpc(name: string) {
+    failRpc(name: string, beforeCommit = false) {
       rpcFailure = name;
+      rpcFailureBeforeCommit = beforeCommit;
     },
+    pauseAfter(count: number, reason: "rate_limit" | "deadline" = "rate_limit") { pauseAfter = count; pauseReason = reason; },
+    malformedResponse(value: string) { malformedResponse = value; },
+    failWireFence() { wireFenceFailure = true; },
+    expireCooldown() { for (const run of runs.values()) run.retryNotBefore = new Date(0).toISOString(); pauseAfter = -1; },
+    resources() { return resources; },
+    events() { return existing as JsonRecord[]; },
+    setCoverBytes(value: Uint8Array) { coverBytes = new Uint8Array(value); schedule.discordCoverVersion += "-changed"; },
+    failRegistryUpdate() { registryUpdateFailure = true; },
   };
 }
 
@@ -307,6 +358,8 @@ Deno.test("explicit canonical or enabled managed identity is required for PATCH"
     const desired = desiredEventsFromSchedule(h.schedule)[0];
     const event = {
       id: "623456789012345678",
+      guild_id: guildId,
+      status: 1,
       name: desired.title,
       scheduled_start_time: desired.startIso,
       entity_type: 3,
@@ -373,6 +426,8 @@ Deno.test("two managed schedule keys cannot PATCH the same Discord target", asyn
       ).slice(0, 2);
       const event = {
         id: "623456789012345678",
+        guild_id: guildId,
+        status: 1,
         name: "Existing managed event",
         entity_type: 3,
       };
@@ -400,6 +455,8 @@ Deno.test("a managed target cannot overlap another event's explicit duplicate re
       const desired = desiredEventsFromSchedule(h.schedule)[0];
       const event = {
         id: h.schedule.monthly.raffle.discordDuplicateEventIds[0],
+        guild_id: guildId,
+        status: 1,
         name: "Existing managed event",
         entity_type: 3,
       };
@@ -463,7 +520,7 @@ Deno.test("lost reservation ownership prevents the first provider mutation", () 
     h.loseOwnership();
     await sync(h.deps);
     equal(h.writes, []);
-    equal(h.runs.get(interactionId)?.state, "rejected");
+    equal(h.runs.get(interactionId)?.state, "blocked");
   }));
 
 Deno.test("invalid signed-payload interaction ID fails before reservation, fetch or Discord writes", () =>
@@ -498,7 +555,7 @@ Deno.test("ambiguous begin-write RPC cannot be released through the preflight pa
     h.failRpc("reaper_begin_event_sync_write");
     await sync(h.deps);
     equal(h.writes, []);
-    equal(h.runs.get(interactionId)?.state, "writing");
+    equal(h.runs.get(interactionId)?.state, "blocked");
     assert(h.messages[0].includes("Do not retry apply"));
     await sync({ ...h.deps, interactionId: nextInteractionId });
     equal(h.writes, []);
@@ -519,4 +576,304 @@ Deno.test("unsafe runtime schedule URL override fails before Discord writes and 
     await sync(h.deps);
     equal(h.writes, []);
     equal(h.runs.get(interactionId)?.state, "rejected");
+  }));
+
+Deno.test("provider field comparison normalizes instants and recurrence without coercing types", async () => {
+  const desired = desiredEventsFromSchedule(scheduleData)[0];
+  const body = await scheduledEventBody(desired, false);
+  const event: JsonRecord = { ...body, id: "623456789012345678", guild_id: guildId, entity_id: null, status: 1 };
+  event.scheduled_start_time = String(body.scheduled_start_time).replace("Z", "+00:00");
+  event.scheduled_end_time = String(body.scheduled_end_time).replace("Z", "+00:00");
+  event.recurrence_rule = { ...body.recurrence_rule as JsonRecord, end: null, count: null, by_weekday: null, by_month: null, by_month_day: null, by_year_day: null };
+  assert(scheduledEventFieldsMatch(event, body, guildId));
+  for (const drift of [
+    { status: 2 }, { guild_id: "923456789012345678" }, { privacy_level: "2" }, { entity_type: "3" },
+    { channel_id: "623456789012345678" }, { entity_id: "623456789012345678" }, { description: null },
+    { scheduled_start_time: "2026-02-30T00:00:00Z" }, { entity_metadata: { location: "other" } },
+    { recurrence_rule: { ...body.recurrence_rule as JsonRecord, interval: "1" } },
+    { recurrence_rule: { ...body.recurrence_rule as JsonRecord, by_weekday: "null" } },
+    { recurrence_rule: { ...body.recurrence_rule as JsonRecord, extra: null } },
+  ]) assert(!scheduledEventFieldsMatch({ ...event, ...drift }, body, guildId), JSON.stringify(drift));
+});
+
+Deno.test("fresh manual interaction skips converged provider and receipt with no registry writes", () =>
+  withHarness(async (h) => {
+    await sync(h.deps);
+    const count = h.writes.length;
+    const registryCount = h.registryWrites.length;
+    assert(h.resources().every((row) => /^[A-F0-9]{64}$/.test(String((row.metadata as JsonRecord).coverImageSha256))));
+    await sync({ ...h.deps, interactionId: nextInteractionId });
+    equal(h.writes.length, count);
+    equal(h.registryWrites.length, registryCount);
+    equal(h.runs.get(nextInteractionId)?.state, "completed");
+    assert(h.messages.at(-1)?.includes("Unchanged:"));
+  }));
+
+Deno.test("recurrence arrays compare as sets while malformed and changed values fail closed", async () => {
+  const desired = desiredEventsFromSchedule(scheduleData)[0];
+  const body = await scheduledEventBody(desired, false);
+  body.recurrence_rule = { start: desired.startIso, frequency: 2, interval: 1, by_weekday: [0, 4], by_n_weekday: [{ n: 1, day: 0 }, { n: 2, day: 4 }] };
+  const rule = body.recurrence_rule as JsonRecord;
+  const event: JsonRecord = { ...body, id: "623456789012345678", guild_id: guildId, entity_id: null, status: 1,
+    recurrence_rule: { ...rule, by_weekday: [4, 0], by_n_weekday: [{ day: 4, n: 2 }, { day: 0, n: 1 }] } };
+  assert(scheduledEventFieldsMatch(event, body, guildId));
+  for (const drift of [
+    { by_weekday: [0, "4"] }, { by_weekday: [0, 0, 4] }, { by_weekday: [0, 3] },
+    { by_n_weekday: [{ n: "1", day: 0 }, { n: 2, day: 4 }] },
+    { by_n_weekday: [{ n: 1, day: 0, extra: null }, { n: 2, day: 4 }] },
+    { by_n_weekday: [{ n: 1, day: 0 }, { n: 3, day: 4 }] },
+  ]) assert(!scheduledEventFieldsMatch({ ...event, recurrence_rule: { ...rule, ...drift } }, body, guildId), JSON.stringify(drift));
+});
+
+Deno.test("provider convergence and receipt allow registry URL repair without image PATCH", () =>
+  withHarness(async (h) => {
+    await sync(h.deps);
+    const count = h.writes.length;
+    const registryCount = h.registryWrites.length;
+    h.schedule.discordCoverVersion += "-new-url-same-bytes";
+    await sync({ ...h.deps, interactionId: nextInteractionId });
+    equal(h.writes.length, count);
+    equal(h.registryWrites.length, registryCount + 17);
+    assert(h.messages.at(-1)?.includes("Registry repaired:"));
+  }));
+
+for (const drift of ["url-only", "source-bytes", "actual-image", "provider-field"]) {
+  Deno.test(`${drift} cannot be hidden by matching URL or stored schedule metadata`, () =>
+    withHarness(async (h) => {
+      await sync(h.deps);
+      if (drift === "url-only") h.setResources(h.resources().map((row) => {
+        const metadata = { ...row.metadata as JsonRecord };
+        delete metadata.coverImageSha256;
+        delete metadata.discordImageHash;
+        return { ...row, metadata };
+      }));
+      if (drift === "source-bytes") h.setCoverBytes(new Uint8Array([...png, 1]));
+      if (drift === "actual-image") h.events()[0].image = "b".repeat(32);
+      if (drift === "provider-field") h.events()[0].description = "Provider drift despite registry agreement";
+      const count = h.writes.length;
+      await sync({ ...h.deps, interactionId: nextInteractionId });
+      equal(h.writes.length - count, ["url-only", "source-bytes"].includes(drift) ? 17 : 1);
+      equal(h.runs.get(nextInteractionId)?.state, "completed");
+    }));
+}
+
+for (const reason of ["rate_limit", "deadline"] as const) {
+  Deno.test(`${reason} pauses after five acknowledged checkpoints without replay or success claims`, () =>
+    withHarness(async (h) => {
+      h.pauseAfter(5, reason);
+      await sync(h.deps);
+      equal(h.writes.length, 5);
+      equal(h.registryWrites.length, 5);
+      equal(h.runs.get(interactionId)?.state, "paused");
+      const reply = h.messages.at(-1)!;
+      assert(reply.includes("incomplete and paused") && reply.includes(reason));
+      const retry = new Date(Date.parse(h.runs.get(interactionId)!.retryNotBefore!) + 480 * 60_000).toISOString().replace("T", " ").replace("Z", " UTC+8");
+      assert(reply.includes(`Retry not before ${retry}`));
+      equal((reply.match(/Created:/g) || []).length, 5);
+      assert(!reply.includes("Event sync finished"));
+      await sync(h.deps);
+      assert(h.messages.at(-1)?.includes("already handled"));
+      await sync({ ...h.deps, interactionId: nextInteractionId });
+      assert(h.messages.at(-1)?.includes("cooling down"));
+      equal(h.runs.size, 1);
+      h.expireCooldown();
+      await sync({ ...h.deps, interactionId: nextInteractionId });
+      equal(h.writes.length, 17);
+      equal(h.registryWrites.length, 17);
+      equal(h.runs.get(nextInteractionId)?.state, "completed");
+      assert(h.messages.at(-1)?.includes("Unchanged:"));
+    }));
+}
+
+Deno.test("pause waits until replacement registration and superseded retirement are acknowledged", () =>
+  withHarness(async (h) => {
+    const desired = desiredEventsFromSchedule(h.schedule)[0];
+    h.setResources([{ id: "old-row", kind: "scheduled_event", discord_id: "623456789012345678", enabled: true,
+      metadata: { managedBy: "reaper-event-sync", siteEventKey: desired.key } }]);
+    h.pauseAfter(1);
+    await sync(h.deps);
+    equal(h.writes.length, 1);
+    equal(h.registryWrites.length, 2);
+    equal(h.resources().find((row) => row.id === "old-row")?.enabled, false);
+    equal(h.runs.get(interactionId)?.state, "paused");
+  }));
+
+Deno.test("superseded registry retirement failure blocks before a later pause", () =>
+  withHarness(async (h) => {
+    const desired = desiredEventsFromSchedule(h.schedule)[0];
+    h.setResources([{ id: "old-row", kind: "scheduled_event", discord_id: "623456789012345678", enabled: true,
+      metadata: { managedBy: "reaper-event-sync", siteEventKey: desired.key } }]);
+    h.failRegistryUpdate();
+    h.pauseAfter(1);
+    await sync(h.deps);
+    equal(h.writes.length, 1);
+    equal(h.runs.get(interactionId)?.state, "blocked");
+    assert(!h.rpcCalls.includes("reaper_pause_event_sync"));
+    assert(!h.messages.at(-1)?.includes("Created:"));
+  }));
+
+Deno.test("apply preflight deadline pauses without provider or registry writes", () =>
+  withHarness(async (h) => {
+    h.failProvider("pause-get");
+    await sync(h.deps);
+    equal(h.writes, []);
+    equal(h.registryWrites, []);
+    equal(h.runs.get(interactionId)?.state, "paused");
+    assert(!h.rpcCalls.includes("reaper_begin_event_sync_write"));
+    assert(h.messages.at(-1)?.includes("incomplete and paused"));
+  }));
+
+Deno.test("malformed successful create remains blocked and unregistered", () =>
+  withHarness(async (h) => {
+    h.malformedResponse("fields");
+    await sync(h.deps);
+    equal(h.writes.length, 1);
+    equal(h.writes[0].method, "POST");
+    equal(h.registryWrites, []);
+    equal(h.runs.get(interactionId)?.state, "blocked");
+  }));
+
+Deno.test("duplicate rate limit never claims removal before provider and registry acknowledgement", () =>
+  withHarness(async (h) => {
+    h.setExisting([{ id: h.schedule.monthly.raffle.discordDuplicateEventIds[0], status: 1, guild_id: guildId, entity_type: 3 }]);
+    h.pauseAfter(2);
+    await sync(h.deps);
+    equal(h.writes.length, 2);
+    equal(h.runs.get(interactionId)?.state, "paused");
+    assert(!h.messages.at(-1)?.includes("Removed duplicate:"));
+  }));
+
+Deno.test("late configured duplicate with non-external type rejects all work before covers", async () => {
+  for (const entity_type of [1, 2]) await withHarness(async (h) => {
+    h.setExisting([{ id: h.schedule.monthly.raffle.discordDuplicateEventIds[0], status: 1, guild_id: guildId, entity_type }]);
+    await sync(h.deps);
+    equal(h.writes, []);
+    equal(h.registryWrites, []);
+    equal(h.coverCount(), 0);
+    equal(h.runs.get(interactionId)?.state, "rejected");
+  });
+});
+
+Deno.test("actual transport 429 checkpoints five writes then a fresh approved invocation skips them", () =>
+  withHarness(async (h) => {
+    const originalApi = h.deps.discordApi;
+    const now = Date.now();
+    let firstInvocation = true;
+    let wireMutations = 0;
+    const fetcher: typeof fetch = async (input, init = {}) => {
+      const path = new URL(String(input)).pathname.slice("/api/v10".length);
+      if (init.method !== "GET") {
+        wireMutations++;
+        assert(h.rpcCalls.at(-1) === "reaper_begin_event_sync_write", "Transport must fence immediately before the wire attempt");
+        if (firstInvocation && h.writes.length === 5) return Response.json({ retry_after: 60 }, {
+          status: 429, headers: { "Retry-After": "120.5", "X-RateLimit-Reset-After": "180.25" },
+        });
+      }
+      const result = await originalApi(path, init, async () => {});
+      return result.status === 204 ? new Response(null, { status: 204 }) : Response.json(result.data, { status: result.status });
+    };
+    h.deps.discordApi = createEventSyncDiscordApi("https://discord.com/api/v10", { fetch: fetcher, monotonicNow: () => 0, wallNow: () => now });
+    await sync(h.deps);
+    equal(wireMutations, 6);
+    equal(h.writes.length, 5);
+    equal(h.registryWrites.length, 5);
+    equal(h.runs.get(interactionId)?.state, "paused");
+    equal(h.runs.get(interactionId)?.retryNotBefore, new Date(now + 180_250).toISOString());
+    equal((h.messages.at(-1)!.match(/Created:/g) || []).length, 5);
+    assert(!h.messages.at(-1)?.includes("Event sync finished"));
+    firstInvocation = false;
+    h.expireCooldown();
+    h.deps.discordApi = createEventSyncDiscordApi("https://discord.com/api/v10", { fetch: fetcher, monotonicNow: () => 0, wallNow: () => now + 180_251 });
+    await sync({ ...h.deps, interactionId: nextInteractionId });
+    equal(wireMutations, 18);
+    equal(h.writes.length, 17);
+    equal(h.registryWrites.length, 17);
+    equal(h.runs.get(nextInteractionId)?.state, "completed");
+    equal((h.messages.at(-1)!.match(/Unchanged:/g) || []).length, 5);
+  }));
+
+for (const beforeCommit of [true, false]) {
+  Deno.test(`pause RPC ${beforeCommit ? "before-commit failure blocks" : "lost acknowledgement requires terminal readback"}`, () =>
+    withHarness(async (h) => {
+      h.pauseAfter(5);
+      h.failRpc("reaper_pause_event_sync", beforeCommit);
+      await sync(h.deps);
+      equal(h.writes.length, 5);
+      equal(h.runs.get(interactionId)?.state, beforeCommit ? "blocked" : "paused");
+      assert(h.messages.at(-1)?.includes("Do not retry apply"));
+      assert(!h.messages.at(-1)?.includes("incomplete and paused"));
+    }));
+}
+
+Deno.test("preview typed pause remains reserve-free", () =>
+  withHarness(async (h) => {
+    h.failProvider("pause-get");
+    await sync(h.deps, "preview");
+    equal(h.rpcCalls, []);
+    equal(h.writes, []);
+    assert(h.messages.at(-1)?.includes("preview is incomplete and paused"));
+  }));
+
+Deno.test("actual wire fence and ordinary pause-shaped errors stay blocked", async () => {
+  for (const kind of ["fence", "lookalike"]) await withHarness(async (h) => {
+    if (kind === "fence") h.failWireFence();
+    else h.failProvider("pause-lookalike");
+    await sync(h.deps);
+    equal(h.writes.length, kind === "fence" ? 0 : 1);
+    equal(h.runs.get(interactionId)?.state, "blocked");
+    assert(!h.rpcCalls.includes("reaper_pause_event_sync"));
+  });
+});
+
+for (const malformed of ["id", "guild", "fields", "image"]) {
+  Deno.test(`malformed successful PATCH ${malformed} remains blocked and unregistered`, () =>
+    withHarness(async (h) => {
+      const desired = desiredEventsFromSchedule(h.schedule)[0];
+      h.setExisting([{ id: "623456789012345678", guild_id: guildId, status: 1, entity_type: 3 }]);
+      h.setResources([{ discord_id: "623456789012345678", enabled: true, metadata: { managedBy: "reaper-event-sync", siteEventKey: desired.key } }]);
+      h.malformedResponse(malformed);
+      await sync(h.deps);
+      equal(h.writes.length, 1);
+      equal(h.registryWrites.length, 0);
+      equal(h.runs.get(interactionId)?.state, "blocked");
+    }));
+}
+
+Deno.test("late non-scheduled managed event fails full preflight before any writes", () =>
+  withHarness(async (h) => {
+    const desired = desiredEventsFromSchedule(h.schedule).at(-1)!;
+    h.setExisting([{ id: "623456789012345678", guild_id: guildId, status: 2, entity_type: 3 }]);
+    h.setResources([{ discord_id: "623456789012345678", enabled: true, metadata: { managedBy: "reaper-event-sync", siteEventKey: desired.key } }]);
+    await sync(h.deps);
+    equal(h.writes.length, 0);
+    equal(h.coverCount(), 0);
+    equal(h.runs.get(interactionId)?.state, "rejected");
+  }));
+
+Deno.test("JSONB recurrence key order does not cause redundant registry writes", () =>
+  withHarness(async (h) => {
+    await sync(h.deps);
+    h.setResources(h.resources().map((row) => {
+      const metadata = { ...row.metadata as JsonRecord };
+      if (metadata.recurrenceRule) metadata.recurrenceRule = Object.fromEntries(Object.entries(metadata.recurrenceRule as JsonRecord).sort(([a], [b]) => a.localeCompare(b)));
+      return { ...row, metadata };
+    }));
+    const writes = h.writes.length;
+    const registry = h.registryWrites.length;
+    await sync({ ...h.deps, interactionId: nextInteractionId });
+    equal(h.writes.length, writes);
+    equal(h.registryWrites.length, registry);
+    equal(h.runs.get(nextInteractionId)?.state, "completed");
+  }));
+
+Deno.test("equivalent ISO formatting cannot evade unmanaged adoption preflight", () =>
+  withHarness(async (h) => {
+    const desired = desiredEventsFromSchedule(h.schedule)[0];
+    h.setExisting([{ id: "623456789012345678", name: desired.title,
+      scheduled_start_time: desired.startIso.replace(".000Z", "+00:00"),
+      entity_type: 3, entity_metadata: { location: desired.location } }]);
+    await sync(h.deps);
+    equal(h.writes, []);
+    equal(h.coverCount(), 0);
+    assert(h.messages.at(-1)?.includes("explicit adoption"));
   }));
