@@ -75,6 +75,7 @@ const checkRows = [
   ["check:app-static-surface-inventory", ["node", "scripts/check-app-static-surface-inventory.mjs"]],
   ["test:app-static-surface-inventory", ["node", "--test", "scripts/lib/app-static-surface-inventory.test.mjs"]],
   ["test:production-home-normalization", ["node", "--test", "scripts/check-production-home-normalization.test.mjs"]],
+  ["test:production-static-normalization", ["node", "--test", "scripts/check-production-static-normalization.test.mjs"]],
   ["check:next-route-delivery", ["node", "scripts/check-next-route-delivery.mjs"]],
   ["check:guild-schedule", ["node", "scripts/check-guild-schedule.mjs"]],
   ["check:home-celebration-splash", ["node", "scripts/check-home-celebration-splash.mjs"]],
