@@ -4,6 +4,8 @@ const REQUEST_TIMEOUT_MS = 10_000;
 const MAX_RESPONSE_BYTES = 1024 * 1024;
 const MAX_DATE_MS = 8_640_000_000_000_000;
 const MAX_RETRY_DELAY_MS = 7 * 24 * 60 * 60 * 1000;
+const MAX_TRACKED_ROUTES = 128;
+const MAX_BUCKET_COOLDOWNS = 64;
 
 export class EventSyncPause extends Error {
   constructor(
@@ -28,6 +30,33 @@ type TransportOptions = {
   fetch?: typeof fetch;
   monotonicNow?: () => number;
   wallNow?: () => number;
+  wait?: (milliseconds: number, signal?: AbortSignal) => Promise<void>;
+};
+
+function waitForReset(
+  milliseconds: number,
+  signal?: AbortSignal,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      return reject(new Error("Event sync wait was aborted."));
+    }
+    const abort = () => {
+      clearTimeout(timer);
+      reject(new Error("Event sync wait was aborted."));
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", abort);
+      resolve();
+    }, milliseconds);
+    signal?.addEventListener("abort", abort, { once: true });
+  });
+}
+
+type Cooldown = { until: number; notBeforeIso: string };
+type RouteState = {
+  bucket: string | null;
+  cooldown: (Cooldown & { bucket: string | null }) | null;
 };
 
 async function boundedJson(
@@ -150,6 +179,7 @@ export function createEventSyncDiscordApi(
   const fetcher = options.fetch ?? fetch;
   const monotonicNow = options.monotonicNow ?? (() => performance.now());
   const wallNow = options.wallNow ?? Date.now;
+  const wait = options.wait ?? waitForReset;
   const startedAt = monotonicNow();
   const deadline = startedAt + INVOCATION_BUDGET_MS - FINALIZATION_RESERVE_MS;
   if (
@@ -172,24 +202,78 @@ export function createEventSyncDiscordApi(
     }
     return now;
   };
-  let inFlight = false;
-  let cooldown: { until: number; notBeforeIso: string } | null = null;
-  const checkAdmission = () => {
-    if (inFlight) {
-      throw new Error("Discord event sync request is already in flight.");
-    }
+  let busy = false;
+  let rejectedPause: EventSyncPause | null = null;
+  const routes = new Map<string, RouteState>();
+  const buckets = new Map<string, Cooldown>();
+  let hasBucketFallback = false;
+  const checkDeadline = (fullRequestSlot = false) => {
     const remaining = remainingMs();
-    // Retain the full known cooldown even if finalization also exhausted the
-    // invocation deadline; a new invocation must not be admitted prematurely.
-    if (cooldown && deadline - remaining < cooldown.until) {
-      throw new EventSyncPause("rate_limit", cooldown.notBeforeIso);
-    }
-    if (remaining <= 0) {
+    if (remaining <= 0 || (fullRequestSlot && remaining < REQUEST_TIMEOUT_MS)) {
       throw new EventSyncPause("deadline", new Date(wallTime()).toISOString());
     }
     return remaining;
   };
-  const rememberCooldown = (response: Response) => {
+  const admit = async (route: RouteState, signal?: AbortSignal) => {
+    if (rejectedPause) throw rejectedPause;
+    const remaining = remainingMs();
+    let cooldown: Cooldown | null = route.cooldown &&
+        (route.cooldown.bucket === null ||
+          route.cooldown.bucket === route.bucket)
+      ? route.cooldown
+      : null;
+    const shared = route.bucket ? buckets.get(route.bucket) : null;
+    if (shared && (!cooldown || shared.until > cooldown.until)) {
+      cooldown = shared;
+    }
+    if (route.bucket && hasBucketFallback) {
+      // Overflow remains shared by all known aliases, including aliases learned
+      // later. Snapshot the original bucket so reassignment cannot move a limit.
+      for (const state of routes.values()) {
+        const fallback = state.cooldown;
+        if (
+          fallback?.bucket === route.bucket &&
+          (!cooldown || fallback.until > cooldown.until)
+        ) cooldown = fallback;
+      }
+    }
+    const delay = cooldown ? cooldown.until - (deadline - remaining) : 0;
+    let waited = false;
+    if (cooldown && delay > 0) {
+      // A full reset and request slot must fit before the finalization reserve.
+      // Otherwise retain the full cooldown even after the invocation deadline.
+      if (Math.ceil(delay) + REQUEST_TIMEOUT_MS > remaining) {
+        throw new EventSyncPause("rate_limit", cooldown.notBeforeIso);
+      }
+      try {
+        await wait(Math.ceil(delay), signal);
+        waited = true;
+      } catch {
+        throw new Error(
+          "Discord event sync cooldown wait could not be confirmed.",
+        );
+      }
+      if (signal?.aborted || deadline - remainingMs() < cooldown.until) {
+        throw new Error(
+          "Discord event sync cooldown wait could not be confirmed.",
+        );
+      }
+    }
+    checkDeadline(waited);
+    return waited;
+  };
+  const rememberCooldown = (
+    response: Response,
+    route: RouteState,
+    guild: string,
+  ) => {
+    const rawBucket = response.headers.get("X-RateLimit-Bucket");
+    const bucket = rawBucket && /^[\x21-\x7e]{1,128}$/.test(rawBucket)
+      ? `${guild}:${rawBucket}`
+      : route.bucket;
+    // Learn shared identities even on successes with capacity remaining. Missing
+    // or malformed optional telemetry cannot erase a previously learned alias.
+    if (bucket) route.bucket = bucket;
     const remaining = response.headers.get("X-RateLimit-Remaining")?.trim();
     const reset = response.headers.get("X-RateLimit-Reset-After")?.trim();
     if (remaining !== "0" || !reset || !/^\d+(?:\.\d+)?$/.test(reset)) return;
@@ -203,8 +287,25 @@ export function createEventSyncDiscordApi(
       const until = monotonicNow() + delay;
       const now = wallTime();
       if (!Number.isFinite(until) || delay > MAX_DATE_MS - now) return;
-      if (!cooldown || until > cooldown.until) {
-        cooldown = { until, notBeforeIso: new Date(now + delay).toISOString() };
+      const cooldown = {
+        until,
+        notBeforeIso: new Date(now + delay).toISOString(),
+      };
+      for (const [key, value] of buckets) {
+        if (value.until <= until - delay) buckets.delete(key);
+      }
+      if (
+        bucket && (buckets.has(bucket) || buckets.size < MAX_BUCKET_COOLDOWNS)
+      ) {
+        if (!buckets.has(bucket) || until > buckets.get(bucket)!.until) {
+          buckets.set(bucket, cooldown);
+        }
+      } else if (!route.cooldown || until > route.cooldown.until) {
+        // Unknown buckets cool down only this route. At capacity, retain a known
+        // shared identity for bounded admission lookup without losing the ACK.
+        // Never discard a confirmed acknowledgement to store optional headers.
+        route.cooldown = { ...cooldown, bucket };
+        if (bucket) hasBucketFallback = true;
       }
     } catch { /* No inference from malformed optional response telemetry. */ }
   };
@@ -214,121 +315,149 @@ export function createEventSyncDiscordApi(
     init: RequestInit = {},
     beforeAttempt?: () => Promise<void>,
   ): Promise<{ ok: boolean; status: number; data: unknown }> => {
-    if (!/^\/guilds\/\d{17,20}\/scheduled-events(?:\/\d{17,20})?$/.test(path)) {
+    const match = /^\/guilds\/(\d{17,20})\/scheduled-events(\/\d{17,20})?$/
+      .exec(path);
+    if (!match) {
       throw new Error("Discord event sync API path was rejected.");
     }
     const method = (init.method ?? "GET").toUpperCase();
     if (!["GET", "HEAD", "POST", "PATCH", "DELETE"].includes(method)) {
       throw new Error("Discord event sync method was rejected.");
     }
-    checkAdmission();
-    if (method !== "GET" && method !== "HEAD") {
-      if (!beforeAttempt) {
-        throw new Error("Discord event sync mutation fence is required.");
-      }
-      try {
-        await beforeAttempt();
-      } catch {
-        throw new Error(
-          "Discord event sync mutation fence could not be confirmed.",
-        );
-      }
+    if (busy) {
+      throw new Error("Discord event sync request is already in flight.");
     }
-    const timeoutMs = Math.min(REQUEST_TIMEOUT_MS, checkAdmission());
-    const attemptStarted = monotonicNow();
-    const controller = new AbortController();
-    const abort = () => controller.abort();
-    if (init.signal?.aborted) {
-      throw new Error("Discord event sync request was aborted.");
+    const routeKey = `${match[1]}:${method}:${match[2] ? "event" : "list"}`;
+    if (!routes.has(routeKey)) {
+      if (routes.size >= MAX_TRACKED_ROUTES) {
+        throw new Error("Discord event sync route capacity was exceeded.");
+      }
+      routes.set(routeKey, { bucket: null, cooldown: null });
     }
-    init.signal?.addEventListener("abort", abort, { once: true });
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    let rejectAbort: (() => void) | undefined;
-    inFlight = true;
+    busy = true;
     try {
-      const checkTime = () => {
-        const now = monotonicNow();
-        if (
-          !Number.isFinite(now) || now < attemptStarted ||
-          now - attemptStarted >= timeoutMs
-        ) {
+      if (init.signal?.aborted) {
+        throw new Error("Discord event sync request was aborted.");
+      }
+      const waited = await admit(
+        routes.get(routeKey)!,
+        init.signal ?? undefined,
+      );
+      if (method !== "GET" && method !== "HEAD") {
+        if (!beforeAttempt) {
+          throw new Error("Discord event sync mutation fence is required.");
+        }
+        try {
+          await beforeAttempt();
+        } catch {
           throw new Error(
-            "Discord event sync request or response exceeded its time limit.",
+            "Discord event sync mutation fence could not be confirmed.",
           );
         }
-      };
-      const work = async () => {
-        try {
-          const response = await fetcher(`${baseUrl}${path}`, {
-            ...init,
-            method,
-            redirect: "error",
-            signal: controller.signal,
-          });
+      }
+      const timeoutMs = Math.min(REQUEST_TIMEOUT_MS, checkDeadline(waited));
+      const attemptStarted = monotonicNow();
+      const controller = new AbortController();
+      const abort = () => controller.abort();
+      if (init.signal?.aborted) {
+        throw new Error("Discord event sync request was aborted.");
+      }
+      init.signal?.addEventListener("abort", abort, { once: true });
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      let rejectAbort: (() => void) | undefined;
+      try {
+        const checkTime = () => {
+          const now = monotonicNow();
           if (
-            response.redirected ||
-            (response.status >= 300 && response.status < 400)
+            !Number.isFinite(now) || now < attemptStarted ||
+            now - attemptStarted >= timeoutMs
           ) {
             throw new Error(
-              "Discord event sync response redirect was rejected.",
+              "Discord event sync request or response exceeded its time limit.",
             );
           }
-          const data = await boundedJson(
-            response,
-            method,
-            controller.signal,
-            checkTime,
-          );
-          if (controller.signal.aborted) {
-            throw new Error("Discord event sync request was aborted.");
+        };
+        const work = async () => {
+          try {
+            const response = await fetcher(`${baseUrl}${path}`, {
+              ...init,
+              method,
+              redirect: "error",
+              signal: controller.signal,
+            });
+            if (
+              response.redirected ||
+              (response.status >= 300 && response.status < 400)
+            ) {
+              throw new Error(
+                "Discord event sync response redirect was rejected.",
+              );
+            }
+            const data = await boundedJson(
+              response,
+              method,
+              controller.signal,
+              checkTime,
+            );
+            if (controller.signal.aborted) {
+              throw new Error("Discord event sync request was aborted.");
+            }
+            checkTime();
+            return { response, data };
+          } catch {
+            controller.abort();
+            // Only our explicit deadline/429 checks may produce a safe pause.
+            // A fetch, stream or callback error can never establish rejection.
+            throw new Error(
+              "Discord event sync request or response could not be confirmed.",
+            );
           }
-          checkTime();
-          return { response, data };
-        } catch {
-          controller.abort();
-          // Only our explicit deadline/429 checks may produce a safe pause.
-          // A fetch, stream or callback error can never establish rejection.
-          throw new Error(
-            "Discord event sync request or response could not be confirmed.",
-          );
-        }
-      };
-      const timeout = new Promise<never>((_, reject) => {
-        timer = setTimeout(() => {
-          controller.abort();
-          reject(
-            new Error("Discord event sync request or response timed out."),
-          );
-        }, timeoutMs);
-      });
-      const aborted = new Promise<never>((_, reject) => {
-        rejectAbort = () =>
-          reject(new Error("Discord event sync request was aborted."));
-        controller.signal.addEventListener("abort", rejectAbort, {
-          once: true,
+        };
+        const timeout = new Promise<never>((_, reject) => {
+          timer = setTimeout(() => {
+            controller.abort();
+            reject(
+              new Error("Discord event sync request or response timed out."),
+            );
+          }, timeoutMs);
         });
-      });
-      const { response, data } = await Promise.race([work(), timeout, aborted]);
-      if (response.status === 429) {
-        const delay = rateLimitDelayMs(response, data);
-        const now = wallTime();
-        if (delay > MAX_DATE_MS - now) {
-          throw new Error("Discord event sync retry date is unsafe.");
+        const aborted = new Promise<never>((_, reject) => {
+          rejectAbort = () =>
+            reject(new Error("Discord event sync request was aborted."));
+          controller.signal.addEventListener("abort", rejectAbort, {
+            once: true,
+          });
+        });
+        const { response, data } = await Promise.race([
+          work(),
+          timeout,
+          aborted,
+        ]);
+        if (response.status === 429) {
+          const delay = rateLimitDelayMs(response, data);
+          const now = wallTime();
+          if (delay > MAX_DATE_MS - now) {
+            throw new Error("Discord event sync retry date is unsafe.");
+          }
+          rejectedPause = new EventSyncPause(
+            "rate_limit",
+            new Date(now + delay).toISOString(),
+          );
+          throw rejectedPause;
         }
-        throw new EventSyncPause(
-          "rate_limit",
-          new Date(now + delay).toISOString(),
-        );
+        if (response.ok) {
+          rememberCooldown(response, routes.get(routeKey)!, match[1]);
+        }
+        return { ok: response.ok, status: response.status, data };
+      } finally {
+        if (timer !== undefined) clearTimeout(timer);
+        if (rejectAbort) {
+          controller.signal.removeEventListener("abort", rejectAbort);
+        }
+        init.signal?.removeEventListener("abort", abort);
       }
-      if (response.ok) rememberCooldown(response);
-      return { ok: response.ok, status: response.status, data };
     } finally {
-      inFlight = false;
-      if (timer !== undefined) clearTimeout(timer);
-      if (rejectAbort) {
-        controller.signal.removeEventListener("abort", rejectAbort);
-      }
-      init.signal?.removeEventListener("abort", abort);
+      busy = false;
     }
   };
 }
