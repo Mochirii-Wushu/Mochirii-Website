@@ -600,6 +600,27 @@ const PRODUCTION_DOCUMENT_POLICIES = Object.freeze({
       "C92A261DD8F4354A428EFE76BA65AC19DBE81319FAC57762A97D1FB249FA238A",
     ]),
   }),
+  recruitmentSource: Object.freeze({
+    header: "66A0D6F526E99D38873D32D0B201816B1AF2C86151CF5CD99B1513BC6FA7B400",
+    resources: Object.freeze([
+      "1CBF6671F9333A5B80D75726EC5B924203A287DC4896EB183B243867F203FCCE",
+      "99EE1C131FE95242EEC4A013985FA8747B19EE811DB89B928E3CC488F0206A45",
+    ]),
+  }),
+  privacySource: Object.freeze({
+    header: "951B1B5A4CD1F143B08D97FE83EA92425BCE46BB451BF00E5061E18579E5CE71",
+    resources: Object.freeze([
+      "446EC81CCD1A57B17FFBD850597706ACD3A8B688139A4A8801CED440E7E9EFA2",
+      "82EDD387F7CCD163ACA8CE5D911E6D0F25FA1015BF811439EDFFFAB3DEE4E095",
+    ]),
+  }),
+  deletionSource: Object.freeze({
+    header: "951B1B5A4CD1F143B08D97FE83EA92425BCE46BB451BF00E5061E18579E5CE71",
+    resources: Object.freeze([
+      "582F0C13A8774F3C6283F1D9A9BBEA84C8B9F0B7F30EEC5ABFB6F349DA6E89C6",
+      "E3EB552CB06F03A394E49FB3883AB260E51645878D9DEE9051B78711ABE055D5",
+    ]),
+  }),
 });
 const TEST_DOCUMENT_POLICIES = Object.freeze({
   deletion: Object.freeze({
@@ -2641,7 +2662,196 @@ export function canonicalizeProductionFlightResourceEnvelopeStream(
   return result?.stream ?? null;
 }
 
+const PRODUCTION_STATIC_SOURCE_CONTRACTS = Object.freeze({
+  recruitment: Object.freeze({ hints: 7,
+    graph: "4D25C793D677C9D87B57BCD3ABF50D38602BCECE10DC76F1B09256422A51C522",
+    layouts: Object.freeze(["E3CF53C972F15C99289A89394C8C962ACA450FE61A56D5183D1108D21844A88C",
+      "080B464BC336D7E40692228E777118193FD7D7B1DF8E8C94CA5C35EA78FCB9E0"]),
+    policy: "recruitmentSource" }),
+  privacy: Object.freeze({ hints: 6,
+    graph: "BD3D39A14E46FB6D442DF791DB97CC76C6CC05FA01C4B6D61133F426A966857F",
+    layouts: Object.freeze(["D34E7CBA7C26C7BDEBA3B26B8412A081783D4A57A9C706632C14852D7CE69637",
+      "94467CA0595D0AA59B01339B9D5E1D864A9FDE4B5DDE24E8C23DFBF77999C0AE"]),
+    policy: "privacySource" }),
+  deletion: Object.freeze({ hints: 6,
+    graph: "13DE01CC7D2189774A4EA0EFF1F85F7982241E58925C1C8B4D0B628EA5EAE2F6",
+    layouts: Object.freeze(["128A7178E91BEA58F774ECB0805C51A0DA7F5690CC6173BE03778D4EB751B288",
+      "2113F1A5ED33DDB549BB19911C2DE37329E98E0A170CED7DEDBD9DDF36D38378"]),
+    policy: "deletionSource" }),
+});
+
+function normalizeProductionStaticSourceFlight(normalized, resourceProfile) {
+  if (typeof resourceProfile !== "string"
+    || !Object.hasOwn(PRODUCTION_STATIC_SOURCE_CONTRACTS, resourceProfile)) return null;
+  const contract = PRODUCTION_STATIC_SOURCE_CONTRACTS[resourceProfile];
+  if (normalized === null || typeof normalized !== "object" || Array.isArray(normalized)
+    || !Object.isFrozen(normalized) || Object.keys(normalized).length !== 2
+    || !Object.hasOwn(normalized, "stream") || typeof normalized.stream !== "string"
+    || normalized.stream.length > 64 * 1024 || !normalized.stream.endsWith("\n")
+    || !Object.hasOwn(normalized, "homeSourceProfile") || normalized.homeSourceProfile !== null) return null;
+
+  // Independently built base and release source oracles produce these complete
+  // static graphs. Only approved server segmentation and record IDs vary;
+  // imports, reference kinds, key order, payloads and ordered hints remain bound.
+  const records = new Map();
+  const hints = [];
+  const layout = [];
+  let layoutNodes = 0;
+  let layoutBytes = 0;
+  function layoutShape(value, depth = 0) {
+    if (depth > 128 || ++layoutNodes > 16384) throw new Error("Static source layout bound");
+    layoutBytes += 32;
+    if (layoutBytes > 256 * 1024) throw new Error("Static source layout bound");
+    if (typeof value === "string") {
+      const reference = value.startsWith("$") ? value : "";
+      layoutBytes += Buffer.byteLength(JSON.stringify(reference), "utf8");
+      return ["string", reference];
+    }
+    if (Array.isArray(value)) return ["array", value.map((item) => layoutShape(item, depth + 1))];
+    if (value !== null && typeof value === "object") {
+      return ["object", Object.entries(value).map(([key, item]) => {
+        layoutBytes += Buffer.byteLength(JSON.stringify(key), "utf8");
+        return [key, layoutShape(item, depth + 1)];
+      })];
+    }
+    return [value === null ? "null" : typeof value];
+  }
+  let deferredCount = 0;
+  const lines = normalized.stream.slice(0, -1).split("\n");
+  if (lines.length > 48) return null;
+  try {
+    for (const line of lines) {
+      const frame = /^(0|[1-9a-f][0-9a-f]{0,6}|[1-7][0-9a-f]{7}|):(.+)$/.exec(line);
+      if (!frame) return null;
+      const [, id, payload] = frame;
+      if (payload.startsWith("HL")) {
+        if (id !== "" || hints.length >= contract.hints) return null;
+        const hint = JSON.parse(payload.slice(2));
+        if (JSON.stringify(hint) !== payload.slice(2)) return null;
+        hints.push(hint);
+        layout.push([id, "HL", layoutShape(hint)]);
+        continue;
+      }
+      if (id === "") return null;
+      if (payload === "X") {
+        if (id === "0" || records.has(id) || ++deferredCount !== 1) return null;
+        records.set(id, { kind: "deferred", closed: false });
+        layout.push([id, "X", null]);
+      } else if (payload === "C") {
+        const opened = records.get(id);
+        if (opened?.kind !== "deferred" || opened.closed) return null;
+        opened.closed = true;
+        layout.push([id, "C", null]);
+      } else {
+        if (records.has(id)) return null;
+        const kind = payload.startsWith("I") ? "import" : "value";
+        const json = kind === "import" ? payload.slice(1) : payload;
+        const value = JSON.parse(json);
+        if (JSON.stringify(value) !== json) return null;
+        records.set(id, { kind, value });
+        layout.push([id, kind === "import" ? "I" : "", layoutShape(value)]);
+      }
+    }
+  } catch {
+    return null;
+  }
+  if (hints.length !== contract.hints || deferredCount !== 1 || records.get("0")?.kind !== "value") return null;
+  // Alternative layouts are deterministic source-only transformations: outline
+  // Recruitment's audio wrapper and inline its four children; outline Privacy's
+  // first scope paragraph or Deletion's request heading, then renumber references.
+  // This does not admit arbitrary outlining, sharing, prefix changes or moves.
+  const layoutSha256 = createHash("sha256").update(JSON.stringify(layout), "utf8")
+    .digest("hex").toUpperCase();
+  if (!contract.layouts.includes(layoutSha256)) return null;
+
+  const used = new Set();
+  const active = new Set();
+  let valid = true;
+  let nodes = 0;
+  let recordExpansions = 0;
+  let serializedByteBudget = 0;
+  function charge(bytes) {
+    serializedByteBudget += bytes;
+    if (serializedByteBudget > 256 * 1024) valid = false;
+  }
+  function expand(value, depth, references = true) {
+    if (!valid || depth > 128 || ++nodes > 16384) {
+      valid = false;
+      return null;
+    }
+    if (typeof value === "string") {
+      const reference = references && /^\$(L|@)?(0|[1-9a-f][0-9a-f]{0,6}|[1-7][0-9a-f]{7})$/.exec(value);
+      if (reference) return expandRecord(reference[2], depth + 1, reference[1] || "");
+      charge(Buffer.byteLength(JSON.stringify(value), "utf8"));
+      return valid ? value : null;
+    }
+    if (Array.isArray(value)) {
+      charge(2 + value.length);
+      return valid ? value.map((item) => expand(item, depth + 1, references)) : null;
+    }
+    if (value !== null && typeof value === "object") {
+      const entries = Object.entries(value);
+      charge(2 + entries.length * 2);
+      const expanded = {};
+      for (const [key, item] of entries) {
+        charge(Buffer.byteLength(JSON.stringify(key), "utf8"));
+        if (!valid) return null;
+        Object.defineProperty(expanded, key, { enumerable: true,
+          value: expand(item, depth + 1, references) });
+      }
+      return expanded;
+    }
+    charge(Buffer.byteLength(JSON.stringify(value), "utf8"));
+    return valid ? value : null;
+  }
+  function expandRecord(id, depth, prefix = "", root = false) {
+    const row = records.get(id);
+    if (!valid || !row || active.has(id) || depth > 128 || ++recordExpansions > 256) {
+      valid = false;
+      return null;
+    }
+    used.add(id);
+    active.add(id);
+    let result;
+    if (row.kind === "import") {
+      charge(64);
+      result = { clientReferencePrefix: prefix, clientImport: expand(row.value, depth + 1, false) };
+    } else if (row.kind === "deferred") {
+      if (!row.closed || prefix !== "" || root) valid = false;
+      charge(32);
+      result = { closedDeferredRecord: true };
+    } else {
+      const expectedPrefix = Array.isArray(row.value) ? "L" : row.value === null ? "@" : "";
+      if ((!root && prefix !== expectedPrefix)
+        || (!root && !Array.isArray(row.value) && row.value !== null
+          && !["$Sreact.fragment", "$Sreact.suspense"].includes(row.value))
+        || (root && (id !== "0" || row.value === null || Array.isArray(row.value)
+          || typeof row.value !== "object"))) valid = false;
+      result = valid ? expand(row.value, depth + 1) : null;
+    }
+    active.delete(id);
+    return result;
+  }
+  const graph = { hints: expand(hints, 0, false), root: expandRecord("0", 0, "", true) };
+  if (!valid || used.size !== records.size) return null;
+  const serialized = JSON.stringify(graph);
+  if (Buffer.byteLength(serialized, "utf8") > 256 * 1024
+    || createHash("sha256").update(serialized, "utf8").digest("hex").toUpperCase() !== contract.graph) return null;
+  return Object.freeze({ stream: resourceProfile + "-source-v1\n" + serialized + "\n",
+    homeSourceProfile: null, staticSourceProfile: resourceProfile });
+}
+
 function productionDocumentPolicyForFlight(documentPolicies, resourceProfile, normalized, homeRuntime) {
+  if (normalized !== null && typeof normalized === "object" && !Array.isArray(normalized)
+    && Object.isFrozen(normalized)
+    && Object.keys(normalized).length === 3
+    && Object.hasOwn(normalized, "stream") && typeof normalized.stream === "string"
+    && Object.hasOwn(normalized, "homeSourceProfile") && normalized.homeSourceProfile === null
+    && Object.hasOwn(normalized, "staticSourceProfile")) {
+    return typeof resourceProfile === "string" && resourceProfile === normalized.staticSourceProfile
+      && Object.hasOwn(PRODUCTION_STATIC_SOURCE_CONTRACTS, resourceProfile) && homeRuntime === null
+      ? documentPolicies?.[PRODUCTION_STATIC_SOURCE_CONTRACTS[resourceProfile].policy] ?? null : null;
+  }
   if (normalized === null || typeof normalized !== "object" || Array.isArray(normalized)
     || Object.keys(normalized).length !== 2
     || !Object.hasOwn(normalized, "stream") || typeof normalized.stream !== "string"
@@ -2709,6 +2919,7 @@ export function productionDocumentPolicyMatches(documentPolicy, headerSha256, re
 export function productionDocumentProfileMatches(profile, headerSha256, resourcesSha256) {
   return typeof profile === "string"
     && profile !== "homeSourceBase" && profile !== "homeSourceCandidate"
+    && profile !== "recruitmentSource" && profile !== "privacySource" && profile !== "deletionSource"
     && Object.hasOwn(PRODUCTION_DOCUMENT_POLICIES, profile)
     && productionDocumentPolicyMatches(
       PRODUCTION_DOCUMENT_POLICIES[profile], headerSha256, resourcesSha256,
@@ -3724,13 +3935,16 @@ function readActiveProductionHtml(html, {
   }
 
   if (resourceFlightEnvelopeIndex >= 0) {
-    const normalizedFlight = canonicalizeProductionFlightResourceEnvelopeStreamWithProfile(
+    let normalizedFlight = canonicalizeProductionFlightResourceEnvelopeStreamWithProfile(
       resourceFlightPayloadStream, nextStaticBuildIds, null, null, resourceProfile === "home",
       homeRuntime,
     );
     if (normalizedFlight === null) {
       reportDiagnostic("HTML document parser FLIGHT_STREAM");
       return null;
+    }
+    if (Object.hasOwn(PRODUCTION_STATIC_SOURCE_CONTRACTS, resourceProfile)) {
+      normalizedFlight = normalizeProductionStaticSourceFlight(normalizedFlight, resourceProfile) ?? normalizedFlight;
     }
     const canonicalFlightPayloadStream = normalizedFlight.stream;
     documentPolicy = productionDocumentPolicyForFlight(

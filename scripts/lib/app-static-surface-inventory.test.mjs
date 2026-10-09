@@ -27,13 +27,13 @@ const productionCheckerPath = path.join(root, "scripts", "check-production.mjs")
 const configPath = path.join(root, "apps", "web", "config", "app-static-surface-inventory.v1.json");
 const expectedSuccess = "App static surface inventory OK (28 metadata routes, 250 public files, 47846783 bytes).\n";
 const expectedCheckerBytes = 13_000;
-const expectedCheckerSha256 = "EA66182044742655DDB92B2255D86EEE9224BCFD8AF68439B5B098A794B35BD9";
+const expectedCheckerSha256 = "C8AAC81859DC172EC4427113E74334E06AA3FA7590A5697979C3529C141697CB";
 const expectedLibraryBytes = 24_913;
 const expectedLibrarySha256 = "B0370216A311FC19A6206580806CD8312572F2589989C7038359D1F9D7547733";
 const expectedAppRouterLibraryBytes = 59_423;
 const expectedAppRouterLibrarySha256 = "D3D31B84E7F8FD14CBCCFFE5B38C6E665446EA2AA708E3F3C052678D6DA06056";
-const expectedProductionCheckerBytes = 182_097;
-const expectedProductionCheckerSha256 = "82FC33A533F85377B391E1D5CB465DB4FB5BC7DF3A33ABFA6688DFC8F6E5A441";
+const expectedProductionCheckerBytes = 192_365;
+const expectedProductionCheckerSha256 = "4BDEA5CC98F40EAA3A351AA4DAB39FA419906C6B93811C0F5EF91370655E883A";
 
 function sha256(buffer) {
   return createHash("sha256").update(buffer).digest("hex").toUpperCase();
