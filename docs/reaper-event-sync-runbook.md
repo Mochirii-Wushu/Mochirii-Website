@@ -29,6 +29,9 @@ Rules:
 - Preview validates the complete schedule, event identities and every distinct cover before apply. Schedule and cover fetches accept only bounded responses from the canonical HTTPS website paths, without redirects. Verify any runtime `GUILD_SCHEDULE_URL` override resolves to the approved source without exposing other environment values.
 - Apply reserves the guild through `private.reaper_event_sync_runs` before reading the plan. Interaction IDs remain deduplicated, and each provider or registry write checks the reservation owner. Reservations never expire or transfer automatically.
 - When a completed or missing Discord event is replaced, Reaper records the replacement first and then disables only the superseded managed registry row for the same key.
+- Reaper compares the actual Discord fields and validated cover bytes before writing. A cover is unchanged only when its SHA256 and the returned Discord image hash match a recorded receipt and the current event. An old cover URL alone is insufficient; the first apply after this repair may upload that cover once. Registry-only drift is repaired without a Discord PATCH when the provider fields and cover receipt already agree.
+- Event sync uses its own bounded transport. It does not automatically retry a rate-limited request. A valid Discord cooldown, or an invocation deadline reached before sending a request, may pause a run only at a confirmed boundary where earlier acknowledgements and registry writes are durable. The full cooldown is stored; it is never shortened to fit an Edge worker.
+- A paused interaction is terminal and remains permanently deduplicated. Another apply requires a new interaction, fresh complete preview and current owner approval after the cooldown. This is an operator-controlled continuation with a newly reviewed plan, not automatic replay of the previous plan.
 
 ## Schedule Rules
 
@@ -74,3 +77,13 @@ If the apply step creates incorrect Discord events, cancel or edit only the Reap
 An unconfirmed Discord request, registry update or reservation transition stops the run. A writing or blocked reservation prevents another apply; do not retry with a new interaction, expire the lock, or assume a timeout means Discord rejected the request. A preflight failure may release a reservation as rejected only before writing starts.
 
 For recovery, first establish that the prior function worker has terminated. Read back the guild's Discord events, managed registry rows and exact reservation identity, then reconcile every attempted mutation. Prepare a reviewed, separately approved forward migration for that exact guild, interaction and owner if the reservation needs a terminal state. Record the reconciled outcome and finish time without deleting the deduplication record. Ordinary sync RPCs intentionally cannot clear a blocked reservation. Run a fresh clean preview after recovery before another approved apply. A source revert does not undo either provider writes or the migration.
+
+## Rate-Limited or Deadline Pause
+
+A paused response is incomplete. Review its acknowledged actions and stored retry time; do not report a completed sync. The guild reservation RPC rejects a new apply during the stored cooldown. The paused interaction itself can never be resumed or replayed.
+
+After the cooldown, confirm the prior worker has terminated and reconcile Discord, registry receipts and run states. Run a new preview against the currently published schedule and covers. If the dates, source, ownership or proposed actions changed, review the new plan before requesting another exact apply approval. Previously verified events should appear unchanged; URL-only historical rows may still need one controlled cover upload. Preserve unrelated events and the inactive website raffle policy.
+
+Network failures, request/body timeouts, malformed successful responses, lost acknowledgements, registry failures and failed reservation transitions remain uncertain and require reconciliation. Unconfirmed writes retain a writing or blocked reservation. If a pause or completion committed but its acknowledgement was lost, the actual row may already be terminal; verify it rather than assuming either success or a blocked state. The failed worker must issue no further writes. A local invocation deadline and `waitUntil` do not prove worker termination or extend platform limits.
+
+Primary references: [Discord rate limits](https://docs.discord.com/developers/topics/rate-limits), [Discord scheduled event objects](https://docs.discord.com/developers/resources/guild-scheduled-event), [Supabase background task limits](https://supabase.com/docs/guides/functions/background-tasks).

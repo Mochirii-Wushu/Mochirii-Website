@@ -47,6 +47,7 @@ import { verifyDiscordSignature } from "../_shared/discord-signature.ts";
 import { SITE_ORIGIN, siteUrl } from "../_shared/public-origins.ts";
 import { getServiceRoleKey } from "../_shared/supabase-service-role.ts";
 import { processEventSync } from "../_shared/reaper-event-sync-workflow.ts";
+import { createEventSyncDiscordApi } from "../_shared/reaper-event-sync-transport.ts";
 import {
   handlePhotoDayPollCommand,
   handlePhotoDayPollComponent,
@@ -832,7 +833,7 @@ Deno.serve(async (req: Request) => {
       expectedGuildId: EXPECTED_DISCORD_GUILD_ID,
       guildScheduleUrl: GUILD_SCHEDULE_URL,
       discordApiUserAgent: DISCORD_API_USER_AGENT,
-      discordApi,
+      discordApi: createEventSyncDiscordApi(DISCORD_API_BASE_URL),
       discordApiHeaders,
       editOriginalInteractionResponse,
       serviceAdminClient,
