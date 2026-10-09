@@ -20,7 +20,7 @@ const NEXT_CONFIG_REDIRECT_SKELETON_MARKER = "\n/* app-route-inventory: validate
 const ROUTE_MATRIX_INPUT_FAILURE = "route matrix could not be read or parsed [ROUTE_MATRIX_INPUT]";
 const APP_ROUTER_INPUT_FAILURE = "App Router filesystem could not be inventoried [APP_ROUTER_INPUT]";
 
-export const NEXT_CONFIG_REDIRECT_SKELETON_SHA256 = "3F59F1EC20F34AADB3AEB884122264BC6A76740C3B1D79944A40AEF070DF3FED";
+export const NEXT_CONFIG_REDIRECT_SKELETON_SHA256 = "F906435E2376F3033E8008F91A6CE7B87660BC7F48D2F4E1871307AC83C9EC65";
 
 function compareText(left, right) {
   return left < right ? -1 : left > right ? 1 : 0;

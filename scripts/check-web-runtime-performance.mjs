@@ -47,14 +47,29 @@ for (const file of pageFiles(path.join(root, "apps/web/app"))) {
 const eventsRoute = read("apps/web/app/events/page.tsx");
 const eventsPage = read("apps/web/components/public-pages/route-pages/EventsPage.tsx");
 const eventsBoard = read("apps/web/components/public-pages/EventsBoard.tsx");
+const eventsSchedule = read("apps/web/components/public-pages/EventsSchedule.tsx");
+const scheduleClock = read("apps/web/lib/events/use-guild-schedule.ts");
 [
   'import { connection } from "next/server";',
   "await connection();",
   "referenceTime={new Date().toISOString()}",
 ].forEach((snippet) => assertIncludes("Events server reference", eventsRoute, snippet));
-assertIncludes("Events route page", eventsPage, "<EventsBoard");
+assertIncludes("Events route page", eventsPage, "<EventsSchedule");
 assertIncludes("Events route page", eventsPage, "referenceTime={referenceTime}");
-assertIncludes("Events route page", eventsPage, "websiteEventCardsFromSchedule(guildScheduleData, new Date(referenceTime))");
+assertIncludes("Events clock", scheduleClock, "now: parseReferenceTime(referenceTime)");
+assertIncludes("Events clock", scheduleClock, "clock.seed === referenceTime ? clock.now : parseReferenceTime(referenceTime)");
+assertIncludes("Events clock", scheduleClock, "websiteEventCardsFromSchedule(schedule, new Date(referenceTimeMs))");
+assertIncludes("Events clock", scheduleClock, "timer = setTimeout(refresh, 0)");
+assertIncludes("Events clock", scheduleClock, "nextScheduleRefreshDelay(now, currentItems, schedule.timezone?.offsetMinutes)");
+assertIncludes("Events clock", scheduleClock, 'document.addEventListener("visibilitychange", refresh)');
+assertIncludes("Events clock", scheduleClock, 'document.removeEventListener("visibilitychange", refresh)');
+assertIncludes("Events clock", scheduleClock, 'document.addEventListener("resume", refresh)');
+assertIncludes("Events clock", scheduleClock, 'document.removeEventListener("resume", refresh)');
+assertIncludes("Events clock", scheduleClock, 'window.addEventListener("pageshow", refresh)');
+assertIncludes("Events clock", scheduleClock, 'window.removeEventListener("pageshow", refresh)');
+assertIncludes("Events clock", scheduleClock, 'window.addEventListener("focus", refresh)');
+assertIncludes("Events clock", scheduleClock, 'window.removeEventListener("focus", refresh)');
+assertIncludes("Events schedule", eventsSchedule, "<EventsBoard items={schedule.items} referenceTime={schedule.referenceTime}");
 assertIncludes("Events board", eventsBoard, "eventStatusAt(item, referenceTimeMs)");
 assertIncludes("Events board", eventsBoard, "parseReferenceTime(referenceTime)");
 assertNotIncludes("Events board", eventsBoard, "Date.now()");

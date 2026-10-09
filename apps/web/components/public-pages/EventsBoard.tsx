@@ -117,7 +117,7 @@ export function EventsBoard({ items, referenceTime }: { items: EventItem[]; refe
 
   return (
     <>
-      <div className="events-toolbar" aria-labelledby="eventsBoardTitle">
+      <div className="events-toolbar" role="group" aria-labelledby="eventsBoardTitle">
         <div className="events-filters" role="group" aria-label="Filter events">
           {Object.entries(filters).map(([key, meta]) => (
             <button
@@ -132,12 +132,13 @@ export function EventsBoard({ items, referenceTime }: { items: EventItem[]; refe
             </button>
           ))}
         </div>
-        <p className="events-count muted" id="eventsCount" aria-live="polite">
+        <p className="events-count muted" id="eventsCount" role="status" aria-live="polite" aria-atomic="true">
           {countText}
         </p>
       </div>
 
-      <div id="eventsUpcoming" className="events-upcoming" aria-live="polite" aria-label="Event Board results" tabIndex={0}>
+      <noscript><p className="muted">Upcoming times are shown below. Reload this page for the latest schedule.</p></noscript>
+      <div id="eventsUpcoming" className="events-upcoming" role="group" aria-label="Event Board results" tabIndex={0}>
         {visible.length ? (
           visible.map((item) => {
             const metaLine = [formatDateUTC(item.date), item.dayText, item.timeText || item.time, item.timezone]
@@ -149,7 +150,7 @@ export function EventsBoard({ items, referenceTime }: { items: EventItem[]; refe
             return (
               <section className="events-list__item" key={`${item.id || item.title}-${item.date}`}>
                 <p className="kicker">{metaLine}</p>
-                <h4 className="section-title section-title--sm">{text(item.title, "Event")}</h4>
+                <h3 className="section-title section-title--sm">{text(item.title, "Event")}</h3>
                 <p className="muted">{text(item.summary)}</p>
                 {item.image ? (
                   <div className="u-mt-12">
@@ -159,14 +160,14 @@ export function EventsBoard({ items, referenceTime }: { items: EventItem[]; refe
                       width={1600}
                       height={640}
                       className="events-list__image"
-                      sizes="(max-width: 980px) calc(100vw - 86px), 320px"
+                      sizes="(max-width: 980px) calc(100vw - 74px - clamp(40px, 6vw, 60px)), calc((min(100vw, 1200px) - 32px) / 3 - clamp(22px, 3vw, 34px) * 2 / 3 - 42px - clamp(40px, 6vw, 60px))"
                     />
                   </div>
                 ) : null}
                 <div className="badge-row u-mt-14">
                   <span>
                     <a href={href} target={isExternal(href) ? "_blank" : undefined} rel={isExternal(href) ? "noopener noreferrer" : undefined}>
-                      Open details
+                      {href === DISCORD_INVITE_URL ? "RSVP & details in Discord" : "Open details"}
                     </a>
                   </span>
                 </div>

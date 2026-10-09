@@ -15,7 +15,7 @@
     "check:client-bundle": "node scripts/check-client-bundle.mjs",
     "check:font-bundle": "node scripts/check-font-bundle.mjs",
     "check:route-css-bundle": "node scripts/check-route-css-bundle.mjs",
-    "test:web-runtime-performance": "node --experimental-default-type=module --experimental-strip-types --test lib/auth-load-generation_test.ts lib/events/reference-time_test.ts lib/observability/authenticated-route-timing_test.ts",
+    "test:web-runtime-performance": "node --experimental-default-type=module --experimental-strip-types --test config/event-cover-image-patterns_test.ts lib/auth-load-generation_test.ts lib/guild-schedule_test.ts lib/events/reference-time_test.ts lib/events/schedule-refresh_test.ts lib/events/public-schedule_test.ts lib/events/participation-render_test.ts lib/observability/authenticated-route-timing_test.ts",
     "vercel:build:local": "npm run clean && cd ../.. && vercel build --prod --cwd apps/web",
     "vercel:version": "vercel --version",
     "start": "next start",
@@ -30,24 +30,30 @@
     "@supabase/supabase-js": "^2.112.3",
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
-    "next": "16.3.3",
+    "next": "16.3.8",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
   "overrides": {
     "@babel/core": "7.29.7",
     "@tootallnate/once": "2.0.1",
-    "brace-expansion": "5.0.9",
-    "fast-uri": "3.1.5",
-    "js-yaml": "4.3.1",
+    "baseline-browser-mapping": "2.11.0",
+    "brace-expansion": "5.0.12",
+    "browserslist": "4.28.7",
+    "fast-uri": "3.1.8",
+    "js-yaml": "4.3.2",
     "minimatch": "10.2.6",
     "nanoid": "3.3.18",
     "postcss": "8.5.23",
-    "sharp": "0.35.3",
-    "smol-toml": "1.7.0",
+    "sharp": "0.35.5",
+    "smol-toml": "1.9.0",
+    "source-map-js": "1.2.2",
     "tar": "7.5.22",
     "@vercel/backends": {
       "path-to-regexp": "8.4.2"
+    },
+    "@vercel/blob": {
+      "undici": "6.28.1"
     },
     "@vercel/express": {
       "path-to-regexp": "8.4.2"
@@ -60,19 +66,19 @@
     },
     "@vercel/node": {
       "path-to-regexp": "6.3.0",
-      "undici": "6.28.0"
+      "undici": "6.28.1"
     },
     "@vercel/remix-builder": {
       "path-to-regexp": "6.3.0"
     },
     "@vercel/sandbox": {
-      "undici": "7.29.0"
+      "undici": "7.29.1"
     },
     "@vercel/static-config": {
       "ajv": "8.20.0"
     },
     "vercel": {
-      "undici": "6.28.0"
+      "undici": "6.28.1"
     }
   },
   "devDependencies": {
@@ -80,7 +86,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.3.3",
+    "eslint-config-next": "16.3.8",
     "typescript": "^5",
     "vercel": "57.0.0"
   }

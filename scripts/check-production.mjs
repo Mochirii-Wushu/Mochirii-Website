@@ -572,6 +572,20 @@ const PRODUCTION_DOCUMENT_POLICIES = Object.freeze({
       }),
     ]),
   }),
+  homeSourceBase: Object.freeze({
+    header: "411005B83187566BA48384F5D5211FDCA5D4A3932C9F1E1CAE8AE44B7A550B78",
+    resources: Object.freeze([
+      "4A456AB1D8724B8ACF26D8BF6986D0F99FD2634BAA2572EBAB1F50E326E2ED17",
+      "243C5A063D8A5FF748C2F0F0538921A748B2483E242752B2B7B28AA198CFAAF8",
+    ]),
+  }),
+  homeSourceCandidate: Object.freeze({
+    header: "411005B83187566BA48384F5D5211FDCA5D4A3932C9F1E1CAE8AE44B7A550B78",
+    resources: Object.freeze([
+      "290C6C1BA3155B0BCB02004041542B4DD902917F67D98CF205A7FDA9EA28DF50",
+      "919C798D3CC0111622D550FD2D11DC3A8BDA9F29FF25455C1C655B4C5A471D10",
+    ]),
+  }),
   privacy: Object.freeze({
     header: "951B1B5A4CD1F143B08D97FE83EA92425BCE46BB451BF00E5061E18579E5CE71",
     resources: Object.freeze([
@@ -1394,13 +1408,48 @@ function productionFlightResourceReference(value, kind, buildIds) {
   return pattern.test(canonical) ? canonical : null;
 }
 
-export function canonicalizeProductionFlightResourceEnvelopeStream(
+const PRODUCTION_HOME_CLOCK_SKEW_MS = 5 * 60 * 1000;
+const PRODUCTION_HOME_PUBLIC_SCHEDULE_SHA256 =
+  "F21C2A3EEE0AFC73327537CF36E8DFBE7F3A36176730D3889C2ABFBBD8F61EFD";
+
+function productionHomeRuntimeIntervalIsValid(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    && Object.keys(value).length === 2
+    && Object.hasOwn(value, "requestStartedAtMs") && Object.hasOwn(value, "responseReceivedAtMs")
+    && Number.isSafeInteger(value.requestStartedAtMs)
+    && Number.isSafeInteger(value.responseReceivedAtMs)
+    && value.requestStartedAtMs >= 0
+    && value.responseReceivedAtMs >= value.requestStartedAtMs
+    && value.responseReceivedAtMs - value.requestStartedAtMs <= (TIMEOUT_MS + 1000) * MAX_ATTEMPTS
+    && Number.isFinite(new Date(value.responseReceivedAtMs
+      + PRODUCTION_HOME_CLOCK_SKEW_MS + 480 * 60 * 1000).getTime());
+}
+
+function productionHomeLegacyGatheringDate(nowMs) {
+  const local = new Date(nowMs + 480 * 60 * 1000);
+  let year = local.getUTCFullYear();
+  let month = local.getUTCMonth();
+  let day = 1 + (3 - new Date(Date.UTC(year, month, 1)).getUTCDay() + 7) % 7;
+  if (local.getUTCDate() > day) {
+    const next = new Date(Date.UTC(year, month + 1, 1));
+    year = next.getUTCFullYear();
+    month = next.getUTCMonth();
+    day = 1 + (3 - next.getUTCDay() + 7) % 7;
+  }
+  const monthName = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][month];
+  return `${day} ${monthName} ${year} • UTC+8`;
+}
+
+function canonicalizeProductionFlightResourceEnvelopeStreamWithProfile(
   value, buildIds, resourceUrls = null, canonicalDocumentUrl = null,
-  normalizeHomeSpotlight = false,
+  normalizeHomeSpotlight = false, homeRuntime = null,
 ) {
   if (typeof value !== "string" || value.length > PRODUCTION_CHECK_LIMITS.htmlBytes) return null;
   if (resourceUrls !== null && !Array.isArray(resourceUrls)) return null;
   if (typeof normalizeHomeSpotlight !== "boolean") return null;
+  if (homeRuntime !== null
+    && (!normalizeHomeSpotlight
+      || !productionHomeRuntimeIntervalIsValid(homeRuntime))) return null;
   const replacements = [];
   const frames = [];
   const flightReferenceOccurrences = [];
@@ -1993,7 +2042,262 @@ export function canonicalizeProductionFlightResourceEnvelopeStream(
       && productionFlightStringIsWellFormed(name);
   }
 
+  function homeReactProperties(node, name, keys) {
+    return node?.type === "array" && node.items.length === 4
+      && productionJsonStringIs(node.items[0], "$")
+      && productionJsonStringIs(node.items[1], name) && node.items[2]?.type === "null"
+      && productionJsonObjectKeyOrderMatches(node.items[3], keys) ? node.items[3] : null;
+  }
+
+  function homeProperty(properties, name) {
+    return productionJsonObjectEntry(properties, name)?.value;
+  }
+
+  function homeReplace(frame, node, replacement) {
+    if (!node || node.type !== "string") return false;
+    replacements.push(Object.freeze({
+      start: frame.payloadOffset + node.start,
+      end: frame.payloadOffset + node.end,
+      value: JSON.stringify(replacement),
+    }));
+    return true;
+  }
+
+  function homeElements() {
+    const result = [];
+    function visit(node, frame, ancestry) {
+      if (node?.type === "array") {
+        let next = ancestry;
+        if (node.items.length === 4 && productionJsonStringIs(node.items[0], "$")
+          && node.items[1]?.type === "string" && node.items[3]?.type === "object") {
+          result.push({ node, frame, ancestry });
+          next = [...ancestry, node];
+        }
+        for (const item of node.items) visit(item, frame, next);
+      } else if (node?.type === "object") {
+        for (const entry of node.entries) visit(entry.value, frame, ancestry);
+      }
+    }
+    for (const frame of frames) if (frame.role === "regular") visit(frame.record, frame, []);
+    return result;
+  }
+
+  function prepareSourceBoundHomeNormalization() {
+    const elements = homeElements();
+    const dates = elements.filter(({ node }) => productionJsonStringIs(
+      homeProperty(node.items[3], "id"), "featuredBulletinDate",
+    ));
+    const eventImports = frames.filter((frame) => frame.role === "import"
+      && productionJsonStringIs(frame.record?.items?.[2], "HomeNextEvent"));
+    // Historical synthetic/title-only contracts keep their original strict path.
+    if (dates.length === 0 && eventImports.length === 0) return undefined;
+    if (spotlightAnchors.length !== 1) return null;
+    const profiles = [
+      { main: "15", spotlight: "1c", title: "1e", gallery: "1d", galleryImport: "1f", cta: "20", event: null, icon: "11", terminal: ["20", "1e"] },
+      { main: "14", spotlight: "1b", title: "1d", gallery: "1c", galleryImport: "1e", cta: "1f", event: null, icon: "20", terminal: ["d", "1f", "1d", "20", "b", "f"] },
+      { main: "14", spotlight: "1a", title: "1c", gallery: "1b", galleryImport: "1d", cta: "1e", event: "15", icon: "1f", terminal: ["d", "1e", "1c", "1f", "b", "f"] },
+      { main: "15", spotlight: "1b", title: "1d", gallery: "1c", galleryImport: "1e", cta: "1f", event: "16", icon: "11", terminal: ["1f", "1d"] },
+    ];
+    const profile = profiles.find((entry) => spotlightAnchors[0].recordId === entry.spotlight
+      && spotlightAnchors[0].reference === "$L" + entry.title
+      && (entry.event === null) === (eventImports.length === 0));
+    if (!profile || (profile.event === null ? dates.length !== 1 || eventImports.length !== 0
+      : dates.length !== 0 || eventImports.length !== 1)) return null;
+    const byId = new Map(frames.map((frame) => [frame.recordId, frame]));
+    const exactReferences = [
+      ["$L8", "0"], ["$L" + profile.main, "8"],
+      ["$L" + profile.spotlight, profile.main], ["$L" + profile.gallery, profile.main],
+      ["$L" + profile.title, profile.spotlight], ["$L" + profile.galleryImport, profile.gallery],
+      ["$L" + profile.cta, profile.gallery], ["$Ld", "0"], ["$Lf", "0"],
+      ["$@b", "0"], ["$L" + profile.icon, "f"],
+    ];
+    if (profile.event !== null) exactReferences.push(["$L" + profile.event, profile.main]);
+    if (exactReferences.some(([reference, from]) => !flightReferenceIsExact(reference, from))
+      || ["8", profile.main, profile.spotlight, profile.gallery, profile.title, profile.galleryImport,
+        profile.cta, profile.icon, "d", "b", "f", ...(profile.event === null ? [] : [profile.event])]
+        .some((recordId) => !flightTargetIsReferencedOnce(recordId))) return null;
+    if (["0", "8", profile.main, profile.spotlight, profile.gallery, profile.title, profile.cta, "d", "b", "f"]
+      .some((recordId) => byId.get(recordId)?.role !== "regular")) return null;
+    function exactImport(recordId, moduleId, name, count) {
+      const frame = byId.get(recordId);
+      return frame?.role === "import" && frame.record?.type === "array"
+        && frame.record.items.length === 3 && frame.record.items[0]?.type === "number"
+        && frame.record.items[0].value === moduleId && frame.record.items[1]?.type === "array"
+        && frame.record.items[1].items.length === count
+        && productionJsonStringIs(frame.record.items[2], name);
+    }
+    if (!exactImport("6", 57153, "Image", 3) || !exactImport("7", 7575, "", 3)
+      || !exactImport(profile.galleryImport, 24555, "HomeGallerySpotlight", 3)
+      || !exactImport(profile.icon, 60329, "IconMark", 2)
+      || (profile.event !== null && !exactImport(profile.event, 94654, "HomeNextEvent", 3))) return null;
+    const cta = homeReactProperties(byId.get(profile.cta).record, "$L7", ["className", "href", "children"]);
+    if (!productionFlightStringPropertyIs(cta, "className", "hero-cta home-section-cta")
+      || !productionFlightStringPropertyIs(cta, "href", "/gallery")
+      || !productionFlightStringPropertyIs(cta, "children", "View Guild Gallery")) return null;
+    const terminal = frames.slice(-profile.terminal.length);
+    if (terminal.length !== profile.terminal.length
+      || new Set(terminal.map((frame) => frame.recordId)).size !== terminal.length
+      || profile.terminal.some((id) => !terminal.some((frame) => frame.recordId === id))
+      || frames.indexOf(byId.get(profile.galleryImport)) >= frames.indexOf(byId.get(profile.gallery))
+      || frames.indexOf(byId.get(profile.gallery)) >= frames.indexOf(terminal[0])
+      || (profile.icon !== "11" && terminal.findIndex((frame) => frame.recordId === profile.icon)
+        >= terminal.findIndex((frame) => frame.recordId === "f"))) return null;
+    const titleFrame = byId.get(profile.title);
+    const wireTitle = titleFrame.record?.type === "string" ? titleFrame.record.value : null;
+    const title = typeof wireTitle === "string" && wireTitle.startsWith("$$")
+      ? wireTitle.slice(1) : wireTitle;
+    if (!productionFlightHomeSpotlightNameIsSafe(title)
+      || titleFrame.payload !== JSON.stringify(wireTitle)
+      || (wireTitle.startsWith("$") && !wireTitle.startsWith("$$"))) return null;
+    if (!normalizeHomeSpotlightFields(byId.get(profile.spotlight), title, profile.title, elements)) return null;
+    if (profile.event === null) {
+      if (!normalizeLegacyHomeDate(dates[0])) return null;
+    } else if (!normalizeHomeEventReference(profile.event, elements)) return null;
+    homeReplace(titleFrame, titleFrame.record, "Member Spotlight");
+    return Object.freeze({ retainedOrder: profile.terminal, suffixStart: terminal[0].start,
+      sourceProfile: profile.event === null ? "base" : "candidate" });
+  }
+
+  function normalizeHomeSpotlightFields(frame, title, titleId, elements) {
+    const section = homeReactProperties(frame.record, "section", ["className", "aria-label", "children"]);
+    const children = homeProperty(section, "children");
+    if (!productionFlightStringPropertyIs(section, "className", "glass-card glass-card--primary glass-pad u-mt-24")
+      || !productionFlightStringPropertyIs(section, "aria-label", "Member spotlight")
+      || children?.type !== "array" || children.items.length !== 3) return false;
+    const heading = homeReactProperties(children.items[0], "h2", ["className", "children"]);
+    const intro = homeReactProperties(children.items[1], "p", ["className", "id", "children"]);
+    const card = homeReactProperties(children.items[2], "div", ["id", "className", "role", "aria-label", "children"]);
+    const cardChildren = homeProperty(card, "children");
+    if (!productionFlightStringPropertyIs(heading, "className", "section-title")
+      || !productionFlightStringPropertyIs(heading, "children", "Member Spotlight")
+      || !productionFlightStringPropertyIs(intro, "className", "muted")
+      || !productionFlightStringPropertyIs(intro, "id", "spotlightIntro")
+      || !productionFlightStringPropertyIs(card, "id", "spotlightCard")
+      || !productionFlightStringPropertyIs(card, "className", "home-spotlight")
+      || !productionFlightStringPropertyIs(card, "role", "group")
+      || cardChildren?.type !== "array" || cardChildren.items.length !== 4) return false;
+    const image = homeReactProperties(cardChildren.items[0], "$L6", ["id", "src", "alt", "className", "width", "height", "sizes", "style", "loading", "fetchPriority"]);
+    const scrim = homeReactProperties(cardChildren.items[1], "div", ["className", "aria-hidden"]);
+    const link = homeReactProperties(cardChildren.items[2], "$L7", ["className", "href", "aria-label", "children"]);
+    const hidden = homeReactProperties(homeProperty(link, "children"), "span", ["className", "children"]);
+    const plate = homeReactProperties(cardChildren.items[3], "div", ["className", "children"]);
+    const plateChildren = homeProperty(plate, "children");
+    if (!productionFlightStringPropertyIs(image, "id", "spotlightImage")
+      || !productionFlightStringPropertyIs(image, "src", "/assets/img/featured/spotlight.webp")
+      || !productionFlightStringPropertyIs(image, "className", "home-spotlight__img")
+      || homeProperty(image, "width")?.value !== 1536 || homeProperty(image, "height")?.value !== 1024
+      || !productionFlightStringPropertyIs(image, "sizes", "(max-width: 1232px) calc(100vw - 68px), 1120px")
+      || !productionFlightStringPropertyIs(image, "style", "$undefined")
+      || !productionFlightStringPropertyIs(image, "loading", "lazy")
+      || !productionFlightStringPropertyIs(image, "fetchPriority", "$undefined")
+      || !productionFlightStringPropertyIs(scrim, "className", "home-spotlight__scrim")
+      || !productionFlightStringPropertyIs(scrim, "aria-hidden", "true")
+      || !productionFlightStringPropertyIs(link, "className", "home-spotlight__surface-link")
+      || !productionFlightStringPropertyIs(link, "href", "/spotlight")
+      || !productionFlightStringPropertyIs(hidden, "className", "sr-only")
+      || !productionFlightStringPropertyIs(plate, "className", "home-spotlight__plate")
+      || plateChildren?.type !== "array" || plateChildren.items.length !== 4) return false;
+    const tag = homeReactProperties(plateChildren.items[0], "span", ["id", "className", "children"]);
+    const titleProperties = homeReactProperties(plateChildren.items[1], "h3", ["id", "className", "children"]);
+    const summary = homeReactProperties(plateChildren.items[2], "p", ["id", "className", "children"]);
+    const cta = homeReactProperties(plateChildren.items[3], "span", ["className", "aria-hidden", "children"]);
+    if (!productionFlightStringPropertyIs(tag, "id", "spotlightTag")
+      || !productionFlightStringPropertyIs(tag, "className", "home-pill")
+      || !productionFlightStringPropertyIs(tag, "children", "Current Spotlight")
+      || !productionFlightStringPropertyIs(titleProperties, "id", "spotlightTitle")
+      || !productionFlightStringPropertyIs(titleProperties, "className", "home-title")
+      || !productionFlightStringPropertyIs(titleProperties, "children", "$L" + titleId)
+      || !productionFlightStringPropertyIs(summary, "id", "spotlightSummary")
+      || !productionFlightStringPropertyIs(summary, "className", "home-summary")
+      || !productionFlightStringPropertyIs(cta, "className", "home-link")
+      || !productionFlightStringPropertyIs(cta, "aria-hidden", "true")) return false;
+    for (const id of ["spotlightIntro", "spotlightCard", "spotlightImage", "spotlightTag", "spotlightTitle", "spotlightSummary"]) {
+      if (elements.filter(({ node }) => productionJsonStringIs(homeProperty(node.items[3], "id"), id)).length !== 1) return false;
+    }
+    const fallbackIntro = "Each month, one active website member is selected for the guild Spotlight.";
+    const fallbackSummary = "Selected from active website members for this month’s guild Spotlight.";
+    const recognitionIntro = "Each month, members recognize one person for a specific contribution.";
+    const recognitionSummary = "Recognized for helping members & contributing to guild activities.";
+    const winner = productionFlightStringPropertyIs(image, "alt", `Member Spotlight cover for ${title}`);
+    const introText = homeProperty(intro, "children")?.value;
+    const summaryText = homeProperty(summary, "children")?.value;
+    const recognitionMonth = [homeRuntime.requestStartedAtMs - PRODUCTION_HOME_CLOCK_SKEW_MS,
+      homeRuntime.responseReceivedAtMs + PRODUCTION_HOME_CLOCK_SKEW_MS]
+      .some((time) => new Date(time + 480 * 60 * 1000).toISOString().startsWith("2026-08-"));
+    if (!(introText === fallbackIntro && summaryText === fallbackSummary)
+      && !(winner && recognitionMonth && introText === recognitionIntro && summaryText === recognitionSummary)) return false;
+    const openLabel = winner ? `Open ${title}’s Member Spotlight` : "Open the Member Spotlight";
+    if ((!winner && (title !== "Member Spotlight" || !productionFlightStringPropertyIs(image, "alt", "Member Spotlight cover")))
+      || !productionFlightStringPropertyIs(card, "aria-label", `Member spotlight - ${title} - ${summaryText}`)
+      || !productionFlightStringPropertyIs(link, "aria-label", openLabel)
+      || !productionFlightStringPropertyIs(hidden, "children", openLabel)
+      || !productionFlightStringPropertyIs(cta, "children", winner ? `Read ${title}’s Spotlight` : "Read the Member Spotlight")) return false;
+    return [
+      [intro, "children", fallbackIntro], [summary, "children", fallbackSummary],
+      [card, "aria-label", `Member spotlight - Member Spotlight - ${fallbackSummary}`],
+      [image, "alt", "Member Spotlight cover"], [link, "aria-label", "Open the Member Spotlight"],
+      [hidden, "children", "Open the Member Spotlight"], [cta, "children", "Read the Member Spotlight"],
+    ].every(([properties, name, replacement]) => homeReplace(frame, homeProperty(properties, name), replacement));
+  }
+
+  function normalizeLegacyHomeDate(entry) {
+    const properties = homeReactProperties(entry.node, "span", ["id", "className", "children"]);
+    const metaNode = entry.ancestry.at(-1);
+    const meta = homeReactProperties(metaNode, "div", ["className", "children"]);
+    const metaChildren = homeProperty(meta, "children");
+    const featured = homeReactProperties(entry.ancestry.at(-2), "a", ["id", "className", "href", "aria-label", "children"]);
+    const label = metaChildren?.type === "array" ? homeReactProperties(metaChildren.items[0], "span", ["id", "className", "children"]) : null;
+    const featuredChildren = homeProperty(featured, "children");
+    const allowed = [homeRuntime.requestStartedAtMs - PRODUCTION_HOME_CLOCK_SKEW_MS,
+      homeRuntime.responseReceivedAtMs + PRODUCTION_HOME_CLOCK_SKEW_MS].map(productionHomeLegacyGatheringDate);
+    if (!productionFlightStringPropertyIs(properties, "className", "home-date")
+      || !productionFlightStringPropertyIs(meta, "className", "home-featured__meta")
+      || metaChildren?.type !== "array" || metaChildren.items.length !== 2 || metaChildren.items[1] !== entry.node
+      || !productionFlightStringPropertyIs(label, "id", "featuredBulletinType")
+      || !productionFlightStringPropertyIs(label, "className", "home-pill")
+      || !productionFlightStringPropertyIs(label, "children", "Next Event")
+      || !productionFlightStringPropertyIs(featured, "id", "featuredBulletin")
+      || !productionFlightStringPropertyIs(featured, "className", "home-featured")
+      || !productionFlightStringPropertyIs(featured, "href", "/events")
+      || !productionFlightStringPropertyIs(featured, "aria-label", "View Monthly Guild Gathering details")
+      || featuredChildren?.type !== "array" || featuredChildren.items.length !== 4 || featuredChildren.items[2] !== metaNode
+      || !allowed.includes(homeProperty(properties, "children")?.value)) return false;
+    return homeReplace(entry.frame, homeProperty(properties, "children"), "7 Jan 1970 • UTC+8");
+  }
+
+  function normalizeHomeEventReference(importId, elements) {
+    const entries = elements.filter(({ node }) => productionJsonStringIs(node.items[1], "$L" + importId));
+    if (entries.length !== 1) return false;
+    const entry = entries[0];
+    const properties = homeReactProperties(entry.node, "$L" + importId, ["referenceTime", "scheduleData", "children"]);
+    const link = homeReactProperties(entry.ancestry.at(-1), "$L7", ["id", "className", "href", "children"]);
+    const linkChildren = homeProperty(link, "children");
+    const child = homeReactProperties(homeProperty(properties, "children"), "span", ["className", "children"]);
+    const reference = homeProperty(properties, "referenceTime");
+    const time = reference?.type === "string" ? Date.parse(reference.value) : NaN;
+    const schedule = homeProperty(properties, "scheduleData");
+    if (!productionFlightStringPropertyIs(link, "id", "featuredBulletin")
+      || !productionFlightStringPropertyIs(link, "className", "home-featured")
+      || !productionFlightStringPropertyIs(link, "href", "/events")
+      || linkChildren?.type !== "array" || linkChildren.items.length !== 3 || linkChildren.items[2] !== entry.node
+      || !productionFlightStringPropertyIs(child, "className", "home-link")
+      || !productionFlightStringPropertyIs(child, "children", "View All Events")
+      || !Number.isFinite(time) || new Date(time).toISOString() !== reference.value
+      || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(reference.value)
+      || time < homeRuntime.requestStartedAtMs - PRODUCTION_HOME_CLOCK_SKEW_MS
+      || time > homeRuntime.responseReceivedAtMs + PRODUCTION_HOME_CLOCK_SKEW_MS
+      || schedule?.type !== "object"
+      || createHash("sha256").update(value.slice(entry.frame.payloadOffset + schedule.start,
+        entry.frame.payloadOffset + schedule.end), "utf8").digest("hex").toUpperCase()
+        !== PRODUCTION_HOME_PUBLIC_SCHEDULE_SHA256) return false;
+    return homeReplace(entry.frame, reference, "1970-01-01T00:00:00.000Z");
+  }
+
   function prepareHomeSpotlightNormalization() {
+    if (homeRuntime !== null) {
+      const sourceBound = prepareSourceBoundHomeNormalization();
+      if (sourceBound !== undefined) return sourceBound;
+    }
     const currentRetainedOrder = Object.freeze(["20", "1e"]);
     if (spotlightAnchors.length === 1
       && spotlightAnchors[0].recordId === "1c"
@@ -2323,7 +2627,30 @@ export function canonicalizeProductionFlightResourceEnvelopeStream(
         (recordId) => canonicalFrames.get(recordId),
       ).join("");
   }
-  return canonical;
+  return Object.freeze({ stream: canonical,
+    homeSourceProfile: homeSpotlightNormalization?.sourceProfile ?? null });
+}
+
+export function canonicalizeProductionFlightResourceEnvelopeStream(
+  value, buildIds, resourceUrls = null, canonicalDocumentUrl = null,
+  normalizeHomeSpotlight = false, homeRuntime = null,
+) {
+  const result = canonicalizeProductionFlightResourceEnvelopeStreamWithProfile(
+    value, buildIds, resourceUrls, canonicalDocumentUrl, normalizeHomeSpotlight, homeRuntime,
+  );
+  return result?.stream ?? null;
+}
+
+function productionDocumentPolicyForFlight(documentPolicies, resourceProfile, normalized, homeRuntime) {
+  if (normalized === null || typeof normalized !== "object" || Array.isArray(normalized)
+    || Object.keys(normalized).length !== 2
+    || !Object.hasOwn(normalized, "stream") || typeof normalized.stream !== "string"
+    || !Object.hasOwn(normalized, "homeSourceProfile")) return null;
+  if (normalized.homeSourceProfile === null) return documentPolicies?.[resourceProfile] ?? null;
+  if (resourceProfile !== "home" || !productionHomeRuntimeIntervalIsValid(homeRuntime)) return null;
+  if (normalized.homeSourceProfile === "base") return documentPolicies?.homeSourceBase ?? null;
+  if (normalized.homeSourceProfile === "candidate") return documentPolicies?.homeSourceCandidate ?? null;
+  return null;
 }
 
 function productionResourceEnvelopeRow(tag, text = "", context = "", buildIds = new Set()) {
@@ -2381,6 +2708,7 @@ export function productionDocumentPolicyMatches(documentPolicy, headerSha256, re
 
 export function productionDocumentProfileMatches(profile, headerSha256, resourcesSha256) {
   return typeof profile === "string"
+    && profile !== "homeSourceBase" && profile !== "homeSourceCandidate"
     && Object.hasOwn(PRODUCTION_DOCUMENT_POLICIES, profile)
     && productionDocumentPolicyMatches(
       PRODUCTION_DOCUMENT_POLICIES[profile], headerSha256, resourcesSha256,
@@ -3111,9 +3439,10 @@ function readActiveProductionNextStaticNamespace(html, {
 
 function readActiveProductionHtml(html, {
   allowPlainAudio = false, documentPolicies, reportDiagnostic = () => undefined, resourceProfile = "",
+  homeRuntime = null,
 } = {}) {
   if (typeof html !== "string") return null;
-  const documentPolicy = documentPolicies?.[resourceProfile];
+  let documentPolicy = documentPolicies?.[resourceProfile];
   if (!documentPolicy) return null;
   const asciiLowerHtml = asciiLower(html);
   if (!asciiLowerHtml.startsWith(PRODUCTION_DOCTYPE)) return null;
@@ -3395,11 +3724,20 @@ function readActiveProductionHtml(html, {
   }
 
   if (resourceFlightEnvelopeIndex >= 0) {
-    const canonicalFlightPayloadStream = canonicalizeProductionFlightResourceEnvelopeStream(
+    const normalizedFlight = canonicalizeProductionFlightResourceEnvelopeStreamWithProfile(
       resourceFlightPayloadStream, nextStaticBuildIds, null, null, resourceProfile === "home",
+      homeRuntime,
     );
-    if (canonicalFlightPayloadStream === null) {
+    if (normalizedFlight === null) {
       reportDiagnostic("HTML document parser FLIGHT_STREAM");
+      return null;
+    }
+    const canonicalFlightPayloadStream = normalizedFlight.stream;
+    documentPolicy = productionDocumentPolicyForFlight(
+      documentPolicies, resourceProfile, normalizedFlight, homeRuntime,
+    );
+    if (documentPolicy === null) {
+      reportDiagnostic("HTML document parser HOME_SOURCE_POLICY");
       return null;
     }
     resourceEnvelope[resourceFlightEnvelopeIndex] += `|stream-sha256=${createHash("sha256")
@@ -3505,7 +3843,9 @@ async function checkUrlAvailability(client) {
 }
 
 async function checkMetadata(client, documentPolicies) {
+  const requestStartedAtMs = Date.now();
   const home = await fetchText(client, "/", "html");
+  const responseReceivedAtMs = Date.now();
   if (!productionHtmlNamespaceMatchesPath(client, "/", home)) {
     if (client.diagnose) client.reportDiagnostic("HTML metadata namespace rejected /");
     throw failure("HTML_DOCUMENT_REJECTED");
@@ -3514,6 +3854,7 @@ async function checkMetadata(client, documentPolicies) {
     documentPolicies,
     reportDiagnostic: client.diagnose ? client.reportDiagnostic : () => undefined,
     resourceProfile: "home",
+    homeRuntime: { requestStartedAtMs, responseReceivedAtMs },
   });
   if (!homeDocument
     || !productionNextStaticNamespaceMatchesPath(client, "/", homeDocument.nextStaticBuildId)) {

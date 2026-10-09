@@ -112,7 +112,7 @@ assertEqual("timezone label", schedule.timezone?.label, "UTC+8");
 assertEqual("timezone display label", schedule.timezone?.displayLabel, "UTC+8");
 assertEqual("timezone IANA zone", schedule.timezone?.ianaZone, "Asia/Singapore");
 assertEqual("timezone offset", offsetMinutes(), 480);
-assertEqual("Discord cover version", schedule.discordCoverVersion, "2026-06-10-event-panels");
+assertEqual("Discord cover version", schedule.discordCoverVersion, "2026-10-09-uniform-covers");
 assertEqual("first Saturday before rollover", nextFirstSaturday(new Date("2026-06-03T12:00:00Z")), "2026-06-06");
 assertEqual("first Saturday on rollover", nextFirstSaturday(new Date("2026-06-05T17:00:00Z")), "2026-06-06");
 assertEqual("first Saturday after rollover", nextFirstSaturday(new Date("2026-06-07T01:00:00Z")), "2026-07-04");
@@ -130,16 +130,17 @@ else {
     monthlyGathering.description,
     "A monthly gathering where every member can discuss anything they'd like with the guild.",
   );
-  assertEqual("monthly gathering rule", monthlyGathering.rule, "next-first-wednesday");
-  assertEqual("monthly gathering time", monthlyGathering.time, "9:30 PM");
-  assertEqual("monthly gathering start", monthlyGathering.startTime, "21:30");
-  assertEqual("monthly gathering end", monthlyGathering.endTime, "22:00");
+  assertEqual("monthly gathering rule", monthlyGathering.rule, "next-first-sunday");
+  assertEqual("monthly gathering following-day offset", monthlyGathering.startDayOffset, 1);
+  assertEqual("monthly gathering time", monthlyGathering.time, "12:00 AM");
+  assertEqual("monthly gathering start", monthlyGathering.startTime, "00:00");
+  assertEqual("monthly gathering end", monthlyGathering.endTime, "01:00");
   assertEqual("monthly gathering recurrence frequency", monthlyGathering.discordRecurrenceRule?.frequency, 1);
   assertEqual("monthly gathering recurrence interval", monthlyGathering.discordRecurrenceRule?.interval, 1);
-  assertEqual("monthly gathering first Wednesday recurrence n", monthlyGathering.discordRecurrenceRule?.by_n_weekday?.[0]?.n, 1);
-  assertEqual("monthly gathering first Wednesday recurrence day", monthlyGathering.discordRecurrenceRule?.by_n_weekday?.[0]?.day, 2);
-  assertEqual("monthly gathering UTC start", localToUtcIso("2026-08-05", monthlyGathering.startTime), "2026-08-05T13:30:00.000Z");
-  assertEqual("monthly gathering UTC end", localToUtcIso("2026-08-05", monthlyGathering.endTime), "2026-08-05T14:00:00.000Z");
+  assertEqual("monthly gathering first Sunday UTC recurrence n", monthlyGathering.discordRecurrenceRule?.by_n_weekday?.[0]?.n, 1);
+  assertEqual("monthly gathering first Sunday UTC recurrence day", monthlyGathering.discordRecurrenceRule?.by_n_weekday?.[0]?.day, 6);
+  assertEqual("monthly gathering UTC start", localToUtcIso("2026-11-02", monthlyGathering.startTime), "2026-11-01T16:00:00.000Z");
+  assertEqual("monthly gathering UTC end", localToUtcIso("2026-11-02", monthlyGathering.endTime), "2026-11-01T17:00:00.000Z");
   assertEqual("monthly gathering cover", monthlyGathering.discordCoverImage, "./assets/img/discord-events/monthly-gathering.png");
 }
 
@@ -178,17 +179,18 @@ const heroRealm = schedule.weekly.find((item) => item.id === "guild-heros-realm"
 if (!heroRealm) fail("guild-heros-realm weekly event is missing.");
 else {
   assertEqual("Hero's Realm next Friday", nextWeeklyDate(heroRealm, new Date("2026-06-08T12:00:00Z")), "2026-06-12");
-  assertEqual("Hero's Realm UTC start", localToUtcIso("2026-06-12", heroRealm.startTime), "2026-06-12T14:00:00.000Z");
-  assertEqual("Hero's Realm UTC end", localToUtcIso("2026-06-12", heroRealm.endTime), "2026-06-12T15:00:00.000Z");
+  assertEqual("Hero's Realm UTC start", localToUtcIso("2026-06-12", heroRealm.startTime), "2026-06-12T15:00:00.000Z");
+  assertEqual("Hero's Realm UTC end next day", localToUtcIso("2026-06-13", heroRealm.endTime), "2026-06-12T16:00:00.000Z");
 }
 
 const unitedResolve = schedule.weekly.find((item) => item.id === "united-resolve");
 if (!unitedResolve) fail("united-resolve weekly event is missing.");
 else {
-  assertEqual("United Resolve next Friday", nextWeeklyDate(unitedResolve, new Date("2026-06-08T12:00:00Z")), "2026-06-12");
-  assertEqual("United Resolve time text", unitedResolve.timeText, "11 PM - 12 AM");
-  assertEqual("United Resolve UTC start", localToUtcIso("2026-06-12", unitedResolve.startTime), "2026-06-12T15:00:00.000Z");
-  assertEqual("United Resolve UTC end next day", localToUtcIso("2026-06-13", unitedResolve.endTime), "2026-06-12T16:00:00.000Z");
+  assertEqual("Skyward Bond title", unitedResolve.title, "Skyward Bond");
+  assertEqual("Skyward Bond next Friday", nextWeeklyDate(unitedResolve, new Date("2026-06-08T12:00:00Z")), "2026-06-12");
+  assertEqual("Skyward Bond time text", unitedResolve.timeText, "10 PM - 11 PM");
+  assertEqual("Skyward Bond UTC start", localToUtcIso("2026-06-12", unitedResolve.startTime), "2026-06-12T14:00:00.000Z");
+  assertEqual("Skyward Bond UTC end", localToUtcIso("2026-06-12", unitedResolve.endTime), "2026-06-12T15:00:00.000Z");
 }
 
 [
@@ -197,7 +199,7 @@ else {
   ["showdown", "./assets/img/discord-events/showdown.png"],
   ["guild-wars", "./assets/img/discord-events/guild-wars.png"],
   ["guild-heros-realm", "./assets/img/discord-events/guild-heros-realm.png"],
-  ["united-resolve", "./assets/img/discord-events/united-resolve.png"],
+  ["united-resolve", "./assets/img/discord-events/skyward-bond.png"],
 ].forEach(([id, expectedCover]) => {
   const event = schedule.weekly.find((item) => item.id === id);
   if (!event) fail(`${id} weekly event is missing for cover validation.`);
@@ -219,7 +221,7 @@ const scheduleLines = schedule.weekly
   "Guild Party: Every Day - 9:30 PM - 10 PM",
   "Breaking Army: Mondays & Wednesdays - 10 PM - 12 AM",
   "Showdown: Tuesdays & Thursdays - 10 PM - 12 AM",
-  "Guild Wars: Saturdays & Sundays - 8:30 PM - 11:30 PM",
+  "Guild Wars: Saturdays & Sundays - 8:30 PM - 11:00 PM",
 ].forEach((line) => {
   if (!scheduleLines.includes(line)) fail(`weekly schedule line missing: ${line}`);
 });

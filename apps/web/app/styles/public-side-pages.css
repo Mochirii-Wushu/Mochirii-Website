@@ -807,7 +807,7 @@ body[data-page="spotlight"] .col-4 .glass-card{
 }
 
 @media (max-width:480px){
-  body[data-page="events"] .events-filter{
+  :is(body[data-page="events"], .events-page) .events-filter{
     flex:1 1 auto;
     justify-content:center;
   }

@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { forumsConnectPrivateHeaders } from "./config/forums-connect-private-headers";
+import { eventCoverImagePatterns } from "./config/event-cover-image-patterns";
 import publicUrls from "./config/public-urls.json";
 
 const appRoot = dirname(fileURLToPath(import.meta.url));
@@ -73,6 +74,9 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  images: {
+    localPatterns: eventCoverImagePatterns,
+  },
   skipTrailingSlashRedirect: true,
   outputFileTracingRoot: workspaceRoot,
   outputFileTracingIncludes: {

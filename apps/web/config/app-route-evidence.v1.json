@@ -41,7 +41,7 @@
       "path": "scripts/check-app-route-evidence.mjs",
       "scope": "actual CLI execution and categorical exit contract",
       "bytes": 15211,
-      "sha256": "39E1A240C72A0866496801A1C8BB28A98B475937460044096080B36CEE86CF3F",
+      "sha256": "79A7DE8A85E6DB4D74B1086583C7C2E8031882E8693727755A463A3CC754BE28",
       "status": "verified_source"
     },
     {
@@ -49,7 +49,7 @@
       "path": "scripts/lib/app-route-evidence.test.mjs",
       "scope": "actual CLI and hostile route-evidence controls",
       "bytes": 46298,
-      "sha256": "F20B98F6739CD8F09897548C836B38E7698A86666162D2B306637D46EB313830",
+      "sha256": "9CF464ED2DE2D353BE5EB4E10FC6C75FB6046088526BA6D9394CA004C3A7C1E1",
       "status": "verified_source"
     },
     {
@@ -73,7 +73,7 @@
       "path": "scripts/lib/app-router-inventory.mjs",
       "scope": "direct App Router inventory parser dependency used by route-evidence validation",
       "bytes": 59423,
-      "sha256": "5051994396F6B0EAC3033F13CF2DC41BD2DCD8FF3102CF11DC49F8B53F780D84",
+      "sha256": "D3D31B84E7F8FD14CBCCFFE5B38C6E665446EA2AA708E3F3C052678D6DA06056",
       "status": "verified_source"
     },
     {
@@ -88,8 +88,8 @@
       "id": "content-guardrails",
       "path": "scripts/check-content-guardrails.mjs",
       "scope": "source-only public content and protected-copy guardrails",
-      "bytes": 20601,
-      "sha256": "E81663396E4F3E41DB7A23687CC96B079751A1979ED5E31B0DD6294495DB0706",
+      "bytes": 20774,
+      "sha256": "F2DCC0B2E349E5F3CF342FE6CB92007A8756F4BE57D505D002FA39ADE03CD18C",
       "status": "verified_source"
     },
     {
@@ -112,8 +112,8 @@
       "id": "package-route-evidence-wiring",
       "path": "package.json",
       "scope": "exact npm commands for route-evidence checking and hostile tests",
-      "bytes": 17609,
-      "sha256": "CDD60C4E2F7DE3CB05D7E13CBF5E2709D8688ED1D8C0A758AACF8E719A39841B",
+      "bytes": 18072,
+      "sha256": "14FE52E8A7186140378CC68C5CD730AB72FA0CA0580FB3B4E35B2A6AC41530FD",
       "status": "verified_source"
     },
     {
@@ -136,16 +136,16 @@
       "id": "repository-check-runner",
       "path": "scripts/check-all.mjs",
       "scope": "full-repository execution wiring for route-evidence checks",
-      "bytes": 12973,
-      "sha256": "466FB6E397E9006EE2964261A48525D23F801460CE2C54E4FE6D1809B18C33CB",
+      "bytes": 13316,
+      "sha256": "F875B7B2AFA91A97C26DB813E89BCAD66623E8E6B16F67F13224879A2E9307DE",
       "status": "verified_source"
     },
     {
       "id": "runtime-performance",
       "path": "scripts/check-web-runtime-performance.mjs",
       "scope": "source performance budgets; no route-specific field measurement claim",
-      "bytes": 9782,
-      "sha256": "BAE2A060EEB25B7FFD885CA98127E3421BDD8A3EF040ED1B0E9A52BC5F199763",
+      "bytes": 11273,
+      "sha256": "F9489C643D320FD04758B8677269F842DF137C88317A2569FC5A42BF9491921A",
       "status": "verified_source"
     },
     {
