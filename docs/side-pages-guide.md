@@ -78,7 +78,10 @@ How to add or update an announcement safely:
 - Use `pinned: true` only for notices that should sort above regular notices.
 - Keep summaries brief.
 - Use `details[]` for short supporting bullets.
-- The live Next Announcements page derives `weekly-schedule` details from `apps/web/public/data/guild-schedule.json`; keep fallback JSON details aligned with that schedule.
+- The live Next Announcements page derives `weekly-schedule` details through `announcementScheduleLines` from `apps/web/public/data/guild-schedule.json`: all six public weekly activities and the monthly gathering, excluding the inactive raffle. Keep fallback JSON details identical to the derived lines.
+- Show the governing `UTC+8` label with each schedule line and in the page badges. Mark midnight-crossing ends as the following day.
+- The gathering is first-Sunday `24:00`–`25:00`, displayed as the Monday after that Sunday, `12:00 AM`–`1:00 AM`. This is not a first-Monday rule: February 2027's gathering is 8 February.
+- Date pinned schedule revisions when the approved schedule is updated. Keep historical notices anchored to their original month instead of relative wording such as `This month`.
 - Use `tags[]` for short labels.
 - Do not add item-level links or images unless `announcements.js` is intentionally updated and validated.
 
