@@ -1,31 +1,33 @@
 # Reaper Pending Verification Activation Packet
 
-This packet activates pending-verification containment in two releases:
+This packet separates pending-verification containment into two owned releases:
 
 1. Supabase slash-command repair path.
 2. Private Reaper Gateway member-event forwarding.
 
-Do not combine those approvals. Live provider mutations stay owner/moderator approved.
+Publish and verify the Website backend before activating the Gateway. Each
+release and activation requires its exact approved scope. Live provider
+mutations stay owner/moderator approved.
 
 ## Approval-Required Live Mutations
 
-- `supabase db push`
-- `supabase functions deploy reaper-discord-interactions --project-ref deyvmtncimmcinldjyqe`
-- `supabase functions deploy reaper-discord-member-sync --project-ref deyvmtncimmcinldjyqe`
+- Protected Website merge and the normal Vercel/Supabase Git publication, including migrations.
+- `reaper_set_pending_containment_enabled(true)` or `false` through the service-role-only RPC.
 - `npm run register:reaper-pending-verification-command -- --apply`
 - Discord `/sync-pending-verification mode:apply confirm:true`
 - `npm run rollback:reaper-pending-verification -- --apply --confirm-guild=1078630751077142608`
-- Private Reaper Gateway deployment
+- Private Reaper Gateway image publication, paid hosting, credential configuration and deployment.
 
 Dry runs, static validation, local type checks, and PR checks are safe local/repo work.
 
 ## Local Validation
 
-Run from `C:\Users\xtyty\Documents\Mochirii`:
+Run from the isolated Website checkout being reviewed:
 
 ```sh
 npm run check:reaper-discord-interactions
 npm run check:reaper-pending-verification
+npm run test:reaper-member-sync
 npm run check:discord-reaper-parity
 npm run check:supabase-edge-types
 npm run check
@@ -42,35 +44,36 @@ npm run build
 
 ## Release 1: Slash Command Repair Path
 
-1. Open a scoped PR from the implementation branch.
-2. Wait for GitHub, Vercel Preview, and repository checks to pass.
-3. Merge only after review.
-4. Confirm Supabase migration state:
+1. Hold pending-containment apply, rollback and Gateway forwarding throughout
+   publication and verification. Drain every possible legacy writer using
+   execution telemetry or the current maximum Edge worker lifetime plus margin.
+2. Open the exactly approved scoped PR from the implementation branch.
+3. Wait for required GitHub checks, exact Vercel Preview and repository checks.
+4. Merge only after exact review and approval through the protected path.
+5. Verify the normal Supabase Git integration applies the additive migrations
+   and redeploys all 33 declared functions, with 20 JWT-enabled and 13 disabled.
+   Verify exact deployed source and active function versions. Never manually
+   deploy functions or bypass migration history with a direct database push.
+6. Confirm migration state through authenticated read-only provider evidence.
+   When the reviewed checkout is already linked, these optional diagnostics
+   remain read-only:
 
 ```sh
 supabase migration list
 supabase db push --dry-run
 ```
 
-5. After approval, apply the migration:
-
-```sh
-supabase db push
-```
-
-6. After approval, deploy only the Interactions function:
-
-```sh
-supabase functions deploy reaper-discord-interactions --project-ref deyvmtncimmcinldjyqe
-```
-
-7. Dry-run the Discord command registration:
+7. The `20261010173229_reaper_pending_containment_receipts.sql` migration installs
+   a disabled policy and durable request receipts. Keep it disabled until the
+   new Gateway contract, credential target, permissions and writer drain are
+   verified. Activation is a separately approved provider operation.
+8. Dry-run the Discord command registration if current command evidence requires it:
 
 ```sh
 npm run register:reaper-pending-verification-command
 ```
 
-8. After approval, upsert only `/sync-pending-verification`:
+9. Only if required and separately approved, upsert `/sync-pending-verification`:
 
 ```sh
 npm run register:reaper-pending-verification-command -- --apply
@@ -127,6 +130,7 @@ Endpoint contract:
 
 ```json
 {
+  "request_id": "<stable UUIDv4>",
   "event_type": "guildMemberAdd | guildMemberUpdate",
   "guild_id": "1078630751077142608",
   "discord_user_id": "<snowflake>",
@@ -138,6 +142,20 @@ Endpoint contract:
 
 The endpoint has `verify_jwt = false` and requires header `x-mochirii-reaper-member-sync-secret`. It fetches the current Discord member before mutating, uses the shared containment policy, blocks manual conflicts, enforces the same max-mutation guard, logs redacted counts, and writes only tracked member-specific containment overwrites.
 
+The authenticated `GET` route at the same URL plus `/status?request_id=<UUIDv4>`
+reads the permanent receipt without writing. A completed acknowledgment has
+exact fields `ok`, `request_id`, `status` and `result`, with `status: "completed"`
+and bounded integer counts `discordWrites`, `dbWrites`, `staleRecordsCleared`.
+A generic 2xx response is insufficient. Redirects, different origins or paths,
+oversized responses and malformed receipts are rejected.
+
+Gateway, manual slash apply and rollback share one durable guild fence.
+Request namespaces and immutable input hashes prevent replay with a changed
+body. A writing or blocked fence never expires or transfers automatically.
+Known pre-acquisition busy/disabled responses can retry the same request;
+uncertain writes require receipt lookup and reconciliation. Never create a new
+request identity to bypass a pending receipt.
+
 Gateway requirements:
 
 - Use only `Guilds` and `GuildMembers` intents.
@@ -145,14 +163,19 @@ Gateway requirements:
 - Do not request Message Content or Presence intents.
 - Do not mutate roles or channel permissions directly.
 - Do not store Supabase service-role keys in the Gateway runtime.
+- Persist each immutable UUID-bound request in the private host spool before
+  sending. Drain sequentially, retain uncertain or blocked work across restart,
+  and remove a record only after its exact completed receipt. Queue, disk or
+  receipt failures must produce a redacted readiness fault.
+- Keep recovery credentials in the existing Proton-synced local Creds boundary;
+  protected hosted runtime credentials and queue state must operate without it.
 
-Validation from `C:\Users\xtyty\Documents\Reaper`:
+Validation from the isolated `Mochirii-Wushu/Reaper-Discord-Bot` checkout uses
+that repository's pinned Bun build/check toolchain and Node runtime:
 
 ```sh
-bun install
-bun run typecheck
-bun test
-bun run build
+bun run check
+bun run check:container
 ```
 
 Deploy the Gateway only after those checks pass and owner approval is given.
@@ -161,8 +184,12 @@ Deploy the Gateway only after those checks pass and owner approval is given.
 
 Immediate stop:
 
-1. Disable/unregister `/sync-pending-verification`, or redeploy the previous `reaper-discord-interactions` function.
-2. Disable Gateway event-posting env vars or redeploy the previous Gateway worker.
+1. After exact approval, disable the containment policy and Gateway forwarding.
+2. Establish that every in-flight worker terminated and reconcile its permanent
+   receipt before changing code or resuming a writer. Disabling admission does
+   not undo completed Discord writes or stop an already admitted worker.
+3. Correct source through normal reviewed Git publication. Do not restore an
+   unfenced writer or clear a blocked receipt to force progress.
 
 Permission cleanup dry run:
 
@@ -173,8 +200,14 @@ npm run rollback:reaper-pending-verification
 After approval:
 
 ```sh
-npm run rollback:reaper-pending-verification -- --apply --confirm-guild=1078630751077142608
+npm run rollback:reaper-pending-verification -- --apply --confirm-guild=1078630751077142608 --request-id=<approved-stable-UUIDv4>
 ```
+
+Rollback apply also requires separately approved containment admission. Hold
+Gateway forwarding and manual applies, drain and reconcile all prior writers,
+then enable admission for the approved fenced rollback and disable it again
+after verifying its terminal receipt. Retain the same request ID after an
+uncertain response; never replay under a new identity.
 
 The rollback script removes only Reaper-owned containment bits tracked in `discord_managed_permission_overwrites`. It preserves manual bits and marks cleared registry rows inactive. Database table removal is not required for emergency stop.
 
@@ -185,7 +218,9 @@ Record these in the PR or private operator note:
 - Branch and commit SHA.
 - GitHub/Vercel/Supabase check status.
 - Supabase migration list result.
-- Supabase function deploy command and timestamp.
+- Automatic Supabase publication timestamp, exact deployed source and function-version parity.
+- Policy state, request identity and terminal receipt; no raw secret or private payload.
+- Gateway immutable image digest, supervisor/reboot/readiness and protected spool recovery evidence.
 - Command registration dry-run/apply output.
 - Preview target count, conflict count, planned Discord write count, and registry write count.
 - Apply result counts.

@@ -15,8 +15,11 @@ const expectedEventTypes = [
   "guild-wars",
   "guild-heros-realm",
   "united-resolve",
+  "twitch-mochi-monday",
+  "twitch-mochi-tuesday",
+  "twitch-mochi-wednesday",
 ];
-const expectedManagedEventCount = 8;
+const expectedManagedEventCount = 11;
 const expectedGuildId = "1078630751077142608";
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const monthlyRuleWeekdays = {
@@ -211,7 +214,7 @@ function localEventInstances(schedule, now) {
   );
   const weeklyInstances = [];
 
-  for (const value of asArray(schedule.weekly)) {
+  for (const value of [...asArray(schedule.weekly), ...asArray(schedule.streaming)]) {
     const item = asObject(value);
     if (item.discord !== true) continue;
     const id = String(item.id || "");
@@ -405,6 +408,16 @@ instances.forEach((event) => {
   assert(/^\d{2}:\d{2}$/.test(event.startTime), `${event.key}: startTime must be HH:mm.`);
   assert(/^\d{2}:\d{2}$/.test(event.endTime), `${event.key}: endTime must be HH:mm.`);
   assert(event.location, `${event.key}: location is required.`);
+  if (event.key.startsWith("twitch-")) {
+    const index = ["twitch-mochi-monday", "twitch-mochi-tuesday", "twitch-mochi-wednesday"].indexOf(event.key);
+    assert(index >= 0, `${event.key}: unexpected streaming activity.`);
+    assert(event.location === "https://www.twitch.tv/mochiriiguild", `${event.key}: streaming location must be the approved Twitch channel.`);
+    assert(event.startTime === "21:30" && event.endTime === "23:30", `${event.key}: streaming clocks must match the approved UTC+8 schedule.`);
+    assert(event.recurrenceRule?.frequency === 2 && event.recurrenceRule?.interval === 1 &&
+      JSON.stringify(event.recurrenceRule?.by_weekday) === JSON.stringify([index]), `${event.key}: expected one native weekly series.`);
+    assert(!event.cover && !event.canonicalEventId && event.duplicateEventIds.length === 0, `${event.key}: streams must not borrow guild covers or event identities.`);
+    return;
+  }
   assert(event.cover, `${event.key}: discordCoverImage is required.`);
   const coverPath = normalizeAssetPath(event.cover);
   assert(coverPath.startsWith("assets/img/discord-events/"), `${event.key}: cover must stay under assets/img/discord-events/.`);
@@ -464,7 +477,7 @@ assert(gathering?.recurrenceRule?.by_n_weekday?.[0]?.day === 6, "Monthly gatheri
   "Server Members Intent",
   "Bot does not have `Administrator`.",
   "Discord signatures are validated before JSON parsing.",
-  "Reaper manages 8 event types and 8 scheduled events, one per activity.",
+  "Reaper manages 11 event types and 11 scheduled events, one per activity.",
   "Last token rotation date, recorded as a date only.",
 ].forEach((snippet) => assertIncludes("reaper runtime checklist", runtimeChecklist, snippet));
 

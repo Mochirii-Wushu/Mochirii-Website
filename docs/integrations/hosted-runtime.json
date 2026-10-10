@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "updated_date": "2026-08-14",
+  "updated_date": "2026-10-11",
   "scope": "No-secret hosted runtime ownership for the Mochirii customer and guild surfaces.",
   "workstation": {
     "role": "development_and_administration_only",
@@ -37,10 +37,18 @@
     },
     {
       "id": "social",
-      "provider": "DigitalOcean, Cloudflare, Spaces, and GHCR",
-      "source": "Mochirii-Wushu/Mochirii-Social",
+      "provider": "Vercel",
+      "source": "reviewed immutable Coming Soon shell artifact",
       "public_origins": ["https://social.mochirii.com"],
-      "continuity": "droplet_supervised_containers",
+      "continuity": "provider_managed_static_maintenance",
+      "workstation_requirement": "none"
+    },
+    {
+      "id": "forums",
+      "provider": "Vercel",
+      "source": "reviewed immutable Coming Soon shell artifact",
+      "public_origins": ["https://forums.mochirii.com"],
+      "continuity": "provider_managed_static_maintenance",
       "workstation_requirement": "none"
     },
     {
@@ -58,7 +66,7 @@
       "id": "release-automation",
       "provider": "GitHub-hosted Actions and GHCR",
       "source": ".github/workflows",
-      "public_origins": ["https://github.com/Mochirii-Wushu/Mochirii"],
+      "public_origins": ["https://github.com/Mochirii-Wushu/Mochirii-Website"],
       "continuity": "provider_managed",
       "workstation_requirement": "none"
     }

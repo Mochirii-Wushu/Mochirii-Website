@@ -388,13 +388,22 @@ assertNotMatches(
   "fetchCurrentMember",
   "fetchGuildRoles",
   "buildSingleMemberPendingContainmentPlan",
-  "applyPendingContainmentPlan(adminClient, plan, writePendingDiscordOverwrite)",
+  "applyPendingContainmentPlan(admin, plan, deps.write, request.beforeWrite)",
+  "readContainmentReceipt",
+  "request.reserve(payload.discord_user_id, await containmentInputHash(payload))",
+  "await request.complete(receipt)",
   "MAX_PENDING_VERIFICATION_MUTATIONS",
   "source: \"gateway_member_event\"",
   "type: DISCORD_MEMBER_OVERWRITE_TYPE",
   "X-Audit-Log-Reason",
   "reportedRoleCount",
 ].forEach((snippet) => assertIncludes("reaper-discord-member-sync", memberSyncFunction, snippet));
+
+[
+  "new ContainmentRequest(adminClient, `discord:${interactionId}`)",
+  "applyPendingContainmentPlan(adminClient, plan, writePendingDiscordOverwrite, request.beforeWrite)",
+  "await request.complete({ discordWrites: result.discordWrites, dbWrites: result.dbWrites, staleRecordsCleared: result.staleRecordsCleared })",
+].forEach((snippet) => assertIncludes("manual pending containment fence", functionSource, snippet));
 
 [
   "COMMAND_NAME = \"sync-pending-verification\"",

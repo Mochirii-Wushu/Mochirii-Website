@@ -1,9 +1,11 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { siteUrl } from "./lib/public-urls.mjs";
+import { validateGuildSchedule } from "../supabase/functions/_shared/reaper-discord-events.ts";
 
 const root = process.cwd();
 const schedule = JSON.parse(readFileSync(path.join(root, "apps/web/public/data/guild-schedule.json"), "utf8"));
+validateGuildSchedule(schedule);
 const failures = [];
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 

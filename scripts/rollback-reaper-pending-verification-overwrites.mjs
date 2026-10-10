@@ -1,3 +1,7 @@
+import { createHash, randomUUID } from "node:crypto";
+import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
+
 const DISCORD_API_BASE_URL = "https://discord.com/api/v10";
 const EXPECTED_DISCORD_GUILD_ID = "1078630751077142608";
 const CONFIRM_GUILD_ARG = "--confirm-guild=1078630751077142608";
@@ -7,6 +11,7 @@ const PENDING_VERIFICATION_AUDIT_REASON = "Reaper pending verification containme
 const args = new Set(process.argv.slice(2));
 const apply = args.has("--apply");
 const confirmGuild = process.argv.find((arg) => arg.startsWith("--confirm-guild="))?.split("=")[1] || "";
+const requestId = process.argv.find((arg) => arg.startsWith("--request-id="))?.slice("--request-id=".length) || "";
 
 function env(name, fallback = "") {
   return String(process.env[name] || fallback).trim();
@@ -64,31 +69,16 @@ async function readPayload(response) {
   }
 }
 
-function retryAfterMs(response, data) {
-  const headerSeconds = Number(response.headers.get("Retry-After") || "");
-  const bodySeconds = Number(data?.retry_after || "");
-  const seconds = Number.isFinite(headerSeconds) && headerSeconds > 0 ? headerSeconds : bodySeconds;
-  if (!Number.isFinite(seconds) || seconds <= 0) return 0;
-  return Math.ceil(seconds * 1000);
-}
-
 async function discordFetch(path, init = {}) {
-  for (let attempt = 0; attempt <= 2; attempt += 1) {
-    const response = await fetch(`${DISCORD_API_BASE_URL}${path}`, init);
-    const data = await readPayload(response);
-
-    if (response.status === 429 && attempt < 2) {
-      const delay = retryAfterMs(response, data);
-      if (delay > 0) {
-        await new Promise((resolve) => setTimeout(resolve, delay));
-        continue;
-      }
-    }
-
-    return { ok: response.ok, status: response.status, data };
+  const response = await fetch(`${DISCORD_API_BASE_URL}${path}`, { ...init, redirect: "error", signal: AbortSignal.timeout(10000) });
+  if (init.method === "PUT" || init.method === "DELETE") {
+    void response.body?.cancel().catch(() => undefined);
+    if (response.status !== 204) throw new Error("Rollback permission write requires reconciliation.");
+    return { ok: true, status: 204, data: null };
   }
+  const data = await readPayload(response);
 
-  return { ok: false, status: 429, data: { error: "Discord retry budget exhausted." } };
+  return { ok: response.ok, status: response.status, data };
 }
 
 async function supabaseFetch(path, init = {}) {
@@ -98,6 +88,7 @@ async function supabaseFetch(path, init = {}) {
 
   const response = await fetch(`${supabaseUrl}${path}`, {
     ...init,
+    redirect: "error", signal: AbortSignal.timeout(10000),
     headers: {
       apikey: serviceRoleKey,
       Authorization: `Bearer ${serviceRoleKey}`,
@@ -109,6 +100,37 @@ async function supabaseFetch(path, init = {}) {
   });
   const data = await readPayload(response);
   return { ok: response.ok, status: response.status, data };
+}
+
+async function receiptRpc(name, args) {
+  const result = await supabaseFetch(`/rest/v1/rpc/${name}`, { method: "POST", body: JSON.stringify(args), headers: { Prefer: "return=representation" } });
+  if (!result.ok) throw new Error("Rollback receipt operation unavailable.");
+  return result.data;
+}
+
+export function createRollbackRequest(callRpc, id) {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(id)) throw new Error("Rollback apply requires --request-id=<UUIDv4>; retain that ID for reconciliation.");
+  const identity = { p_request_key: `rollback:${id}`, p_owner_id: randomUUID() };
+  let owned = false; let writing = false; let completed = false;
+  return {
+    async reserve() {
+      const result = await callRpc("reaper_reserve_pending_containment", { ...identity, p_subject_id: "*", p_input_sha256: createHash("sha256").update("pending-containment-rollback-v1").digest("hex") });
+      owned = result === "acquired";
+      if (!owned) throw new Error("Rollback receipt did not acquire the guild fence; inspect its status before continuing.");
+    },
+    async beforeWrite() {
+      if (!owned || completed) throw new Error("Rollback does not own the guild fence.");
+      writing = true;
+      if (await callRpc("reaper_begin_pending_containment_write", identity) !== true) throw new Error("Rollback write fence rejected.");
+    },
+    async complete(result) {
+      if (!owned || completed || await callRpc("reaper_finish_pending_containment", { ...identity, p_outcome: "completed", p_result: result }) !== true) throw new Error("Rollback completion requires receipt reconciliation.");
+      completed = true;
+    },
+    async fail() {
+      if (owned && !completed && await callRpc("reaper_finish_pending_containment", { ...identity, p_outcome: writing ? "blocked" : "rejected", p_result: null }) !== true) throw new Error("Rollback failure requires receipt reconciliation.");
+    },
+  };
 }
 
 async function loadRows(guildId) {
@@ -238,50 +260,60 @@ async function main() {
   }
 
   const token = requiredEnv("DISCORD_BOT_TOKEN");
-  const [rows, channels] = await Promise.all([loadRows(guildId), loadChannels(guildId, token)]);
-  const channelById = new Map(channels.map((channel) => [snowflake(channel.id), channel]));
-  const changes = rows.map((row) => planRollback(row, channelById.get(snowflake(row.channel_id))));
-  const validChanges = changes.filter((change) => !change.invalid);
-  const discordWrites = validChanges.filter((change) => change.discordWrite);
-  const dbWrites = validChanges.filter((change) => change.dbWrite);
+  const request = apply ? createRollbackRequest(receiptRpc, requestId) : null;
+  try {
+    await request?.reserve();
+    const [rows, channels] = await Promise.all([loadRows(guildId), loadChannels(guildId, token)]);
+    const channelById = new Map(channels.map((channel) => [snowflake(channel.id), channel]));
+    const changes = rows.map((row) => planRollback(row, channelById.get(snowflake(row.channel_id))));
+    const validChanges = changes.filter((change) => !change.invalid);
+    const discordWrites = validChanges.filter((change) => change.discordWrite);
+    const dbWrites = validChanges.filter((change) => change.dbWrite);
 
-  console.log(JSON.stringify({
-    dryRun: !apply,
-    guildId,
-    managedBy: PENDING_VERIFICATION_MANAGED_BY,
-    activeRows: rows.length,
-    plannedDiscordWrites: discordWrites.length,
-    plannedRegistryWrites: dbWrites.length,
-    missingChannels: validChanges.filter((change) => change.missingChannel).length,
-    invalidRows: changes.filter((change) => change.invalid).length,
-    sample: validChanges.slice(0, 20).map((change) => ({
-      channelId: change.channelId,
-      discordUserId: change.userId,
-      discordWrite: change.discordWrite,
-      deleteOverwrite: Boolean(change.deleteOverwrite),
-      missingChannel: change.missingChannel,
-    })),
-  }, null, 2));
+    console.log(JSON.stringify({
+      dryRun: !apply,
+      guildId,
+      managedBy: PENDING_VERIFICATION_MANAGED_BY,
+      activeRows: rows.length,
+      plannedDiscordWrites: discordWrites.length,
+      plannedRegistryWrites: dbWrites.length,
+      missingChannels: validChanges.filter((change) => change.missingChannel).length,
+      invalidRows: changes.filter((change) => change.invalid).length,
+      sample: validChanges.slice(0, 20).map((change) => ({
+        channelId: change.channelId,
+        discordUserId: change.userId,
+        discordWrite: change.discordWrite,
+        deleteOverwrite: Boolean(change.deleteOverwrite),
+        missingChannel: change.missingChannel,
+      })),
+    }, null, 2));
 
-  if (!apply) {
-    console.log(`Dry run only. Rerun with --apply ${CONFIRM_GUILD_ARG} after approval.`);
-    return;
-  }
-
-  for (const change of validChanges) {
-    if (change.discordWrite) {
-      await writeDiscordRollback(change, token);
+    if (!apply) {
+      console.log(`Dry run only. Apply requires --apply ${CONFIRM_GUILD_ARG} --request-id=<UUIDv4> after approval.`);
+      return;
     }
 
-    if (change.dbWrite) {
-      await clearRegistryRow(String(change.row.id || ""));
-    }
-  }
+    let appliedDiscordWrites = 0; let appliedDbWrites = 0;
+    for (const change of validChanges) {
+      if (change.discordWrite) {
+        await request.beforeWrite();
+        await writeDiscordRollback(change, token);
+        appliedDiscordWrites++;
+      }
 
-  console.log(`Rollback completed for ${validChanges.length} tracked pending-verification overwrite rows.`);
+      if (change.dbWrite) {
+        await request.beforeWrite();
+        await clearRegistryRow(String(change.row.id || ""));
+        appliedDbWrites++;
+      }
+    }
+    await request.complete({ discordWrites: appliedDiscordWrites, dbWrites: appliedDbWrites, staleRecordsCleared: 0 });
+
+    console.log(`Rollback completed for ${validChanges.length} tracked pending-verification overwrite rows.`);
+  } catch (error) { try { await request?.fail(); } catch { /* Keep uncertain ownership blocked. */ } throw error; }
 }
 
-main().catch((error) => {
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main().catch((error) => {
   console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);
 });

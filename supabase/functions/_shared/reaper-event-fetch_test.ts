@@ -87,6 +87,21 @@ Deno.test("canonical schedule schema rejects malformed clocks, timezone, recurre
     (value) => {
       value.weekly[0].discordCoverImage = "https://evil.example/cover.png";
     },
+    (value) => { value.streaming[0].location = "https://www.twitch.tv/another-channel"; },
+    (value) => { value.streaming[0].id = "twitch-unknown"; },
+    (value) => { value.streaming[0].days = [5]; },
+    (value) => { value.streaming[0].startTime = "20:30"; },
+    (value) => { value.streaming[0].endTime = "22:30"; },
+    (value) => { value.streaming[0].days = [1, 3]; },
+    (value) => { value.streaming[0].days = [8]; },
+    (value) => { value.streaming[0].days = [...value.streaming[1].days]; },
+    (value) => { value.streaming[0].id = value.weekly[0].id; },
+    (value) => { value.streaming[0].startTime = "24:00"; },
+    (value) => { value.streaming[0].endTime = value.streaming[0].startTime; },
+    (value) => { value.streaming[0].discord = false; },
+    (value) => { Object.assign(value.streaming[0], { discordCoverImage: value.weekly[0].discordCoverImage }); },
+    (value) => { Object.assign(value.streaming[0], { discordEventId: "723456789012345678" }); },
+    (value) => { value.streaming.pop(); },
   ];
   for (const change of changes) {
     const invalid = structuredClone(schedule);

@@ -14,7 +14,7 @@
     "indexedMetadataRoutes": 17,
     "nonindexedMetadataRoutes": 11,
     "publicFiles": 250,
-    "publicBytes": 47847987,
+    "publicBytes": 47848570,
     "sourceFiles": 43
   },
   "sourceCatalog": [
@@ -186,7 +186,7 @@
     {
       "path": "apps/web/config/app-route-evidence.v1.json",
       "bytes": 66971,
-      "sha256": "8C99F68B6DF4CAC61EC8374904ED89C8CB857FF5908996C5D6B8D1EB621C59EC"
+      "sha256": "75FCDDC380AA4F32DCFEB760957795D8F3AFA5C3E1F11C26EEC7B7B7BE5BC637"
     },
     {
       "path": "apps/web/config/app-route-matrix.v1.json",
@@ -195,18 +195,18 @@
     },
     {
       "path": "package.json",
-      "bytes": 18305,
-      "sha256": "1C44999B6D6A59CDCC5CACD9DDA40A62D24A62D84E0A2A47829DA9F6C0393405"
+      "bytes": 18730,
+      "sha256": "162E5BE50FDE6DFA89C1B43E67F20A6A5F63706F6D13F80310F98FE542C838A7"
     },
     {
       "path": "scripts/check-all.mjs",
-      "bytes": 13563,
-      "sha256": "0A81A854FC6C1769CE4534C675F98E5EFAE3F31A5F3D5C9211D7DE24C9ABB4F4"
+      "bytes": 14135,
+      "sha256": "959F10CE8723A8B2BF43119F4689D94A90A698C33FAD50F2A82150618303962E"
     },
     {
       "path": "scripts/check-app-static-surface-inventory.mjs",
       "bytes": 13000,
-      "sha256": "7A9B8ABDEC27316E700466BE46C14C458988BCDEFCB70818CFA6E4E458D0BC32"
+      "sha256": "9E56A4F5093BCC82219450FD8551A04D0BBB591CCEC21C40AFA4664DB971AAC6"
     },
     {
       "path": "scripts/check-assets.mjs",
@@ -231,7 +231,7 @@
     {
       "path": "scripts/lib/app-static-surface-inventory.test.mjs",
       "bytes": 133123,
-      "sha256": "EF3BC2EB0251D9FDF227DC5FF7E1E90AA079675C80E51FF531B953DC2B727AA0"
+      "sha256": "1388C96F5A219FE4F500CDB5E0C2FD4531C315806D0A095C98139D357DED866F"
     }
   ],
   "metadataRoutes": [
@@ -2476,8 +2476,8 @@
     {
       "url": "/data/events.json",
       "source": "apps/web/public/data/events.json",
-      "bytes": 2963,
-      "sha256": "8D8763544861F6AF781FB9A880E837693BCD6BBE872D7C83E605280882C452E2",
+      "bytes": 2465,
+      "sha256": "FF5AB23EB6857634184B4D043DFE3085A120499488BBD796566890FB2417193C",
       "category": "public_data",
       "format": "json"
     },
@@ -2492,8 +2492,8 @@
     {
       "url": "/data/guild-schedule.json",
       "source": "apps/web/public/data/guild-schedule.json",
-      "bytes": 4941,
-      "sha256": "C6ACC5061022C524B6695BE231DB27E4453B4685636D10A11167A77977597820",
+      "bytes": 6022,
+      "sha256": "E05F5FBDE7951D1A4D5D754497CA687C754221FC60D8ECDF31578071770F4AEA",
       "category": "public_data",
       "format": "json"
     },

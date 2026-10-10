@@ -32,13 +32,14 @@ const firstWednesdaySchedule = {
   },
 };
 
-Deno.test("canonical schedule produces eight stable activity keys and the supported native recurrence rules", () => {
+Deno.test("canonical schedule produces eleven stable activity keys and the supported native recurrence rules", () => {
   const before = structuredClone(guildScheduleData);
   const events = desiredEventsFromSchedule(guildScheduleData, new Date("2026-10-11T12:00:00+08:00"));
   assertEquals(events.map((event) => event.key), [
     "monthly-gathering", "monthly-raffle", "guild-party", "breaking-army", "showdown", "guild-wars", "guild-heros-realm", "united-resolve",
+    "twitch-mochi-monday", "twitch-mochi-tuesday", "twitch-mochi-wednesday",
   ]);
-  assertEquals(new Set(events.map((event) => event.key)).size, 8);
+  assertEquals(new Set(events.map((event) => event.key)).size, 11);
   for (const item of guildScheduleData.weekly) {
     const event = events.find((entry) => entry.key === item.id);
     assert(event);
@@ -55,6 +56,42 @@ Deno.test("canonical schedule produces eight stable activity keys and the suppor
     }
   }
   assertEquals(guildScheduleData, before);
+});
+
+Deno.test("Twitch streams use three unique weekly series, UTC+8 boundaries and no guild covers", async () => {
+  for (const [day, key, date, title] of [
+    [0, "twitch-mochi-monday", "2026-10-12", "Mōchi Monday!"],
+    [1, "twitch-mochi-tuesday", "2026-10-13", "Mōchi Tuesday"],
+    [2, "twitch-mochi-wednesday", "2026-10-14", "Mōchi Wednesday"],
+  ] as const) {
+    for (const clock of ["21:29:59.999", "21:30:00.000", "23:29:59.999", "23:30:00.000", "23:30:00.001"]) {
+      const reference = new Date(`${date}T${clock}+08:00`);
+      const events = desiredEventsFromSchedule(guildScheduleData, reference);
+      const matches = events.filter((event) => event.key === key);
+      assertEquals(matches.length, 1);
+      const event = matches[0];
+      const expectedDate = clock >= "23:30:00.000" ? `2026-10-${Number(date.slice(-2)) + 7}` : date;
+      assertEquals(event.title, title);
+      assertEquals(event.startIso, `${expectedDate}T13:30:00.000Z`);
+      assertEquals(event.endIso, `${expectedDate}T15:30:00.000Z`);
+      assertEquals(event.recurrenceRule, { start: event.startIso, interval: 1, frequency: 2, by_weekday: [day] });
+      assertEquals(event.location, "https://www.twitch.tv/mochiriiguild");
+      assertEquals(event.websiteLocation, event.location);
+      assertEquals(event.coverImageUrl, null);
+      assertEquals(event.legacyKeys, []);
+      assertEquals(event.canonicalEventId, null);
+      assertEquals(event.duplicateEventIds, []);
+      const body = await scheduledEventBody(event, true);
+      assertEquals(body.image, undefined);
+      assertEquals(body.entity_type, DISCORD_EVENT_ENTITY_EXTERNAL);
+      assertEquals(body.channel_id, null);
+      assertEquals(body.entity_metadata, { location: event.location });
+    }
+  }
+  const transition = desiredEventsFromSchedule(guildScheduleData, new Date("2026-12-31T23:59:59.999+08:00"));
+  assertEquals(transition.filter((event) => event.key.startsWith("twitch-")).map((event) => event.startIso), [
+    "2027-01-04T13:30:00.000Z", "2027-01-05T13:30:00.000Z", "2027-01-06T13:30:00.000Z",
+  ]);
 });
 
 Deno.test("native weekdays derive from UTC start day, including early local hours and supported daily sets", () => {

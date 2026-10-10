@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { parseNextConfigLegacyRedirects, readNextConfigSource } from "./lib/app-router-inventory.mjs";
+import { validateGuildSchedule as validateReaperSchedule } from "../supabase/functions/_shared/reaper-discord-events.ts";
 
 const root = process.cwd();
 const webPublicRoot = path.join(root, "apps", "web", "public");
@@ -10,9 +11,9 @@ const nextConfigPath = path.join(root, "apps", "web", "next.config.ts");
 const topLevelManifest = {
   "announcements.json": ["meta", "items"],
   "tome.json": ["hero", "intro", "tenets", "etiquette", "rhythm", "recognition"],
-  "events.json": ["meta", "featured", "upcoming", "recurring", "streamingSchedule", "participation"],
+  "events.json": ["meta", "featured", "upcoming", "recurring", "participation"],
   "gallery.json": ["meta", "categories", "albums"],
-  "guild-schedule.json": ["timezone", "discordCoverVersion", "monthly", "spotlight", "weekly"],
+  "guild-schedule.json": ["timezone", "discordCoverVersion", "monthly", "spotlight", "weekly", "streaming"],
   "home.json": ["copy", "celebrationSplash", "hero", "seal", "bulletins", "tiles", "spotlight", "gallery"],
   "join.json": ["hero", "steps", "quickStart", "checklist", "culture", "notes"],
   "leaders.json": ["hero", "panel", "council", "leaders", "responsibilities"],
@@ -361,21 +362,6 @@ function validateEvents(data) {
   upcoming.forEach((item, index) => {
     if (!isDateOnly(item?.date)) addFailure(`data/events.json.upcoming.${index}.date: date must use YYYY-MM-DD.`);
   });
-  const streaming = data?.streamingSchedule;
-  if (!isPlainObject(streaming) || Object.keys(streaming).sort().join(",") !== "items,timezone" || streaming.timezone !== "UTC+8") {
-    addFailure("data/events.json.streamingSchedule: expected items and authoritative UTC+8 timezone.");
-  }
-  const items = Array.isArray(streaming?.items) ? streaming.items : [];
-  if (!items.length || items.length > 7) addFailure("data/events.json.streamingSchedule.items: expected 1-7 stream windows.");
-  const days = new Set();
-  items.forEach((item, index) => {
-    const base = `data/events.json.streamingSchedule.items.${index}`;
-    if (!isPlainObject(item) || Object.keys(item).sort().join(",") !== "dayText,endTime,startTime,title") addFailure(`${base}: expected title, dayText, startTime and endTime only.`);
-    if (!isNonEmptyString(item?.title)) addFailure(`${base}.title: title is required.`);
-    if (!["Mondays", "Tuesdays", "Wednesdays", "Thursdays", "Fridays", "Saturdays", "Sundays"].includes(item?.dayText) || days.has(item?.dayText)) addFailure(`${base}.dayText: expected a unique weekday.`);
-    days.add(item?.dayText);
-    if (!isTime24(item?.startTime) || !isTime24(item?.endTime) || item.startTime === item.endTime) addFailure(`${base}: expected distinct HH:MM start and end times.`);
-  });
 }
 
 function validateSpotify(data) {
@@ -403,6 +389,8 @@ function isTime24(value) {
 }
 
 function validateGuildSchedule(data) {
+  try { validateReaperSchedule(data); }
+  catch { addFailure("data/guild-schedule.json: authoritative Reaper schedule schema is invalid."); }
   const filePath = "apps/web/public/data/guild-schedule.json";
   if (data?.timezone?.label !== "UTC+8") addFailure(`${filePath}.timezone.label: expected UTC+8.`);
   if (data?.timezone?.displayLabel !== "UTC+8") {

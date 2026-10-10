@@ -21,6 +21,19 @@ const requestHeaders = {
 
 const storefrontOrigin = runtimeOrigin("storefront");
 const discordOrigin = runtimeOrigin("discord-interactions", "discord.com");
+const serviceChecks = ["social", "forums"].map((id) => {
+  const runtime = manifest.runtimes?.find((entry) => entry.id === id);
+  const origin = runtimeOrigin(id);
+  if (runtime?.continuity === "provider_managed_static_maintenance") return {
+    label: `Mōchirīī ${id} maintenance shell`, url: `${origin}/`, statuses: [200], redirect: "error",
+    validate: (result) => expectMaintenance(result, origin, id === "social" ? "Social" : "Forums"),
+  };
+  if (id === "social" && runtime?.continuity === "droplet_supervised_containers") return {
+    label: "Mōchirīī Social instance", url: `${SOCIAL_HOST}/api/v1/instance`, statuses: [200],
+    validate: (result) => expectJson(result, (body) => body?.uri === "social.mochirii.com" && body?.title === "Mōchirīī Social"),
+  };
+  throw new Error(`${id}: hosted boundary mode needs an explicit reviewed contract`);
+});
 const checks = [
   {
     label: "Website home",
@@ -34,12 +47,7 @@ const checks = [
     statuses: [200],
     validate: (result) => expectHtml(result, /Mochirii/i),
   },
-  {
-    label: "Mōchirīī Social instance",
-    url: `${SOCIAL_HOST}/api/v1/instance`,
-    statuses: [200],
-    validate: (result) => expectJson(result, (body) => body?.uri === "social.mochirii.com" && body?.title === "Mōchirīī Social"),
-  },
+  ...serviceChecks,
   {
     label: "Storefront password boundary",
     url: `${storefrontOrigin}/`,
@@ -124,7 +132,7 @@ async function fetchWithRetry(check, overallSignal) {
           ...(check.body ? { "Content-Type": "application/json" } : {}),
         },
         body: check.body ? JSON.stringify(check.body) : undefined,
-        redirect: "follow",
+        redirect: check.redirect || "follow",
         signal: AbortSignal.any([overallSignal, AbortSignal.timeout(TIMEOUT_MS)]),
       });
       const body = await response.text();
@@ -136,6 +144,7 @@ async function fetchWithRetry(check, overallSignal) {
         status: response.status,
         url: response.url,
         contentType: response.headers.get("content-type") || "",
+        headers: response.headers,
         body,
       };
     } catch (error) {
@@ -153,6 +162,33 @@ function expectHtml(result, requiredText) {
   }
   if (!/^\s*<!doctype html/i.test(result.body) || !requiredText.test(result.body)) {
     throw new Error("HTML response did not match the Mochirii surface contract");
+  }
+}
+
+function expectMaintenance(result, origin, surface) {
+  expectHtml(result, /Coming Soon/i);
+  const csp = result.headers?.get("content-security-policy") || "";
+  const directives = new Map();
+  for (const value of csp.split(";")) {
+    const [rawName, ...values] = value.trim().split(/\s+/);
+    if (!rawName) continue;
+    const name = rawName.toLowerCase();
+    if (directives.has(name)) throw new Error("maintenance shell has duplicate CSP directives");
+    directives.set(name, values.join(" "));
+  }
+  if (result.status !== 200 || result.url !== `${origin}/` ||
+    !result.body.includes(`<title>${surface} · Coming Soon · Mōchirīī</title>`) ||
+    (result.body.match(/<header\b/gi) || []).length !== 1 || (result.body.match(/<footer\b/gi) || []).length !== 1 ||
+    !result.body.includes('aria-label="Primary"') || !result.body.includes('href="https://mochirii.com/events"') ||
+    !result.body.includes('href="https://mochirii.com/privacy"') ||
+    /<(?:script|iframe|form)\b|\bon[a-z]+\s*=|javascript\s*:/i.test(result.body) ||
+    /<meta\b[^>]*\bhttp-equiv\s*=/i.test(result.body) ||
+    result.headers?.has("refresh") ||
+    ["default-src", "base-uri", "form-action", "frame-ancestors"].some((name) => directives.get(name) !== "'none'") ||
+    (directives.has("script-src") && directives.get("script-src") !== "'none'") ||
+    result.headers?.get("x-frame-options") !== "DENY" || result.headers?.get("x-content-type-options") !== "nosniff" ||
+    result.headers?.get("referrer-policy") !== "no-referrer") {
+    throw new Error("maintenance shell did not match its static content, shared navigation or security contract");
   }
 }
 

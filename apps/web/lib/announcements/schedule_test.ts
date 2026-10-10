@@ -9,6 +9,7 @@ import { transpileModule, ModuleKind, JsxEmit, ScriptTarget } from "typescript";
 import authority from "../../public/data/guild-schedule.json" with { type: "json" };
 import announcements from "../../public/data/announcements.json" with { type: "json" };
 import events from "../../public/data/events.json" with { type: "json" };
+import publicUrls from "../../config/public-urls.json" with { type: "json" };
 import { websiteEventCardsFromSchedule } from "../guild-schedule.ts";
 import { streamingScheduleLines } from "../events/streaming-schedule.ts";
 import { announcementScheduleLines } from "./schedule.ts";
@@ -81,26 +82,34 @@ function pinnedSection(html: string) {
 }
 
 test("announcements derive all guild and stream lines, with identical JSON fallback", () => {
-  assert.deepEqual(announcementScheduleLines(authority), expected);
-  assert.deepEqual(announcementScheduleLines(authority, events.streamingSchedule), [...expected, ...expectedStreams]);
+  assert.deepEqual(announcementScheduleLines(authority), [...expected, ...expectedStreams]);
   assert.deepEqual(announcements.items.find((item) => item.id === "weekly-schedule")?.details, [...expected, ...expectedStreams]);
   assert.equal(expected.filter((line) => line.includes("ends the following day")).length, 3);
   assert(expected.every((line) => line.includes("UTC+8")));
   assert(!expected.some((line) => /raffle/i.test(line)));
 });
 
-test("display-only Twitch entries preserve the supplied titles, days and UTC+8 clock contract", () => {
-  assert.equal(events.streamingSchedule.timezone, "UTC+8");
-  assert.deepEqual(events.streamingSchedule.items, [
-    { title: "Mōchi Monday!", dayText: "Mondays", startTime: "21:30", endTime: "23:30" },
-    { title: "Mōchi Tuesday", dayText: "Tuesdays", startTime: "21:30", endTime: "23:30" },
-    { title: "Mōchi Wednesday", dayText: "Wednesdays", startTime: "21:30", endTime: "23:30" },
+test("canonical Twitch activities preserve titles, weekdays, UTC+8 clocks and the approved location", () => {
+  assert.equal("streamingSchedule" in events, false);
+  assert.deepEqual(authority.streaming.map(({ id, title, days, dayText, startTime, endTime }) => ({ id, title, days, dayText, startTime, endTime })), [
+    { id: "twitch-mochi-monday", title: "Mōchi Monday!", days: [1], dayText: "Mondays", startTime: "21:30", endTime: "23:30" },
+    { id: "twitch-mochi-tuesday", title: "Mōchi Tuesday", days: [2], dayText: "Tuesdays", startTime: "21:30", endTime: "23:30" },
+    { id: "twitch-mochi-wednesday", title: "Mōchi Wednesday", days: [3], dayText: "Wednesdays", startTime: "21:30", endTime: "23:30" },
   ]);
-  assert.deepEqual(streamingScheduleLines(events.streamingSchedule, authority), expectedStreams);
-  assert.deepEqual(streamingScheduleLines({ timezone: "UTC+8", items: [
-    { title: "Changed stream", dayText: "Fridays", startTime: "20:15", endTime: "22:45" },
-  ] }, authority), ["Twitch — Changed stream: Fridays - 8:15 PM - 10:45 PM - UTC+8"]);
-  assert.throws(() => streamingScheduleLines({ ...events.streamingSchedule, timezone: "UTC" }, authority), /authoritative schedule timezone/);
+  const twitchUrl = publicUrls.officialGuildProfiles.find((profile) => profile.id === "twitch")?.href;
+  assert.equal(twitchUrl, "https://www.twitch.tv/mochiriiguild");
+  for (const stream of authority.streaming) {
+    assert.equal(stream.location, twitchUrl);
+    assert.equal(stream.discord, true);
+    assert.equal("discordCoverImage" in stream, false);
+    assert(stream.description.includes("UTC+8"));
+  }
+  assert.equal(new Set(authority.streaming.map((item) => item.id)).size, 3);
+  assert.deepEqual(streamingScheduleLines(authority), expectedStreams);
+  assert.deepEqual(streamingScheduleLines({ ...authority, streaming: [
+    { ...authority.streaming[0], title: "Changed stream", days: [5], dayText: "Fridays", startTime: "20:15", endTime: "22:45" },
+  ] }), ["Twitch — Changed stream: Fridays - 8:15 PM - 10:45 PM - UTC+8"]);
+  assert.deepEqual(streamingScheduleLines({}), []);
   const guildCards = websiteEventCardsFromSchedule(authority, new Date("2026-10-11T00:00:00.000Z"));
   assert.equal(guildCards.length, 7);
   assert(!guildCards.some((item) => /Twitch|Mōchi (Monday|Tuesday|Wednesday)/.test(item.title)));
@@ -112,7 +121,8 @@ test("announcement clocks follow source fields instead of the fallback time stri
   Object.assign(changed.monthly.gathering, { startTime: "00:30", endTime: "01:30" });
   const lines = announcementScheduleLines(changed);
   assert.equal(lines[0], "Updated Party: Mondays - 8:15 PM - 9:45 PM - UTC+8");
-  assert.equal(lines.at(-1), "Monthly Guild Gathering: Monday after the first Sunday - 12:30 AM - 1:30 AM - UTC+8");
+  assert.equal(lines[6], "Monthly Guild Gathering: Monday after the first Sunday - 12:30 AM - 1:30 AM - UTC+8");
+  assert.deepEqual(lines.slice(7), expectedStreams);
   assert.deepEqual(announcementScheduleLines({}), []);
   assert.deepEqual(announcementScheduleLines({ monthly: { raffle: authority.monthly.raffle }, weekly: [{ ...authority.weekly[0], discord: false }] }), []);
 });
@@ -150,8 +160,8 @@ test("server schedule and date-only notice output is identical across host timez
   try {
     const outputs = ["UTC", "America/Los_Angeles", "Pacific/Auckland", "Asia/Singapore"].map((zone) => {
       process.env.TZ = zone;
-      assert.deepEqual(announcementScheduleLines(authority), expected);
-      assert.deepEqual(streamingScheduleLines(events.streamingSchedule, authority), expectedStreams);
+      assert.deepEqual(announcementScheduleLines(authority), [...expected, ...expectedStreams]);
+      assert.deepEqual(streamingScheduleLines(authority), expectedStreams);
       return render() + renderToStaticMarkup(createElement(EventsPage, { referenceTime: "2026-10-11T00:00:00.000Z" }));
     });
     assert(outputs.every((html) => html === outputs[0]));
@@ -163,5 +173,5 @@ test("server schedule and date-only notice output is identical across host timez
 
 test("gathering notice describes the first-Sunday shift rather than a first-Monday approximation", () => {
   assert.equal(websiteEventCardsFromSchedule(authority, new Date("2027-02-01T00:00:00.000Z")).find((event) => event.id === "monthly-gathering")?.date, "2027-02-08");
-  assert(announcementScheduleLines(authority).at(-1)?.includes("Monday after the first Sunday"));
+  assert(announcementScheduleLines(authority)[6]?.includes("Monday after the first Sunday"));
 });

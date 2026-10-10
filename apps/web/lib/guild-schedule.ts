@@ -15,6 +15,7 @@ export type GuildScheduleData = {
     memberProfileSlug?: string;
   };
   weekly?: GuildWeeklyScheduleItem[];
+  streaming?: GuildStreamingScheduleItem[];
 };
 
 export type GuildMonthlyScheduleItem = {
@@ -50,6 +51,18 @@ export type GuildWeeklyScheduleItem = {
   discordCoverImage?: string;
   discord?: boolean;
   showOnEventsBoard?: boolean;
+};
+
+export type GuildStreamingScheduleItem = {
+  id: string;
+  title: string;
+  days: number[];
+  dayText: string;
+  startTime: string;
+  endTime: string;
+  location: string;
+  discord: boolean;
+  description: string;
 };
 
 export type ScheduledEventOccurrence = GuildWeeklyScheduleItem & {

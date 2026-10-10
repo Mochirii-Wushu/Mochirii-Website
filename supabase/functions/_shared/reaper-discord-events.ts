@@ -31,6 +31,11 @@ const MONTHLY_RULE_WEEKDAYS: Readonly<Record<string, number>> = {
   "next-first-saturday": 6,
   "next-first-wednesday": 3,
 };
+const STREAM_WEEKDAYS: Readonly<Record<string, number>> = {
+  "twitch-mochi-monday": 1,
+  "twitch-mochi-tuesday": 2,
+  "twitch-mochi-wednesday": 3,
+};
 
 function trustedScheduleUrl(value: string, cover: boolean): URL {
   const url = new URL(value);
@@ -106,7 +111,7 @@ export function validateGuildSchedule(value: unknown): JsonRecord {
   const eventIds = new Set<string>();
   const covers = new Set<string>();
   let occurrenceCount = 2;
-  const validateItem = (value: unknown, monthly: boolean) => {
+  const validateItem = (value: unknown, monthly: boolean, streaming = false) => {
     const item = record(value);
     if (!text(item.id, 80) || !/^[a-z0-9-]+$/.test(String(item.id)) || ids.has(String(item.id))) fail();
     ids.add(String(item.id));
@@ -115,12 +120,20 @@ export function validateGuildSchedule(value: unknown): JsonRecord {
     for (const [field, limit] of [["description", 1000], ["summary", 1000], ["timeText", 100], ["discordLocation", 100]] as const) {
       if (item[field] !== undefined && !text(item[field], limit)) fail();
     }
-    if (!text(item.discordCoverImage, 300)) fail();
-    const cover = scheduleAssetUrl(item.discordCoverImage, schedule.discordCoverVersion);
-    if (!cover) return fail();
-    trustedScheduleUrl(cover, true);
-    covers.add(cover);
-    if (covers.size > 8) fail();
+    if (streaming) {
+      if (Object.keys(item).sort().join(",") !== "dayText,days,description,discord,endTime,id,location,startTime,title" ||
+        !Object.hasOwn(STREAM_WEEKDAYS, String(item.id)) || item.location !== "https://www.twitch.tv/mochiriiguild" ||
+        item.discord !== true || !text(item.dayText, 30) || !text(item.description, 1000) ||
+        !Array.isArray(item.days) || item.days.length !== 1 || item.days[0] !== STREAM_WEEKDAYS[String(item.id)] ||
+        item.startTime !== "21:30" || item.endTime !== "23:30") fail();
+    } else {
+      if (!text(item.discordCoverImage, 300)) fail();
+      const cover = scheduleAssetUrl(item.discordCoverImage, schedule.discordCoverVersion);
+      if (!cover) return fail();
+      trustedScheduleUrl(cover, true);
+      covers.add(cover);
+      if (covers.size > 8) fail();
+    }
     for (const id of [item.discordEventId, ...asArray(item.discordDuplicateEventIds)]) {
       if (id === undefined) continue;
       if (typeof id !== "string" || !/^\d{17,20}$/.test(id) || eventIds.has(id)) fail();
@@ -157,6 +170,14 @@ export function validateGuildSchedule(value: unknown): JsonRecord {
   validateItem(monthly.raffle, true);
   if (!Array.isArray(schedule.weekly) || !schedule.weekly.length || schedule.weekly.length > 32) fail();
   for (const item of schedule.weekly as unknown[]) validateItem(item, false);
+  if (!Array.isArray(schedule.streaming) || schedule.streaming.length !== 3) fail();
+  const streamDays = new Set<number>();
+  for (const value of schedule.streaming as unknown[]) {
+    validateItem(value, false, true);
+    const day = (record(value).days as number[])[0];
+    if (streamDays.has(day)) fail();
+    streamDays.add(day);
+  }
   return schedule;
 }
 
@@ -399,7 +420,7 @@ export function desiredEventsFromSchedule(schedule: JsonRecord, now = new Date()
 
   const monthlySlots = new Set(events.map(eventSlotKey));
 
-  asArray(schedule.weekly).map(asRecord).forEach((item) => {
+  [...asArray(schedule.weekly), ...asArray(schedule.streaming)].map(asRecord).forEach((item) => {
     if (item.discord !== true) return;
     const key = safeString(item.id, 80);
     if (!key) return;
@@ -420,7 +441,7 @@ export function desiredEventsFromSchedule(schedule: JsonRecord, now = new Date()
       .sort((a, b) => Date.parse(a.startIso) - Date.parse(b.startIso));
     const event = candidates[0];
     if (!event) return;
-    event.legacyKeys = days.map((day) => `${key}-${day}`);
+    event.legacyKeys = asArray(schedule.streaming).includes(item) ? [] : days.map((day) => `${key}-${day}`);
     // Native recurrence has no exception dates. Keep a potentially colliding
     // activity rolling so only its exact monthly slot is suppressed.
     event.recurrenceRule = canOverlapMonthlySlot(schedule, item, days)

@@ -319,7 +319,7 @@ const unauthenticatedFunctionGuardSpecs = {
   "reaper-discord-member-sync": {
     source: reaperMemberSync,
     kind: "shared-secret Reaper member sync",
-    snippets: ["x-mochirii-reaper-member-sync-secret", "REAPER_PENDING_VERIFICATION_SYNC_SECRET", "verifyMemberSyncSecret(req)"],
+    snippets: ["x-mochirii-reaper-member-sync-secret", "REAPER_PENDING_VERIFICATION_SYNC_SECRET", "verifyMemberSyncSecret(req, deps.secret)"],
   },
   "send-vote-reminder": {
     source: voteReminder,
@@ -435,10 +435,12 @@ for (const name of expectedUnauthenticatedFunctions) {
 [
   "x-mochirii-reaper-member-sync-secret",
   "REAPER_PENDING_VERIFICATION_SYNC_SECRET",
-  "verifyMemberSyncSecret(req)",
+  "verifyMemberSyncSecret(req, deps.secret)",
   "fetchCurrentMember",
   "buildSingleMemberPendingContainmentPlan",
-  "applyPendingContainmentPlan(adminClient, plan, writePendingDiscordOverwrite)",
+  "applyPendingContainmentPlan(admin, plan, deps.write, request.beforeWrite)",
+  "readContainmentReceipt",
+  "await request.complete(receipt)",
   "MAX_PENDING_VERIFICATION_MUTATIONS",
   "source: \"gateway_member_event\"",
 ].forEach((snippet) => assertIncludes("reaper-discord-member-sync", reaperMemberSync, snippet));
