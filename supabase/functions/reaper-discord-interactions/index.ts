@@ -48,6 +48,7 @@ import { SITE_ORIGIN, siteUrl } from "../_shared/public-origins.ts";
 import { getServiceRoleKey } from "../_shared/supabase-service-role.ts";
 import { processEventSync } from "../_shared/reaper-event-sync-workflow.ts";
 import { createEventSyncDiscordApi } from "../_shared/reaper-event-sync-transport.ts";
+import { EVENT_ADVANCE_PATH, handleEventAdvance } from "../_shared/reaper-event-advance.ts";
 import {
   handlePhotoDayPollCommand,
   handlePhotoDayPollComponent,
@@ -488,6 +489,22 @@ function hasModeratorRole(memberRoleIds: string[]): boolean {
 }
 
 Deno.serve(async (req: Request) => {
+  const path = new URL(req.url).pathname;
+  if (path === EVENT_ADVANCE_PATH) {
+    return handleEventAdvance(req, {
+      projectUrl: Deno.env.get("SUPABASE_URL") || "",
+      configuredGuildId: Deno.env.get("DISCORD_GUILD_ID") || "",
+      botConfigured: Boolean(Deno.env.get("DISCORD_BOT_TOKEN")),
+      expectedGuildId: EXPECTED_DISCORD_GUILD_ID,
+      guildScheduleUrl: GUILD_SCHEDULE_URL,
+      discordApiUserAgent: DISCORD_API_USER_AGENT,
+      discordApi: createEventSyncDiscordApi(DISCORD_API_BASE_URL),
+      discordApiHeaders,
+      serviceAdminClient,
+      waitUntil: (task) => EdgeRuntime.waitUntil(task),
+    });
+  }
+  if (path !== "/reaper-discord-interactions") return new Response("Not found.", { status: 404 });
   if (req.method !== "POST") {
     return new Response("Method not allowed.", { status: 405 });
   }

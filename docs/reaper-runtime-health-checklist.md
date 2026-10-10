@@ -57,7 +57,7 @@ https://deyvmtncimmcinldjyqe.supabase.co/functions/v1/reaper-discord-interaction
 
 - Source of truth is `apps/web/public/data/guild-schedule.json`, mirrored to `apps/web/public/data/guild-schedule.json`.
 - Event timezone remains `UTC+8` with `offsetMinutes: 480`.
-- Reaper manages 8 event types and 17 scheduled event instances. When the monthly gathering occupies the exact Guild Party time and Website location, that weekly occurrence advances to its next non-conflicting weekly slot.
+- Reaper manages 8 event types and 8 scheduled events, one per activity. When the monthly gathering occupies the exact Guild Party time and Website location, Guild Party advances to its next non-conflicting day.
 - Monthly Guild Raffle remains the single canonical recurring raffle event.
 - Duplicate removal is limited to IDs explicitly listed in `discordDuplicateEventIds`.
 - Event cover URLs are public Vercel asset URLs with the schedule `discordCoverVersion` cache key.

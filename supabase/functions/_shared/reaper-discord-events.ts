@@ -6,6 +6,7 @@ export const DISCORD_EVENT_ENTITY_EXTERNAL = 3;
 
 export type ScheduleEvent = {
   key: string;
+  legacyKeys?: string[];
   title: string;
   description: string;
   location: string;
@@ -140,8 +141,8 @@ export function validateGuildSchedule(value: unknown): JsonRecord {
       if (utcDayShift !== 0 || weekday.day !== (MONTHLY_RULE_WEEKDAYS[String(item.rule)] + 6) % 7) fail();
     } else {
       if (item.discordRecurrenceRule !== undefined) fail();
-      // Weekly items expand into one managed event per weekday; one shared
-      // canonical or duplicate ID cannot identify those distinct instances.
+      // Weekly ownership is resolved through the managed registry, never
+      // through canonical or duplicate IDs supplied by the website.
       if (item.discordEventId !== undefined || item.discordDuplicateEventIds !== undefined) fail();
       if (typeof item.discord !== "boolean" || !Array.isArray(item.days) || !item.days.length || item.days.length > 7) fail();
       const days = item.days as unknown[];
@@ -357,6 +358,32 @@ function eventSlotKey(event: ScheduleEvent): string {
   return [event.startIso, event.endIso, event.websiteLocation].join("\n");
 }
 
+function weeklyRecurrenceRule(schedule: JsonRecord, item: JsonRecord, days: number[], startIso: string): JsonRecord | null {
+  const start = parseTime(item.startTime);
+  const utcDayShift = Math.floor((start.hour * 60 + start.minute - scheduleOffsetMinutes(schedule)) / (24 * 60));
+  // Authority weekdays start with Sunday; Discord weekdays start with Monday.
+  const weekdays = days.map((day) => ((day + utcDayShift + 6) % 7 + 7) % 7).sort((a, b) => a - b);
+  const rule = { start: startIso, interval: 1 };
+  if (weekdays.length === 7) return { ...rule, frequency: 3 };
+  if (weekdays.length === 1) return { ...rule, frequency: 2, by_weekday: weekdays };
+
+  // Discord DAILY accepts only these weekday sets; WEEKLY accepts one weekday.
+  const dailySets = ["0,1,2,3,4", "1,2,3,4,5", "0,1,2,3,6", "4,5", "5,6", "0,6"];
+  return dailySets.includes(weekdays.join(",")) ? { ...rule, frequency: 3, by_weekday: weekdays } : null;
+}
+
+function canOverlapMonthlySlot(schedule: JsonRecord, item: JsonRecord, days: number[]): boolean {
+  const location = safeString(item.location, 300) || siteUrl("events");
+  return Object.values(asRecord(schedule.monthly)).map(asRecord).some((monthly) => {
+    const weekday = MONTHLY_RULE_WEEKDAYS[safeString(monthly.rule, 40) || ""];
+    const localWeekday = (weekday + (monthly.startDayOffset === 1 ? 1 : 0)) % 7;
+    return Number.isInteger(weekday) && days.includes(localWeekday) &&
+      (safeString(monthly.startTime, 20) || "00:00") === (safeString(item.startTime, 20) || "00:00") &&
+      (safeString(monthly.endTime, 20) || "01:00") === (safeString(item.endTime, 20) || "01:00") &&
+      (safeString(monthly.location, 300) || siteUrl("events")) === location;
+  });
+}
+
 export function desiredEventsFromSchedule(schedule: JsonRecord, now = new Date()): ScheduleEvent[] {
   const monthly = asRecord(schedule.monthly);
   const events: ScheduleEvent[] = [];
@@ -376,18 +403,30 @@ export function desiredEventsFromSchedule(schedule: JsonRecord, now = new Date()
     if (item.discord !== true) return;
     const key = safeString(item.id, 80);
     if (!key) return;
-    asArray(item.days)
+    const days = [...new Set(asArray(item.days)
       .map((day) => Number(day))
-      .filter((day) => Number.isInteger(day) && day >= 0 && day <= 6)
-      .forEach((day) => {
+      .filter((day) => Number.isInteger(day) && day >= 0 && day <= 6))];
+    const candidates = days
+      .map((day) => {
         let localDate = nextWeeklyDate(schedule, item, day, now);
-        let event = scheduleEventFromDate(schedule, `${key}-${day}`, item, localDate);
+        let event = scheduleEventFromDate(schedule, key, item, localDate);
         if (event && monthlySlots.has(eventSlotKey(event))) {
           localDate = addDays(localDate, 7);
-          event = scheduleEventFromDate(schedule, `${key}-${day}`, item, localDate);
+          event = scheduleEventFromDate(schedule, key, item, localDate);
         }
-        if (event) events.push(event);
-      });
+        return event;
+      })
+      .filter((event): event is ScheduleEvent => Boolean(event))
+      .sort((a, b) => Date.parse(a.startIso) - Date.parse(b.startIso));
+    const event = candidates[0];
+    if (!event) return;
+    event.legacyKeys = days.map((day) => `${key}-${day}`);
+    // Native recurrence has no exception dates. Keep a potentially colliding
+    // activity rolling so only its exact monthly slot is suppressed.
+    event.recurrenceRule = canOverlapMonthlySlot(schedule, item, days)
+      ? null
+      : weeklyRecurrenceRule(schedule, item, days, event.startIso);
+    events.push(event);
   });
 
   return events;

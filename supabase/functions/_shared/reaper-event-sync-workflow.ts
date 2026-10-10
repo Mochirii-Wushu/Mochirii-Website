@@ -31,6 +31,10 @@ export type ReaperEventSyncDependencies = {
   discordApiHeaders(contentType?: boolean): Headers;
   editOriginalInteractionResponse(applicationId: string, interactionToken: string, content: string): Promise<void>;
   serviceAdminClient(purpose: string): SupabaseAdminClient;
+  // Hosted advancement is limited to already reconciled rolling activities.
+  advanceKeys?: string[];
+  reservationOwnerId?: string;
+  now?: Date;
 };
 
 async function loadManagedEventResources(deps: ReaperEventSyncDependencies): Promise<JsonRecord[]> {
@@ -111,6 +115,38 @@ export function scheduledEventFieldsMatch(event: JsonRecord, body: JsonRecord, g
     instant(event.scheduled_end_time) !== null && instant(event.scheduled_end_time) === instant(body.scheduled_end_time) &&
     asRecord(event.entity_metadata).location === asRecord(body.entity_metadata).location &&
     recurrence !== null && normalizedRecurrence(event.recurrence_rule) === recurrence;
+}
+
+// A native series keeps its original anchor as its next occurrences pass.
+// Preserve only an equivalent supported rule, on-rule UTC clock and duration;
+// a matching title or a stale registry value does not establish equivalence.
+export function preserveNativeSeriesAnchor(desired: ScheduleEvent, existing: JsonRecord | null): ScheduleEvent {
+  if (!desired.recurrenceRule || !existing) return desired;
+  const rule = asRecord(existing.recurrence_rule);
+  const anchor = instant(rule.start);
+  const start = instant(existing.scheduled_start_time);
+  const end = instant(existing.scheduled_end_time);
+  const selected = instant(desired.startIso)!;
+  const duration = instant(desired.endIso)! - selected;
+  const day = 86_400_000;
+  if (anchor === null || start === null || end === null || anchor > start || start > selected ||
+    anchor % day !== selected % day || start % day !== selected % day || end - start !== duration ||
+    normalizedRecurrence({ ...rule, start: desired.startIso }) !== normalizedRecurrence(desired.recurrenceRule)) return desired;
+
+  const onRule = (value: number): boolean => {
+    const date = new Date(value);
+    const weekday = (date.getUTCDay() + 6) % 7;
+    if (rule.interval !== 1) return false;
+    if (rule.frequency === 3) return !Array.isArray(rule.by_weekday) || rule.by_weekday.includes(weekday);
+    if (rule.frequency === 2) return Array.isArray(rule.by_weekday) && rule.by_weekday.length === 1 && rule.by_weekday[0] === weekday;
+    if (rule.frequency === 1) {
+      const nth = asRecord(asArray(rule.by_n_weekday)[0]);
+      return asArray(rule.by_n_weekday).length === 1 && nth.day === weekday && nth.n === Math.ceil(date.getUTCDate() / 7);
+    }
+    return false;
+  };
+  if (!onRule(anchor) || !onRule(start) || !onRule(selected)) return desired;
+  return { ...desired, startIso: new Date(start).toISOString(), endIso: new Date(end).toISOString(), recurrenceRule: { ...desired.recurrenceRule, start: new Date(anchor).toISOString() } };
 }
 
 function discordImageHash(event: JsonRecord): string | null {
@@ -208,6 +244,38 @@ export function selectExistingScheduledEvent(
   return explicit;
 }
 
+export function resolveManagedActivity(
+  existingEvents: JsonRecord[],
+  desired: ScheduleEvent,
+  resourceByKey: Map<string, JsonRecord>,
+) {
+  const keys = [desired.key, ...(desired.legacyKeys || [])];
+  const priorResources = keys.flatMap((key) => {
+    const row = resourceByKey.get(key);
+    return row ? [row] : [];
+  });
+  const live = priorResources.flatMap((resource) => {
+    const event = existingEvents.find((event) => event.id === resource.discord_id);
+    return event ? [{ resource, event }] : [];
+  });
+  const current = live.find(({ resource }) => asRecord(resource.metadata).siteEventKey === desired.key);
+  const matching = live.filter(({ event }) => instant(event.scheduled_start_time) === instant(desired.startIso));
+  // Legacy ownership comes only from the registry. Multiple legacy entries
+  // require one unambiguous current/upcoming keeper in the reviewed plan.
+  const keeper = current || (live.length === 1 ? live[0] : matching.length === 1 ? matching[0] : undefined);
+  if (live.length && !keeper) throw new Error(`Legacy activity keeper is ambiguous for ${desired.key}.`);
+  const resource = keeper?.resource || resourceByKey.get(desired.key) || priorResources[0];
+  const duplicateResources = live.filter(({ event }) => event.id !== keeper?.event.id).map(({ resource }) => resource);
+  const duplicateIds = new Set(duplicateResources.map((row) => row.discord_id));
+  const ownedIds = new Set([...priorResources.map((row) => row.discord_id), desired.canonicalEventId, ...desired.duplicateEventIds]);
+  if (existingEvents.some((event) => event.name === desired.title && !ownedIds.has(event.id))) {
+    throw new Error(`Unregistered activity event requires explicit adoption for ${desired.key}.`);
+  }
+  const normalizedResource = resource ? { ...resource, metadata: { ...asRecord(resource.metadata), siteEventKey: desired.key } } : undefined;
+  const existing = selectExistingScheduledEvent(existingEvents.filter((event) => !duplicateIds.has(event.id)), desired, normalizedResource);
+  return { resource, existing, priorResources, duplicateResources };
+}
+
 export function supersededManagedEventResources(resources: JsonRecord[], currentEventId: string): JsonRecord[] {
   return resources.filter((resource) => {
     const resourceEventId = safeString(resource.discord_id, 24);
@@ -298,6 +366,8 @@ async function disableDuplicateEventResource(
   eventId: string,
   desired: ScheduleEvent,
   beforeWrite: () => Promise<void>,
+  priorResource?: JsonRecord,
+  keeperId?: string,
 ): Promise<void> {
   const adminClient = deps.serviceAdminClient("duplicate event registry updates");
   await beforeWrite();
@@ -307,15 +377,17 @@ async function disableDuplicateEventResource(
       enabled: false,
       description: `Retired duplicate scheduled event for ${desired.title}.`,
       metadata: {
+        ...asRecord(priorResource?.metadata),
         managedBy: "reaper-event-sync",
         siteEventKey: desired.key,
-        duplicateOf: desired.canonicalEventId,
+        duplicateOf: keeperId || desired.canonicalEventId,
         retiredBy: "reaper-event-sync",
-        retiredReason: "duplicate-monthly-raffle",
+        retiredReason: priorResource ? "consolidated-activity-series" : "duplicate-monthly-raffle",
         retiredAt: new Date().toISOString(),
       },
     })
     .eq("kind", "scheduled_event")
+    .eq("discord_parent_id", deps.expectedGuildId)
     .eq("discord_id", eventId);
 
   if (error) {
@@ -336,8 +408,11 @@ async function processDuplicateScheduledEvents(
   beforeWrite: () => Promise<void>,
   mutateDiscord: (path: string, init: RequestInit) => Promise<DiscordApiResult>,
   checkpoint: () => void,
+  duplicateResources: JsonRecord[] = [],
+  keeperId?: string,
 ): Promise<void> {
-  for (const duplicateId of desired.duplicateEventIds) {
+  const duplicateIds = [...new Set([...desired.duplicateEventIds, ...duplicateResources.map((row) => String(row.discord_id))])];
+  for (const duplicateId of duplicateIds) {
     if (!duplicateId || duplicateId === desired.canonicalEventId) continue;
     const existingDuplicate = existingEvents.find((event) => safeString(event.id, 24) === duplicateId);
     if (!existingDuplicate) {
@@ -357,7 +432,8 @@ async function processDuplicateScheduledEvents(
     if (!response.ok) {
       throw new Error(`Duplicate removal could not be confirmed (Discord API ${response.status}).`);
     }
-    await disableDuplicateEventResource(deps, duplicateId, desired, beforeWrite);
+    await disableDuplicateEventResource(deps, duplicateId, desired, beforeWrite,
+      duplicateResources.find((row) => row.discord_id === duplicateId), keeperId);
     checkpoint();
     lines.push(managedEventLine("Removed duplicate", desired, `event ${duplicateId}`));
   }
@@ -371,9 +447,9 @@ export async function processEventSync(
 ): Promise<void> {
   const apply = mode === "apply";
   const lines: string[] = [];
-  const ownerId = crypto.randomUUID();
-  let reserved = false;
-  let reservationAttempted = false;
+  const ownerId = deps.reservationOwnerId || crypto.randomUUID();
+  let reserved = Boolean(deps.reservationOwnerId);
+  let reservationAttempted = reserved;
   let writing = false;
   let checkpointSafe = true;
   let pauseUncertain = false;
@@ -412,6 +488,9 @@ export async function processEventSync(
   };
 
   try {
+    if ((deps.advanceKeys && !deps.reservationOwnerId) || (deps.reservationOwnerId && (!apply || !deps.advanceKeys || !/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(deps.reservationOwnerId)))) {
+      throw new Error("Hosted event reservation identity is invalid.");
+    }
     if (!["apply", "preview"].includes(mode) || !/^\d{17,20}$/.test(deps.interactionId) || !/^\d{17,20}$/.test(deps.expectedGuildId)) {
       throw new Error("Event sync interaction identity is invalid.");
     }
@@ -420,7 +499,7 @@ export async function processEventSync(
       return;
     }
 
-    if (apply) {
+    if (apply && !reserved) {
       reservationAttempted = true;
       const result = await transition("reaper_reserve_event_sync");
       if (result !== "acquired") {
@@ -436,7 +515,15 @@ export async function processEventSync(
     }
 
     const schedule = await fetchGuildSchedule(Deno.env.get("GUILD_SCHEDULE_URL") || deps.guildScheduleUrl, deps.discordApiUserAgent);
-    const desiredEvents = desiredEventsFromSchedule(schedule);
+    const now = deps.now || new Date();
+    let desiredEvents = desiredEventsFromSchedule(schedule, now);
+    if (deps.advanceKeys) {
+      if (!deps.advanceKeys.length || deps.advanceKeys.length > 2 || new Set(deps.advanceKeys).size !== deps.advanceKeys.length ||
+        deps.advanceKeys.some((key) => !["breaking-army", "showdown"].includes(key) || !desiredEvents.some((event) => event.key === key && event.recurrenceRule === null))) {
+        throw new Error("Rolling activity advancement scope is invalid.");
+      }
+      desiredEvents = desiredEvents.filter((event) => deps.advanceKeys!.includes(event.key));
+    }
     if (!desiredEvents.length) {
       throw new Error("Website schedule has no events.");
     }
@@ -468,16 +555,53 @@ export async function processEventSync(
       throw new Error("Discord scheduled event identities are malformed.");
     }
     const resourceByKey = indexManagedEventResources(resources);
+    // Completed events are history, never revived or deleted. Cancellation or
+    // premature disappearance during automatic upkeep requires owner review.
+    if (deps.advanceKeys) {
+      for (const desired of desiredEvents) {
+        const resource = resourceByKey.get(desired.key);
+        const metadata = asRecord(resource?.metadata);
+        if (!resource || instant(metadata.startIso) === null || instant(metadata.endIso) === null ||
+          instant(metadata.endIso)! <= instant(metadata.startIso)! || instant(metadata.endIso)! > now.getTime() ||
+          metadata.recurrenceRule !== null || metadata.startIso === desired.startIso) {
+          throw new Error(`Rolling activity is not ready to advance for ${desired.key}.`);
+        }
+        let priorEvent = existingEvents.find((event) => event.id === resource.discord_id);
+        if (!priorEvent) {
+          const priorId = snowflake(resource.discord_id);
+          if (!priorId) throw new Error(`Rolling activity identity is invalid for ${desired.key}.`);
+          const readback = await deps.discordApi(`/guilds/${deps.expectedGuildId}/scheduled-events/${priorId}`, { headers: deps.discordApiHeaders() });
+          if (!readback.ok || !readback.data || typeof readback.data !== "object" || Array.isArray(readback.data)) {
+            throw new Error(`Rolling activity completion could not be confirmed for ${desired.key}.`);
+          }
+          priorEvent = asRecord(readback.data);
+        }
+        if (priorEvent.id !== resource.discord_id || priorEvent.status !== 3 || priorEvent.guild_id !== deps.expectedGuildId ||
+          priorEvent.entity_type !== DISCORD_EVENT_ENTITY_EXTERNAL || priorEvent.recurrence_rule !== null ||
+          instant(priorEvent.scheduled_start_time) !== instant(metadata.startIso) || instant(priorEvent.scheduled_end_time) !== instant(metadata.endIso)) {
+          throw new Error(`Rolling activity has not completed for ${desired.key}.`);
+        }
+      }
+    }
+    const completedIds = new Set(existingEvents.filter((event) => event.status === 3 &&
+      event.guild_id === deps.expectedGuildId && event.entity_type === DISCORD_EVENT_ENTITY_EXTERNAL &&
+      instant(event.scheduled_end_time) !== null && instant(event.scheduled_end_time)! <= now.getTime()).map((event) => event.id));
+    const currentEvents = existingEvents.filter((event) => !completedIds.has(event.id));
     const resolutions = desiredEvents.map((desired) => {
-      const resource = resourceByKey.get(desired.key);
-      const existing = selectExistingScheduledEvent(existingEvents, desired, resource);
+      const { resource, existing, priorResources, duplicateResources } = resolveManagedActivity(currentEvents, desired, resourceByKey);
+      if (deps.advanceKeys && (duplicateResources.length || priorResources.some((row) => asRecord(row.metadata).siteEventKey !== desired.key))) {
+        throw new Error(`Rolling activity needs manual reconciliation for ${desired.key}.`);
+      }
+      for (const duplicate of duplicateResources) duplicateEventIds.add(String(duplicate.discord_id));
       if (existing && (existing.status !== 1 || existing.guild_id !== deps.expectedGuildId || existing.entity_type !== DISCORD_EVENT_ENTITY_EXTERNAL)) {
         throw new Error(`Managed event identity or scheduled status is invalid for ${desired.key}.`);
       }
       return {
-        desired,
+        desired: preserveNativeSeriesAnchor(desired, existing),
         resource,
         existing,
+        priorResources,
+        duplicateResources,
       };
     });
     const targetIds = new Set<string>();
@@ -517,8 +641,11 @@ export async function processEventSync(
       digests.set(desired.key, digest);
     }
 
-    for (const { desired, resource, existing } of resolutions) {
-      const priorResources = resource ? [resource] : [];
+    for (const { desired, resource, existing, priorResources: allPriorResources, duplicateResources } of resolutions) {
+      // Keep live duplicate ownership enabled until DELETE and retirement have
+      // both been acknowledged. A paused/uncertain run can then be reconciled.
+      const duplicateIds = new Set(duplicateResources.map((row) => row.discord_id));
+      const priorResources = allPriorResources.filter((row) => !duplicateIds.has(row.discord_id));
       const body = bodies.get(desired.key)!;
       const digest = digests.get(desired.key)!;
       const metadata = asRecord(resource?.metadata);
@@ -527,7 +654,8 @@ export async function processEventSync(
         : metadata.coverImageSha256 === digest && discordImageHash(existing || {}) !== null &&
           metadata.discordImageHash === discordImageHash(existing || {});
       if (existing && scheduledEventFieldsMatch(existing, body, deps.expectedGuildId) && receiptMatches) {
-        const registryReady = registryMatches(resource, resourcePayload(deps, existing, desired, digest));
+        const registryReady = registryMatches(resource, resourcePayload(deps, existing, desired, digest)) &&
+          supersededManagedEventResources(priorResources, String(existing.id)).length === 0;
         if (apply && !registryReady) {
           checkpointSafe = false;
           await upsertDiscordEventResource(deps, existing, desired, priorResources, beforeWrite, digest);
@@ -554,7 +682,12 @@ export async function processEventSync(
         checkpoint();
         lines.push(managedEventLine(target ? "Updated" : "Created", desired, `event ${event.id}`));
       }
-      await processDuplicateScheduledEvents(deps, apply, desired, existingEvents, lines, beforeWrite, mutateDiscord, checkpoint);
+      const keeper = targetIds.has(String(existing?.id)) ? String(existing!.id) : undefined;
+      await processDuplicateScheduledEvents(deps, apply, desired, existingEvents, lines, beforeWrite, mutateDiscord, checkpoint, duplicateResources, keeper);
+      if (!apply) {
+        const staleRows = supersededManagedEventResources(priorResources, String(existing?.id || ""));
+        if (staleRows.length) lines.push(managedEventLine("Would retire superseded registry", desired, `${staleRows.length} owned row(s)`));
+      }
     }
 
     if (reserved) {

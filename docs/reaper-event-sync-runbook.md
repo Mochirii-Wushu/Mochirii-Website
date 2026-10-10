@@ -25,6 +25,7 @@ Rules:
 - Event cover images come from `discordCoverImage` paths in `apps/web/public/data/guild-schedule.json` under `apps/web/public/assets/`. Keep complete 1600×640 artwork at 5:2, with matching frame/text margins and no adjacent contact-sheet panels or blurred letterboxing. Bump `discordCoverVersion` whenever bytes change at the existing paths; Reaper caches images by the versioned URL, and Website uses the same version in its public image URLs.
 - Reaper records managed Discord event IDs in `discord_resources` with `managedBy: "reaper-event-sync"`.
 - Exactly one enabled managed registry row may exist for each `siteEventKey`. Preview fails closed if a key has ambiguous enabled mappings or multiple exact Discord matches.
+- Each activity has one stable key and one scheduled event. Legacy weekday mappings are consolidated only by their managed IDs: preserve the live daily Guild Party `1558076114486698016`, keep the unambiguous upcoming Breaking Army entry, remove only the reviewed owned duplicate, and retire superseded registry rows without deleting history. Unregistered same-title events require explicit adoption.
 - A matching title, time and location does not establish ownership. An existing event must have an explicit canonical ID or an enabled Reaper-managed registry mapping; otherwise preview requires separate adoption approval.
 - Preview validates the complete schedule, event identities and every distinct cover before apply. Schedule and cover fetches accept only bounded responses from the canonical HTTPS website paths, without redirects. Verify any runtime `GUILD_SCHEDULE_URL` override resolves to the approved source without exposing other environment values.
 - Apply reserves the guild through `private.reaper_event_sync_runs` before reading the plan. Interaction IDs remain deduplicated, and each provider or registry write checks the reservation owner. Reservations never expire or transfer automatically.
@@ -45,6 +46,20 @@ Rules:
 - Skyward Bond: Fridays, 10:00 PM - 11:00 PM UTC+8. The existing internal `united-resolve` key stays stable for managed-event identity.
 - Guild Hero's Realm: Fridays, 11:00 PM - 12:00 AM UTC+8, ending on Saturday.
 
+Reaper manages 8 event types and 8 scheduled events, one per activity. Party uses native daily recurrence; Wars uses the supported Saturday/Sunday pair; Skyward Bond and Hero's Realm use native Friday recurrence. Monthly events retain their native rules and canonical identities. Valid native anchors remain unchanged after later occurrences pass; their UTC clock, duration and complete recurrence selectors must still agree with the authority.
+
+Discord cannot represent Monday/Wednesday or Tuesday/Thursday as one native series. Breaking Army and Showdown therefore each have one upcoming nonrecurring event. Hosted Reaper upkeep advances only these two activities after their prior occurrence ends. Twitch streams are Website display content, not guild scheduled events.
+
+## Hosted Rolling Advancement
+
+The additive `20261010160737_reaper_event_advancement.sql` migration installs a disabled policy and a minute cron tick. Disabled ticks perform no network request. Activation is a separate approved provider operation after the release, manual consolidation and eight-key registry/provider readback pass. `reaper_set_event_advancement(true)` requires the exact guild, eight unique managed activities, the preserved Party/gathering/raffle IDs, valid UTC metadata, and no unresolved dispatch, active writer or cooldown. Disabling uses the same RPC with `false`.
+
+The database selects only due Breaking Army/Showdown mappings, allowing two minutes after the exclusive end for Discord to finish the external event. It dispatches to the fixed production `/reaper-discord-interactions/advance` route with a short-lived random capability. Only its hash persists in the capability ledger; the bounded request carries no schedule, event ID or arbitrary destination. The Edge route rejects a different runtime project or guild before any provider request. Ordinary Discord interactions still require their Ed25519 signatures.
+
+Capability consumption and the existing guild reservation are atomic. One-use capabilities cannot replay, transfer ownership or bypass a manual apply. Synthetic upkeep identities are disjoint from real Discord snowflakes. The worker loads the published canonical schedule and confirms the previous owned occurrence is completed, nonrecurring, and matches its recorded UTC start/end. If absent from the list, it reads that exact owned ID; a 404 or uncertain response stops for reconciliation rather than inferring completion. It then creates and records only the next occurrence. Completed provider events and superseded registry history remain retained. It never changes Party, Wars, Friday series, monthlies or unrelated events.
+
+A timeout, expired capability, paused/blocked/rejected run, registry drift or uncertain acknowledgement disables further upkeep. No automatic replay, retry, reservation takeover or cooldown bypass is allowed. Reconcile the exact dispatch, worker, Discord event, registry receipt and reservation before separately approved reactivation. Historical terminal pauses predating activation remain evidence and are never resumed. Source rollback does not reverse registry or provider changes; disable the policy before an approved rollback or forward fix.
+
 ## Release and Provider Gate
 
 - Merge only after exact release approval names the reviewed head, normal Vercel publication, and the protected-main Supabase Git integration deployment.
@@ -61,7 +76,7 @@ Run:
 /sync-events mode:preview confirm:false
 ```
 
-The preview should show exactly one recurring `Monthly Guild Gathering` on the Monday after the first Sunday from 00:00 to 01:00 UTC+8 (for example, 2 Nov 2026 or 8 Feb 2027). The regular 21:30 Guild Party remains because its slot no longer overlaps. Verify Skyward Bond Friday 22:00–23:00 followed by Hero's Realm 23:00–00:00, retain the canonical raffle pending a separate decision, and create no duplicates. Only an exact monthly/weekly start, end, and Website-location collision advances the stable weekly key by seven days. If the explicit duplicate one-off raffle event `1513742240760070144` still exists, preview reports it as a duplicate removal. Only after the preview output is clean and owner approval is current, run:
+The preview should show eight activities, including exactly one recurring `Monthly Guild Gathering` on the Monday after the first Sunday from 00:00 to 01:00 UTC+8 (for example, 2 Nov 2026 or 8 Feb 2027). The regular 21:30 Guild Party remains because its slot no longer overlaps. Verify Skyward Bond Friday 22:00–23:00 followed by Hero's Realm 23:00–00:00, retain the canonical raffle pending a separate decision, and create no duplicates. Only an exactly overlapping monthly start, end and Website location suppresses that weekly occurrence; choose the activity's next nonconflicting occurrence. Potentially colliding activities remain rolling because native recurrence cannot exclude one date. If the explicit duplicate one-off raffle event `1513742240760070144` still exists, preview reports it as a duplicate removal. Every legacy consolidation removal must identify its owned event and keeper. Only after the preview output is clean and owner approval is current, run:
 
 Do not run `apply` if preview shows duplicate creates, ambiguous registry mappings, multiple exact matches, unexpected missing managed events, unexpected title/time/recurrence drift, or any unmanaged Discord event that would be touched.
 
@@ -71,7 +86,7 @@ Do not run `apply` if preview shows duplicate creates, ambiguous registry mappin
 
 ## Rollback
 
-If the apply step creates incorrect Discord events, cancel or edit only the Reaper-managed events shown in the preview/apply output, then revert the website schedule branch or correct `apps/web/public/data/guild-schedule.json` and redeploy. Do not delete unrelated Discord events. Duplicate removal is intentionally limited to IDs listed in `discordDuplicateEventIds`.
+If the apply step creates incorrect Discord events, first disable hosted advancement, then cancel or edit only the Reaper-managed events shown in the approved preview/apply output. Correct the source through the normal reviewed release. Do not delete unrelated Discord events. Duplicate removal is limited to explicit `discordDuplicateEventIds` and unambiguous owned legacy activity mappings in the reviewed plan.
 
 ## Interrupted or Uncertain Apply
 
