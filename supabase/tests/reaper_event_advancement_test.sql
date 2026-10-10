@@ -12,7 +12,7 @@ begin
   delete from private.reaper_event_sync_runs where guild_id = '1078630751077142608';
   delete from public.discord_resources where kind = 'scheduled_event' and discord_parent_id = '1078630751077142608';
   update private.reaper_event_advancement_policy set enabled = false, activated_at = null, disabled_reason = null;
-  foreach activity in array array['monthly-gathering', 'monthly-raffle', 'guild-party', 'breaking-army', 'showdown', 'guild-wars', 'guild-heros-realm', 'united-resolve'] loop
+  foreach activity in array array['monthly-gathering', 'monthly-raffle', 'guild-party', 'breaking-army', 'showdown', 'guild-wars', 'guild-heros-realm', 'united-resolve', 'twitch-mochi-monday', 'twitch-mochi-tuesday', 'twitch-mochi-wednesday'] loop
     ordinal := ordinal + 1;
     event_id := case activity when 'guild-party' then '1558076114486698016' when 'monthly-gathering' then '1558024658497052722' when 'monthly-raffle' then '1479507429598302268' else '163456789012345670' || ordinal::text end;
     insert into public.discord_resources (kind, label, discord_id, discord_parent_id, metadata)
@@ -22,6 +22,14 @@ begin
       'recurrenceRule', case when activity in ('breaking-army', 'showdown') then 'null'::jsonb else '{"frequency":3,"interval":1}'::jsonb end
     ));
   end loop;
+  update public.discord_resources set metadata = metadata || jsonb_build_object(
+    'location', 'https://www.twitch.tv/mochiriiguild', 'websiteLocation', 'https://www.twitch.tv/mochiriiguild',
+    'coverImageUrl', null, 'coverImageSha256', null, 'discordImageHash', null,
+    'startIso', to_char(date '2099-01-05' + (case metadata->>'siteEventKey' when 'twitch-mochi-monday' then 0 when 'twitch-mochi-tuesday' then 1 else 2 end), 'YYYY-MM-DD') || 'T13:30:00.000Z',
+    'endIso', to_char(date '2099-01-05' + (case metadata->>'siteEventKey' when 'twitch-mochi-monday' then 0 when 'twitch-mochi-tuesday' then 1 else 2 end), 'YYYY-MM-DD') || 'T15:30:00.000Z',
+    'recurrenceRule', jsonb_build_object('start', to_char(date '2099-01-05' + (case metadata->>'siteEventKey' when 'twitch-mochi-monday' then 0 when 'twitch-mochi-tuesday' then 1 else 2 end), 'YYYY-MM-DD') || 'T13:30:00.000Z',
+      'frequency', 2, 'interval', 1, 'by_weekday', jsonb_build_array(case metadata->>'siteEventKey' when 'twitch-mochi-monday' then 0 when 'twitch-mochi-tuesday' then 1 else 2 end))
+  ) where kind = 'scheduled_event' and discord_parent_id = '1078630751077142608' and metadata->>'siteEventKey' like 'twitch-mochi-%';
 end;
 $$;
 
@@ -66,7 +74,7 @@ select throws_ok($$update private.reaper_event_advancement_policy set guild_id =
 select ok(not exists (select 1 from information_schema.columns where table_schema = 'private' and table_name = 'reaper_event_advance_dispatches' and column_name in ('capability', 'token', 'secret')), 'durable ledger stores no plaintext capability');
 
 select pg_temp.reaper_advance_fixture();
-select is(private.reaper_event_advancement_registry_ready(), true, 'exact eight stable keys and protected keepers reconcile');
+select is(private.reaper_event_advancement_registry_ready(), true, 'exact eleven stable keys and protected keepers reconcile');
 select is(public.reaper_set_event_advancement(true), true, 'explicit activation succeeds after reconciliation');
 select is(private.reaper_dispatch_event_advance(), null::uuid, 'future activity occurrences do not dispatch');
 select is((select count(*)::integer from private.reaper_event_advance_dispatches), 0, 'no due occurrence means no job or request');

@@ -14,6 +14,7 @@ const requiredRuntimeIds = [
   "storefront",
   "backend",
   "social",
+  "forums",
   "discord-interactions",
   "release-automation",
 ];
@@ -160,8 +161,9 @@ const expectedOrigins = new Map([
   ["storefront", ["https://shop.mochirii.com"]],
   ["backend", [`https://${publicUrls?.supabaseProjectRef}.supabase.co`]],
   ["social", [publicUrls?.socialHost]],
+  ["forums", [publicUrls?.forumsHost]],
   ["discord-interactions", ["https://discord.com", `https://${publicUrls?.supabaseProjectRef}.supabase.co`]],
-  ["release-automation", ["https://github.com/Mochirii-Wushu/Mochirii"]],
+  ["release-automation", ["https://github.com/Mochirii-Wushu/Mochirii-Website"]],
 ]);
 
 for (const runtime of runtimes) {
@@ -171,6 +173,15 @@ for (const runtime of runtimes) {
   for (const field of ["provider", "source", "continuity"]) {
     if (typeof runtime?.[field] !== "string" || !runtime[field].trim()) {
       failures.push(`${id} must define ${field}`);
+    }
+  }
+  if (["social", "forums"].includes(id)) {
+    for (const [field, expected] of Object.entries({
+      provider: "Vercel",
+      source: "reviewed immutable Coming Soon shell artifact",
+      continuity: "provider_managed_static_maintenance",
+    })) {
+      if (runtime[field] !== expected) failures.push(`${id} ${field} must describe the current static placeholder`);
     }
   }
   const origins = Array.isArray(runtime?.public_origins) ? runtime.public_origins : [];

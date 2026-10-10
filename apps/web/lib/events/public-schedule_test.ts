@@ -54,8 +54,11 @@ test("the compact public projection preserves schedule behavior and versions onl
   }
 });
 
-test("the browser projection excludes the inactive raffle and Discord management data", () => {
+test("the browser projection excludes streams, the inactive raffle and Discord management data", () => {
   assert.deepEqual(publicGuildSchedule.timezone, authority.timezone);
+  assert.equal(authority.streaming.length, 3);
+  assert.equal("streaming" in publicGuildSchedule, false);
+  assert.equal(websiteEventCardsFromSchedule(publicGuildSchedule, new Date("2026-10-11T00:00:00.000Z")).length, 7);
   const monthly = Object.values(publicGuildSchedule.monthly || {});
   assert.deepEqual(monthly.map((item) => item.id), ["monthly-gathering"]);
   assert.equal(monthly[0].startDayOffset, 1);

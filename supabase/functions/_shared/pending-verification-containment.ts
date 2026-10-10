@@ -2,6 +2,7 @@ export type JsonRecord = Record<string, unknown>;
 
 export type SupabaseAdminClient = {
   from(table: string): any;
+  rpc?(name: string, args: Record<string, unknown>): PromiseLike<{ data: unknown; error: unknown }>;
 };
 
 export type PendingContainmentMode = "preview" | "apply";
@@ -582,6 +583,7 @@ export async function applyPendingContainmentPlan(
   adminClient: SupabaseAdminClient,
   plan: PendingContainmentPlan,
   writePendingDiscordOverwrite: WritePendingDiscordOverwrite,
+  beforeWrite: () => Promise<void>,
   config: PendingContainmentConfig = DEFAULT_PENDING_CONTAINMENT_CONFIG,
 ): Promise<PendingContainmentApplyResult> {
   const plannedDiscordWrites = plan.changes.filter((change) => change.discordWrite).length;
@@ -591,14 +593,17 @@ export async function applyPendingContainmentPlan(
   for (const change of plan.changes) {
     const ownsPermissionsAfterChange = change.nextOwnedAllow !== 0n || change.nextOwnedDeny !== 0n;
 
-    // Persist newly acquired ownership first so a failed Discord write remains safely retryable.
+    // Persist ownership first. An uncertain provider write retains the durable
+    // request fence; it must be reconciled before another writer can proceed.
     if (change.dbWrite && ownsPermissionsAfterChange) {
+      await beforeWrite();
       await savePendingOverwriteRecord(adminClient, change, config);
       dbWrites += 1;
     }
 
     if (change.discordWrite) {
       try {
+        await beforeWrite();
         await writePendingDiscordOverwrite(change);
       } catch (error) {
         const failedWrites = 1;
@@ -622,12 +627,14 @@ export async function applyPendingContainmentPlan(
 
     // Release ownership only after Discord no longer has the Reaper-managed bits.
     if (change.dbWrite && !ownsPermissionsAfterChange) {
+      await beforeWrite();
       await savePendingOverwriteRecord(adminClient, change, config);
       dbWrites += 1;
     }
   }
 
   for (const record of plan.staleRecords) {
+    await beforeWrite();
     await clearStalePendingRecord(adminClient, record);
   }
 

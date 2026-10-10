@@ -58,6 +58,41 @@
     "id": "member-spotlight",
     "rule": "first-day-current-month"
   },
+  "streaming": [
+    {
+      "id": "twitch-mochi-monday",
+      "title": "Mōchi Monday!",
+      "days": [1],
+      "dayText": "Mondays",
+      "startTime": "21:30",
+      "endTime": "23:30",
+      "location": "https://www.twitch.tv/mochiriiguild",
+      "discord": true,
+      "description": "Mōchi Monday! streams every Monday, 9:30 PM - 11:30 PM UTC+8."
+    },
+    {
+      "id": "twitch-mochi-tuesday",
+      "title": "Mōchi Tuesday",
+      "days": [2],
+      "dayText": "Tuesdays",
+      "startTime": "21:30",
+      "endTime": "23:30",
+      "location": "https://www.twitch.tv/mochiriiguild",
+      "discord": true,
+      "description": "Mōchi Tuesday streams every Tuesday, 9:30 PM - 11:30 PM UTC+8."
+    },
+    {
+      "id": "twitch-mochi-wednesday",
+      "title": "Mōchi Wednesday",
+      "days": [3],
+      "dayText": "Wednesdays",
+      "startTime": "21:30",
+      "endTime": "23:30",
+      "location": "https://www.twitch.tv/mochiriiguild",
+      "discord": true,
+      "description": "Mōchi Wednesday streams every Wednesday, 9:30 PM - 11:30 PM UTC+8."
+    }
+  ],
   "weekly": [
     {
       "id": "guild-party",

@@ -67,8 +67,8 @@ test("parity checker follows the Monday after the first Sunday with an exclusive
     ["2027-02-08T01:00:00.001+08:00", "2027-03-07T16:00:00.000Z", "2027-03-07T17:00:00.000Z"],
   ]) {
     const events = matchingPlan(instant);
-    assert.equal(events.length, 8);
-    assert.equal(new Set(events.map((event) => event.typeId)).size, 8);
+    assert.equal(events.length, 11);
+    assert.equal(new Set(events.map((event) => event.typeId)).size, 11);
     const gathering = events.find((event) => event.key === "monthly-gathering");
     assert.equal(gathering.startIso, startIso);
     assert.equal(gathering.endIso, endIso);
@@ -86,8 +86,8 @@ test("parity checker preserves all five historical first-Wednesday boundaries as
     ["2026-11-04T22:00:00.001+08:00", "2026-12-02"],
   ]) {
     const events = matchingPlan(instant, firstWednesday);
-    assert.equal(events.length, 8);
-    assert.equal(new Set(events.map((event) => event.typeId)).size, 8);
+    assert.equal(events.length, 11);
+    assert.equal(new Set(events.map((event) => event.typeId)).size, 11);
     const gathering = events.find((event) => event.key === "monthly-gathering");
     assert.equal(gathering.startIso, `${date}T13:30:00.000Z`);
     assert.equal(gathering.endIso, `${date}T14:00:00.000Z`);
@@ -105,7 +105,7 @@ test("parity checker hands off Friday Skyward to Hero at 23:00 and closes Hero a
     ["2026-10-10T00:00:00+08:00", "2026-10-16", "2026-10-16"],
   ]) {
     const events = matchingPlan(instant);
-    assert.equal(events.length, 8);
+    assert.equal(events.length, 11);
     const hero = events.find((event) => event.key === "guild-heros-realm");
     const skyward = events.find((event) => event.key === "united-resolve");
     assert.equal(hero.startIso, `${heroDate}T15:00:00.000Z`);
@@ -154,10 +154,11 @@ test("parity checker suppresses only the exact first-Wednesday Guild Party slot"
   }
 });
 
-test("parity checker generates eight stable activity keys and complete native recurrence rules", () => {
+test("parity checker generates eleven stable activity keys and complete native recurrence rules", () => {
   const events = matchingPlan("2026-10-10T00:00:00+08:00");
   assert.deepEqual(Array.from(events, (event) => event.key), [
     "monthly-gathering", "monthly-raffle", "guild-party", "breaking-army", "showdown", "guild-wars", "guild-heros-realm", "united-resolve",
+    "twitch-mochi-monday", "twitch-mochi-tuesday", "twitch-mochi-wednesday",
   ]);
   const rules = new Map(events.map((event) => [event.key, JSON.parse(JSON.stringify(event.recurrenceRule))]));
   assert.deepEqual(rules.get("guild-party"), { start: "2026-10-10T13:30:00.000Z", frequency: 3, interval: 1 });

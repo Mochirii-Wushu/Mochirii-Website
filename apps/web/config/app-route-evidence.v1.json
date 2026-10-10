@@ -88,8 +88,8 @@
       "id": "content-guardrails",
       "path": "scripts/check-content-guardrails.mjs",
       "scope": "source-only public content and protected-copy guardrails",
-      "bytes": 22092,
-      "sha256": "9FB097805A3C87A60101B2B86F54E046C0F15A818791D9B6478BFE98F14E1BE8",
+      "bytes": 21051,
+      "sha256": "A14E72EF99CB3ACAD385E0EEFA25C51380542DA675FAD95A1594CF407B286EE9",
       "status": "verified_source"
     },
     {
@@ -112,8 +112,8 @@
       "id": "package-route-evidence-wiring",
       "path": "package.json",
       "scope": "exact npm commands for route-evidence checking and hostile tests",
-      "bytes": 18305,
-      "sha256": "1C44999B6D6A59CDCC5CACD9DDA40A62D24A62D84E0A2A47829DA9F6C0393405",
+      "bytes": 18730,
+      "sha256": "162E5BE50FDE6DFA89C1B43E67F20A6A5F63706F6D13F80310F98FE542C838A7",
       "status": "verified_source"
     },
     {
@@ -136,8 +136,8 @@
       "id": "repository-check-runner",
       "path": "scripts/check-all.mjs",
       "scope": "full-repository execution wiring for route-evidence checks",
-      "bytes": 13563,
-      "sha256": "0A81A854FC6C1769CE4534C675F98E5EFAE3F31A5F3D5C9211D7DE24C9ABB4F4",
+      "bytes": 14135,
+      "sha256": "959F10CE8723A8B2BF43119F4689D94A90A698C33FAD50F2A82150618303962E",
       "status": "verified_source"
     },
     {
@@ -152,8 +152,8 @@
       "id": "security-hardening",
       "path": "scripts/check-security-hardening.mjs",
       "scope": "source-only security and privacy hardening contract",
-      "bytes": 23325,
-      "sha256": "A3B1855EED54E2F860AF9CE56F501DE39D065230AABCEE8A5FA27DC56AAFF90F",
+      "bytes": 23413,
+      "sha256": "D0EE560211715D54F4D4807A4EAD52A6B4E9DCA9F2604F5ACE5EEAC5D16E51B2",
       "status": "verified_source"
     },
     {

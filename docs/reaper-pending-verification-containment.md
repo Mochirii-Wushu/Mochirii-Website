@@ -50,6 +50,14 @@ Reaper stores only owned permission bits in service-role-only table `discord_man
 
 Each preview and apply writes a redacted `discord_sync_log` row with `sync_type: "role_check"`. Logs contain counts and IDs only. Do not store tokens, webhook URLs, private message content, raw interaction tokens, or unrestricted Discord message content.
 
+Gateway forwarding, manual apply and rollback share a separate durable guild
+fence and permanent request receipts. Every provider or owned-registry write
+checks the current owner. Unknown write outcomes block later writers without
+expiry or automatic takeover. Completed receipts remain authoritative even
+when their HTTP acknowledgment or diagnostic log is lost. The additive policy
+starts disabled and needs separate activation after normal Git publication,
+legacy-worker drain and exact deployed-contract verification.
+
 ## Live Command Rules
 
 Preview is the safe first command:
@@ -89,7 +97,14 @@ Full automatic coverage is a second release after the slash-command repair path.
 reaper-discord-member-sync
 ```
 
-That Edge Function requires header `x-mochirii-reaper-member-sync-secret`, fetches the current Discord member before mutating, and uses the same shared containment policy as `/sync-pending-verification`. It blocks manual conflicts, enforces the same max-mutation guard, and writes redacted `discord_sync_log` rows.
+That Edge Function requires header `x-mochirii-reaper-member-sync-secret` and a
+stable UUIDv4 `request_id`, fetches the current Discord member before mutating,
+and uses the same shared containment policy as `/sync-pending-verification`.
+It blocks manual conflicts, enforces the same max-mutation guard, and writes
+redacted `discord_sync_log` rows. Its authenticated status route resolves lost
+acknowledgments through the permanent receipt; malformed 2xx responses never
+establish success. The hosted Gateway retains its private request spool across
+restarts and never assigns a new UUID to retry uncertain work.
 
 Gateway requirements:
 
@@ -109,6 +124,7 @@ Run before deployment:
 npm run check:reaper-discord-interactions
 npm run check:discord-reaper-parity
 npm run check:supabase-edge-types
+npm run test:reaper-member-sync
 npm run check
 git diff --check
 ```

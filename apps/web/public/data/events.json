@@ -48,29 +48,6 @@
       "href": "https://discord.com/invite/9HQKz6rqF4"
     }
   ],
-  "streamingSchedule": {
-    "timezone": "UTC+8",
-    "items": [
-      {
-        "title": "Mōchi Monday!",
-        "dayText": "Mondays",
-        "startTime": "21:30",
-        "endTime": "23:30"
-      },
-      {
-        "title": "Mōchi Tuesday",
-        "dayText": "Tuesdays",
-        "startTime": "21:30",
-        "endTime": "23:30"
-      },
-      {
-        "title": "Mōchi Wednesday",
-        "dayText": "Wednesdays",
-        "startTime": "21:30",
-        "endTime": "23:30"
-      }
-    ]
-  },
   "recurring": {
     "intro": "Recurring activities happen as schedules allow. Discord carries final timing; the site keeps the rhythm clear.",
     "items": [

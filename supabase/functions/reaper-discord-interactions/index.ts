@@ -17,6 +17,7 @@ import {
   type PendingContainmentMode,
   type PendingContainmentPlan,
 } from "../_shared/pending-verification-containment.ts";
+import { ContainmentRequest, containmentInputHash, readContainmentReceipt } from "../_shared/pending-containment-receipts.ts";
 import {
   buildModmailAudit,
   formatModmailAuditMessage,
@@ -266,13 +267,15 @@ async function writePendingDiscordOverwrite(change: PendingContainmentChange): P
 
   const removeOverwrite = change.nextAllow === 0n && change.nextDeny === 0n;
   const response = removeOverwrite
-    ? await discordApi(`/channels/${change.channelId}/permissions/${change.userId}`, {
+    ? await fetch(`${DISCORD_API_BASE_URL}/channels/${change.channelId}/permissions/${change.userId}`, {
       method: "DELETE",
       headers: auditHeaders,
+      redirect: "error", signal: AbortSignal.timeout(10000),
     })
-    : await discordApi(`/channels/${change.channelId}/permissions/${change.userId}`, {
+    : await fetch(`${DISCORD_API_BASE_URL}/channels/${change.channelId}/permissions/${change.userId}`, {
       method: "PUT",
       headers: auditHeaders,
+      redirect: "error", signal: AbortSignal.timeout(10000),
       body: JSON.stringify({
         allow: change.nextAllow.toString(),
         deny: change.nextDeny.toString(),
@@ -280,20 +283,19 @@ async function writePendingDiscordOverwrite(change: PendingContainmentChange): P
       }),
     });
 
-  if (!response.ok) {
-    throw new Error(
-      `Discord overwrite ${change.detail} on ${change.channelName}:${change.channelId} user:${change.userId} failed with API ${response.status}${discordApiErrorDetail(response.data)}.`,
-    );
-  }
+  void response.body?.cancel().catch(() => undefined);
+  if (response.status !== 204) throw new Error("Discord containment write requires reconciliation.");
 }
 
 async function processPendingVerificationSync(
   mode: PendingContainmentMode,
   interactionToken: string,
   applicationId: string,
+  interactionId: string,
 ): Promise<void> {
   let adminClient: SupabaseAdminClient | null = null;
   let plan: PendingContainmentPlan | null = null;
+  let request: ContainmentRequest | null = null;
 
   try {
     if (!Deno.env.get("DISCORD_BOT_TOKEN")) {
@@ -302,17 +304,28 @@ async function processPendingVerificationSync(
     }
 
     adminClient = serviceAdminClient("pending verification containment");
+    if (mode === "apply") {
+      request = new ContainmentRequest(adminClient, `discord:${interactionId}`);
+      const reservation = await request.reserve("*", await containmentInputHash({ kind: "manual-containment", interactionId }));
+      if (reservation !== "acquired") {
+        const status = reservation === "duplicate" ? (await readContainmentReceipt(adminClient, request.requestKey)).state : reservation;
+        await editOriginalInteractionResponse(applicationId, interactionToken, `Pending containment request: ${status}. No permission writes were retried.`);
+        return;
+      }
+    }
     const [channels, members, roles] = await Promise.all([fetchGuildChannels(), fetchGuildMembers(), fetchGuildRoles()]);
     plan = await buildPendingContainmentPlan(adminClient, channels, members, roles);
     const discordWriteCount = plan.changes.filter((change) => change.discordWrite).length;
 
     if (plan.conflicts.length) {
+      await request?.fail();
       await logPendingContainmentSync(adminClient, mode, "warning", "Manual VIEW_CHANNEL conflicts blocked containment.", plan);
       await editOriginalInteractionResponse(applicationId, interactionToken, pendingPlanMessage(mode, plan));
       return;
     }
 
     if (mode === "apply" && discordWriteCount > MAX_PENDING_VERIFICATION_MUTATIONS) {
+      await request?.fail();
       await logPendingContainmentSync(
         adminClient,
         mode,
@@ -335,7 +348,9 @@ async function processPendingVerificationSync(
       return;
     }
 
-    const result = await applyPendingContainmentPlan(adminClient, plan, writePendingDiscordOverwrite);
+    if (!request) throw new Error("Containment apply requires its durable fence.");
+    const result = await applyPendingContainmentPlan(adminClient, plan, writePendingDiscordOverwrite, request.beforeWrite);
+    await request.complete({ discordWrites: result.discordWrites, dbWrites: result.dbWrites, staleRecordsCleared: result.staleRecordsCleared });
     await logPendingContainmentSync(
       adminClient,
       mode,
@@ -343,9 +358,10 @@ async function processPendingVerificationSync(
       "Pending verification containment apply completed.",
       plan,
       result,
-    );
+    ).catch(() => undefined);
     await editOriginalInteractionResponse(applicationId, interactionToken, pendingPlanMessage(mode, plan, result));
   } catch (error) {
+    try { await request?.fail(); } catch { /* Unknown writes retain their fence. */ }
     console.error("reaper-discord-interactions pending verification containment failed", {
       message: error instanceof Error ? error.message : String(error),
     });
@@ -365,7 +381,7 @@ async function processPendingVerificationSync(
           appliedDiscordWriteCount: partialApply?.discordWrites || 0,
           registryWriteCountBeforeFailure: partialApply?.dbWrites || 0,
         },
-      );
+      ).catch(() => undefined);
     }
 
     const partialMessage = error instanceof PendingContainmentApplyError
@@ -374,7 +390,7 @@ async function processPendingVerificationSync(
     await editOriginalInteractionResponse(
       applicationId,
       interactionToken,
-      `Reaper pending verification containment could not be completed.${partialMessage} Rerun preview and check configuration.`,
+      `Reaper pending verification containment requires receipt reconciliation.${partialMessage} Do not retry an uncertain apply.`,
     );
   }
 }
@@ -761,7 +777,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const mode: PendingContainmentMode = modeValue === "apply" ? "apply" : "preview";
-    EdgeRuntime.waitUntil(processPendingVerificationSync(mode, interactionToken, applicationId));
+    EdgeRuntime.waitUntil(processPendingVerificationSync(mode, interactionToken, applicationId, interactionId));
     return deferredEphemeralResponse();
   }
 

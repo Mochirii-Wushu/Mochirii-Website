@@ -1,5 +1,6 @@
 import Link from "next/link";
 import eventsData from "@/public/data/events.json";
+import guildScheduleData from "@/public/data/guild-schedule.json";
 import { DISCORD_INVITE_URL } from "@/lib/public-urls";
 import { publicGuildSchedule } from "@/lib/events/public-schedule";
 import { streamingScheduleLines } from "@/lib/events/streaming-schedule";
@@ -12,7 +13,7 @@ type EventsPageProps = {
   referenceTime: string;
 };
 
-const streamSchedule = streamingScheduleLines(eventsData.streamingSchedule, publicGuildSchedule);
+const streamSchedule = streamingScheduleLines(guildScheduleData);
 
 export function EventsPage(props: EventsPageProps) {
   const { referenceTime } = props;

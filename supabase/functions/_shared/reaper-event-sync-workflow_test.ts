@@ -314,7 +314,7 @@ async function seedLegacyActivities(h: ReturnType<typeof harness>) {
   const events: JsonRecord[] = [];
   const rows: JsonRecord[] = [];
   let id = 823456789012345678n;
-  for (const event of desired) {
+  for (const event of desired.filter((event) => !event.key.startsWith("twitch-"))) {
     const keys = event.legacyKeys || [event.key];
     for (const key of keys) {
       const keeperId = key === "guild-party-5" ? partyKeeperId
@@ -356,18 +356,18 @@ Deno.test("actual legacy consolidation preserves the daily Party and Monday Army
     await sync(h.deps);
     equal(h.runs.get(interactionId)?.state, "completed");
     const enabled = h.resources().filter((row) => row.enabled === true);
-    equal(enabled.length, 8);
+    equal(enabled.length, 11);
     equal(enabled.map((row) => (row.metadata as JsonRecord).siteEventKey).sort(), desiredEventsFromSchedule(h.schedule, legacyNow).map((event) => event.key).sort());
     equal(enabled.find((row) => (row.metadata as JsonRecord).siteEventKey === "guild-party")?.discord_id, partyKeeperId);
     equal(enabled.find((row) => (row.metadata as JsonRecord).siteEventKey === "breaking-army")?.discord_id, armyKeeperId);
-    equal(h.events().length, 8);
+    equal(h.events().length, 11);
     equal(h.writes.filter((write) => write.method === "DELETE").map((write) => write.path.split("/").at(-1)), [armyDuplicateId]);
     equal(h.events().filter((event) => beforeIds.includes(event.id)).map((event) => event.id).sort(), beforeIds.filter((id) => id !== armyDuplicateId).sort());
     const retired = h.resources().filter((row) => row.enabled === false);
     equal(retired.length, 13);
     assert(retired.every((row) => (row.metadata as JsonRecord).retiredBy === "reaper-event-sync"));
     equal((retired.find((row) => row.discord_id === armyDuplicateId)?.metadata as JsonRecord).retiredReason, "consolidated-activity-series");
-    equal(h.writes.filter((write) => write.method === "POST").length, 4);
+    equal(h.writes.filter((write) => write.method === "POST").length, 7);
     const writes = h.writes.length, registryWrites = h.registryWrites.length;
     await sync({ ...h.deps, interactionId: nextInteractionId });
     equal(h.writes.length, writes);
@@ -409,7 +409,7 @@ Deno.test("a paused legacy duplicate DELETE keeps its owned row and resumes from
     equal(h.writes.filter((write) => write.path.endsWith(`/${armyKeeperId}`) && write.method === "PATCH").length, 1);
     equal(h.writes.filter((write) => write.method === "DELETE").map((write) => write.path.split("/").at(-1)), [armyDuplicateId]);
     equal(h.resources().find((row) => row.discord_id === armyDuplicateId)?.enabled, false);
-    equal(h.resources().filter((row) => row.enabled === true).length, 8);
+    equal(h.resources().filter((row) => row.enabled === true).length, 11);
   }));
 
 Deno.test("hosted advancement replaces only each due rolling activity and preserves completed provider history without a second reserve", async () => {
@@ -436,7 +436,7 @@ Deno.test("hosted advancement replaces only each due rolling activity and preser
     const enabled = h.resources().filter((row) => row.enabled === true && (row.metadata as JsonRecord).siteEventKey === key);
     equal(enabled.length, 1);
     assert(enabled[0].discord_id !== prior.discord_id);
-    equal(h.resources().filter((row) => row.enabled === true).length, 8);
+    equal(h.resources().filter((row) => row.enabled === true).length, 11);
   });
 });
 
@@ -498,7 +498,7 @@ Deno.test("absent rolling provider IDs require exact completed direct-read proof
       equal(h.writes.slice(writes).map((write) => write.method), ["POST", "POST"]);
       equal(h.resources().find((row) => row.discord_id === army.id)?.enabled, false);
       equal(h.resources().find((row) => row.discord_id === showdown.id)?.enabled, false);
-      equal(h.resources().filter((row) => row.enabled === true).length, 8);
+      equal(h.resources().filter((row) => row.enabled === true).length, 11);
     } else {
       equal(h.runs.get(nextInteractionId)?.state, "rejected");
       equal(h.writes.length, writes);
@@ -597,8 +597,8 @@ Deno.test("concurrent actual workflows serialize per guild before any Discord wr
       sync(h.deps),
       sync({ ...h.deps, interactionId: nextInteractionId }),
     ]);
-    equal(h.writes.length, 8);
-    equal(h.registryWrites.length, 8);
+    equal(h.writes.length, 11);
+    equal(h.registryWrites.length, 11);
     equal(h.runs.size, 1);
     equal(h.runs.get(interactionId)?.state, "completed");
     assert(
@@ -610,7 +610,7 @@ Deno.test("duplicate interaction is deduped before writes and stays consumed aft
   withHarness(async (h) => {
     await Promise.all([sync(h.deps), sync(h.deps)]);
     await sync(h.deps);
-    equal(h.writes.length, 8);
+    equal(h.writes.length, 11);
     equal(
       h.messages.filter((message) => message.includes("already handled"))
         .length,
@@ -703,7 +703,7 @@ Deno.test("explicit canonical or enabled managed identity is required for PATCH"
     h.setResources([resource]);
     await sync(h.deps);
     equal(h.writes[0].method, "PATCH");
-    equal(h.writes.length, 8);
+    equal(h.writes.length, 11);
   }));
 
 Deno.test("generated schedule key collisions reject preview and apply before covers or writes", async () => {
@@ -903,7 +903,12 @@ Deno.test("fresh manual interaction skips converged provider and receipt with no
     await sync(h.deps);
     const count = h.writes.length;
     const registryCount = h.registryWrites.length;
-    assert(h.resources().every((row) => /^[A-F0-9]{64}$/.test(String((row.metadata as JsonRecord).coverImageSha256))));
+    assert(h.resources().every((row) => {
+      const metadata = row.metadata as JsonRecord;
+      return String(metadata.siteEventKey).startsWith("twitch-")
+        ? metadata.coverImageUrl === null && metadata.coverImageSha256 === null && metadata.discordImageHash === null
+        : /^[A-F0-9]{64}$/.test(String(metadata.coverImageSha256));
+    }));
     await sync({ ...h.deps, interactionId: nextInteractionId });
     equal(h.writes.length, count);
     equal(h.registryWrites.length, registryCount);
@@ -980,8 +985,8 @@ for (const reason of ["rate_limit", "deadline"] as const) {
       equal(h.runs.size, 1);
       h.expireCooldown();
       await sync({ ...h.deps, interactionId: nextInteractionId });
-      equal(h.writes.length, 8);
-      equal(h.registryWrites.length, 8);
+      equal(h.writes.length, 11);
+      equal(h.registryWrites.length, 11);
       equal(h.runs.get(nextInteractionId)?.state, "completed");
       assert(h.messages.at(-1)?.includes("Unchanged:"));
     }));
@@ -1087,14 +1092,14 @@ Deno.test("actual transport 429 checkpoints five writes then a fresh approved in
     h.expireCooldown();
     h.deps.discordApi = createEventSyncDiscordApi("https://discord.com/api/v10", { fetch: fetcher, monotonicNow: () => 0, wallNow: () => now + 180_251 });
     await sync({ ...h.deps, interactionId: nextInteractionId });
-    equal(wireMutations, 9);
-    equal(h.writes.length, 8);
-    equal(h.registryWrites.length, 8);
+    equal(wireMutations, 12);
+    equal(h.writes.length, 11);
+    equal(h.registryWrites.length, 11);
     equal(h.runs.get(nextInteractionId)?.state, "completed");
     equal((h.messages.at(-1)!.match(/Unchanged:/g) || []).length, 5);
   }));
 
-Deno.test("actual read-bucket exhaustion completes six cover updates and two creates, then no-ops all eight activities", () =>
+Deno.test("actual read-bucket exhaustion completes six cover updates and five creates, then no-ops all eleven activities", () =>
   withHarness(async (h) => {
     await seedPartialScheduledEvents(h);
     const originalApi = h.deps.discordApi;
@@ -1122,21 +1127,26 @@ Deno.test("actual read-bucket exhaustion completes six cover updates and two cre
     });
     h.deps.discordApi = newApi();
     await sync(h.deps);
-    equal(wireMutations, 8);
+    equal(wireMutations, 11);
     equal(h.writes.filter((write) => write.method === "PATCH").length, 6);
-    equal(h.writes.filter((write) => write.method === "POST").length, 2);
-    equal(h.registryWrites.length, 8);
+    equal(h.writes.filter((write) => write.method === "POST").length, 5);
+    equal(h.registryWrites.length, 11);
     equal(h.runs.get(interactionId)?.state, "completed");
     equal(waits, 0);
     const receipts = structuredClone(h.resources());
-    assert(receipts.every((row) => /^[A-F0-9]{64}$/.test(String((row.metadata as JsonRecord).coverImageSha256)) && (row.metadata as JsonRecord).discordImageHash === "a".repeat(32)));
+    assert(receipts.every((row) => {
+      const metadata = row.metadata as JsonRecord;
+      return String(metadata.siteEventKey).startsWith("twitch-")
+        ? metadata.coverImageUrl === null && metadata.coverImageSha256 === null && metadata.discordImageHash === null
+        : /^[A-F0-9]{64}$/.test(String(metadata.coverImageSha256)) && metadata.discordImageHash === "a".repeat(32);
+    }));
     h.deps.discordApi = newApi();
     await sync({ ...h.deps, interactionId: nextInteractionId });
-    equal(wireMutations, 8);
-    equal(h.registryWrites.length, 8);
+    equal(wireMutations, 11);
+    equal(h.registryWrites.length, 11);
     equal(h.resources(), receipts);
     equal(h.runs.get(nextInteractionId)?.state, "completed");
-    equal((h.messages.at(-1)!.match(/Unchanged:/g) || []).length, 8);
+    equal((h.messages.at(-1)!.match(/Unchanged:/g) || []).length, 11);
     equal(waits, 0);
   }));
 
@@ -1180,9 +1190,9 @@ Deno.test("actual known write-bucket wait preserves the prior receipt and refenc
     });
     await sync(h.deps);
     equal(waits, [25]);
-    equal(wireMutations, 8);
-    equal(h.writes.length, 8);
-    equal(h.registryWrites.length, 8);
+    equal(wireMutations, 11);
+    equal(h.writes.length, 11);
+    equal(h.registryWrites.length, 11);
     equal(h.runs.get(interactionId)?.state, "completed");
     assert(!h.rpcCalls.includes("reaper_pause_event_sync"));
   }));

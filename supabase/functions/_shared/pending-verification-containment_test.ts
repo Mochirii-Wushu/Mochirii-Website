@@ -158,7 +158,7 @@ Deno.test("planner writes only channels whose effective visibility needs contain
   assert(plan.conflicts.length === 0);
 });
 
-Deno.test("ownership acquisition is durable before Discord writes and failures remain retryable", async () => {
+Deno.test("ownership acquisition is durable before Discord writes and failures retain ownership", async () => {
   const events: string[] = [];
   const changes = [
     activeChange("91111111111111111"),
@@ -177,6 +177,7 @@ Deno.test("ownership acquisition is durable before Discord writes and failures r
         events.push(`discord:${calls}`);
         if (calls === 2) throw new Error("Discord write failed");
       },
+      () => Promise.resolve(),
       config,
     );
     throw new Error("Expected apply to fail");
@@ -203,6 +204,7 @@ Deno.test("ownership release happens only after Discord cleanup succeeds", async
     async () => {
       events.push("discord:clear");
     },
+    () => Promise.resolve(),
     config,
   );
 
@@ -335,6 +337,27 @@ function writeAdmin(events: string[]): SupabaseAdminClient {
 function has(value: bigint, permission: bigint): boolean {
   return (value & permission) === permission;
 }
+
+Deno.test("every ownership, provider, release and stale mutation is fenced", async () => {
+  const events: string[] = [];
+  const plan = containmentPlan([activeChange("91111111111111111"), clearChange("92222222222222222")]);
+  plan.staleRecords = [managedOverwrite({ channelId: "93333333333333333" })];
+  await applyPendingContainmentPlan(writeAdmin(events), plan, () => { events.push("discord"); return Promise.resolve(); }, () => { events.push("fence"); return Promise.resolve(); }, config);
+  assertEquals(events, ["fence", "db:upsert", "fence", "discord", "fence", "discord", "fence", "db:update", "fence", "db:update"]);
+});
+
+Deno.test("lost later fence never executes its following write or cleanup", async () => {
+  const events: string[] = []; let checks = 0;
+  const plan = containmentPlan([activeChange("91111111111111111"), clearChange("92222222222222222")]);
+  plan.staleRecords = [managedOverwrite({ channelId: "93333333333333333" })];
+  try {
+    await applyPendingContainmentPlan(writeAdmin(events), plan, () => { events.push("discord"); return Promise.resolve(); }, () => {
+      if (++checks === 2) return Promise.reject(new Error("Fence lost")); return Promise.resolve();
+    }, config);
+    throw new Error("Expected fence failure");
+  } catch (error) { assert(error instanceof PendingContainmentApplyError); }
+  assertEquals(events, ["db:upsert"]);
+});
 
 function assert(condition: unknown, message = "Assertion failed"): asserts condition {
   if (!condition) throw new Error(message);
