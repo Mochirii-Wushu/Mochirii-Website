@@ -17,11 +17,12 @@ Keep this page focused on times, RSVP notes, runs, and the rhythm of gathering.
 ## 2. Data Source
 
 - Events shell copy lives in `apps/web/public/data/events.json`.
+- Its `streamingSchedule` stores display-only Twitch titles, weekdays, start/end clocks and the `UTC+8` label. The Events recurring area and Announcements Weekly Schedule share these lines through `streamingScheduleLines`; streams do not enter guild occurrence cards or Discord/Reaper events.
 - Rolling event timing and the live Next Events board live in `apps/web/public/data/guild-schedule.json`.
 - The live Next Events board is schedule-first: it renders one card per Discord/Reaper-managed event type from `websiteEventCardsFromSchedule`, using schedule-derived dates, the public `UTC+8` label, and `discordCoverImage` art.
 - Event covers are complete 1600×640 artwork at 5:2, with one evenly inset frame and matching title/caption layout. Do not extract offset panels from a contact sheet or add blurred letterbox padding. Website image URLs include the authority's `discordCoverVersion`, which must change with replacement artwork at the existing paths so image caches receive a new URL.
 - `apps/web/public/data/guild-schedule.json` keeps `timezone.label` and `timezone.displayLabel` as `UTC+8`, plus `offsetMinutes` as `480`, for public display and machine compatibility. `timezone.ianaZone` remains `Asia/Singapore` as the internal IANA calculation zone and is not rendered as the public time label.
-- `apps/web/public/data/events.json` is page-shell copy only for the Next app: meta, hero, featured lead/bullets fallback, recurring intro, participation text, and fallback content.
+- `apps/web/public/data/events.json` holds page-shell copy and the separate streaming display schedule for the Next app: meta, hero, featured lead/bullets fallback, recurring intro, participation text, and fallback content. Guild timing authority remains `guild-schedule.json`.
 - Keep JSON valid: no trailing commas, comments, or unquoted keys.
 - Preserve the current schema unless the matching renderer is updated in the same scoped task.
 - Add only fields that `events.js` actually supports.
@@ -36,6 +37,7 @@ Current data shape:
 - `featured`: featured-event lead, tag, fallback date, fallback time, fallback timezone, fallback title, fallback image, optional `href`, optional `linkLabel`, and `bullets`.
 - `upcoming`: fallback event-board data. It is not the live schedule authority.
 - `recurring`: recurring-events intro and an `items` array with `title` and `summary`.
+- `streamingSchedule`: `timezone` plus `items[]` with `title`, `dayText`, `startTime` and `endTime`. The approved Monday, Tuesday and Wednesday streams each run 9:30 PM–11:30 PM UTC+8.
 - `participation`: participation blocks with `title` and `body`.
 
 Not currently implemented:

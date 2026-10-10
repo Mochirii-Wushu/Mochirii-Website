@@ -2,6 +2,7 @@ import Link from "next/link";
 import eventsData from "@/public/data/events.json";
 import { DISCORD_INVITE_URL } from "@/lib/public-urls";
 import { publicGuildSchedule } from "@/lib/events/public-schedule";
+import { streamingScheduleLines } from "@/lib/events/streaming-schedule";
 import { BodyPageMarker } from "../BodyPageMarker";
 import { EventsSchedule } from "../EventsSchedule";
 import { BadgeRow, formatDateUTC, MetaRow, PageHero, text } from "../common";
@@ -10,6 +11,8 @@ import { record, records, strings } from "../page-helpers";
 type EventsPageProps = {
   referenceTime: string;
 };
+
+const streamSchedule = streamingScheduleLines(eventsData.streamingSchedule, publicGuildSchedule);
 
 export function EventsPage(props: EventsPageProps) {
   const { referenceTime } = props;
@@ -61,6 +64,12 @@ export function EventsPage(props: EventsPageProps) {
                     <p className="muted">No recurring events posted yet.</p>
                   )}
                 </div>
+                <section className="u-mt-24" aria-labelledby="eventsStreamingTitle">
+                  <h3 className="section-title section-title--sm" id="eventsStreamingTitle">Twitch Streams</h3>
+                  <ul className="list-stack" id="eventsStreamingSchedule">
+                    {streamSchedule.map((line) => <li key={line}>{line}</li>)}
+                  </ul>
+                </section>
               </div>
             </section>
             <aside className="col-4" aria-labelledby="eventsParticipationTitle">

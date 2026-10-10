@@ -1,11 +1,12 @@
 import announcementsData from "@/public/data/announcements.json";
+import eventsData from "@/public/data/events.json";
 import guildScheduleData from "@/public/data/guild-schedule.json";
 import { announcementScheduleLines } from "@/lib/announcements/schedule";
 import { BodyPageMarker } from "../BodyPageMarker";
 import { BadgeRow, formatDateUTC, MetaRow, PageHero, text } from "../common";
 import { type DataRecord, record, records, strings } from "../page-helpers";
 
-const scheduleDetails = announcementScheduleLines(guildScheduleData);
+const scheduleDetails = announcementScheduleLines(guildScheduleData, eventsData.streamingSchedule);
 
 function announcementDetails(item: DataRecord) {
   return text(item.id) === "weekly-schedule" && scheduleDetails.length ? scheduleDetails : strings(item.details);

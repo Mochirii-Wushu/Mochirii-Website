@@ -3,7 +3,7 @@
     "title": "Mōchirīī Announcements",
     "tagline": "Fresh notes from the hall.",
     "intro": "Check here for schedule notes, training focus & guild updates that help everyone have fun together.",
-    "updated": "2026-10-09",
+    "updated": "2026-10-11",
     "badges": [
       "Check weekly",
       "All times UTC+8",
@@ -18,8 +18,8 @@
     {
       "id": "weekly-schedule",
       "pinned": true,
-      "date": "2026-10-09",
-      "title": "Guild Schedule Updated",
+      "date": "2026-10-11",
+      "title": "Weekly Schedule Updated",
       "summary": "All times use UTC+8. Midnight ends fall on the following day. The monthly gathering is first-Sunday 24:00–25:00: the following Monday, 12:00 AM–1:00 AM.",
       "details": [
         "Guild Party: Every Day - 9:30 PM - 10:00 PM - UTC+8",
@@ -28,7 +28,10 @@
         "Guild Wars: Saturdays & Sundays - 8:30 PM - 11:00 PM - UTC+8",
         "Guild Hero's Realm: Weekly Coordination: Fridays - 11:00 PM - 12:00 AM - UTC+8 (ends the following day)",
         "Skyward Bond: Fridays - 10:00 PM - 11:00 PM - UTC+8",
-        "Monthly Guild Gathering: Monday after the first Sunday - 12:00 AM - 1:00 AM - UTC+8"
+        "Monthly Guild Gathering: Monday after the first Sunday - 12:00 AM - 1:00 AM - UTC+8",
+        "Twitch — Mōchi Monday!: Mondays - 9:30 PM - 11:30 PM - UTC+8",
+        "Twitch — Mōchi Tuesday: Tuesdays - 9:30 PM - 11:30 PM - UTC+8",
+        "Twitch — Mōchi Wednesday: Wednesdays - 9:30 PM - 11:30 PM - UTC+8"
       ],
       "tags": ["schedule", "events"]
     },

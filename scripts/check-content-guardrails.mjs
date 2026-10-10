@@ -10,7 +10,7 @@ const nextConfigPath = path.join(root, "apps", "web", "next.config.ts");
 const topLevelManifest = {
   "announcements.json": ["meta", "items"],
   "tome.json": ["hero", "intro", "tenets", "etiquette", "rhythm", "recognition"],
-  "events.json": ["meta", "featured", "upcoming", "recurring", "participation"],
+  "events.json": ["meta", "featured", "upcoming", "recurring", "streamingSchedule", "participation"],
   "gallery.json": ["meta", "categories", "albums"],
   "guild-schedule.json": ["timezone", "discordCoverVersion", "monthly", "spotlight", "weekly"],
   "home.json": ["copy", "celebrationSplash", "hero", "seal", "bulletins", "tiles", "spotlight", "gallery"],
@@ -360,6 +360,21 @@ function validateEvents(data) {
   const upcoming = Array.isArray(data?.upcoming) ? data.upcoming : [];
   upcoming.forEach((item, index) => {
     if (!isDateOnly(item?.date)) addFailure(`data/events.json.upcoming.${index}.date: date must use YYYY-MM-DD.`);
+  });
+  const streaming = data?.streamingSchedule;
+  if (!isPlainObject(streaming) || Object.keys(streaming).sort().join(",") !== "items,timezone" || streaming.timezone !== "UTC+8") {
+    addFailure("data/events.json.streamingSchedule: expected items and authoritative UTC+8 timezone.");
+  }
+  const items = Array.isArray(streaming?.items) ? streaming.items : [];
+  if (!items.length || items.length > 7) addFailure("data/events.json.streamingSchedule.items: expected 1-7 stream windows.");
+  const days = new Set();
+  items.forEach((item, index) => {
+    const base = `data/events.json.streamingSchedule.items.${index}`;
+    if (!isPlainObject(item) || Object.keys(item).sort().join(",") !== "dayText,endTime,startTime,title") addFailure(`${base}: expected title, dayText, startTime and endTime only.`);
+    if (!isNonEmptyString(item?.title)) addFailure(`${base}.title: title is required.`);
+    if (!["Mondays", "Tuesdays", "Wednesdays", "Thursdays", "Fridays", "Saturdays", "Sundays"].includes(item?.dayText) || days.has(item?.dayText)) addFailure(`${base}.dayText: expected a unique weekday.`);
+    days.add(item?.dayText);
+    if (!isTime24(item?.startTime) || !isTime24(item?.endTime) || item.startTime === item.endTime) addFailure(`${base}: expected distinct HH:MM start and end times.`);
   });
 }
 

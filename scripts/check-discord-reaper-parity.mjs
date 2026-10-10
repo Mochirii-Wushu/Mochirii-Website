@@ -16,7 +16,7 @@ const expectedEventTypes = [
   "guild-heros-realm",
   "united-resolve",
 ];
-const expectedManagedEventCount = 17;
+const expectedManagedEventCount = 8;
 const expectedGuildId = "1078630751077142608";
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const monthlyRuleWeekdays = {
@@ -154,21 +154,44 @@ function nextWeeklyDate(schedule, item, day, now) {
 function eventInstance(schedule, item, key, typeId, localDate) {
   const startTime = String(item.startTime || "");
   const endTime = String(item.endTime || "");
+  const startIso = localToUtcIso(schedule, localDate, startTime);
   return {
     key,
     typeId,
     title: String(item.title || ""),
     startTime,
     endTime,
-    startIso: localToUtcIso(schedule, localDate, startTime),
+    startIso,
     endIso: localToUtcIso(schedule, eventEndDate(localDate, startTime, endTime), endTime),
     location: String(item.discordLocation || item.location || ""),
     websiteLocation: String(item.location || ""),
     cover: String(item.discordCoverImage || ""),
-    recurrenceRule: item.discordRecurrenceRule || null,
+    recurrenceRule: item.discordRecurrenceRule ? { ...item.discordRecurrenceRule, start: startIso } : null,
     duplicateEventIds: asArray(item.discordDuplicateEventIds),
     canonicalEventId: item.discordEventId || null,
   };
+}
+
+function weeklyNativeRecurrence(schedule, item, days, startIso) {
+  // Use dated UTC conversions independently of Reaper's weekday-shift formula.
+  const weekdays = days.map((day) => {
+    const utc = new Date(localToUtcIso(schedule, addDays("2026-01-04", day), item.startTime));
+    return (utc.getUTCDay() + 6) % 7;
+  }).sort((a, b) => a - b);
+  if (weekdays.length === 7) return { start: startIso, frequency: 3, interval: 1 };
+  if (weekdays.length === 1) return { start: startIso, frequency: 2, interval: 1, by_weekday: weekdays };
+  const supportedSets = [[0, 1, 2, 3, 4], [1, 2, 3, 4, 5], [0, 1, 2, 3, 6], [4, 5], [5, 6], [0, 6]];
+  return supportedSets.some((set) => set.length === weekdays.length && set.every((day, index) => day === weekdays[index]))
+    ? { start: startIso, frequency: 3, interval: 1, by_weekday: weekdays }
+    : null;
+}
+
+function potentialMonthlyCollision(schedule, item, days) {
+  return Object.values(asObject(schedule.monthly)).some((monthly) => {
+    const weekday = monthlyRuleWeekdays[String(monthly.rule || "")];
+    return Number.isInteger(weekday) && days.includes((weekday + (monthly.startDayOffset === 1 ? 1 : 0)) % 7) &&
+      monthly.startTime === item.startTime && monthly.endTime === item.endTime && monthly.location === item.location;
+  });
 }
 
 function localEventInstances(schedule, now) {
@@ -192,46 +215,104 @@ function localEventInstances(schedule, now) {
     const item = asObject(value);
     if (item.discord !== true) continue;
     const id = String(item.id || "");
-    for (const day of asArray(item.days)) {
-      const localDate = nextWeeklyDate(schedule, item, Number(day), now);
-      const event = eventInstance(schedule, item, `${id}-${day}`, id, localDate);
+    const days = [...new Set(asArray(item.days).map(Number))].filter((day) => Number.isInteger(day) && day >= 0 && day <= 6);
+    const candidates = days.map((day) => {
+      const localDate = nextWeeklyDate(schedule, item, day, now);
+      const event = eventInstance(schedule, item, id, id, localDate);
       const slot = [event.startIso, event.endIso, event.websiteLocation].join("\n");
-      if (monthlySlots.has(slot)) {
-        weeklyInstances.push(eventInstance(schedule, item, `${id}-${day}`, id, addDays(localDate, 7)));
-      } else {
-        weeklyInstances.push(event);
-      }
-    }
+      return monthlySlots.has(slot) ? eventInstance(schedule, item, id, id, addDays(localDate, 7)) : event;
+    }).sort((a, b) => Date.parse(a.startIso) - Date.parse(b.startIso));
+    const event = candidates[0];
+    if (!event) continue;
+    event.recurrenceRule = potentialMonthlyCollision(schedule, item, days)
+      ? null : weeklyNativeRecurrence(schedule, item, days, event.startIso);
+    weeklyInstances.push(event);
   }
 
   return [...monthlyInstances, ...weeklyInstances];
 }
 
+function validInstant(value) {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(value)) return false;
+  const [year, month, day, hour, minute, second] = value.slice(0, 19).split(/[-T:]/).map(Number);
+  const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  return month >= 1 && month <= 12 && day >= 1 && day <= days[month - 1] && hour <= 23 && minute <= 59 && second <= 59 && Number.isFinite(Date.parse(value));
+}
+
 function normalizedRecurrence(value) {
+  if (value === null || value === undefined) return null;
   const rule = asObject(value);
-  if (!Object.keys(rule).length) return null;
-  return {
-    frequency: Number(rule.frequency),
-    interval: Number(rule.interval || 1),
-    by_n_weekday: asArray(rule.by_n_weekday).map((entry) => {
-      const normalized = asObject(entry);
-      return { n: Number(normalized.n), day: Number(normalized.day) };
-    }),
-  };
+  const arrays = ["by_weekday", "by_n_weekday", "by_month", "by_month_day", "by_year_day"];
+  if (Object.keys(rule).some((key) => !["start", "end", "frequency", "interval", "count", ...arrays].includes(key)) ||
+    !validInstant(rule.start) ||
+    !Number.isInteger(rule.frequency) || !Number.isInteger(rule.interval)) return undefined;
+  const result = { start: new Date(rule.start).toISOString(), frequency: rule.frequency, interval: rule.interval, end: null, count: null };
+  if (rule.end !== undefined && rule.end !== null) {
+    if (!validInstant(rule.end)) return undefined;
+    result.end = new Date(rule.end).toISOString();
+  }
+  if (rule.count !== undefined && rule.count !== null) {
+    if (!Number.isInteger(rule.count)) return undefined;
+    result.count = rule.count;
+  }
+  for (const key of arrays) {
+    const values = rule[key];
+    if (values === undefined || values === null) { result[key] = null; continue; }
+    if (!Array.isArray(values)) return undefined;
+    const normalized = [];
+    for (const value of values) {
+      if (key === "by_n_weekday") {
+        const weekday = asObject(value);
+        if (Object.keys(weekday).length !== 2 || !Number.isInteger(weekday.n) || !Number.isInteger(weekday.day)) return undefined;
+        normalized.push(JSON.stringify([weekday.n, weekday.day]));
+      } else {
+        if (!Number.isInteger(value)) return undefined;
+        normalized.push(JSON.stringify(value));
+      }
+    }
+    if (new Set(normalized).size !== normalized.length) return undefined;
+    result[key] = normalized.sort();
+  }
+  return result;
 }
 
 function liveEventMatchesExpected(event, expected) {
   const start = new Date(String(event.scheduled_start_time || ""));
   const end = new Date(String(event.scheduled_end_time || ""));
-  return String(event.name || "") === expected.title &&
-    !Number.isNaN(start.getTime()) &&
-    !Number.isNaN(end.getTime()) &&
-    start.toISOString() === expected.startIso &&
-    end.toISOString() === expected.endIso &&
+  const recurrence = normalizedRecurrence(expected.recurrenceRule);
+  const actualRule = normalizedRecurrence(event.recurrence_rule);
+  let scheduleMatches = start.toJSON() === expected.startIso && end.toJSON() === expected.endIso &&
+    JSON.stringify(actualRule) === JSON.stringify(recurrence);
+  if (recurrence && actualRule) {
+    const selected = Date.parse(expected.startIso);
+    const anchor = Date.parse(actualRule.start);
+    const originalRule = asObject(event.recurrence_rule);
+    const onRule = (value) => {
+      const date = new Date(value);
+      const day = (date.getUTCDay() + 6) % 7;
+      if (originalRule.interval !== 1) return false;
+      if (originalRule.frequency === 3) return !Array.isArray(originalRule.by_weekday) || originalRule.by_weekday.includes(day);
+      if (originalRule.frequency === 2) return originalRule.by_weekday?.length === 1 && originalRule.by_weekday[0] === day;
+      if (originalRule.frequency === 1) {
+        const nth = asArray(originalRule.by_n_weekday);
+        return nth.length === 1 && nth[0].day === day && nth[0].n === Math.ceil(date.getUTCDate() / 7);
+      }
+      return false;
+    };
+    scheduleMatches = anchor <= start.getTime() && start.getTime() <= selected &&
+      anchor % 86400000 === selected % 86400000 && start.getTime() % 86400000 === selected % 86400000 &&
+      end.getTime() - start.getTime() === Date.parse(expected.endIso) - selected &&
+      onRule(anchor) && onRule(start.getTime()) && onRule(selected) &&
+      JSON.stringify({ ...actualRule, start: recurrence.start }) === JSON.stringify(recurrence);
+  }
+  return recurrence !== undefined && String(event.name || "") === expected.title &&
+    validInstant(event.scheduled_start_time) &&
+    validInstant(event.scheduled_end_time) &&
+    scheduleMatches &&
     Number(event.entity_type) === 3 &&
     String(event.entity_metadata?.location || "") === expected.location &&
-    (!expected.canonicalEventId || String(event.id || "") === expected.canonicalEventId) &&
-    JSON.stringify(normalizedRecurrence(event.recurrence_rule)) === JSON.stringify(normalizedRecurrence(expected.recurrenceRule));
+    (!expected.canonicalEventId || String(event.id || "") === expected.canonicalEventId);
 }
 
 async function liveDiscordRead(scheduleInstances) {
@@ -308,6 +389,7 @@ expectedEventTypes.forEach((id) => assert(typeIds.has(id), `Missing managed even
 
 const keys = instances.map((event) => event.key);
 assert(keys.length === new Set(keys).size, "Managed event instance keys must be unique.");
+assert(keys.every((key) => expectedEventTypes.includes(key)), "Managed event keys must identify activities without weekday suffixes.");
 const slots = instances.map((event) => [event.startIso, event.endIso, event.websiteLocation].join("\n"));
 assert(slots.length === new Set(slots).size, "Managed event instances must not share an exact Website time-and-location slot.");
 Object.values(asObject(schedule.monthly)).forEach((value) => {
@@ -373,7 +455,7 @@ assert(gathering?.recurrenceRule?.by_n_weekday?.[0]?.day === 6, "Monthly gatheri
   "33 functions declared in `supabase/config.toml`",
   "20 `verify_jwt=true` and 13 false",
   "Do not run `apply` if preview shows duplicate creates",
-  "Duplicate removal is intentionally limited to IDs listed in `discordDuplicateEventIds`.",
+  "Duplicate removal is limited to explicit `discordDuplicateEventIds` and unambiguous owned legacy activity mappings in the reviewed plan.",
 ].forEach((snippet) => assertIncludes("event sync runbook", runbook, snippet));
 
 [
@@ -382,7 +464,7 @@ assert(gathering?.recurrenceRule?.by_n_weekday?.[0]?.day === 6, "Monthly gatheri
   "Server Members Intent",
   "Bot does not have `Administrator`.",
   "Discord signatures are validated before JSON parsing.",
-  "Reaper manages 8 event types and 17 scheduled event instances.",
+  "Reaper manages 8 event types and 8 scheduled events, one per activity.",
   "Last token rotation date, recorded as a date only.",
 ].forEach((snippet) => assertIncludes("reaper runtime checklist", runtimeChecklist, snippet));
 

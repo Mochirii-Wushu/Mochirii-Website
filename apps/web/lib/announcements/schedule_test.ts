@@ -8,7 +8,9 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { transpileModule, ModuleKind, JsxEmit, ScriptTarget } from "typescript";
 import authority from "../../public/data/guild-schedule.json" with { type: "json" };
 import announcements from "../../public/data/announcements.json" with { type: "json" };
+import events from "../../public/data/events.json" with { type: "json" };
 import { websiteEventCardsFromSchedule } from "../guild-schedule.ts";
+import { streamingScheduleLines } from "../events/streaming-schedule.ts";
 import { announcementScheduleLines } from "./schedule.ts";
 
 const appRoot = new URL("../../", import.meta.url);
@@ -17,6 +19,9 @@ const appRoot = new URL("../../", import.meta.url);
 const hooks = registerHooks({
   resolve(specifier, context, nextResolve) {
     const ownedSource = context.parentURL?.startsWith(appRoot.href) && !context.parentURL.includes("/node_modules/");
+    if (specifier === "server-only" && ownedSource) {
+      return nextResolve(new URL("node_modules/next/dist/compiled/server-only/empty.js", appRoot).href, context);
+    }
     if (specifier === "react/jsx-runtime" && ownedSource) {
       const runtimeUrl = new URL("node_modules/react/jsx-runtime.js", appRoot);
       return {
@@ -48,6 +53,7 @@ const hooks = registerHooks({
   },
 });
 const { AnnouncementsPage } = await import("../../components/public-pages/route-pages/AnnouncementsPage.tsx");
+const { EventsPage } = await import("../../components/public-pages/route-pages/EventsPage.tsx");
 hooks.deregister();
 
 const expected = [
@@ -59,6 +65,11 @@ const expected = [
   "Skyward Bond: Fridays - 10:00 PM - 11:00 PM - UTC+8",
   "Monthly Guild Gathering: Monday after the first Sunday - 12:00 AM - 1:00 AM - UTC+8",
 ];
+const expectedStreams = [
+  "Twitch — Mōchi Monday!: Mondays - 9:30 PM - 11:30 PM - UTC+8",
+  "Twitch — Mōchi Tuesday: Tuesdays - 9:30 PM - 11:30 PM - UTC+8",
+  "Twitch — Mōchi Wednesday: Wednesdays - 9:30 PM - 11:30 PM - UTC+8",
+];
 function decode(value: string) {
   return value.replaceAll("&amp;", "&").replaceAll("&#x27;", "'").replaceAll("&quot;", '"').replaceAll("&lt;", "<").replaceAll("&gt;", ">");
 }
@@ -69,12 +80,30 @@ function pinnedSection(html: string) {
   return section[1];
 }
 
-test("announcements derive all six weekly activities and gathering, with identical JSON fallback", () => {
+test("announcements derive all guild and stream lines, with identical JSON fallback", () => {
   assert.deepEqual(announcementScheduleLines(authority), expected);
-  assert.deepEqual(announcements.items.find((item) => item.id === "weekly-schedule")?.details, expected);
+  assert.deepEqual(announcementScheduleLines(authority, events.streamingSchedule), [...expected, ...expectedStreams]);
+  assert.deepEqual(announcements.items.find((item) => item.id === "weekly-schedule")?.details, [...expected, ...expectedStreams]);
   assert.equal(expected.filter((line) => line.includes("ends the following day")).length, 3);
   assert(expected.every((line) => line.includes("UTC+8")));
   assert(!expected.some((line) => /raffle/i.test(line)));
+});
+
+test("display-only Twitch entries preserve the supplied titles, days and UTC+8 clock contract", () => {
+  assert.equal(events.streamingSchedule.timezone, "UTC+8");
+  assert.deepEqual(events.streamingSchedule.items, [
+    { title: "Mōchi Monday!", dayText: "Mondays", startTime: "21:30", endTime: "23:30" },
+    { title: "Mōchi Tuesday", dayText: "Tuesdays", startTime: "21:30", endTime: "23:30" },
+    { title: "Mōchi Wednesday", dayText: "Wednesdays", startTime: "21:30", endTime: "23:30" },
+  ]);
+  assert.deepEqual(streamingScheduleLines(events.streamingSchedule, authority), expectedStreams);
+  assert.deepEqual(streamingScheduleLines({ timezone: "UTC+8", items: [
+    { title: "Changed stream", dayText: "Fridays", startTime: "20:15", endTime: "22:45" },
+  ] }, authority), ["Twitch — Changed stream: Fridays - 8:15 PM - 10:45 PM - UTC+8"]);
+  assert.throws(() => streamingScheduleLines({ ...events.streamingSchedule, timezone: "UTC" }, authority), /authoritative schedule timezone/);
+  const guildCards = websiteEventCardsFromSchedule(authority, new Date("2026-10-11T00:00:00.000Z"));
+  assert.equal(guildCards.length, 7);
+  assert(!guildCards.some((item) => /Twitch|Mōchi (Monday|Tuesday|Wednesday)/.test(item.title)));
 });
 
 test("announcement clocks follow source fields instead of the fallback time strings", () => {
@@ -88,19 +117,32 @@ test("announcement clocks follow source fields instead of the fallback time stri
   assert.deepEqual(announcementScheduleLines({ monthly: { raffle: authority.monthly.raffle }, weekly: [{ ...authority.weekly[0], discord: false }] }), []);
 });
 
-test("real Announcements SSR contains seven schedule bullets and the current pinned revision", () => {
+test("real Announcements SSR contains ten schedule bullets and the current pinned revision", () => {
   const html = render(), pinned = pinnedSection(html);
-  assert.deepEqual([...pinned.matchAll(/<li>(.*?)<\/li>/gs)].map((match) => decode(match[1])), expected);
-  assert(pinned.includes("Pinned • 9 Oct 2026"));
-  assert(pinned.includes("Guild Schedule Updated"));
+  assert.deepEqual([...pinned.matchAll(/<li>(.*?)<\/li>/gs)].map((match) => decode(match[1])), [...expected, ...expectedStreams]);
+  assert(pinned.includes("Pinned • 11 Oct 2026"));
+  assert(pinned.includes("Weekly Schedule Updated"));
   assert(pinned.includes("first-Sunday 24:00–25:00"));
   assert(pinned.includes("following Monday, 12:00 AM–1:00 AM"));
   assert(html.includes("All times UTC+8"));
-  assert(html.includes("Updated 9 Oct 2026"));
+  assert(html.includes("Updated 11 Oct 2026"));
   assert(!/Monthly Guild Raffle|This month|first Monday/i.test(html));
   assert.deepEqual([...html.matchAll(/data-announcement="([^"]+)"/g)].map((match) => match[1]), ["weekly-schedule", "training-focus", "gallery-submissions"]);
   assert(html.includes("Training Focus: Fundamentals — February 2026"));
   assert(html.includes("Notice • 21 Feb 2026"));
+});
+
+test("real Events SSR shows the same three streams separately from the guild Event Board", () => {
+  const html = renderToStaticMarkup(createElement(EventsPage, { referenceTime: "2026-10-11T00:00:00.000Z" }));
+  const list = html.match(/<ul\b[^>]*id="eventsStreamingSchedule"[^>]*>(.*?)<\/ul>/s);
+  assert(list, "Twitch schedule must be present in server HTML without JavaScript");
+  assert.deepEqual([...list[1].matchAll(/<li>(.*?)<\/li>/gs)].map((match) => decode(match[1])), expectedStreams);
+  assert(html.includes('aria-labelledby="eventsStreamingTitle"'));
+  assert(html.includes('id="eventsStreamingTitle">Twitch Streams</h3>'));
+  const board = html.match(/<aside\b[^>]*aria-labelledby="eventsBoardTitle"[^>]*>(.*?)<\/aside>/s);
+  assert(board, "The guild Event Board must remain present");
+  assert.equal((board[1].match(/class="events-list__image"/g) || []).length, 7);
+  assert(!/Twitch|Mōchi (Monday|Tuesday|Wednesday)/.test(board[1]));
 });
 
 test("server schedule and date-only notice output is identical across host timezones", () => {
@@ -109,7 +151,8 @@ test("server schedule and date-only notice output is identical across host timez
     const outputs = ["UTC", "America/Los_Angeles", "Pacific/Auckland", "Asia/Singapore"].map((zone) => {
       process.env.TZ = zone;
       assert.deepEqual(announcementScheduleLines(authority), expected);
-      return render();
+      assert.deepEqual(streamingScheduleLines(events.streamingSchedule, authority), expectedStreams);
+      return render() + renderToStaticMarkup(createElement(EventsPage, { referenceTime: "2026-10-11T00:00:00.000Z" }));
     });
     assert(outputs.every((html) => html === outputs[0]));
   } finally {

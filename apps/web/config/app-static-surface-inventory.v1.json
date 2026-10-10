@@ -14,7 +14,7 @@
     "indexedMetadataRoutes": 17,
     "nonindexedMetadataRoutes": 11,
     "publicFiles": 250,
-    "publicBytes": 47847257,
+    "publicBytes": 47847987,
     "sourceFiles": 43
   },
   "sourceCatalog": [
@@ -186,7 +186,7 @@
     {
       "path": "apps/web/config/app-route-evidence.v1.json",
       "bytes": 66971,
-      "sha256": "B7A989704B65034F236F998EC960C7F0693CCB049E6EC32A9D1F1D81607F16B2"
+      "sha256": "8C99F68B6DF4CAC61EC8374904ED89C8CB857FF5908996C5D6B8D1EB621C59EC"
     },
     {
       "path": "apps/web/config/app-route-matrix.v1.json",
@@ -195,18 +195,18 @@
     },
     {
       "path": "package.json",
-      "bytes": 18249,
-      "sha256": "8151AE047C8FF9D1D3093614DAB51684D89ADD70CA996E6F949306FB9FE47766"
+      "bytes": 18305,
+      "sha256": "1C44999B6D6A59CDCC5CACD9DDA40A62D24A62D84E0A2A47829DA9F6C0393405"
     },
     {
       "path": "scripts/check-all.mjs",
-      "bytes": 13504,
-      "sha256": "6186DF6CD044305DA13A4FDA9CD8DF7A95448AF1B98576258D33E7CEF99C577F"
+      "bytes": 13563,
+      "sha256": "0A81A854FC6C1769CE4534C675F98E5EFAE3F31A5F3D5C9211D7DE24C9ABB4F4"
     },
     {
       "path": "scripts/check-app-static-surface-inventory.mjs",
       "bytes": 13000,
-      "sha256": "150F4885E7C90E58BCAA032F55980DDD37438B159A873F1D330CA1A1AD38F7B1"
+      "sha256": "7A9B8ABDEC27316E700466BE46C14C458988BCDEFCB70818CFA6E4E458D0BC32"
     },
     {
       "path": "scripts/check-assets.mjs",
@@ -231,7 +231,7 @@
     {
       "path": "scripts/lib/app-static-surface-inventory.test.mjs",
       "bytes": 133123,
-      "sha256": "B44F12DB49DACC40DE28FA7CC16E6B3F130D44FB7E7E26018F3A311AD7335EB8"
+      "sha256": "EF3BC2EB0251D9FDF227DC5FF7E1E90AA079675C80E51FF531B953DC2B727AA0"
     }
   ],
   "metadataRoutes": [
@@ -2468,16 +2468,16 @@
     {
       "url": "/data/announcements.json",
       "source": "apps/web/public/data/announcements.json",
-      "bytes": 2370,
-      "sha256": "AB160AE5A473A08CB2D5099DA44FC77E2BF53F2E2BC20E57A6A5B7CF2DE47BD9",
+      "bytes": 2602,
+      "sha256": "108D1A78A6410E1201C95CC25CD4B7A704FED254DBCCFB3B122821FB75EF5C0E",
       "category": "public_data",
       "format": "json"
     },
     {
       "url": "/data/events.json",
       "source": "apps/web/public/data/events.json",
-      "bytes": 2465,
-      "sha256": "CB6273D11588C4E5A0EEFBE47CCDA2B5B2EFDA42F20594DA16B9C9413F548A55",
+      "bytes": 2963,
+      "sha256": "8D8763544861F6AF781FB9A880E837693BCD6BBE872D7C83E605280882C452E2",
       "category": "public_data",
       "format": "json"
     },
