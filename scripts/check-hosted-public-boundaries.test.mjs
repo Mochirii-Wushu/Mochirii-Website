@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import vm from "node:vm";
 import "./check-reaper-gateway-status.test.mjs";
+import "./smoke-supabase-edge-functions.test.mjs";
 
 const source = readFileSync(new URL("./check-hosted-public-boundaries.mjs", import.meta.url), "utf8");
 const start = source.indexOf("function expectHtml(");
