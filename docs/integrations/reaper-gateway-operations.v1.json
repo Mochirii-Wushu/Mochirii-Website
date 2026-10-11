@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "owner": "Mochirii-Wushu/Mochirii-Website",
+  "consumer": "Mochirii-Wushu/Reaper-Discord-Bot",
+  "externalPath": "/functions/v1/reaper-gateway-operations",
+  "edgePath": "/reaper-gateway-operations",
+  "defaultEnabled": false,
+  "status": { "method": "GET", "path": "/status", "healthy": { "status": 200, "body": "ok" }, "unavailable": { "status": 503, "body": "unavailable" }, "cacheControl": "no-store", "heartbeatMaxAgeSeconds": 180, "checkpointCheckedMaxAgeSeconds": 900 },
+  "hmac": {
+    "algorithm": "HMAC-SHA256",
+    "keyEnvironment": "REAPER_GATEWAY_OPERATIONS_HMAC_KEY",
+    "minimumKeyUtf8Bytes": 32,
+    "maximumKeyUtf8Bytes": 256,
+    "headers": ["x-reaper-timestamp", "x-reaper-nonce", "x-reaper-content-sha256", "x-reaper-signature"],
+    "canonicalFields": ["v1", "uppercaseMethod", "externalPathname", "timestamp", "nonce", "rawBodySha256", "capturedAtOrEmpty"],
+    "separator": "LF",
+    "terminalLf": false,
+    "timestamp": "canonical decimal Unix seconds",
+    "nonce": "lowercase UUIDv4; one use, including receipt reads",
+    "sha256AndSignature": "lowercase 64 hexadecimal characters",
+    "clockSkewSeconds": 120,
+    "nonceRetentionSeconds": 600,
+    "maximumLiveNonces": 1000,
+    "queriesRedirectsAndContentEncoding": "rejected",
+    "pathMapping": "The Edge gateway strips /functions/v1. The handler accepts only edgePath and signs the corresponding fixed externalPath; activation must verify this on the deployed gateway."
+  },
+  "heartbeat": {
+    "method": "POST", "path": "/heartbeat", "contentType": "application/json", "maxBytes": 1024,
+    "exactFields": ["version", "request_id", "observed_at", "healthy", "checkpoint_id", "checkpoint_captured_at", "checkpoint_checked_at"],
+    "version": 1,
+    "request_id": "lowercase UUIDv4",
+    "observed_at": "UTC ISO 8601 with milliseconds and Z; within clock skew",
+    "healthy": "boolean; contains no member data",
+    "checkpointFields": "All three null, or UUIDv4 plus canonical UTC timestamps. Accepted receipt capture time must match; checked_at >= captured_at and <= server now. Backup-required health also requires checked_at age <= 900 seconds.",
+    "success": { "status": 200, "exactFields": ["version", "request_id", "state"], "state": "accepted" }
+  },
+  "checkpoint": {
+    "method": "POST", "path": "/checkpoints/<UUIDv4>", "contentType": "application/octet-stream", "minBytes": 64, "maxBytes": 16777216,
+    "captureHeader": "x-reaper-captured-at",
+    "format": "Raw age v1 ciphertext, never plaintext, armor, multipart or base64; server checks the age v1 prefix but has no decryption key.",
+    "captureTime": "Immutable canonical UTC timestamp from the original queue checkpoint; independent of latest live queue validation time.",
+    "createOnly": true,
+    "successStatus": 200, "pendingStatus": 202, "blockedOrRetiredOrIdentityConflictStatus": 409,
+    "lostAcknowledgement": "Persist UUID, exact ciphertext, digest and immutable capture time before sending. GET receipt with a fresh nonce; only missing permits POST. Never re-encrypt, overwrite, resend a pending write, or reuse a retired UUID."
+  },
+  "receipt": {
+    "method": "GET", "path": "/receipts/<UUIDv4>", "status": 200,
+    "exactFields": ["version", "request_id", "state", "captured_at", "ciphertext_sha256", "ciphertext_bytes"],
+    "states": ["missing", "pending", "accepted", "blocked", "retired"],
+    "missing": "All three metadata fields are null.",
+    "pending": "An unexpired-by-design upload reservation. The server may accept it only after bounded download and exact byte/hash verification. Absence does not prove an in-flight write failed.",
+    "tombstones": "UUID identities and ciphertext metadata are permanent private receipts, including retired objects; no member payload."
+  },
+  "maintenance": {
+    "method": "POST", "path": "/maintenance", "bodyBytes": 2, "body": "{}", "contentType": "application/json",
+    "header": "x-reaper-maintenance-secret", "keyEnvironment": "REAPER_GATEWAY_OPERATIONS_MAINTENANCE_SECRET",
+    "vaultName": "reaper_gateway_operations_maintenance_secret", "minimumKeyUtf8Bytes": 32, "maximumKeyUtf8Bytes": 256,
+    "separateFromWorkerHmac": true, "schedule": "*/15 * * * *", "defaultEnabled": false, "maxPrunesPerInvocation": 1, "dispatcherTimeoutMilliseconds": 90000,
+    "success": { "status": 200, "version": 1, "state": "accepted" }
+  },
+  "storage": {
+    "bucket": "reaper-gateway-recovery", "private": true, "key": "v1/<UUIDv4>.age", "allowedMimeTypes": ["application/octet-stream"],
+    "maxObjectBytes": 16777216, "maxObjectsIncludingUncertainReservations": 15, "maxBytesIncludingUncertainReservations": 251658240,
+    "retention": { "latest": 8, "daily": 7, "dailyTimezone": "Asia/Singapore", "dailyRule": "Latest captured snapshot for each of today and the preceding six UTC+8 calendar days; union with latest eight snapshots." },
+    "cleanup": "Serialized durable claim, exact receipt-owned key and bounded ciphertext hash verification, Storage API remove, absence verification, permanent retired receipt. Pre-admission may retire an eligible obsolete object to make room before the sixteenth reservation.",
+    "incidentHold": "Unknown objects, mismatching ciphertext or unresolved deletion stop automation. Pending/deleting/blocked fences never expire or auto-clear. Provider uncertainty requires separately approved reconciliation.",
+    "workerForbidden": ["service role key", "list", "read ciphertext", "overwrite", "delete", "signed URL", "retention activation", "incident hold clearing"]
+  },
+  "errors": { "rejectedStatuses": [400, 401, 404], "rejectedBody": { "version": 1, "state": "rejected" }, "unavailableStatus": 503, "unavailableBody": { "version": 1, "state": "unavailable" }, "cacheControl": "no-store", "maxResponseBytes": 16384 },
+  "activation": "Separate exact approval after source publication, additive migration, deployed route/auth/Storage verification, hosted cron and fresh recovery drill. Local workstation is never a production runtime dependency."
+}

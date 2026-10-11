@@ -14,6 +14,7 @@ const suites = [
   ["modmail audit", ["supabase/functions/_shared/modmail-audit_test.ts"]],
   ["pending verification", ["supabase/functions/_shared/pending-verification-containment_test.ts"]],
   ["member sync receipts", ["--allow-env", "--node-modules-dir=auto", "--import-map=supabase/functions/reaper-discord-member-sync/deno.json", "supabase/functions/_shared/pending-containment-receipts_test.ts", "supabase/functions/reaper-discord-member-sync/index_test.ts"]],
+  ["Gateway operations", ["--allow-env", "--node-modules-dir=auto", "--import-map=supabase/functions/reaper-gateway-operations/deno.json", "supabase/functions/reaper-gateway-operations/index_test.ts"]],
   ["spinner", ["--allow-env", "--node-modules-dir=auto", "--import-map=supabase/functions/spinner-live-session/deno.json", "supabase/functions/_shared/spinner-live_test.ts", "supabase/functions/_shared/spinner-media_test.ts"]],
   ["spotlight poll", ["--allow-env", "--node-modules-dir=auto", "--import-map=deno-spotlight-poll.import_map.json", "supabase/functions/_shared/spotlight-polls_test.ts"]],
   ["spotlight winner", ["--allow-env", "--node-modules-dir=auto", "--import-map=supabase/functions/get-current-spotlight-winner/deno.json", "supabase/functions/get-current-spotlight-winner/index_test.ts"]],

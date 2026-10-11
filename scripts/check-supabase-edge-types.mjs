@@ -20,6 +20,7 @@ const functions = [
   "reaper-discord-interactions",
   "reaper-spinner-dispatch",
   "reaper-discord-member-sync",
+  "reaper-gateway-operations",
   "send-vote-reminder",
   "send-member-spotlight-poll",
   "publish-member-spotlight-winner",

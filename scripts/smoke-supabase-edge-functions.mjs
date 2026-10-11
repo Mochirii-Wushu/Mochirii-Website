@@ -209,6 +209,7 @@ async function fetchContract(url, init = {}) {
     status: response.status,
     ok: response.ok,
     contentType: response.headers.get("content-type") || "",
+    cacheControl: response.headers.get("cache-control") || "",
     cors: response.headers.get("access-control-allow-origin") || "",
     json,
     text,
@@ -278,6 +279,32 @@ async function checkMethodNotAllowed(config, name) {
   });
 
   assert(result.status === 405, `${name} DELETE expected 405 Method not allowed, got ${result.status}.`);
+}
+
+async function checkGatewayOperations(config) {
+  const name = "reaper-gateway-operations";
+  const placeholderId = "00000000-0000-4000-8000-000000000000";
+  const targets = [
+    { suffix: "/heartbeat", method: "POST" },
+    { suffix: `/checkpoints/${placeholderId}`, method: "POST" },
+    { suffix: `/receipts/${placeholderId}`, method: "GET" },
+    { suffix: "/maintenance", method: "POST" },
+  ];
+  // No HMAC or maintenance credential is supplied. Authentication must reject
+  // every private route before nonce, database or Storage operations.
+  for (const target of targets) {
+    for (const authorization of ["", `Bearer ${config.publishableKey}`]) {
+      const result = await fetchContract(`${functionUrl(config, name)}${target.suffix}`, {
+        method: target.method,
+        headers: headers(config, authorization ? { Authorization: authorization } : {}),
+        ...(target.method === "POST" ? { body: "{}" } : {}),
+      });
+      assert(result.status === 401 && result.ok === false, `${name}${target.suffix} unsigned request expected 401.`);
+      assert(/^application\/json(?:;\s*charset=utf-8)?$/i.test(result.contentType), `${name} denial must be JSON.`);
+      assert(JSON.stringify(result.json) === '{"version":1,"state":"rejected"}', `${name} denial returned unexpected fields.`);
+      assert(result.cacheControl === "no-store" && result.cors === "", `${name} denial must be private and uncacheable.`);
+    }
+  }
 }
 
 function validateApprovedFeedBody(body) {
@@ -412,6 +439,8 @@ try {
       target.invalidHeaders || { [target.secretHeader]: "invalid-smoke-secret" },
     );
   }
+
+  await checkGatewayOperations(config);
 
   await checkApprovedFeed(config);
   await checkVisibleProfileCards(config);

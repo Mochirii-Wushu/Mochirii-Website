@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
@@ -81,6 +81,28 @@ const inventory = parseFunctionInventory(
 assert.equal(inventory.count, EXPECTED_FUNCTION_COUNT);
 assert.equal(inventory.verifyJwtTrue, EXPECTED_VERIFY_JWT_TRUE);
 assert.equal(inventory.verifyJwtFalse, EXPECTED_VERIFY_JWT_FALSE);
+
+const copyCanary = mkdtempSync(path.join(os.tmpdir(), "mochirii-preview-copy-canary-"));
+try {
+  const source = path.join(copyCanary, "source");
+  const functions = path.join(source, "supabase", "functions", "synthetic");
+  const destination = path.join(copyCanary, "isolated");
+  mkdirSync(path.join(functions, "node_modules"), { recursive: true });
+  writeFileSync(path.join(source, "supabase", "config.toml"), 'project_id = "synthetic-source"\n');
+  writeFileSync(path.join(functions, "index.ts"), "export {};\n");
+  writeFileSync(path.join(functions, "node_modules", "generated-cache"), "generated only\n");
+  const prepared = spawnSync(process.execPath, [
+    path.join(root, "scripts", "prepare-supabase-local-preview-workdir.mjs"),
+    "--destination", destination, "--project-id", "synthetic-isolated", "--port-base", "59000",
+  ], { cwd: source, encoding: "utf8" });
+  assert.equal(prepared.status, 0, prepared.stderr);
+  assert.ok(existsSync(path.join(destination, "supabase", "functions", "synthetic", "index.ts")));
+  assert.equal(existsSync(path.join(destination, "supabase", "functions", "synthetic", "node_modules")), false);
+} finally {
+  assert.equal(path.dirname(copyCanary), path.resolve(os.tmpdir()));
+  assert.ok(path.basename(copyCanary).startsWith("mochirii-preview-copy-canary-"));
+  rmSync(copyCanary, { recursive: true, force: true });
+}
 
 const requiredWorkflowSnippets = [
   "name: Validate Supabase locally",

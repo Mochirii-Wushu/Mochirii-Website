@@ -202,3 +202,9 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/sync-pixelfed-social-account/deno.json"
 entrypoint = "./functions/sync-pixelfed-social-account/index.ts"
+
+[functions.reaper-gateway-operations]
+enabled = true
+verify_jwt = false
+import_map = "./functions/reaper-gateway-operations/deno.json"
+entrypoint = "./functions/reaper-gateway-operations/index.ts"
