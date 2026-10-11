@@ -31,10 +31,13 @@ external side effect. The older 24 July spotlight record remains unchanged
 as historical evidence.
 
 The separate 01:02:18 UTC+8 readback on 11 October showed the event-advancement
-policy was false. Its installed cron
-tick therefore does not dispatch network work. Breaking Army and Showdown
-advancement remains pending a separate activation after release and the exact
-managed registry/provider reconciliation. See the
+policy was false. That observation is historical: after the approved eleven-
+activity registry reconciliation, guarded activation succeeded at
+10:12:10 UTC+8. The next natural minute tick succeeded without dispatching work,
+because no event was due. This verifies activation and an idle execution;
+the first natural Breaking Army advancement is due at or after 00:02 UTC+8 on
+13 October, with Showdown following on 14 October. Neither natural advancement
+has yet been observed. No forced event was used to test production. See the
 [event-sync runbook](../reaper-event-sync-runbook.md). Native recurring Discord
 series are maintained by Discord; they do not require a workstation scheduler.
 The vote reminder was absent from the observed active cron inventory and is
@@ -59,6 +62,17 @@ does not select a host or registry and leaves publication/deployment gates
 false. CI builds without publishing; GitHub returned no deployment records.
 These facts do not prove that an independently deployed older worker or local
 workstation process is absent.
+
+The subsequent protected PR #12 publication on 11 October superseded that
+source/image observation. Main commit
+`73a635d35373cc5b8678a28239297425fbe693b2` passed CI and its single approved
+image publisher completed at 11:18:43 UTC+8. The canonical image's immutable
+digest, signature, provenance and SBOM were independently verified; the image
+had no high/critical vulnerabilities or scanner-detected secrets. This proves
+publication only. Package pull access, paid host provisioning, runtime secrets,
+welcome/member forwarding and hosted acceptance are still pending. The new
+local recovery/monitoring candidate is separately reviewed source, not part of
+that published image. See [Gateway operations](reaper-gateway-operations.md).
 
 The source defines a nonroot OCI image and a private readiness probe. Before
 certifying a live Gateway, obtain a redacted readback of its actual provider

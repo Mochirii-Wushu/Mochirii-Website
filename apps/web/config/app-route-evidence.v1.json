@@ -152,8 +152,8 @@
       "id": "security-hardening",
       "path": "scripts/check-security-hardening.mjs",
       "scope": "source-only security and privacy hardening contract",
-      "bytes": 23413,
-      "sha256": "D0EE560211715D54F4D4807A4EAD52A6B4E9DCA9F2604F5ACE5EEAC5D16E51B2",
+      "bytes": 24149,
+      "sha256": "A53EF876D0FF582CE4FF84E9B3172A232FDC8193638A8C59C8B8353662FEECB6",
       "status": "verified_source"
     },
     {

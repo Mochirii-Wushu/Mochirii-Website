@@ -1,9 +1,9 @@
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 
-export const EXPECTED_FUNCTION_COUNT = 33;
+export const EXPECTED_FUNCTION_COUNT = 34;
 export const EXPECTED_VERIFY_JWT_TRUE = 20;
-export const EXPECTED_VERIFY_JWT_FALSE = 13;
+export const EXPECTED_VERIFY_JWT_FALSE = 14;
 
 const ownedRootFiles = new Set([
   "deno.lock",

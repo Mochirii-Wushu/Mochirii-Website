@@ -37,7 +37,7 @@ const source = path.resolve("supabase");
 const target = path.join(destination, "supabase");
 cpSync(source, target, {
   recursive: true,
-  filter: (entry) => !/[\\/](?:\.branches|\.temp)(?:[\\/]|$)/u.test(entry),
+  filter: (entry) => !/[\\/](?:\.branches|\.temp|node_modules)(?:[\\/]|$)/u.test(entry),
 });
 
 const configPath = path.join(target, "config.toml");

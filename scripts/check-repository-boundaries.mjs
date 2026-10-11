@@ -48,6 +48,7 @@ const reviewedDatabaseTestPaths = new Set([
   "supabase/tests/reaper_event_advancement_test.sql",
   "supabase/tests/reaper_event_advancement_streaming_test.sql",
   "supabase/tests/reaper_pending_containment_receipts_test.sql",
+  "supabase/tests/reaper_gateway_operations_test.sql",
 ]);
 const credentialPathPattern = /(^|\/)(?:Mochi Creds|private-evidence|Repository Backups)(\/|$)/i;
 const privateKeyPathPattern = /\.(?:key|p12|pfx|pem)$/i;

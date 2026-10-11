@@ -51,6 +51,15 @@ process is absent. If one is found, move it to an approved supervised hosted
 runtime or intentionally retire the welcome-DM feature before setting the
 contract to complete.
 
+The 11 October Gateway image publication and guarded Army/Showdown advancement
+activation are recorded separately in that runbook. Image publication is not
+host deployment, and an idle advancement tick is not evidence of a completed
+natural event rollover. The selected external monitoring uses GitHub-hosted
+checks and existing failure notifications. Its local workflow defaults disabled;
+actual owner notification delivery and hosted encrypted checkpoint recovery
+must pass the [operations acceptance procedure](reaper-gateway-operations.md)
+before Gateway activation. Neither check changes the pending continuity flags.
+
 ## Primary operational guidance
 
 - [GitHub-hosted Actions runners](https://docs.github.com/en/actions/how-tos/write-workflows/choose-where-workflows-run/choose-the-runner-for-a-job)

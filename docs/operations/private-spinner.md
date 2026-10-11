@@ -68,7 +68,7 @@ Source, tests, migration, and function code may be reviewed in a PR. The followi
 
 - applying `20260831154230_spinner_elimination_sequence.sql` after the released
   spinner, media, publication, and historical three-minute migrations;
-- allowing the connected production integration to redeploy all 33 Edge Functions declared in `supabase/config.toml`, including the new `spinner-live-session` and `reaper-spinner-dispatch` functions;
+- allowing the connected production integration to redeploy all 34 Edge Functions declared in `supabase/config.toml`, including `spinner-live-session`, `reaper-spinner-dispatch`, and `reaper-gateway-operations`;
 - setting `DISCORD_RAFFLE_CHANNEL_ID`, `REAPER_SPINNER_DISPATCH_SECRET`, or changing any existing bot secret;
 - adding the matching Vault values used by scheduled dispatch;
 - exercising the target channel or promoting a production deployment.
@@ -79,11 +79,11 @@ Pause moderator draws before the v2 elimination migration or matching function a
 
 ## Production Integration Blast Radius
 
-The connected production integration does not deploy only the two spinner functions. On every push or merge to the configured production branch, it applies new migrations and deploys every Edge Function declared in `supabase/config.toml`. The exact reviewed spinner release currently declares 33 functions: the prior 31-function inventory plus `spinner-live-session` and `reaper-spinner-dispatch`. This matches the [production integration contract](https://supabase.com/docs/guides/deployment/branching/github-integration): migrations and all functions declared in `config.toml` are production deployment inputs.
+The connected production integration does not deploy only the two spinner functions. On every push or merge to the configured production branch, it applies new migrations and deploys every Edge Function declared in `supabase/config.toml`. The current configured inventory contains 34 functions: `spinner-live-session`, `reaper-spinner-dispatch`, and 32 other functions, including `reaper-gateway-operations`. This matches the [production integration contract](https://supabase.com/docs/guides/deployment/branching/github-integration): migrations and all functions declared in `config.toml` are production deployment inputs.
 
-Before merge, record the prior production commit and no-secret version/status inventory for all 33 functions in ignored operations evidence. Require the exact-head Preview and protected checks to pass. After merge, serialize the release: do not merge another provider-affecting change until the production integration reports success for the migration and all 33 function deployments. Verify the two spinner functions from the merged commit and run the existing no-send authentication/boundary smokes for the other 31 functions. A manual two-function deployment is not an equivalent release and is not authorized by this runbook.
+Before merge, record the prior production commit and no-secret version/status inventory for all 34 functions in ignored operations evidence. Require the exact-head Preview and protected checks to pass. After merge, serialize the release: do not merge another provider-affecting change until the production integration reports success for the migration and all 34 function deployments. Verify the two spinner functions from the merged commit and run the existing no-send authentication/boundary smokes for the other 32 functions. A manual two-function deployment is not an equivalent release and is not authorized by this runbook.
 
-The 33 configured functions are:
+The 34 configured functions are:
 
 1. `verify-discord-member`
 2. `verify-member-access`
@@ -118,6 +118,7 @@ The 33 configured functions are:
 31. `mochi-pets-alpha-admin`
 32. `submit-mochi-pets-feedback`
 33. `sync-pixelfed-social-account`
+34. `reaper-gateway-operations`
 
 ## Authenticated Preview Boundary
 
@@ -175,7 +176,7 @@ If outbound delivery is unsafe, use the approved provider controls in this order
 
 The migration is forward-only. Promoting an older Website deployment or reverting function source does not undo tables, receipts, scheduled jobs, triggers, grants, or RLS. Do not hand-delete spinner tables, receipts, jobs, functions, or migration history. Correct a released schema defect with a reviewed forward-fix migration. Use a database restore only for an owner-approved integrity incident after the recovery point and data-loss window are explicitly accepted.
 
-A protected revert or forward-fix merge invokes the same 33-function production integration; review and approve that full redeployment blast radius again. Re-enable delivery only after the fix is green and a new high-entropy dispatcher value is stored identically in the Edge environment and Vault. Never reuse or disclose the disabled value.
+A protected revert or forward-fix merge invokes the same 34-function production integration; review and approve that full redeployment blast radius again. Re-enable delivery only after the fix is green and a new high-entropy dispatcher value is stored identically in the Edge environment and Vault. Never reuse or disclose the disabled value.
 
 ## Duplicate Start-Message Reconciliation
 

@@ -19,6 +19,7 @@ const files = {
   reaper: "supabase/functions/reaper-discord-interactions/index.ts",
   reaperSignature: "supabase/functions/_shared/discord-signature.ts",
   reaperMemberSync: "supabase/functions/reaper-discord-member-sync/index.ts",
+  reaperGatewayOperations: "supabase/functions/reaper-gateway-operations/index.ts",
   reaperSpinnerDispatch: "supabase/functions/reaper-spinner-dispatch/index.ts",
   spinnerDiscordOutbox: "supabase/functions/_shared/spinner-discord-outbox.ts",
   approvedFeed: "supabase/functions/list-approved-gallery-submissions/index.ts",
@@ -88,6 +89,7 @@ const reaper = read(files.reaper);
 const reaperSignature = read(files.reaperSignature);
 const reaperSecuritySource = [reaper, reaperSignature].join("\n");
 const reaperMemberSync = read(files.reaperMemberSync);
+const reaperGatewayOperations = read(files.reaperGatewayOperations);
 const reaperSpinnerDispatch = read(files.reaperSpinnerDispatch);
 const spinnerDiscordOutbox = read(files.spinnerDiscordOutbox);
 const reaperSpinnerSecuritySource = `${reaperSpinnerDispatch}\n${spinnerDiscordOutbox}`;
@@ -213,6 +215,7 @@ const expectedUnauthenticatedFunctions = [
   "reaper-discord-interactions",
   "reaper-spinner-dispatch",
   "reaper-discord-member-sync",
+  "reaper-gateway-operations",
   "send-vote-reminder",
   "send-member-spotlight-poll",
   "publish-member-spotlight-winner",
@@ -320,6 +323,17 @@ const unauthenticatedFunctionGuardSpecs = {
     source: reaperMemberSync,
     kind: "shared-secret Reaper member sync",
     snippets: ["x-mochirii-reaper-member-sync-secret", "REAPER_PENDING_VERIFICATION_SYNC_SECRET", "verifyMemberSyncSecret(req, deps.secret)"],
+  },
+  "reaper-gateway-operations": {
+    source: reaperGatewayOperations,
+    kind: "HMAC and one-use nonce protected Gateway operations",
+    snippets: [
+      'req.headers.get("x-reaper-signature")',
+      'signature(deps.hmacKey, req.method, `${EXTERNAL_PATH}${suffix}`, timestamp, nonce, hash, capturedAt)',
+      'await sha256(bytes) !== hash',
+      'deps.rpc("reaper_gateway_operations_auth", { p_nonce: nonce, p_timestamp: Number(timestamp) })',
+      'equal(req.headers.get("x-reaper-maintenance-secret") || "", deps.maintenanceKey)',
+    ],
   },
   "send-vote-reminder": {
     source: voteReminder,
