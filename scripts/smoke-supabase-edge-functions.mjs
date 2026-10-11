@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 
 const root = process.cwd();
 const TIMEOUT_MS = 15000;
@@ -73,7 +74,7 @@ const protectedFunctions = [
   },
   {
     name: "get-member-profile",
-    body: {},
+    body: { slug: "mochirii-smoke-probe" },
   },
   {
     name: "submit-member-profile-media",
@@ -210,6 +211,9 @@ async function fetchContract(url, init = {}) {
     ok: response.ok,
     contentType: response.headers.get("content-type") || "",
     cacheControl: response.headers.get("cache-control") || "",
+    referrerPolicy: response.headers.get("referrer-policy") || "",
+    nosniff: response.headers.get("x-content-type-options") || "",
+    robots: response.headers.get("x-robots-tag") || "",
     cors: response.headers.get("access-control-allow-origin") || "",
     json,
     text,
@@ -239,6 +243,12 @@ async function checkOptions(config, name) {
     method: "OPTIONS",
     headers: headers(config),
   });
+  if (name === "send-vote-reminder") {
+    assert(result.status === 405 && result.ok === false, `${name} OPTIONS expected 405.`);
+    assert(JSON.stringify(result.json) === '{"ok":false,"message":"Method not allowed."}', `${name} OPTIONS returned unexpected fields.`);
+    assert(/^application\/json(?:;\s*charset=utf-8)?$/i.test(result.contentType) && result.cors === "https://mochirii.com", `${name} OPTIONS denial JSON/CORS changed.`);
+    return;
+  }
   assert(result.status >= 200 && result.status < 300, `${name} OPTIONS expected 2xx, got ${result.status}.`);
   assert(result.cors === "*" || result.cors, `${name} OPTIONS missing CORS allow-origin header.`);
 }
@@ -264,6 +274,10 @@ async function checkSecretProtectedRejects(config, target, label, extraHeaders =
     body: JSON.stringify(target.body),
   });
 
+  if (target.name === "reaper-spinner-dispatch") {
+    checkOpaqueSpinnerDenial(result, `${target.name} ${label}`);
+    return;
+  }
   assert(
     result.status === 401 || result.status === 403,
     `${target.name} ${label} expected 401/403 fail-closed response, got ${result.status}: ${summarizeBody(result.json || result.text)}`,
@@ -272,12 +286,30 @@ async function checkSecretProtectedRejects(config, target, label, extraHeaders =
   assert(result.ok === false, `${target.name} ${label} unexpectedly succeeded.`);
 }
 
+function checkOpaqueSpinnerDenial(result, label) {
+  assert(result.status === 404 && result.ok === false, `${label} expected opaque 404.`);
+  assert(result.text === "", `${label} denial must have an empty body.`);
+  assert(result.cacheControl === "private, no-store, max-age=0", `${label} denial cache contract changed.`);
+  assert(result.referrerPolicy === "no-referrer" && result.nosniff === "nosniff" && result.robots === "noindex, nofollow, noarchive", `${label} denial security headers changed.`);
+  assert(result.cors === "https://mochirii.com", `${label} denial CORS contract changed.`);
+}
+
 async function checkMethodNotAllowed(config, name) {
   const result = await fetchContract(functionUrl(config, name), {
     method: "DELETE",
     headers: headers(config),
   });
 
+  if (name === "reaper-discord-member-sync") {
+    assert(result.status === 404 && result.ok === false, `${name} DELETE expected 404.`);
+    assert(JSON.stringify(result.json) === '{"ok":false,"error":"Not found."}', `${name} DELETE returned unexpected fields.`);
+    assert(/^application\/json(?:;\s*charset=utf-8)?$/i.test(result.contentType) && result.cacheControl === "no-store" && result.cors === "", `${name} DELETE privacy contract changed.`);
+    return;
+  }
+  if (name === "reaper-spinner-dispatch") {
+    checkOpaqueSpinnerDenial(result, `${name} DELETE`);
+    return;
+  }
   assert(result.status === 405, `${name} DELETE expected 405 Method not allowed, got ${result.status}.`);
 }
 
@@ -415,9 +447,7 @@ assert(
   "Public read-only Supabase smoke inventory changed without a reviewed contract update.",
 );
 
-try {
-  const config = readSupabasePublicConfig();
-
+export async function checkSupabaseEdgeFunctions(config) {
   for (const target of protectedFunctions) {
     await checkOptions(config, target.name);
     await checkProtectedRejects(config, target, "without JWT", "");
@@ -445,9 +475,15 @@ try {
   await checkApprovedFeed(config);
   await checkVisibleProfileCards(config);
   await checkCurrentSpotlightWinner(config);
-  console.log("Supabase Edge Function contract smoke OK.");
-} catch (error) {
-  const message = error?.message || String(error);
-  console.error(`Supabase Edge Function contract smoke failed: ${message}`);
-  process.exit(1);
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
+  try {
+    await checkSupabaseEdgeFunctions(readSupabasePublicConfig());
+    console.log("Supabase Edge Function contract smoke OK.");
+  } catch (error) {
+    const message = error?.message || String(error);
+    console.error(`Supabase Edge Function contract smoke failed: ${message}`);
+    process.exit(1);
+  }
 }
