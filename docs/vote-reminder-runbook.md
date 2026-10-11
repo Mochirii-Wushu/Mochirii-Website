@@ -118,7 +118,45 @@ supabase functions deploy send-vote-reminder
 supabase functions deploy reaper-discord-interactions
 ```
 
-Use Supabase Cron with a Vault-stored `VOTE_REMINDER_CRON_SECRET`. During Pacific daylight time, 9 AM America/Los_Angeles is 16:00 UTC; during Pacific standard time, it is 17:00 UTC. Keep the local-time target explicit when scheduling or updating seasonal schedules.
+The additive vote-scheduler migration creates `mochirii-send-vote-reminder`
+with schedule `0 16,17 * * *` and immediately marks it **inactive in the same
+atomic block**. Publishing or applying the migration does not enable delivery,
+create credentials, change the Edge sender, or alter any existing schedule.
+An existing matching job or direct sender reference causes a reconciliation
+error instead of overwriting it. An indirect scheduler cannot be excluded by
+that check and must be reconciled before activation.
+
+The private `dispatch_vote_reminder` routine runs with its caller's privileges.
+Browser and service roles cannot execute it. It requires exactly its owned,
+active job, unchanged command/schedule/database/role, and GMT or UTC Cron
+timezone. Do not change the shared Cron timezone for this feature. It converts
+the captured instant to `America/Los_Angeles`, accepting only 09:00 inclusive
+through 10:00 exclusive to tolerate delayed Cron execution. Normal ticks target
+09:00; a tick delayed past the hour is skipped without automatic catch-up.
+During daylight time the valid candidate is 16:00 UTC (00:00 UTC+8 the next
+day); during standard time it is 17:00 UTC (01:00 UTC+8 the next day). The
+other candidate normally falls outside the target hour. No seasonal schedule
+edit or local workstation process is required.
+
+The dispatcher reads exactly one Vault entry named `project_url`, containing
+the canonical project origin without a trailing slash, and exactly one named
+`VOTE_REMINDER_CRON_SECRET`, matching the Edge secret of that name. The shared
+secret must contain 32–256 printable ASCII bytes without whitespace. Missing,
+duplicate or invalid configuration queues no request. Store or verify values
+only through the approved protected credential channel; never print values or
+use this migration to generate, replace or rotate them. Its POST contains only
+the Pacific `voteDate`, the existing custom secret header and JSON content
+type. The pg_net response deadline is 15 seconds; queued request acceptance
+does not prove delivery or cancel an Edge send after a lost acknowledgement.
+
+Before separately approving activation, verify deployed sender/configuration,
+secret equality, safe links, exact channel permissions and a successful private
+preview. Confirm no direct or indirect competing scheduler. Enable only this
+reviewed job after those checks and explicit approval. Observe one natural
+09:00 Pacific delivery and its matching `sent` audit row. The existing unique
+date/channel index fences `pending` and `sent` rows; it does not promise
+exactly-once delivery after a failed or ambiguous send. Preserve pending rows,
+reconcile the actual Discord result and obtain approval before any replay.
 
 Preview the payload before enabling Cron:
 
@@ -158,8 +196,17 @@ npm run check:vote-reminder
 npm run test:vote-reminder
 npm run check:reaper-discord-interactions
 npm run check:supabase-edge-types
+npm run test:supabase-db
 git diff --check
 ```
+
+Run the database suite only against the assigned isolated local project. Its
+`vote_reminder_schedule_test.sql` fixtures enable the job and queue synthetic
+requests inside one transaction that always rolls back; pg_net sends only
+after commit. The test covers both DST transitions, the end-exclusive hour,
+session timezone/date-style independence, disabled/configuration drift,
+private privileges, destination/secret rejection and the existing send fence.
+Never run these fixtures against production or commit their transaction.
 
 Manual production checks:
 
@@ -171,4 +218,9 @@ Manual production checks:
 
 ## Rollback
 
-Disable the Supabase Cron schedule first. If a bad reminder was posted, delete only the Reaper-created vote reminder message in the vote channel. Revert the branch or redeploy the previous `send-vote-reminder` and `reaper-discord-interactions` functions. Do not delete unrelated Discord messages, user profiles, gallery data, rank roles, or scheduled events.
+Disable only `mochirii-send-vote-reminder` first and verify it is inactive.
+Keep its definition and delivery audit history for reconciliation; disabling
+does not cancel an already queued request or delivered message. A source revert
+does not reverse the database migration. If a bad reminder was posted, obtain
+approval to delete only that Reaper-created message. Do not delete unrelated
+Discord messages, user profiles, gallery data, rank roles or scheduled events.
