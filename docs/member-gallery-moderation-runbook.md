@@ -92,12 +92,17 @@ Use Approve only when the submission is safe for the public Gallery.
 
 After approval:
 
-- the browser prepares a bounded WebP thumbnail from the signed private preview
+- the release-gated processed-media candidate uses the trusted Node decoder to prepare a bounded full-view WebP and its thumbnail from the private original; the browser does not attest published pixels
 - the Edge Function verifies that the derivative is static WebP, no larger than 720 pixels on either edge, no larger than 80 KiB, and fully decodable by the pinned libwebp validator
 - the function uploads a unique immutable revision under the service-only derivative prefix
-- the row status, derivative reference, review metadata, and moderation event commit atomically
+- the row status, same-revision full/thumbnail references, review metadata, moderation event and opted-in Instagram queue/audit commit atomically
 - the approved public Gallery feed may include the item
 - an opted-in image may create an Instagram Queue job for later review
+
+The candidate limits and provider approvals are recorded in
+[`operations/GALLERY-PROCESSED-MEDIA.md`](operations/GALLERY-PROCESSED-MEDIA.md).
+It is not deployed by editing this runbook. Unknown publication completion must
+retain all potentially selected objects and be reconciled by refreshing the queue.
 - no static Gallery JSON is edited
 - no automatic Instagram publishing happens
 

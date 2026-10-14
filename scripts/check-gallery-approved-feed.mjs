@@ -15,7 +15,10 @@ const leaderDashboard = read("apps/web/components/member-workflow/LeaderDashboar
 const leaderDashboardParts = read("apps/web/components/member-workflow/LeaderDashboardParts.tsx");
 const approvedFeed = read("supabase/functions/list-approved-gallery-submissions/index.ts");
 const reviewQueue = read("supabase/functions/list-gallery-review-queue/index.ts");
-const moderation = read("supabase/functions/moderate-gallery-submission/index.ts");
+const moderationHandler = read("supabase/functions/moderate-gallery-submission/index.ts");
+const moderation = read("supabase/functions/_shared/gallery-moderation-operation.ts");
+const mediaProof = read("supabase/functions/_shared/gallery-processed-media.ts");
+const nodeProcessor = read("apps/web/lib/gallery/moderation-processor.ts");
 const thumbnailParser = read("supabase/functions/_shared/gallery-thumbnail.ts");
 const thumbnailTests = read("supabase/functions/_shared/gallery-thumbnail_test.ts");
 const thumbnailMigration = read("supabase/migrations/20260727145241_add_gallery_submission_thumbnails.sql");
@@ -107,14 +110,21 @@ assertIncludes("Leader Dashboard thumbnail backfill", leaderDashboardParts, "Pre
 
 [
   "await isDecodableGalleryWebp(",
-  'error: "thumbnail_decode_failed"',
-  "thumbnailRevisionId = crypto.randomUUID();",
-  "galleryThumbnailStoragePath(submissionId, thumbnailRevisionId)",
+  'throw new Error("thumbnail_decode_failed")',
+  "galleryThumbnailStoragePath(submissionId, media.revisionId)",
   "upsert: false",
   '"gallery_commit_moderation"',
-  "p_expected_thumbnail_revision_id: priorThumbnailRevisionId || null",
-  ".remove([thumbnailPath])",
+  "p_expected_thumbnail_revision_id: current.thumbnail_revision_id || null",
+  "p_media: media ?",
+  "definiteRollback",
+  "await cleanUnselected()",
 ].forEach((snippet) => assertIncludes("atomic gallery moderation", moderation, snippet));
+["requireModeratorAccess(req)", "runGalleryModeration(req, access", 'Deno.env.get("GALLERY_MEDIA_PROCESSOR_SECRET")']
+  .forEach((snippet) => assertIncludes("gallery handler authorization", moderationHandler, snippet));
+["verifyGalleryMedia(", "GALLERY_MEDIA_BODY_MAX_BYTES", "parseGalleryFullPayload(body.full)"]
+  .forEach((snippet) => assertIncludes("trusted processed-media proof", mediaProof, snippet));
+["revision_id: randomUUID()", "sourceSha256", "processImage(bytes)", 'redirect: "manual"']
+  .forEach((snippet) => assertIncludes("trusted Node preparation", nodeProcessor, snippet));
 if (/\.from\(["']gallery_submissions["']\)\s*\n?\s*\.update\(/.test(moderation)) {
   failures.push("atomic gallery moderation: submission updates must remain inside gallery_commit_moderation.");
 }

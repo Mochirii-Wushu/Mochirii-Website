@@ -74,6 +74,7 @@ const migration = read(files.migration);
 const manualMigrationHistory = read(files.manualMigrationHistory);
 const discordIngest = read(files.discordIngest);
 const moderation = read(files.moderation);
+const mediaMigration = read("supabase/migrations/20261014223059_gallery_processed_media.sql");
 const listQueue = read(files.listQueue);
 const checkMeta = read(files.checkMeta);
 const publish = read(files.publish);
@@ -161,11 +162,14 @@ assertNotMatches(
 [
   "gallery_instagram_publish_jobs",
   "gallery_instagram_publish_events",
-  'new Set(["image/jpeg"])',
+  "selected.mime_type='image/jpeg'",
   "ineligible",
-  "buildInstagramCaption",
-  "buildInstagramAltText",
-].forEach((snippet) => assertIncludes("moderate-gallery-submission", moderation, snippet));
+  "concat_ws(E'",
+  "Mōchirīī guild gallery submission:",
+  "on conflict(submission_id) do nothing",
+].forEach((snippet) => assertIncludes("atomic Instagram queue preservation", mediaMigration, snippet));
+["requireModeratorAccess(req)", "runGalleryModeration(req, access"].forEach((snippet) =>
+  assertIncludes("moderate-gallery-submission", moderation, snippet));
 
 [
   "requireModeratorAccess(req)",

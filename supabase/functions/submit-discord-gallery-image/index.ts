@@ -2,6 +2,7 @@ import { withProtectedCors } from "../_shared/cors.ts";
 import "@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "@supabase/supabase-js";
 import { getServiceRoleKey } from "../_shared/supabase-service-role.ts";
+import { inspectGalleryInput, readBoundedGalleryBody } from "../../../packages/gallery-media/policy.ts";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -129,9 +130,9 @@ function validAttachmentUrl(value: unknown): string | null {
 
   try {
     const url = new URL(text);
-    const hasAttachmentPath =
-      url.pathname.includes("/attachments/") || url.pathname.includes("/ephemeral-attachments/");
-    if (url.protocol !== "https:" || !DISCORD_CDN_HOSTS.has(url.hostname) || !hasAttachmentPath) {
+    const hasAttachmentPath = /^\/(?:ephemeral-)?attachments\/\d{16,22}\/\d{16,22}\/[^/]+$/.test(url.pathname);
+    if (url.protocol !== "https:" || url.port || url.username || url.password || url.hash
+      || !DISCORD_CDN_HOSTS.has(url.hostname) || !hasAttachmentPath) {
       return null;
     }
     return url.toString();
@@ -266,7 +267,7 @@ async function handleRequest(req: Request): Promise<Response> {
     !attachmentId ||
     !discordUserId ||
     !attachmentUrl ||
-    !Number.isFinite(declaredSize) ||
+    !Number.isSafeInteger(declaredSize) ||
     declaredSize <= 0 ||
     declaredSize > MAX_SIZE_BYTES
   ) {
@@ -376,15 +377,15 @@ async function handleRequest(req: Request): Promise<Response> {
   let attachmentResponse: Response;
   try {
     attachmentResponse = await fetch(attachmentUrl, {
+      redirect: "manual",
+      signal: AbortSignal.timeout(30_000),
       headers: {
         Accept: [...ALLOWED_MIME_TYPES].join(", "),
         "User-Agent": "Mochirii-Reaper-Gallery-Ingest/1.0",
       },
     });
-  } catch (error) {
-    console.error("submit-discord-gallery-image attachment fetch failed", {
-      message: error instanceof Error ? error.message : String(error),
-    });
+  } catch {
+    console.error("submit-discord-gallery-image attachment fetch failed");
 
     return jsonResponse(
       {
@@ -396,10 +397,10 @@ async function handleRequest(req: Request): Promise<Response> {
     );
   }
 
-  if (!attachmentResponse.ok) {
+  if (!attachmentResponse.ok || attachmentResponse.url !== attachmentUrl) {
+    await attachmentResponse.body?.cancel().catch(() => {});
     console.error("submit-discord-gallery-image attachment fetch returned non-ok", {
       status: attachmentResponse.status,
-      statusText: attachmentResponse.statusText,
     });
 
     return jsonResponse(
@@ -415,18 +416,27 @@ async function handleRequest(req: Request): Promise<Response> {
   const contentLength = Number(attachmentResponse.headers.get("content-length") || 0);
   const responseMime = normalizedMime(attachmentResponse.headers.get("content-type"));
   if (Number.isFinite(contentLength) && contentLength > MAX_SIZE_BYTES) {
+    await attachmentResponse.body?.cancel().catch(() => {});
     return jsonResponse(
       {
         ok: false,
         error: "attachment_too_large",
-        message: "Gallery images must be 50 MB or smaller.",
+        message: "Discord gallery images must be 50 MiB or smaller.",
       },
       413,
     );
   }
 
-  const bytes = new Uint8Array(await attachmentResponse.arrayBuffer());
-  const sniffedMime = sniffMime(bytes);
+  let bytes: Uint8Array;
+  let sniffedMime: string;
+  try {
+    bytes = await readBoundedGalleryBody(attachmentResponse, MAX_SIZE_BYTES);
+    sniffedMime = inspectGalleryInput(bytes).mimeType;
+    if (sniffMime(bytes) !== sniffedMime || bytes.length !== declaredSize) throw new Error("attachment_content_rejected");
+  } catch {
+    return jsonResponse({ ok: false, error: "invalid_attachment_content",
+      message: "Choose a still JPEG, PNG, or WebP within the 50 MiB and image-dimension limits." }, 400);
+  }
 
   if (bytes.byteLength <= 0 || bytes.byteLength > MAX_SIZE_BYTES || !sniffedMime) {
     console.error("submit-discord-gallery-image invalid attachment content", {
@@ -524,7 +534,8 @@ async function handleRequest(req: Request): Promise<Response> {
     .maybeSingle();
 
   if (insertError || !insertedData) {
-    await adminClient.storage.from(MEMBER_GALLERY_BUCKET).remove([storagePath]);
+    // An interrupted insert can already be committed. Never remove a possibly
+    // selected immutable original; a retry reconciles the message/attachment ID.
 
     console.error("submit-discord-gallery-image submission insert failed", {
       code: insertError?.code,

@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { type FormEvent, useCallback, useEffect, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { createGalleryPreview } from "@/lib/gallery-thumbnail";
 import { requireAuth, onAuthStateChange } from "@/lib/supabase/auth";
 import { getCurrentProfile, profileIsActive, verifyMemberAccess } from "@/lib/supabase/profile";
 import { listMyGallerySubmissions, uploadMemberGalleryImage } from "@/lib/supabase/gallery-submissions";
@@ -47,6 +48,39 @@ export function GallerySubmitForm() {
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const [submissionsError, setSubmissionsError] = useState("");
+  const [preview, setPreview] = useState("");
+  const [previewError, setPreviewError] = useState("");
+  const [progress, setProgress] = useState<number | null>(null);
+  const uploadId = useRef("");
+  const transfer = useRef<AbortController | null>(null);
+  const generation = useRef(0);
+  const invalidateUpload = useCallback(() => {
+    generation.current++;
+    transfer.current?.abort();
+    setProgress(null);
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let objectUrl = "";
+    void Promise.resolve().then(async () => {
+      setPreview("");
+      setPreviewError("");
+      if (!file) return;
+      try {
+        const blob = await createGalleryPreview(file, controller.signal);
+        if (controller.signal.aborted) return;
+        objectUrl = URL.createObjectURL(blob);
+        setPreview(objectUrl);
+      } catch {
+        if (!controller.signal.aborted) setPreviewError("This image could not be previewed safely. Choose a still JPEG, PNG, or WebP within the image limits.");
+      }
+    });
+    return () => {
+      controller.abort();
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [file]);
 
   const loadSubmissions = useCallback(async () => {
     setSubmissionsError("");
@@ -94,21 +128,40 @@ export function GallerySubmitForm() {
 
   useEffect(() => {
     void Promise.resolve().then(() => checkAccess());
-    const subscription = onAuthStateChange(() => {
+    const subscription = onAuthStateChange((event) => {
+      // The transfer fetches the current token before every chunk. A routine
+      // refresh must not cancel a large upload; account changes still do.
+      if (event === "TOKEN_REFRESHED") return;
+      invalidateUpload();
       void checkAccess();
     });
     return () => {
       subscription.data?.subscription?.unsubscribe();
+      invalidateUpload();
     };
-  }, [checkAccess]);
+  }, [checkAccess, invalidateUpload]);
 
   async function submitImage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (transfer.current) return;
+    const controller = new AbortController();
+    const requestGeneration = generation.current;
+    transfer.current = controller;
     setBusy(true);
     setError("");
     setStatus("Submitting image for moderation.");
 
-    const result = await uploadMemberGalleryImage(file, { title, caption, category, instagramOptIn });
+    setProgress(0);
+    const result = await uploadMemberGalleryImage(file, { title, caption, category, instagramOptIn }, {
+      uploadId: uploadId.current || (uploadId.current = crypto.randomUUID()),
+      signal: controller.signal,
+      onProgress: ({ uploaded, total }) => {
+        if (requestGeneration === generation.current) setProgress(Math.min(100, Math.round(uploaded / total * 100)));
+      },
+    });
+    transfer.current = null;
+    if (requestGeneration !== generation.current) return;
+    setProgress(null);
     if (!result.ok) {
       setError(result.message || "Upload failed.");
       setStatus("");
@@ -120,6 +173,7 @@ export function GallerySubmitForm() {
     setCaption("");
     setCategory("");
     setFile(null);
+    uploadId.current = "";
     setInstagramOptIn(false);
     await checkAccess();
     await loadSubmissions();
@@ -184,7 +238,7 @@ export function GallerySubmitForm() {
             <form className="glass-card glass-card--primary glass-pad auth-form upload-form" id="uploadForm" onSubmit={submitImage}>
               <p className="kicker">Pending Moderation</p>
               <h2 className="section-title">Upload Image</h2>
-              <p className="muted">Accepted file types are JPEG, PNG & WebP. The browser limit is 50 MB.</p>
+              <p className="muted">Still JPEG, PNG & WebP images up to 100 MiB, 40 million pixels & 16,384 pixels on either edge. Approved images are automatically prepared for fast viewing; your original stays private.</p>
               <WorkflowNotice tone={access.ok ? "success" : "warning"}>{access.guidance}</WorkflowNotice>
 
               <label className="form-field">
@@ -196,9 +250,11 @@ export function GallerySubmitForm() {
                   accept="image/jpeg,image/png,image/webp"
                   required
                   disabled={busy}
-                  onChange={(event) => setFile(event.target.files?.[0] || null)}
+                  onChange={(event) => { uploadId.current = ""; setFile(event.target.files?.[0] || null); }}
                 />
               </label>
+              {preview ? <picture><img src={preview} alt="Selected image preview" style={{ maxWidth: "100%", maxHeight: 320, objectFit: "contain" }} /></picture> : null}
+              <WorkflowNotice tone="danger" role="alert" hidden={!previewError}>{previewError}</WorkflowNotice>
 
               <label className="form-field">
                 <span>Title</span>
@@ -235,8 +291,10 @@ export function GallerySubmitForm() {
               </label>
 
               <div className="auth-actions">
-                <button className="hero-cta hero-cta--primary" type="submit" disabled={busy}>Submit for Review</button>
+                <button className="hero-cta hero-cta--primary" type="submit" disabled={busy || !preview || Boolean(previewError)}>{error && file ? "Retry upload" : "Submit for Review"}</button>
+                {progress !== null ? <button className="hero-cta" type="button" onClick={() => transfer.current?.abort()}>Cancel upload</button> : null}
               </div>
+              {progress !== null ? <div role="status" aria-live="polite"><label>Upload progress <progress max={100} value={progress} /></label><span>{progress}%{progress === 100 ? " · Confirming submission" : ""}</span></div> : null}
 
               <WorkflowNotice id="uploadStatus" hidden={!status}>{status}</WorkflowNotice>
               <WorkflowNotice id="uploadError" tone="danger" role="alert" hidden={!error}>{error}</WorkflowNotice>

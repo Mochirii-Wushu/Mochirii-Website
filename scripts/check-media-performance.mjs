@@ -458,8 +458,8 @@ assert(
 );
 [
   "await isDecodableGalleryWebp(",
-  'error: "thumbnail_decode_failed"',
-].forEach((snippet) => assertIncludes("trusted gallery thumbnail decode", read("supabase/functions/moderate-gallery-submission/index.ts"), snippet));
+  'throw new Error("thumbnail_decode_failed")',
+].forEach((snippet) => assertIncludes("trusted gallery thumbnail decode", read("supabase/functions/_shared/gallery-moderation-operation.ts"), snippet));
 [
   "WebPDecodeRGBAInto",
   "WebPGetFeatures",

@@ -119,7 +119,10 @@ assertIncludes("import map", importMap, '"@supabase/supabase-js": "npm:@supabase
   "missingStoredRoleIds.length > 0",
   ".upload(storagePath, bytes,",
   "upsert: false",
-  "await adminClient.storage.from(MEMBER_GALLERY_BUCKET).remove([storagePath]);",
+  "readBoundedGalleryBody(attachmentResponse, MAX_SIZE_BYTES)",
+  "inspectGalleryInput(bytes).mimeType",
+  'redirect: "manual"',
+  "attachmentResponse.url !== attachmentUrl",
   'submission_source: "discord"',
   "discord_guild_id: guildId",
   "discord_channel_id: channelId",
@@ -131,6 +134,10 @@ assertIncludes("import map", importMap, '"@supabase/supabase-js": "npm:@supabase
   "instagram_opt_in: instagramOptIn",
   'instagram_opt_in_source: instagramOptIn ? "discord_slash_command" : null',
 ].forEach((snippet) => assertIncludes("submit-discord-gallery-image", functionSource, snippet));
+assertNotMatches("Discord original preservation", functionSource,
+  /\.remove\(\[storagePath\]\)/, "ambiguous insert outcomes must not delete a possibly committed original.");
+assertNotMatches("Discord bounded ingestion", functionSource,
+  /attachmentResponse\.(arrayBuffer|blob|text)\(/, "attachments must be streamed with a byte cap.");
 
 assertMatches(
   "submit-discord-gallery-image",

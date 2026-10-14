@@ -1,4 +1,5 @@
 import { SUPABASE_PROJECT_REF } from "@/lib/public-urls";
+import { GALLERY_INPUT_MAX_BYTES } from "../../../../packages/gallery-media/policy.ts";
 
 export { SUPABASE_PROJECT_REF };
 export const SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "").replace(/\/+$/, "");
@@ -13,7 +14,7 @@ export const DISCORD_GUILD_ID = "1078630751077142608";
 export const DISCORD_REQUIRED_ROLE_IDS = ["1468659807736299520", "1078630751077142615"] as const;
 export const DISCORD_REQUIRED_ROLE_NAMES = ["Mōchirīī - WWM", "✅Verified"] as const;
 export const MEMBER_GALLERY_BUCKET = "member-gallery";
-export const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
+export const MAX_UPLOAD_BYTES = GALLERY_INPUT_MAX_BYTES;
 export const RECENT_VERIFICATION_MS = 7 * 24 * 60 * 60 * 1000;
 export const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 export const INSTAGRAM_WEBSITE_OPT_IN_COPY_VERSION = "2026-06-website-upload-v1";

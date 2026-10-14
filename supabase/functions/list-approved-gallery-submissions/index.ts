@@ -92,7 +92,7 @@ Deno.serve(async (req: Request) => {
 
   const submissions = Array.isArray(submissionData) ? submissionData as JsonRecord[] : [];
   const signablePaths = [...new Set(submissions.flatMap((submission) => {
-    const originalPath = safeString(submission.storage_path, 1000);
+    const originalPath = safeString(submission.viewer_storage_path || submission.storage_path, 1000);
     const thumbnailPath = safeString(submission.thumbnail_storage_path, 1000);
     return originalPath && thumbnailPath ? [thumbnailPath, originalPath] : [];
   }))];
@@ -154,7 +154,7 @@ Deno.serve(async (req: Request) => {
 
   for (const submission of submissions) {
     const bucket = safeString(submission.storage_bucket, 80) || MEMBER_GALLERY_BUCKET;
-    const storagePath = safeString(submission.storage_path, 1000);
+    const storagePath = safeString(submission.viewer_storage_path || submission.storage_path, 1000);
     const thumbnailStoragePath = safeString(submission.thumbnail_storage_path, 1000);
     const thumbnailMimeType = safeString(submission.thumbnail_mime_type, 80);
     const thumbnailSizeBytes = Number(submission.thumbnail_size_bytes || 0);
@@ -209,8 +209,8 @@ Deno.serve(async (req: Request) => {
       title: safeString(submission.title, 80),
       caption: safeString(submission.caption, 300),
       category: safeString(submission.category, 40),
-      mime_type: safeString(submission.mime_type, 80),
-      size_bytes: Number(submission.size_bytes || 0),
+      mime_type: safeString(submission.viewer_mime_type || submission.mime_type, 80),
+      size_bytes: Number(submission.viewer_size_bytes || submission.size_bytes || 0),
       created_at: safeString(submission.created_at, 80),
       reviewed_at: safeString(submission.reviewed_at, 80),
       uploader_display_name: uploaderDisplayName,

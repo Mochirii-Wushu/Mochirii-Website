@@ -69,6 +69,8 @@ const checkRows = [
   ["check:gallery-approved-feed", ["node", "scripts/check-gallery-approved-feed.mjs"]],
   ["test:live-gallery-media-smoke-guard", ["node", "--test", "scripts/lib/live-gallery-media-smoke-guard.test.mjs"]],
   ["test:gallery-thumbnail", ["deno", "test", "--lock=deno.lock", "--frozen=true", "supabase/functions/_shared/gallery-thumbnail_test.ts"]],
+  ["test:gallery-media", ["node", "--experimental-default-type=module", "--experimental-strip-types", "--test", "apps/web/lib/gallery/process-image_test.ts", "apps/web/lib/gallery/moderation-processor_test.ts", "apps/web/lib/gallery/resumable-upload_test.ts"]],
+  ["test:gallery-media-edge", ["deno", "test", "--node-modules-dir=auto", "--import-map=supabase/functions/moderate-gallery-submission/deno.json", "--lock=deno.lock", "--frozen=true", "supabase/functions/_shared/gallery-processed-media_test.ts"]],
   ["check:gallery-timestamps", ["node", "scripts/check-gallery-timestamps.mjs"]],
   ["check:media-performance", ["node", "scripts/check-media-performance.mjs"]],
   ["test:gallery-static-image-budget", ["node", "--test", "scripts/lib/gallery-static-image-budget.test.mjs"]],

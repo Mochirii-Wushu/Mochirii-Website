@@ -8,6 +8,7 @@ import {
   requireModeratorAccess,
   safeString,
 } from "../_shared/gallery-moderation.ts";
+import { GALLERY_UUID } from "../../../packages/gallery-media/policy.ts";
 
 const SIGNED_URL_SECONDS = 10 * 60;
 const DEFAULT_PAGE_SIZE = 25;
@@ -81,6 +82,27 @@ async function handleRequest(req: Request): Promise<Response> {
 
   const bodyResult = await readOptionalJsonBody(req);
   if (!bodyResult.ok) return bodyResult.response;
+
+  if (bodyResult.body.processingSource !== undefined) {
+    const submissionId = safeString(bodyResult.body.processingSource, 80);
+    if (!submissionId || !GALLERY_UUID.test(submissionId)) {
+      return jsonResponse({ ok: false, message: "Choose a valid gallery submission." }, 400);
+    }
+    const { data: submission, error } = await access.adminClient.from("gallery_submissions")
+      .select("id,user_id,storage_bucket,storage_path,mime_type,size_bytes,status,thumbnail_revision_id,viewer_revision_id")
+      .eq("id", submissionId).maybeSingle();
+    if (error || !submission || submission.storage_bucket !== MEMBER_GALLERY_BUCKET
+      || !["pending", "approved"].includes(String(submission.status))) {
+      return jsonResponse({ ok: false, message: "This submission is unavailable. Refresh the queue." }, 409);
+    }
+    const { data: signed, error: signingError } = await access.adminClient.storage.from(MEMBER_GALLERY_BUCKET)
+      .createSignedUrl(String(submission.storage_path), 120);
+    if (signingError || !signed?.signedUrl) {
+      return jsonResponse({ ok: false, message: "The original image could not be loaded." }, 503);
+    }
+    return jsonResponse({ ok: true, data: { hasAccess: true, moderatorId: access.userId,
+      submission, signedOriginalUrl: signed.signedUrl } });
+  }
 
   if (bodyResult.body.checkOnly === true) {
     return jsonResponse({

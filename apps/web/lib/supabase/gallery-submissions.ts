@@ -1,10 +1,10 @@
 import { requireBrowserSupabaseClient } from "./client";
 import {
-  ACCEPTED_IMAGE_TYPES,
   INSTAGRAM_WEBSITE_OPT_IN_COPY_VERSION,
   MAX_UPLOAD_BYTES,
   MEMBER_GALLERY_BUCKET,
   SUBMISSION_FIELDS,
+  SUPABASE_URL,
 } from "./config";
 import { requireAuth } from "./auth";
 import { requireActiveMember } from "./profile";
@@ -16,46 +16,21 @@ import {
   type GallerySubmission,
   type GallerySubmissionMetadata,
 } from "./types";
+import { inspectGalleryFileHeader } from "../gallery-thumbnail";
+import { galleryUploadEndpoint, uploadGalleryOriginal, type GalleryUploadProgress } from "../gallery/resumable-upload";
+import { GALLERY_UUID, GalleryImageError } from "../../../../packages/gallery-media/policy.ts";
 
-const acceptedTypes = new Set<string>(ACCEPTED_IMAGE_TYPES);
+class GalleryUploadError extends Error {}
+
 
 function fieldLabel(key: string) {
   return key.replaceAll("_", " ").replace(/^\w/, (letter) => letter.toUpperCase());
 }
 
-function extensionFromFile(file: File) {
-  const fromName = file.name.split(".").pop()?.toLowerCase();
-  if (fromName && ["jpg", "jpeg", "png", "webp"].includes(fromName)) return fromName === "jpg" ? "jpeg" : fromName;
-  if (file.type === "image/png") return "png";
-  if (file.type === "image/webp") return "webp";
-  return "jpeg";
-}
-
-function safeFilenamePart(name: string) {
-  const base = name
-    .replace(/\.[^.]+$/, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 48);
-
-  return base || "gallery-image";
-}
-
-function buildStoragePath(userId: string, file: File) {
-  const randomPart =
-    typeof window !== "undefined" && typeof window.crypto?.randomUUID === "function"
-      ? window.crypto.randomUUID()
-      : Math.random().toString(36).slice(2, 12);
-  const filename = `${Date.now()}-${randomPart}-${safeFilenamePart(file.name)}.${extensionFromFile(file)}`;
-  return `${userId}/${filename}`;
-}
-
 export function validateGalleryFile(file: File | null | undefined) {
-  if (!file) throw new Error("Choose an image file before uploading.");
-  if (!acceptedTypes.has(file.type)) throw new Error("Upload a JPEG, PNG, or WebP image.");
-  if (file.size <= 0) throw new Error("The selected file is empty.");
-  if (file.size > MAX_UPLOAD_BYTES) throw new Error("Images must be 50 MB or smaller.");
+  if (!file) throw new GalleryUploadError("Choose an image file before uploading.");
+  if (file.size <= 0) throw new GalleryUploadError("The selected file is empty.");
+  if (file.size > MAX_UPLOAD_BYTES) throw new GalleryUploadError("Images must be 100 MiB or smaller.");
 }
 
 export function cleanSubmissionMetadata(metadata: GallerySubmissionMetadata = {}) {
@@ -64,41 +39,65 @@ export function cleanSubmissionMetadata(metadata: GallerySubmissionMetadata = {}
   Object.entries(SUBMISSION_FIELDS).forEach(([key, max]) => {
     const value = String(metadata[key as keyof GallerySubmissionMetadata] ?? "").trim();
     if (!value) return;
-    if (value.length > max) throw new Error(`${fieldLabel(key)} must be ${max} characters or fewer.`);
+    if (value.length > max) throw new GalleryUploadError(`${fieldLabel(key)} must be ${max} characters or fewer.`);
     clean[key] = value;
   });
 
   return clean as Pick<GallerySubmissionMetadata, keyof typeof SUBMISSION_FIELDS>;
 }
 
-export async function uploadMemberGalleryImage(file: File | null | undefined, metadata: GallerySubmissionMetadata = {}) {
+export async function uploadMemberGalleryImage(file: File | null | undefined, metadata: GallerySubmissionMetadata = {}, options: {
+  uploadId?: string;
+  signal?: AbortSignal;
+  onProgress?: (progress: GalleryUploadProgress) => void;
+} = {}) {
   try {
     const client = requireBrowserSupabaseClient();
     validateGalleryFile(file);
     const validFile = file as File;
+    const uploadId = options.uploadId || crypto.randomUUID();
+    if (!GALLERY_UUID.test(uploadId)) throw new GalleryUploadError("Choose the image again before uploading.");
+    const inspected = await inspectGalleryFileHeader(validFile);
+    options.signal?.throwIfAborted();
 
     const access = await requireActiveMember({ refresh: true });
     if (!access.ok || !access.data?.user) return access;
 
     const user = access.data.user;
     const cleanMetadata = cleanSubmissionMetadata(metadata);
-    const storagePath = buildStoragePath(user.id, validFile);
-    const { data: uploadData, error: uploadError } = await client.storage
-      .from(MEMBER_GALLERY_BUCKET)
-      .upload(storagePath, validFile, {
-        cacheControl: "3600",
-        contentType: validFile.type,
-        upsert: false,
-      });
-
-    if (uploadError) return failedResult(uploadError);
+    const storagePath = `${user.id}/${uploadId}.${inspected.mimeType.slice(6)}`;
+    const lookup = () => client.from("gallery_submissions").select("*").eq("id", uploadId).maybeSingle();
+    const existing = await lookup();
+    if (existing.error) return failedResult("Your previous upload could not be checked. Please try again.");
+    const matches = (value: Record<string, unknown>) => value.user_id === user.id && value.storage_path === storagePath
+      && value.mime_type === inspected.mimeType && value.size_bytes === validFile.size;
+    if (existing.data) return matches(existing.data)
+      ? okResult({ submission: existing.data as GallerySubmission }, "This image has already been submitted for moderation.")
+      : failedResult("Choose the image again before uploading.");
+    const filename = storagePath.slice(user.id.length + 1);
+    const objects = await client.storage.from(MEMBER_GALLERY_BUCKET).list(user.id, { search: filename, limit: 2 });
+    if (objects.error) return failedResult("Your upload could not be checked. Please try again.");
+    const stored = objects.data?.find((item) => item.name === filename);
+    if (stored && (Number(stored.metadata?.size) !== validFile.size || stored.metadata?.mimetype !== inspected.mimeType)) {
+      return failedResult("Choose the image again before uploading.");
+    }
+    if (!stored) await uploadGalleryOriginal(validFile, {
+      endpoint: galleryUploadEndpoint(SUPABASE_URL),
+      objectName: storagePath, mimeType: inspected.mimeType, signal: options.signal, onProgress: options.onProgress,
+      token: async () => {
+        const session = await client.auth.getSession();
+        return session.data.session?.user.id === user.id ? session.data.session.access_token : "";
+      },
+    });
+    options.signal?.throwIfAborted();
 
     const row = {
+      id: uploadId,
       user_id: user.id,
       storage_bucket: MEMBER_GALLERY_BUCKET,
       storage_path: storagePath,
       original_filename: validFile.name.slice(0, 255) || "gallery-image",
-      mime_type: validFile.type,
+      mime_type: inspected.mimeType,
       size_bytes: validFile.size,
       ...cleanMetadata,
       instagram_opt_in: metadata.instagramOptIn === true,
@@ -114,19 +113,26 @@ export async function uploadMemberGalleryImage(file: File | null | undefined, me
       .single();
 
     if (insertError) {
-      await client.storage.from(MEMBER_GALLERY_BUCKET).remove([storagePath]).catch(() => {});
-      return failedResult(insertError, { upload: uploadData, storagePath });
+      // A network failure may follow a committed insert. Reconcile the same ID
+      // before retrying; never delete its potentially selected original.
+      const reconciled = await lookup();
+      if (reconciled.data && matches(reconciled.data)) {
+        return okResult({ submission: reconciled.data as GallerySubmission }, "Image submitted for moderation.");
+      }
+      return failedResult("The submission could not be confirmed. Retry to continue without uploading a second original.");
     }
 
     return okResult(
       {
-        upload: uploadData,
         submission: submission as GallerySubmission,
       },
       "Image submitted for moderation.",
     );
   } catch (error) {
-    return failedResult(error);
+    if (error instanceof DOMException && error.name === "AbortError") return failedResult("Upload cancelled. No image was published.");
+    if (error instanceof GalleryUploadError) return failedResult(error.message);
+    if (error instanceof GalleryImageError) return failedResult("Choose a still JPEG, PNG, or WebP within the file and pixel limits.");
+    return failedResult("The image could not be uploaded safely. Retry with the same image or choose another file.");
   }
 }
 
