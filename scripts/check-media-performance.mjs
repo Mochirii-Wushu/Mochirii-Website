@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { createHash } from "node:crypto";
 import path from "node:path";
+import { galleryStaticImageBudget } from "./lib/gallery-static-image-budget.mjs";
 
 const root = process.cwd();
 const failures = [];
@@ -180,8 +181,6 @@ const galleryItems = (Array.isArray(galleryData.albums) ? galleryData.albums : [
 
 assert(galleryItems.length > 0, "apps/web/public/data/gallery.json: expected at least one gallery item.");
 
-const galleryStaticThumbnailMaximumBytes = 300 * 1024;
-const galleryStaticFullMaximumBytes = 2 * 1024 * 1024;
 const galleryStaticFullMaximumEdge = 2560;
 const galleryMemberThumbnailMaximumBytes = 80 * 1024;
 const galleryInitialTransferMaximumBytes = 2 * 1024 * 1024;
@@ -209,12 +208,20 @@ for (const item of galleryItems) {
     const thumbnailPath = path.join("apps/web/public", thumb).split(path.sep).join("/");
     assertFileExists(`${id} thumbnail`, thumbnailPath);
     if (existsSync(path.join(root, thumbnailPath))) {
-      const thumbnailBytes = statSync(path.join(root, thumbnailPath)).size;
-      galleryThumbnailSizes.push(thumbnailBytes);
-      assert(
-        thumbnailBytes <= galleryStaticThumbnailMaximumBytes,
-        `${id}: thumbnail is ${thumbnailBytes} bytes; maximum is ${galleryStaticThumbnailMaximumBytes}.`,
-      );
+      const thumbnailBuffer = readFileSync(path.join(root, thumbnailPath));
+      galleryThumbnailSizes.push(thumbnailBuffer.length);
+      try {
+        const budget = galleryStaticImageBudget(thumb, thumbnailBuffer, "thumbnail");
+        assert(thumbnailBuffer.length <= budget.maximumBytes,
+          `${id}: thumbnail is ${thumbnailBuffer.length} bytes; maximum is ${budget.maximumBytes}.`);
+        if (budget.width) {
+          const dimensions = validateGalleryStaticWebp(thumbnailBuffer);
+          assert(dimensions.width === budget.width && dimensions.height === budget.height,
+            `${id}: exact-pixel thumbnail dimensions changed.`);
+        }
+      } catch (error) {
+        fail(`${id}: thumbnail validation failed: ${error instanceof Error ? error.message : String(error)}.`);
+      }
     }
   }
 
@@ -225,11 +232,14 @@ for (const item of galleryItems) {
     if (existsSync(path.join(root, fullPath))) {
       try {
         const fullBuffer = readFileSync(path.join(root, fullPath));
+        const budget = galleryStaticImageBudget(full, fullBuffer, "full");
         assert(
-          fullBuffer.length <= galleryStaticFullMaximumBytes,
-          `${id}: full image is ${fullBuffer.length} bytes; maximum is ${galleryStaticFullMaximumBytes}.`,
+          fullBuffer.length <= budget.maximumBytes,
+          `${id}: full image is ${fullBuffer.length} bytes; maximum is ${budget.maximumBytes}.`,
         );
         const { width, height } = validateGalleryStaticWebp(fullBuffer);
+        if (budget.width) assert(width === budget.width && height === budget.height,
+          `${id}: exact-pixel full-image dimensions changed.`);
         if (!galleryWebpCanariesChecked) {
           assertGalleryStaticWebpCanaries(fullBuffer);
           galleryWebpCanariesChecked = true;

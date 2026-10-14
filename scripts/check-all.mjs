@@ -71,6 +71,7 @@ const checkRows = [
   ["test:gallery-thumbnail", ["deno", "test", "--lock=deno.lock", "--frozen=true", "supabase/functions/_shared/gallery-thumbnail_test.ts"]],
   ["check:gallery-timestamps", ["node", "scripts/check-gallery-timestamps.mjs"]],
   ["check:media-performance", ["node", "scripts/check-media-performance.mjs"]],
+  ["test:gallery-static-image-budget", ["node", "--test", "scripts/lib/gallery-static-image-budget.test.mjs"]],
   ["check:app-route-inventory", ["node", "scripts/check-app-route-inventory.mjs"]],
   ["test:app-route-inventory", ["node", "--test", "scripts/lib/app-router-inventory.test.mjs"]],
   ["check:app-route-evidence", ["node", "scripts/check-app-route-evidence.mjs"]],
