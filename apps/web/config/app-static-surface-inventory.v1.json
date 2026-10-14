@@ -14,7 +14,7 @@
     "indexedMetadataRoutes": 17,
     "nonindexedMetadataRoutes": 11,
     "publicFiles": 250,
-    "publicBytes": 47848570,
+    "publicBytes": 50245776,
     "sourceFiles": 43
   },
   "sourceCatalog": [
@@ -186,7 +186,7 @@
     {
       "path": "apps/web/config/app-route-evidence.v1.json",
       "bytes": 66971,
-      "sha256": "4472B35D5DF4E6A92F6F89CF18F8B5D073F4A432EE635667BB87441D62F28766"
+      "sha256": "C0BC1D13CABDD33B825E3510DB13103B201492B73825C3D9A989142D064F01FC"
     },
     {
       "path": "apps/web/config/app-route-matrix.v1.json",
@@ -200,13 +200,13 @@
     },
     {
       "path": "scripts/check-all.mjs",
-      "bytes": 14135,
-      "sha256": "959F10CE8723A8B2BF43119F4689D94A90A698C33FAD50F2A82150618303962E"
+      "bytes": 14247,
+      "sha256": "A1A5874896B8126EABC091CF82E3638F820654F8952D1A6EB46B30D9FB5C336A"
     },
     {
       "path": "scripts/check-app-static-surface-inventory.mjs",
       "bytes": 13000,
-      "sha256": "D33113CF7776E25B9F082977F5C453B9AF0B876C7B6D7B619E6E3F1879690525"
+      "sha256": "81110086FF42EADF54E0D5BC68C0CA3823191124625A786EC2C1B69519E2DD99"
     },
     {
       "path": "scripts/check-assets.mjs",
@@ -231,7 +231,7 @@
     {
       "path": "scripts/lib/app-static-surface-inventory.test.mjs",
       "bytes": 133123,
-      "sha256": "C88D48A09F887EC2A263BAC9B9FB524B1F1E4ACB1600FB1D4D3D0F3977D9FE31"
+      "sha256": "CBDD770B3E7D9396FA497F29A7BDD30E640777D382445B24BD620DAF58073C5C"
     }
   ],
   "metadataRoutes": [
@@ -1164,8 +1164,8 @@
     {
       "url": "/assets/img/gallery/shot-44.webp",
       "source": "apps/web/public/assets/img/gallery/shot-44.webp",
-      "bytes": 391068,
-      "sha256": "04A13D57F08C9BAA926117B971713169AB2873BAD850C03D9D5442096DC45556",
+      "bytes": 2318000,
+      "sha256": "A620836AEB80B5856BB8D7091A9F49A1B219AAEBD1A1C6D2BB94BB505189D958",
       "category": "asset",
       "format": "webp"
     },
@@ -1748,8 +1748,8 @@
     {
       "url": "/assets/img/gallery/thumbs/shot-44.webp",
       "source": "apps/web/public/assets/img/gallery/thumbs/shot-44.webp",
-      "bytes": 92340,
-      "sha256": "597E36513B0954BCA012DE05FFD982682C311BCBDE30E6AECD9FFAB7A6FC1274",
+      "bytes": 562614,
+      "sha256": "6F2871A0E19F8BBBC286B0DFADF03742503C9FEF898FD785BBC5FCEAD6569247",
       "category": "asset",
       "format": "webp"
     },
