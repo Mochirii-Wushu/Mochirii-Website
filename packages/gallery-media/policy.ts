@@ -136,6 +136,7 @@ export async function readBoundedGalleryBody(
   maximum: number,
   signal?: AbortSignal,
 ): Promise<Uint8Array> {
+  if (!Number.isSafeInteger(maximum) || maximum < 1) throw new GalleryImageError("image_size_rejected");
   const declared = response.headers.get("content-length");
   if (declared !== null && (!/^\d+$/.test(declared) || Number(declared) > maximum)) {
     await response.body?.cancel().catch(() => {});
@@ -143,7 +144,9 @@ export async function readBoundedGalleryBody(
   }
   if (!response.body) throw new GalleryImageError("image_content_rejected");
   const reader = response.body.getReader();
-  const chunks: Uint8Array[] = [];
+  // A growable bounded buffer avoids one retained allocation per transport
+  // fragment and copies each chunk before a producer can reuse its backing data.
+  let bytes = new Uint8Array(0);
   let length = 0;
   const cancel = () => { void reader.cancel().catch(() => {}); };
   signal?.addEventListener("abort", cancel, { once: true });
@@ -153,15 +156,18 @@ export async function readBoundedGalleryBody(
       const { done, value } = await reader.read();
       signal?.throwIfAborted();
       if (done) break;
-      length += value.length;
-      if (length > maximum) throw new GalleryImageError("image_size_rejected");
-      chunks.push(value);
+      const nextLength = length + value.length;
+      if (nextLength > maximum) throw new GalleryImageError("image_size_rejected");
+      if (nextLength > bytes.length) {
+        const grown = new Uint8Array(Math.min(maximum, Math.max(nextLength, bytes.length * 2, 65536)));
+        grown.set(bytes.subarray(0, length));
+        bytes = grown;
+      }
+      bytes.set(value, length);
+      length = nextLength;
     }
     if (length < 1) throw new GalleryImageError("image_content_rejected");
-    const bytes = new Uint8Array(length);
-    let offset = 0;
-    for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
-    return bytes;
+    return bytes.subarray(0, length);
   } catch (error) {
     await reader.cancel().catch(() => {});
     throw error;

@@ -22,6 +22,7 @@ export function normalizeRepositoryPath(value) {
 export function isSupabaseCiOwnedPath(value) {
   const file = normalizeRepositoryPath(value);
   return file.startsWith("supabase/") ||
+    file.startsWith("packages/gallery-media/") ||
     ownedRootFiles.has(file) ||
     ownedScriptPattern.test(file) ||
     ownedLibraryPattern.test(file) ||

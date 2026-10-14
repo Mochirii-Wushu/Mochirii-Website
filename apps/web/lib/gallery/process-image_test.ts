@@ -105,6 +105,22 @@ test("streamed input accepts the exact boundary and cancels before retaining an 
   assert(cancelled); assert.equal(read, false);
 });
 
+test("fragmented input snapshots reusable chunks into bounded storage", async () => {
+  const reusable = new Uint8Array(1);
+  let offset = 0;
+  const response = new Response(new ReadableStream({
+    pull(controller) {
+      if (offset === 1000) { controller.close(); return; }
+      reusable[0] = offset++ % 256;
+      controller.enqueue(reusable);
+    },
+  }, { highWaterMark: 0 }));
+  const bytes = await readBoundedGalleryBody(response, 1024);
+  assert.equal(bytes.length, 1000);
+  assert(bytes.buffer.byteLength <= 1024);
+  assert.deepEqual(bytes, Uint8Array.from({ length: 1000 }, (_, index) => index % 256));
+});
+
 test("the server proof binds the exact media bytes and context without exposing the key", async () => {
   const secret = "a5".repeat(32), body = JSON.stringify({ actor: "one", source: "original", full: "encoded-image" });
   const signature = await signGalleryMedia(body, secret);

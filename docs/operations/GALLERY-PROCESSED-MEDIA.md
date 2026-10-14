@@ -162,6 +162,21 @@ reject non-provider, credentialed, insecure or path-bearing targets. Routine
 access-token refresh does not cancel an in-progress transfer; the current token
 is fetched before each chunk, while account changes still cancel it.
 
+PR #619 predecessor `f6210b7d937ace2f0aa945e473c2b9e4fefda374` passed every
+required GitHub check, including the complete isolated migration/pgTAP suite and
+Linux native-image tests. Its exact-head Vercel Preview build is ready. Hosted
+Supabase Preview was skipped, not passed; authenticated provider acceptance and
+the paid-plan/secret/global-cap steps remain unrun.
+
+Final source review additionally replaced the stream reader's retained chunk
+array with one growable, maximum-bounded buffer. It snapshots each fragment
+before a producer can reuse that fragment's backing memory and avoids metadata
+growth proportional to fragment count. The new actual-reader regression passes;
+the focused suite is now 21 Node tests plus six Edge publication tests. The
+successor must rerun exact-head CI rather than reuse predecessor acceptance.
+Shared `packages/gallery-media` changes now explicitly select the heavy
+Supabase CI path; focused classifier controls reject unrelated package scope.
+
 Supabase billing currently requires manual browser sign-in. Do not change plan,
 Storage limits or production secrets until target/cost readback and the guarded
 release prerequisites are satisfied. The workstation remains Windows-native;
