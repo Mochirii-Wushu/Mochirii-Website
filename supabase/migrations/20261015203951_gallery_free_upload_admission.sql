@@ -123,7 +123,7 @@ begin
   day_start:=date_trunc('day',clock_timestamp() at time zone 'Asia/Singapore') at time zone 'Asia/Singapore';
   select (select count(*) from private.gallery_upload_reservations where user_id=p_user_id and created_at>=day_start)
     +(select count(*) from public.gallery_submissions s where user_id=p_user_id and created_at>=day_start
-      and not exists(select 1 from private.gallery_upload_reservations r where r.id=s.id)) into new_count;
+      and not exists(select 1 from private.gallery_upload_reservations prior_reservation where prior_reservation.id=s.id)) into new_count;
   if new_count>=20 then return jsonb_build_object('ok',false,'code','upload_daily_limit'); end if;
   select count(*),coalesce(sum(size_bytes),0) into pending_count,pending_bytes
     from public.gallery_submissions where user_id=p_user_id and status='pending';
