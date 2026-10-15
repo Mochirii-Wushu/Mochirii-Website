@@ -1,9 +1,9 @@
--- Release-gated: increasing the provider's global Storage limit and plan
--- requires separate approval. This migration changes only the private bucket.
+-- Free-plan release: preserve the existing original and private-bucket limit.
+-- No plan, global Storage limit or unrelated bucket change is required.
 alter table public.gallery_submissions drop constraint gallery_submissions_size_bytes_check;
 alter table public.gallery_submissions add constraint gallery_submissions_size_bytes_check
-  check (size_bytes between 1 and 104857600);
-update storage.buckets set file_size_limit = 104857600 where id = 'member-gallery' and public = false;
+  check (size_bytes between 1 and 52428800);
+update storage.buckets set file_size_limit = 52428800 where id = 'member-gallery' and public = false;
 grant insert (id) on public.gallery_submissions to authenticated;
 
 alter table public.gallery_submissions

@@ -238,7 +238,7 @@ export function GallerySubmitForm() {
             <form className="glass-card glass-card--primary glass-pad auth-form upload-form" id="uploadForm" onSubmit={submitImage}>
               <p className="kicker">Pending Moderation</p>
               <h2 className="section-title">Upload Image</h2>
-              <p className="muted">Still JPEG, PNG & WebP images up to 100 MiB, 40 million pixels & 16,384 pixels on either edge. Approved images are automatically prepared for fast viewing; your original stays private.</p>
+              <p className="muted">Still JPEG, PNG & WebP images up to 50 MiB, 40 million pixels & 16,384 pixels on either edge. Approved images are automatically prepared for fast viewing; your original stays private.</p>
               <WorkflowNotice tone={access.ok ? "success" : "warning"}>{access.guidance}</WorkflowNotice>
 
               <label className="form-field">

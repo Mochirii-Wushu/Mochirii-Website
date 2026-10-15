@@ -49,6 +49,7 @@ test("an actual 8K screenshot fits the decoded policy and is resized before publ
 });
 
 test("input, decoded-pixel, edge, and output targets are independent hard limits", async () => {
+  assert.equal(GALLERY_INPUT_MAX_BYTES, 52_428_800);
   validateGalleryInputSize(GALLERY_INPUT_MAX_BYTES);
   assert.throws(() => validateGalleryInputSize(GALLERY_INPUT_MAX_BYTES + 1), imageError("image_size_rejected"));
   validateGalleryDimensions(8000, 5000);

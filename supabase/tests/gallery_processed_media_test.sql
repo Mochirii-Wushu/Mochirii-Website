@@ -12,13 +12,13 @@ select ok(
   'legacy thumbnail-only approval cannot bypass the wrapper');
 select ok(to_regprocedure('public.gallery_commit_moderation(uuid,uuid,text,text,uuid,text,text,bigint,uuid)') is null,
   'old public overload is absent');
-select ok((select public=false and file_size_limit=104857600 from storage.buckets where id='member-gallery'),
-  'bucket remains private with the 100 MiB storage cap');
-select ok(has_column_privilege('authenticated','public.gallery_submissions','id','insert'),
-  'member retries can use one stable submission ID');
+select ok((select public=false and file_size_limit=52428800 from storage.buckets where id='member-gallery'),
+  'bucket remains private with the existing 50 MiB storage cap');
+select ok(not has_column_privilege('authenticated','public.gallery_submissions','id','insert'),
+  'member retries use one stable ID through atomic reservation finalization only');
 select ok(not has_column_privilege('authenticated','public.gallery_submissions','viewer_storage_path','insert'),
   'members cannot choose their own public derivative');
-select ok(position('104857600' in pg_get_constraintdef((select oid from pg_constraint
+select ok(position('52428800' in pg_get_constraintdef((select oid from pg_constraint
   where conrelid='public.gallery_submissions'::regclass and conname='gallery_submissions_size_bytes_check')))>0,
   'database original limit is independently bounded');
 select ok(position('gallery-media-v1' in pg_get_constraintdef((select oid from pg_constraint
@@ -111,12 +111,12 @@ select is((select count(*) from public.gallery_publishable_submissions(80,0)
   where id='11000000-0000-4000-8000-000000000003'),0::bigint,'source ETag drift closes the feed');
 select lives_ok($$insert into public.gallery_submissions(id,user_id,storage_path,mime_type,size_bytes,title)
   values('11000000-0000-4000-8000-000000000005','11000000-0000-4000-8000-000000000001',
-  '11000000-0000-4000-8000-000000000001/maximum.png','image/png',104857600,'Maximum fixture')$$,
-  'exact 100 MiB original is accepted');
+  '11000000-0000-4000-8000-000000000001/maximum.png','image/png',52428800,'Maximum fixture')$$,
+  'exact 50 MiB original is accepted');
 select throws_ok($$insert into public.gallery_submissions(id,user_id,storage_path,mime_type,size_bytes,title)
   values('11000000-0000-4000-8000-000000000006','11000000-0000-4000-8000-000000000001',
-  '11000000-0000-4000-8000-000000000001/oversized.png','image/png',104857601,'Oversized fixture')$$,
+  '11000000-0000-4000-8000-000000000001/oversized.png','image/png',52428801,'Oversized fixture')$$,
   '23514','new row for relation "gallery_submissions" violates check constraint "gallery_submissions_size_bytes_check"',
-  '100 MiB plus one byte is rejected');
+  '50 MiB plus one byte is rejected');
 select * from finish();
 rollback;

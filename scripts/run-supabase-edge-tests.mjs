@@ -9,6 +9,8 @@ const suites = [
   ["gallery cleanup", ["--allow-env", "--node-modules-dir=auto", "--import-map=supabase/functions/delete-rejected-gallery-submission/deno.json", "supabase/functions/_shared/gallery-cleanup_test.ts"]],
   ["gallery thumbnail", ["supabase/functions/_shared/gallery-thumbnail_test.ts"]],
   ["gallery processed media", ["--node-modules-dir=auto", "--import-map=supabase/functions/moderate-gallery-submission/deno.json", "supabase/functions/_shared/gallery-processed-media_test.ts"]],
+  ["Discord gallery ingest", ["--node-modules-dir=auto", "--import-map=supabase/functions/submit-discord-gallery-image/deno.json", "supabase/functions/submit-discord-gallery-image/index_test.ts"]],
+  ["gallery processing admission", ["--node-modules-dir=auto", "--import-map=supabase/functions/list-gallery-review-queue/deno.json", "supabase/functions/list-gallery-review-queue/index_test.ts"]],
   ["member access", ["--allow-env", "--node-modules-dir=auto", "--import-map=supabase/functions/sync-pixelfed-social-account/deno.json", "supabase/functions/_shared/member-access-policy_test.ts", "supabase/functions/_shared/pixelfed-social-sync_test.ts", "supabase/functions/_shared/social-service-entitlement_test.ts"]],
   ["member verification identity", ["supabase/functions/_shared/member-verification-identity_test.ts"]],
   ["Mochi Pets", ["--allow-env", "--node-modules-dir=auto", "--import-map=supabase/functions/mochi-pets-unity-auth/deno.json", "supabase/functions/_shared/mochi-pets-alpha_test.ts"]],

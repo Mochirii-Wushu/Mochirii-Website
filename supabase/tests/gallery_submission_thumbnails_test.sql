@@ -89,23 +89,23 @@ select ok(
 );
 
 select ok(
-  exists (
+  not exists (
     select 1 from pg_policies
     where schemaname = 'storage'
       and tablename = 'objects'
       and policyname = 'Members update own pending gallery originals'
   ),
-  'members have a pending-original-only update policy'
+  'members have no original update policy after reservation hardening'
 );
 
 select ok(
-  exists (
+  not exists (
     select 1 from pg_policies
     where schemaname = 'storage'
       and tablename = 'objects'
       and policyname = 'Members delete own pending or orphaned gallery originals'
   ),
-  'members have a pending-or-orphaned-original-only delete policy'
+  'members have no original delete policy after reservation hardening'
 );
 
 select ok(

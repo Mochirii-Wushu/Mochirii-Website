@@ -123,7 +123,9 @@ assertIncludes("Leader Dashboard thumbnail backfill", leaderDashboardParts, "Pre
   .forEach((snippet) => assertIncludes("gallery handler authorization", moderationHandler, snippet));
 ["verifyGalleryMedia(", "GALLERY_MEDIA_BODY_MAX_BYTES", "parseGalleryFullPayload(body.full)"]
   .forEach((snippet) => assertIncludes("trusted processed-media proof", mediaProof, snippet));
-["revision_id: randomUUID()", "sourceSha256", "processImage(bytes)", 'redirect: "manual"']
+["revision_id: randomUUID()", "sourceSha256", "processImage(bytes, { signal: controller.signal })", 'redirect: "manual"',
+  '"gallery-processing-admission-v1\\n" + body', '"x-mochirii-gallery-admission-proof": signature',
+  'admission("acquire", controller.signal)', 'admission("release", AbortSignal.timeout(5_000))']
   .forEach((snippet) => assertIncludes("trusted Node preparation", nodeProcessor, snippet));
 if (/\.from\(["']gallery_submissions["']\)\s*\n?\s*\.update\(/.test(moderation)) {
   failures.push("atomic gallery moderation: submission updates must remain inside gallery_commit_moderation.");

@@ -1,14 +1,15 @@
 import { withProtectedCors } from "../_shared/cors.ts";
 import "@supabase/functions-js/edge-runtime.d.ts";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   CORS_HEADERS,
   type JsonRecord,
   jsonResponse,
-  readOptionalJsonBody,
   requireModeratorAccess,
   safeString,
 } from "../_shared/gallery-moderation.ts";
-import { GALLERY_UUID } from "../../../packages/gallery-media/policy.ts";
+import { GALLERY_UUID, readBoundedGalleryBody } from "../../../packages/gallery-media/policy.ts";
+import { verifyGalleryMedia } from "../../../packages/gallery-media/proof.ts";
 
 const SIGNED_URL_SECONDS = 10 * 60;
 const DEFAULT_PAGE_SIZE = 25;
@@ -17,6 +18,48 @@ const EVENT_LIMIT = 250;
 const MEMBER_GALLERY_BUCKET = "member-gallery";
 const VALID_STATUSES = new Set(["pending", "approved", "rejected", "archived"]);
 const VALID_THUMBNAIL_STATES = new Set(["all", "missing", "ready"]);
+
+const record = (value: unknown): value is JsonRecord =>
+  value !== null && typeof value === "object" && !Array.isArray(value);
+const exactKeys = (value: JsonRecord, keys: readonly string[]) =>
+  Object.keys(value).length === keys.length && keys.every((key) => Object.hasOwn(value, key));
+
+// The live request handler calls this exact consumer after fresh moderator
+// verification. A moderator bearer alone does not authorize lease mutation.
+export async function handleProcessingAdmission(req: Request,
+  access: { adminClient: SupabaseClient; userId: string }, raw: string, secret: string, now = Date.now()) {
+  try {
+    const body: unknown = JSON.parse(raw);
+    const admission = record(body) ? body.processingAdmission : null;
+    if (!record(body) || !exactKeys(body, ["processingAdmission"]) || !record(admission)
+      || !exactKeys(admission, ["protocol", "operation", "actor_id", "submission_id", "lease_id", "issued_at_ms"])
+      || admission.protocol !== "gallery-admission-v1" || !["acquire", "release"].includes(String(admission.operation))
+      || admission.actor_id !== access.userId || !GALLERY_UUID.test(access.userId)
+      || typeof admission.submission_id !== "string" || !GALLERY_UUID.test(admission.submission_id)
+      || typeof admission.lease_id !== "string" || !GALLERY_UUID.test(admission.lease_id)
+      || !Number.isSafeInteger(admission.issued_at_ms) || now - Number(admission.issued_at_ms) > 30_000
+      || Number(admission.issued_at_ms) > now + 5_000
+      || !await verifyGalleryMedia("gallery-processing-admission-v1\n" + raw,
+        req.headers.get("x-mochirii-gallery-admission-proof") || "", secret)) {
+      return jsonResponse({ ok: false, error: "processing_admission_rejected", message: "Image processing access could not be verified." }, 403);
+    }
+    const { data, error } = await access.adminClient.rpc("gallery_processing_admission", {
+      p_actor_id: access.userId, p_submission_id: admission.submission_id,
+      p_lease_id: admission.lease_id, p_operation: admission.operation,
+    });
+    if (error || !record(data) || typeof data.acquired !== "boolean"
+      || !(admission.operation === "acquire"
+        ? (data.code === "acquired" && data.acquired === true)
+          || (["busy", "stale", "not_owner"].includes(String(data.code)) && data.acquired === false)
+        : ["released", "not_owner"].includes(String(data.code)) && data.acquired === false)) {
+      return jsonResponse({ ok: false, error: "processing_admission_unavailable", message: "Image processing is temporarily unavailable." }, 503);
+    }
+    // Never return the lease, actor, source, signature, or private RPC error.
+    return jsonResponse({ ok: true, data: { acquired: data.acquired, code: data.code } });
+  } catch {
+    return jsonResponse({ ok: false, error: "processing_admission_unavailable", message: "Image processing is temporarily unavailable." }, 503);
+  }
+}
 
 function normalizeStatus(value: unknown): string {
   const status = safeString(value, 20)?.toLowerCase() || "pending";
@@ -66,9 +109,10 @@ function profileSummary(profile: JsonRecord | null | undefined): JsonRecord | nu
   };
 }
 
-Deno.serve((req: Request) => withProtectedCors(req, handleRequest(req)));
+if (import.meta.main) Deno.serve((req: Request) => withProtectedCors(req, handleRequest(req)));
 
-async function handleRequest(req: Request): Promise<Response> {
+export async function handleRequest(req: Request, verifyModerator = requireModeratorAccess,
+  processorSecret = () => Deno.env.get("GALLERY_MEDIA_PROCESSOR_SECRET") || ""): Promise<Response> {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: CORS_HEADERS });
   }
@@ -77,11 +121,32 @@ async function handleRequest(req: Request): Promise<Response> {
     return jsonResponse({ ok: false, message: "Method not allowed." }, 405);
   }
 
-  const access = await requireModeratorAccess(req);
+  let access: Awaited<ReturnType<typeof requireModeratorAccess>>;
+  try { access = await verifyModerator(req); }
+  catch {
+    return jsonResponse({ ok: false, error: "moderation_verification_unavailable", message: "Moderator access could not be verified." }, 503);
+  }
   if (!access.ok) return access.response;
 
-  const bodyResult = await readOptionalJsonBody(req);
-  if (!bodyResult.ok) return bodyResult.response;
+  let body: JsonRecord = {}, raw = "";
+  if ((req.headers.get("content-type") || "").toLowerCase().includes("application/json")) {
+    try {
+      raw = new TextDecoder("utf-8", { fatal: true }).decode(await readBoundedGalleryBody(req, 64 * 1024));
+      const parsed: unknown = JSON.parse(raw);
+      if (!record(parsed)) throw new Error("invalid_review_body");
+      body = parsed;
+    } catch {
+      return jsonResponse({ ok: false, error: "invalid_json", message: "The review request could not be read safely." }, 400);
+    }
+  }
+  const bodyResult = { body };
+
+  if (Object.hasOwn(body, "processingAdmission")) {
+    try { return await handleProcessingAdmission(req, access, raw, processorSecret()); }
+    catch {
+      return jsonResponse({ ok: false, error: "processing_admission_unavailable", message: "Image processing is temporarily unavailable." }, 503);
+    }
+  }
 
   if (bodyResult.body.processingSource !== undefined) {
     const submissionId = safeString(bodyResult.body.processingSource, 80);

@@ -1,24 +1,25 @@
 # Gallery processed-media release candidate
 
-Status: authorized release candidate, not deployed. The current production original/bucket
-limit remains 50 MiB. The corrected static shot-44 image is a separate completed
+Status: Free-plan source revision authorized on 16 October 2026 (UTC+8), not deployed.
+Production and this candidate both retain the existing 50 MiB original/bucket
+limit. The corrected static shot-44 image is a separate completed
 release and is not processed by this pipeline.
 
 ## Limits and rationale
 
 | Boundary | Limit |
 | --- | --- |
-| Proposed Website original | 100 MiB (104,857,600 bytes) |
+| Website original | 50 MiB (52,428,800 bytes) |
 | Discord original in Edge | 50 MiB (52,428,800 bytes) |
 | Decoded still image | 40,000,000 pixels; longest edge 16,384 |
 | Published full view | WebP; 3 MiB; longest edge 2,560 |
 | Published thumbnail | WebP; 80 KiB; longest edge 720 |
 | Node processing | 20-second deadline; 768 MiB sampled RSS rejection |
-| Node concurrent admission | One decode per function instance; no buffered queue |
+| Node concurrent admission | One shared project lease plus an instance guard; no buffered queue or automatic stale takeover |
 
-100 MiB is an engineering recommendation, not a Where Winds Meet or social
-platform rule. It gives high-quality 4K/8K still screenshots room without
-allowing arbitrary-size files. The independent pixel cap admits 7680 × 4320
+The existing 50 MiB cap is retained to stay on Free. It is an application/provider
+boundary, not a Where Winds Meet or social-platform rule. The superseded 100 MiB
+proposal is not part of this release. The independent pixel cap admits 7680 × 4320
 (33,177,600 pixels) and rejects decompression bombs with much larger dimensions.
 Byte limits alone do not bound decoded memory. The RSS check is a sampled
 application rejection threshold, not an OS-level hard memory allocation limit.
@@ -48,7 +49,7 @@ An upload attempt is paused after ten minutes; its in-memory URL permits a
 bounded retry without deleting a possibly completed original.
 
 The existing Leader Dashboard invokes a Node Server Action with only a bearer
-and submission ID, never a 100 MiB request body. The existing review-queue
+and submission ID, never a large original-image request body. The existing review-queue
 function freshly verifies moderator access and issues a short-lived private
 original URL. The Node processor disables redirects, validates that exact URL,
 stream-bounds the original, safely decodes it, and signs the exact derivative
@@ -66,8 +67,9 @@ creation joins that transaction; it does not publish externally.
 
 ## Preservation and failures
 
-Recorded originals are immutable even while pending. Member deletion is
-restricted to true owned orphans. No historical original is rewritten or
+Recorded originals are immutable even while pending. The admission revision
+denies member original updates and deletes, including uncertain orphans; retirement
+requires a separate proof-based operator action. No historical original is rewritten or
 automatically removed. Legacy approved rows retain their existing original URL
 until an explicitly authorized moderator preparation.
 
@@ -80,25 +82,26 @@ this candidate does not add automatic broad orphan deletion or backfill.
 
 Instagram keeps its existing explicit opt-in, confirmation and JPEG-original
 delivery path, separate from Gallery WebP. This work does not claim every
-100 MiB original is Instagram-publishable. Instagram's separate media
+accepted original is Instagram-publishable. Instagram's separate media
 eligibility and current API requirements must pass Preview acceptance before
 release; no live post is part of verification.
 
 ## Required approvals and release order
 
-1. Approve the Supabase plan/cost decision and set the global upload limit to
-   100 MiB only for the intended project. Current Free projects cannot exceed
-   the documented 50 MB provider ceiling. Preserve smaller unrelated buckets.
+1. Stay on the existing Free organization. Preserve the 52,428,800-byte global
+   and Gallery bucket limits and all smaller unrelated bucket limits. No
+   purchase, paid branch, upgrade or global-limit increase is authorized.
 2. Approve this source's commit/push/PR and Preview release. Inspect CI first:
    pushing a PR may create a deployment/Preview database automatically.
 3. Provision matching, independently generated purpose-specific
    `GALLERY_MEDIA_PROCESSOR_SECRET` values in protected Vercel server and Edge
    environments. Never use a service-role key as this HMAC key; never expose it
    through NEXT_PUBLIC, chat, evidence or logs.
-4. Apply `20261014223059_gallery_processed_media.sql` in approved Preview and
+4. Apply `20261014223059_gallery_processed_media.sql` and the subsequent
+   `20261015203951_gallery_free_upload_admission.sql` in isolated Free staging and
    run all pgTAP tests, RLS/advisor checks, original overwrite/race controls and
    actual authenticated end-to-end upload/moderation/TUS/Instagram compatibility
-   checks. Preview must support the proposed provider limit.
+   checks. Staging must use separate credentials, synthetic data and private Storage.
 5. Only after exact-head review and explicit production approval: capture
    backups/inventory, apply the additive migration, deploy the changed existing
    Edge functions, then publish the Website. Verify signed-out denials, new and
@@ -132,7 +135,10 @@ The candidate is prepared for commit/PR in `mochi/gallery-upload-processing`.
 Read-only provider verification still finds Free plan, private JPEG/PNG/WebP
 bucket and 52,428,800-byte limit. No provider configuration or secret was changed.
 
-## Authorized release checkpoint — 15 October 2026 (UTC+8)
+## Historical authorized release checkpoint — 15 October 2026 (UTC+8)
+
+The paid-plan and 100 MiB portions below were superseded on 16 October by the
+owner's explicit Free-plan/50 MiB decision. They are history, not standing authority.
 
 The owner explicitly approved Supabase Pro, 100 MiB Website uploads, source
 publication, the migration, server-secret setup, Preview validation and guarded
@@ -177,10 +183,74 @@ successor must rerun exact-head CI rather than reuse predecessor acceptance.
 Shared `packages/gallery-media` changes now explicitly select the heavy
 Supabase CI path; focused classifier controls reject unrelated package scope.
 
-Supabase billing currently requires manual browser sign-in. Do not change plan,
+The historical billing checkpoint required manual browser sign-in. Do not change plan,
 Storage limits or production secrets until target/cost readback and the guarded
 release prerequisites are satisfied. The workstation remains Windows-native;
 database and native-Linux runtime checks run only on isolated hosted CI/Preview.
+
+## Free-plan continuation — 16 October 2026 (UTC+8)
+
+The owner authorized revision of existing draft PR #619, an isolated Free
+staging project in the existing Mōchirīī organization, source-blocker repairs and
+validation. Purchases and upgrades are explicitly forbidden. Production merge,
+migration, deployment and production secrets are not authorized by this continuation.
+
+The owner separately approved these server-enforced admission limits:
+
+- 20 new uploads per member per Singapore calendar day;
+- at most 5 unreviewed rows/reservations per member;
+- 250 MiB of unreviewed original capacity per member;
+- 750 MiB project Storage admission ceiling, including completed objects in all
+  buckets, outstanding original reservations and derivative headroom.
+
+An unfinished original reserves the full 50 MiB slot rather than trusting a
+client's declared size. Same-ID retries retain one reservation. Cancellation,
+timeout and ambiguous completion retain both reservation capacity and possibly
+durable objects. They never automatically erase an original or recycle its path.
+Historical media is preserved even when a quota prevents new admission.
+
+The project ceiling is an application admission safeguard, not a hard physical
+or billing limit: duplicate in-flight TUS parts and unrelated service writers
+must not be represented as covered by Gallery SQL locking. Hosted verification
+must test real TUS permission probes and final object metadata.
+
+The processing lease is purpose-HMAC authenticated and shared across instances.
+Its 120-second age is diagnostic only; expired leases cannot be taken over.
+Release requires the exact owner token after processing actually settles. A lost
+release or terminated invocation fails closed. Operator recovery must first
+prove the old invocation has stopped; no automatic stale-lease recovery is claimed.
+The action page pins a 60-second hosting duration, with a 50-second application
+deadline; sampled RSS remains a rejection threshold, not a hard memory limit.
+
+Read-only provider verification finds the organization still Free and separate
+healthy `Mochirii Gallery Staging` in Canada Central, PostgreSQL 17.11, initially
+zero public tables and the 52,428,800-byte global limit. Production remains on
+its separately observed PostgreSQL 17.6 revision. This difference must be recorded
+in hosted evidence. Staging is unlinked from production Git deployment. No
+production data or runtime credential is copied into it.
+
+The owner separately authorized one staging-only processor secret pair and
+branch-specific Vercel Preview URL/key binding. Values stay in protected provider
+stores, never source, evidence or chat. Configuration readback now confirms only
+those three branch-specific Preview keys, the write-only processor Secret type,
+exact staging public URL/key, and unchanged production environment records. The
+initial secret operation stopped after creation because its documented void
+response was treated as JSON; the owner explicitly authorized one staging-only
+replacement, whose paired Preview setup completed. No secret value was retained
+in local evidence. A successful signed hosted processing flow is still required
+to prove the deployed pair. Historical green CI does not accept this changed
+candidate; the final head needs fresh validation.
+
+Reservation-only Storage admission and revoked direct submission INSERT are
+intentionally fail-closed for already-open older clients during the ordered
+migration → Edge → Website transition. Plan a short upload-admission interruption
+and require a page refresh; do not claim backward-compatible zero downtime.
+
+Independent source review additionally binds cancellation after an awaited
+session refresh, categorical containment of thrown moderator/configuration
+lookups, and ambiguous acquire/release ordering. Only an explicit durable
+`released` result proves lease cleanup; `not_owner` after a lost acquisition
+response requires recovery because a delayed acquisition may still commit.
 
 ## Primary references
 

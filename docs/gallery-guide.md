@@ -43,7 +43,7 @@ The Gallery is Mōchirīī's visual memory: screenshots of scenes, members, gath
 - The viewer uses a fluid safe-area-aware shell, a `1160px` maximum card width, `100vh`/`100dvh` height bounds, and `object-fit: contain` so images keep their natural proportions without crop.
 - If enlarged text or a long caption exceeds the available height, the keyboard-focusable card scrolls vertically while the image remains visible. The viewer must never introduce horizontal scrolling.
 - Keep the existing dialog semantics, 44px close target, Escape handling, focus containment and return, backdrop close, and body-scroll restoration.
-- Production's current private-original contract remains 50 MiB. The separate processed-media candidate proposes 100 MiB Website originals with 40-million-pixel/16,384-edge bounds, 3 MiB/2560-edge full views and unchanged 80 KiB/720-edge thumbnails. It requires a paid-plan/global-limit decision, migration, decoder/runtime verification and explicit release approval. Discord ingestion retains its 50 MiB Edge limit. No automatic historical backfill is included.
+- Production and the Free-plan processed-media candidate retain the same 50 MiB (52,428,800-byte) private-original limit. The candidate adds 40-million-pixel/16,384-edge bounds, 3 MiB/2560-edge full views and unchanged 80 KiB/720-edge thumbnails. Isolated hosted validation, migrations and an explicit production release approval remain required; no paid upgrade or global-limit increase is authorized. Discord ingestion also retains its 50 MiB Edge limit. No automatic historical backfill is included.
 
 ## 4. Categories
 
