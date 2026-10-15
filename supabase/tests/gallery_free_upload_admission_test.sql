@@ -87,9 +87,18 @@ select throws_ok($$insert into storage.objects(bucket_id,name,metadata) values('
 select lives_ok($$insert into storage.objects(bucket_id,name,metadata) values('member-gallery',
   '12000000-0000-4000-8000-000000000001/13000000-0000-4000-8000-000000000001.png',
   '{"size":10,"mimetype":"image/png"}')$$,'reserved exact original passes actual Storage RLS');
+set local storage.allow_delete_query='false';
+select throws_ok($$delete from storage.objects where bucket_id='member-gallery'
+  and name='12000000-0000-4000-8000-000000000001/13000000-0000-4000-8000-000000000001.png'$$,
+  '42501','Direct deletion from storage tables is not allowed. Use the Storage API instead.',
+  'platform guard rejects direct SQL deletion before row policies');
+-- Storage API uses this exact session flag. Emulate it only in this rolled-back
+-- SQL fixture so the platform guard cannot mask the original DELETE RLS proof.
+set local storage.allow_delete_query='true';
 select lives_ok($$delete from storage.objects where bucket_id='member-gallery'
   and name='12000000-0000-4000-8000-000000000001/13000000-0000-4000-8000-000000000001.png'$$,
   'unauthorized member deletion exposes no object');
+set local storage.allow_delete_query='false';
 reset role;
 select ok(exists(select 1 from storage.objects where bucket_id='member-gallery'
   and name='12000000-0000-4000-8000-000000000001/13000000-0000-4000-8000-000000000001.png'),
