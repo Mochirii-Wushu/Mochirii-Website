@@ -88,6 +88,7 @@ const checkRows = [
   ["check:header-auth-loading", ["node", "scripts/check-header-auth-loading.mjs"]],
   ["test:header-auth-loader", ["deno", "test", "--lock=deno.lock", "--frozen=true", "apps/web/components/site-header/deferred-task_test.ts"]],
   ["check:events-page-schedule-sync", ["node", "scripts/check-events-page-schedule-sync.mjs"]],
+  ["test:events-public-ux-readiness", ["node", "--test", "scripts/smoke-events-public-ux.test.mjs"]],
   ["check:observability-metadata-smoke", ["node", "scripts/check-observability-metadata-smoke.mjs"]],
   ["check:web-runtime-performance", ["node", "scripts/check-web-runtime-performance.mjs"]],
   ["test:web-runtime-performance", [...npmCommand, "--prefix", "apps/web", "run", "test:web-runtime-performance"]],
