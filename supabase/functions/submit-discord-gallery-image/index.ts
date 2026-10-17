@@ -2,8 +2,21 @@ import { withProtectedCors } from "../_shared/cors.ts";
 import "@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "@supabase/supabase-js";
 import { getServiceRoleKey } from "../_shared/supabase-service-role.ts";
+import { GALLERY_UUID, inspectGalleryInput, readBoundedGalleryBody } from "../../../packages/gallery-media/policy.ts";
 
 type JsonRecord = Record<string, unknown>;
+type IngestDependencies = {
+  createClient?: typeof createClient;
+  fetchImpl?: typeof fetch;
+  config?: {
+    supabaseUrl: string;
+    serviceRoleKey: string;
+    ingestSecret: string;
+    guildId: string;
+    channelId: string;
+    requiredRoleIds: string[];
+  };
+};
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -129,9 +142,9 @@ function validAttachmentUrl(value: unknown): string | null {
 
   try {
     const url = new URL(text);
-    const hasAttachmentPath =
-      url.pathname.includes("/attachments/") || url.pathname.includes("/ephemeral-attachments/");
-    if (url.protocol !== "https:" || !DISCORD_CDN_HOSTS.has(url.hostname) || !hasAttachmentPath) {
+    const hasAttachmentPath = /^\/(?:ephemeral-)?attachments\/\d{16,22}\/\d{16,22}\/[^/]+$/.test(url.pathname);
+    if (url.protocol !== "https:" || url.port || url.username || url.password || url.hash
+      || !DISCORD_CDN_HOSTS.has(url.hostname) || !hasAttachmentPath) {
       return null;
     }
     return url.toString();
@@ -174,9 +187,9 @@ async function readJsonBody(req: Request): Promise<JsonRecord | null> {
   }
 }
 
-Deno.serve((req: Request) => withProtectedCors(req, handleRequest(req)));
+if (import.meta.main) Deno.serve((req: Request) => withProtectedCors(req, handleRequest(req)));
 
-async function handleRequest(req: Request): Promise<Response> {
+export async function handleRequest(req: Request, dependencies: IngestDependencies = {}): Promise<Response> {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: CORS_HEADERS });
   }
@@ -185,12 +198,12 @@ async function handleRequest(req: Request): Promise<Response> {
     return jsonResponse({ ok: false, message: "Method not allowed." }, 405);
   }
 
-  const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-  const serviceRoleKey = getServiceRoleKey();
-  const ingestSecret = Deno.env.get("DISCORD_GALLERY_INGEST_SECRET") || "";
-  const configuredGuildId = Deno.env.get("DISCORD_GUILD_ID") || "";
-  const configuredChannelId = Deno.env.get("DISCORD_GALLERY_CHANNEL_ID") || "";
-  const configuredRequiredRoleIds = parseCsv(Deno.env.get("DISCORD_REQUIRED_ROLE_IDS"));
+  const supabaseUrl = dependencies.config?.supabaseUrl ?? Deno.env.get("SUPABASE_URL") ?? "";
+  const serviceRoleKey = dependencies.config?.serviceRoleKey ?? getServiceRoleKey();
+  const ingestSecret = dependencies.config?.ingestSecret ?? Deno.env.get("DISCORD_GALLERY_INGEST_SECRET") ?? "";
+  const configuredGuildId = dependencies.config?.guildId ?? Deno.env.get("DISCORD_GUILD_ID") ?? "";
+  const configuredChannelId = dependencies.config?.channelId ?? Deno.env.get("DISCORD_GALLERY_CHANNEL_ID") ?? "";
+  const configuredRequiredRoleIds = dependencies.config?.requiredRoleIds ?? parseCsv(Deno.env.get("DISCORD_REQUIRED_ROLE_IDS"));
   const guildConfigMatches = configuredGuildId === EXPECTED_DISCORD_GUILD_ID;
   const roleConfigMatches = expectedRoleConfigMatches(configuredRequiredRoleIds);
 
@@ -266,7 +279,7 @@ async function handleRequest(req: Request): Promise<Response> {
     !attachmentId ||
     !discordUserId ||
     !attachmentUrl ||
-    !Number.isFinite(declaredSize) ||
+    !Number.isSafeInteger(declaredSize) ||
     declaredSize <= 0 ||
     declaredSize > MAX_SIZE_BYTES
   ) {
@@ -280,7 +293,8 @@ async function handleRequest(req: Request): Promise<Response> {
     );
   }
 
-  const adminClient = createClient(supabaseUrl, serviceRoleKey, {
+  const fetchImpl = dependencies.fetchImpl || fetch;
+  const adminClient = (dependencies.createClient || createClient)(supabaseUrl, serviceRoleKey, {
     auth: {
       persistSession: false,
       autoRefreshToken: false,
@@ -296,10 +310,7 @@ async function handleRequest(req: Request): Promise<Response> {
     .maybeSingle();
 
   if (existingError) {
-    console.error("submit-discord-gallery-image duplicate lookup failed", {
-      code: existingError.code,
-      message: existingError.message,
-    });
+    console.error("submit-discord-gallery-image duplicate lookup failed");
 
     return jsonResponse(
       {
@@ -332,10 +343,7 @@ async function handleRequest(req: Request): Promise<Response> {
     .maybeSingle();
 
   if (profileError) {
-    console.error("submit-discord-gallery-image profile lookup failed", {
-      code: profileError.code,
-      message: profileError.message,
-    });
+    console.error("submit-discord-gallery-image profile lookup failed");
 
     return jsonResponse(
       {
@@ -375,16 +383,16 @@ async function handleRequest(req: Request): Promise<Response> {
 
   let attachmentResponse: Response;
   try {
-    attachmentResponse = await fetch(attachmentUrl, {
+    attachmentResponse = await fetchImpl(attachmentUrl, {
+      redirect: "manual",
+      signal: AbortSignal.timeout(30_000),
       headers: {
         Accept: [...ALLOWED_MIME_TYPES].join(", "),
         "User-Agent": "Mochirii-Reaper-Gallery-Ingest/1.0",
       },
     });
-  } catch (error) {
-    console.error("submit-discord-gallery-image attachment fetch failed", {
-      message: error instanceof Error ? error.message : String(error),
-    });
+  } catch {
+    console.error("submit-discord-gallery-image attachment fetch failed");
 
     return jsonResponse(
       {
@@ -396,10 +404,10 @@ async function handleRequest(req: Request): Promise<Response> {
     );
   }
 
-  if (!attachmentResponse.ok) {
+  if (!attachmentResponse.ok || attachmentResponse.url !== attachmentUrl) {
+    await attachmentResponse.body?.cancel().catch(() => {});
     console.error("submit-discord-gallery-image attachment fetch returned non-ok", {
       status: attachmentResponse.status,
-      statusText: attachmentResponse.statusText,
     });
 
     return jsonResponse(
@@ -415,18 +423,27 @@ async function handleRequest(req: Request): Promise<Response> {
   const contentLength = Number(attachmentResponse.headers.get("content-length") || 0);
   const responseMime = normalizedMime(attachmentResponse.headers.get("content-type"));
   if (Number.isFinite(contentLength) && contentLength > MAX_SIZE_BYTES) {
+    await attachmentResponse.body?.cancel().catch(() => {});
     return jsonResponse(
       {
         ok: false,
         error: "attachment_too_large",
-        message: "Gallery images must be 50 MB or smaller.",
+        message: "Discord gallery images must be 50 MiB or smaller.",
       },
       413,
     );
   }
 
-  const bytes = new Uint8Array(await attachmentResponse.arrayBuffer());
-  const sniffedMime = sniffMime(bytes);
+  let bytes: Uint8Array;
+  let sniffedMime: string;
+  try {
+    bytes = await readBoundedGalleryBody(attachmentResponse, MAX_SIZE_BYTES);
+    sniffedMime = inspectGalleryInput(bytes).mimeType;
+    if (sniffMime(bytes) !== sniffedMime || bytes.length !== declaredSize) throw new Error("attachment_content_rejected");
+  } catch {
+    return jsonResponse({ ok: false, error: "invalid_attachment_content",
+      message: "Choose a still JPEG, PNG, or WebP within the 50 MiB and image-dimension limits." }, 400);
+  }
 
   if (bytes.byteLength <= 0 || bytes.byteLength > MAX_SIZE_BYTES || !sniffedMime) {
     console.error("submit-discord-gallery-image invalid attachment content", {
@@ -451,24 +468,57 @@ async function handleRequest(req: Request): Promise<Response> {
   const originalFilename = safeString(body.originalFilename, 255) || `discord-${attachmentId}.${extensionForMime(sniffedMime)}`;
   const storageFilename = filenameFromInput(originalFilename, sniffedMime, attachmentId);
   const storagePath = `${userId}/discord/${messageId}-${attachmentId}-${storageFilename}`;
-
-  const { error: uploadError } = await adminClient.storage
-    .from(MEMBER_GALLERY_BUCKET)
-    .upload(storagePath, bytes, {
-      contentType: sniffedMime,
-      upsert: false,
+  let reservationResult;
+  try {
+    reservationResult = await adminClient.rpc("gallery_reserve_discord_upload", {
+      p_user_id: userId, p_storage_path: storagePath, p_size_bytes: bytes.length, p_mime_type: sniffedMime,
+      p_discord_message_id: messageId, p_discord_attachment_id: attachmentId,
     });
+  } catch {
+    return jsonResponse({ ok: false, error: "upload_reservation_unconfirmed",
+      message: "Upload access could not be confirmed. Retry with the same attachment." }, 503);
+  }
+  const reservation = asRecord(reservationResult.data);
+  if (reservationResult.error || reservation.ok !== true || typeof reservation.upload_id !== "string"
+    || !GALLERY_UUID.test(reservation.upload_id) || reservation.storage_path !== storagePath
+    || !["reserved", "submitted"].includes(String(reservation.state))
+    || (reservation.state === "submitted" && reservation.submission_id !== reservation.upload_id)) {
+    const quotaCodes = new Set(["upload_daily_limit", "upload_pending_limit", "upload_storage_limit", "upload_project_limit"]);
+    const code = typeof reservation.code === "string" && quotaCodes.has(reservation.code)
+      ? reservation.code : "upload_reservation_rejected";
+    return jsonResponse({ ok: false, error: code,
+      message: quotaCodes.has(code) ? "Gallery upload capacity is reached. Wait for review or try another day."
+        : "Upload access could not be confirmed. Retry with the same attachment." }, quotaCodes.has(code) ? 429 : 409);
+  }
+
+  let uploadError: unknown;
+  if (reservation.state === "reserved") try {
+    ({ error: uploadError } = await adminClient.storage
+      .from(MEMBER_GALLERY_BUCKET)
+      .upload(storagePath, bytes, {
+        contentType: sniffedMime,
+        upsert: false,
+      }));
+  } catch {
+    uploadError = true;
+  }
 
   if (uploadError) {
-    const { data: duplicateAfterUpload } = await adminClient
-      .from("gallery_submissions")
-      .select("id,status,created_at")
-      .eq("submission_source", "discord")
-      .eq("discord_message_id", messageId)
-      .eq("discord_attachment_id", attachmentId)
-      .maybeSingle();
+    let duplicateResult: { data: unknown; error: unknown };
+    try {
+      duplicateResult = await adminClient
+        .from("gallery_submissions")
+        .select("id,status,created_at")
+        .eq("submission_source", "discord")
+        .eq("discord_message_id", messageId)
+        .eq("discord_attachment_id", attachmentId)
+        .maybeSingle();
+    } catch {
+      duplicateResult = { data: null, error: true };
+    }
+    const { data: duplicateAfterUpload, error: duplicateAfterUploadError } = duplicateResult;
 
-    if (duplicateAfterUpload) {
+    if (!duplicateAfterUploadError && duplicateAfterUpload) {
       const existing = asRecord(duplicateAfterUpload);
       return jsonResponse({
         ok: true,
@@ -482,54 +532,39 @@ async function handleRequest(req: Request): Promise<Response> {
       });
     }
 
-    console.error("submit-discord-gallery-image storage upload failed", {
-      message: uploadError.message,
-    });
-
-    return jsonResponse(
-      {
-        ok: false,
-        error: "storage_upload_failed",
-        message: "Gallery image could not be stored.",
-      },
-      500,
-    );
+    // A prior upload may be durable while its row insert rolled back. Adopt
+    // only the exact original bytes, never an object identified by name alone.
+    // An unreadable row/object or ambiguous response preserves everything.
+    if (duplicateAfterUploadError || !await existingOriginalMatches(
+      supabaseUrl, serviceRoleKey, storagePath, bytes, sniffedMime, fetchImpl,
+    )) {
+      return jsonResponse({ ok: false, error: "storage_upload_failed",
+        message: "Gallery image could not be confirmed. Retry with the same attachment." }, 503);
+    }
   }
 
-  const { data: insertedData, error: insertError } = await adminClient
-    .from("gallery_submissions")
-    .insert({
-      user_id: userId,
-      storage_bucket: MEMBER_GALLERY_BUCKET,
-      storage_path: storagePath,
-      original_filename: originalFilename,
-      mime_type: sniffedMime,
-      size_bytes: bytes.byteLength,
-      title,
-      caption,
-      category: "discord",
-      status: "pending",
-      submission_source: "discord",
-      discord_guild_id: guildId,
-      discord_channel_id: channelId,
-      discord_message_id: messageId,
-      discord_attachment_id: attachmentId,
-      discord_user_id: discordUserId,
-      instagram_opt_in: instagramOptIn,
-      instagram_opt_in_at: instagramOptIn ? new Date().toISOString() : null,
-      instagram_opt_in_source: instagramOptIn ? "discord_slash_command" : null,
-      instagram_opt_in_copy_version: instagramOptIn ? INSTAGRAM_OPT_IN_COPY_VERSION : null,
-    })
-    .select("id,status,created_at")
-    .maybeSingle();
-
-  if (insertError || !insertedData) {
-    await adminClient.storage.from(MEMBER_GALLERY_BUCKET).remove([storagePath]);
-
-    console.error("submit-discord-gallery-image submission insert failed", {
-      code: insertError?.code,
-      message: insertError?.message || "Missing inserted row",
+  let insertResult: { data: unknown; error: unknown };
+  try {
+    insertResult = await adminClient.rpc("gallery_complete_discord_upload", {
+      p_upload_id: reservation.upload_id,
+      p_metadata: { original_filename: originalFilename, title, caption, category: "discord",
+        discord_guild_id: guildId, discord_channel_id: channelId, discord_user_id: discordUserId,
+        instagram_opt_in: instagramOptIn,
+        instagram_opt_in_copy_version: instagramOptIn ? INSTAGRAM_OPT_IN_COPY_VERSION : null },
     });
+  } catch {
+    insertResult = { data: null, error: true };
+  }
+  const completed = asRecord(insertResult.data);
+  const insertedData = asRecord(completed.submission);
+
+  if (insertResult.error || completed.ok !== true || insertedData.id !== reservation.upload_id
+    || !["pending", "approved", "rejected", "archived"].includes(String(insertedData.status))
+    || typeof insertedData.created_at !== "string") {
+    // An interrupted insert can already be committed. Never remove a possibly
+    // selected immutable original; a retry reconciles the message/attachment ID.
+
+    console.error("submit-discord-gallery-image submission insert failed");
 
     return jsonResponse(
       {
@@ -552,4 +587,54 @@ async function handleRequest(req: Request): Promise<Response> {
     },
     message: "Image submitted to the pending gallery queue for moderator approval.",
   });
+}
+
+async function existingOriginalMatches(
+  supabaseUrl: string,
+  serviceRoleKey: string,
+  storagePath: string,
+  expected: Uint8Array,
+  mimeType: string,
+  fetchImpl: typeof fetch,
+): Promise<boolean> {
+  try {
+    const origin = new URL(supabaseUrl);
+    if (origin.protocol !== "https:" || origin.username || origin.password || origin.port
+      || origin.pathname !== "/" || origin.search || origin.hash
+      || !/^[a-z0-9]{20}\.supabase\.co$/.test(origin.hostname)
+      || /[\\\x00-\x1f\x7f]/.test(storagePath)
+      || storagePath.split("/").some((part) => !part || part === "." || part === "..")) return false;
+    const target = `${origin.origin}/storage/v1/object/authenticated/${MEMBER_GALLERY_BUCKET}/`
+      + storagePath.split("/").map(encodeURIComponent).join("/");
+    const response = await fetchImpl(target, {
+      redirect: "manual", signal: AbortSignal.timeout(30_000), cache: "no-store",
+      headers: { Authorization: `Bearer ${serviceRoleKey}`, apikey: serviceRoleKey },
+    });
+    const length = response.headers.get("content-length");
+    const etag = (response.headers.get("etag") || "").replace(/^"|"$/g, "");
+    if (!response.ok || response.url !== target || normalizedMime(response.headers.get("content-type")) !== mimeType
+      || !/^[0-9a-f]{32}(?:-[1-9][0-9]{0,5})?$/i.test(etag)
+      || (length !== null && (!/^\d+$/.test(length) || Number(length) !== expected.length)) || !response.body) {
+      await response.body?.cancel().catch(() => {});
+      return false;
+    }
+    const reader = response.body.getReader();
+    let offset = 0;
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) return offset === expected.length;
+        if (offset + value.length > expected.length) return false;
+        for (let index = 0; index < value.length; index++) {
+          if (value[index] !== expected[offset + index]) return false;
+        }
+        offset += value.length;
+      }
+    } finally {
+      await reader.cancel().catch(() => {});
+      reader.releaseLock();
+    }
+  } catch {
+    return false;
+  }
 }

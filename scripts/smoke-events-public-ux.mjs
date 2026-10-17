@@ -1,29 +1,65 @@
 import assert from "node:assert/strict";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 import publicUrls from "../apps/web/config/public-urls.json" with { type: "json" };
 
-const argument = process.argv.find((value) => value.startsWith("--base-url="));
-const baseUrl = new URL(argument?.slice("--base-url=".length) || "http://127.0.0.1:8765");
-if (baseUrl.protocol !== "http:" || !["127.0.0.1", "localhost", "[::1]"].includes(baseUrl.hostname)) {
-  throw new Error("Events public UX smoke requires a local HTTP application server.");
+export const PUBLIC_UX_TIMEOUT_MS = 30_000;
+
+// DOMContentLoaded is navigation readiness, not proof of the route's render.
+// Keep this browser predicate self-contained so the exact live condition is testable.
+export function publicPageReady({ route, javaScriptEnabled }) {
+  const visible = (element) => Boolean(element && element.getClientRects().length
+    && getComputedStyle(element).display !== "none" && getComputedStyle(element).visibility !== "hidden");
+  const headings = document.querySelectorAll("h1");
+  if (document.readyState === "loading" || headings.length !== 1 || !headings[0].textContent.trim()) return false;
+  if (route === "/") {
+    const links = [...document.querySelectorAll('a[href="/events"] .home-link')]
+      .filter((element) => element.textContent.trim() === "View All Events");
+    return document.body?.dataset.page === "home" && links.length === 1 && visible(links[0]);
+  }
+  if (route !== "/events" || headings[0].textContent !== "Events"
+    || document.querySelectorAll("#eventsUpcoming .events-list__item").length !== 7
+    || document.querySelector("#eventsCount")?.textContent.trim() !== "Upcoming: 7 events") return false;
+  for (const [filter, pressed] of [["upcoming", "true"], ["past", "false"], ["all", "false"]]) {
+    const buttons = document.querySelectorAll(`[data-events-filter="${filter}"]`);
+    if (buttons.length !== 1 || buttons[0].getAttribute("aria-pressed") !== pressed) return false;
+  }
+  const filters = document.querySelector(".events-filters");
+  if (javaScriptEnabled) return document.body?.dataset.page === "events" && visible(filters);
+  const fallback = [...document.querySelectorAll("noscript p")]
+    .find((element) => element.textContent === "Upcoming times are shown below. Reload this page for the latest schedule.");
+  return document.body?.dataset.page === "home" && filters !== null && !visible(filters) && visible(fallback);
 }
 
-const browser = await chromium.launch({ headless: true });
-const errors = [];
-const measurements = [];
-
-async function open(route, options) {
+export async function openPublicPage(browser, baseUrl, route, options = {}, errors = []) {
+  assert.ok(route === "/events" || route === "/", "Events public UX smoke received an unsupported route.");
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, ...options });
-  await context.route("**/*", (request) => new URL(request.request().url()).origin === baseUrl.origin
-    ? request.continue()
-    : request.abort());
-  const page = await context.newPage();
-  page.on("pageerror", (error) => errors.push(error.message));
-  page.on("console", (message) => {
-    if (/hydration|hydrated|did not match|server rendered|Minified React error/i.test(message.text())) errors.push(message.text());
-  });
-  await page.goto(new URL(route, baseUrl).href, { waitUntil: "networkidle" });
-  return { context, page };
+  try {
+    await context.route("**/*", (request) => new URL(request.request().url()).origin === baseUrl.origin
+      ? request.continue()
+      : request.abort());
+    const page = await context.newPage();
+    page.on("pageerror", (error) => errors.push(error.message));
+    page.on("console", (message) => {
+      if (/hydration|hydrated|did not match|server rendered|Minified React error/i.test(message.text())) errors.push(message.text());
+    });
+    const url = new URL(route, baseUrl).href;
+    const response = await page.goto(url, { waitUntil: "domcontentloaded", timeout: PUBLIC_UX_TIMEOUT_MS });
+    assert.equal(response?.status(), 200, `${route}: application response was not successful`);
+    assert.ok(response.url() === url && page.url() === url && response.request().redirectedFrom() === null,
+      `${route}: navigation did not retain the exact requested route`);
+    // Events' body marker is set by a client effect; its initial board must also
+    // be complete. The existing keyboard/filter assertions prove its handlers.
+    // Home's link and the no-JavaScript Events fallback are SSR contracts.
+    await page.waitForFunction(publicPageReady, { route, javaScriptEnabled: options.javaScriptEnabled !== false },
+      { timeout: PUBLIC_UX_TIMEOUT_MS });
+    assert.ok(page.url() === url, `${route}: render left the exact requested route`);
+    return { context, page };
+  } catch (error) {
+    await context.close().catch(() => {});
+    throw error;
+  }
 }
 
 async function imageMeasurement(image) {
@@ -55,7 +91,10 @@ async function imageMeasurement(image) {
   });
 }
 
-try {
+async function inspectPublicUx(browser, baseUrl) {
+  const errors = [];
+  const measurements = [];
+  const open = (route, options) => openPublicPage(browser, baseUrl, route, options, errors);
   for (const javaScriptEnabled of [true, false]) {
     for (const width of [360, 390, 768, 1024, 1440]) {
       const { context, page } = await open("/events", { javaScriptEnabled, viewport: { width, height: 900 } });
@@ -173,6 +212,29 @@ try {
   }
   assert.deepEqual(errors, []);
   console.log(JSON.stringify({ status: "passed", observations: measurements.length, runtimeAndHydrationErrors: errors, measurements }, null, 2));
-} finally {
-  await browser.close();
 }
+
+export async function runEventsPublicUxSmoke({ argv = process.argv, browserType = chromium, inspect = inspectPublicUx } = {}) {
+  const argument = argv.find((value) => value.startsWith("--base-url="));
+  const baseUrl = new URL(argument?.slice("--base-url=".length) || "http://127.0.0.1:8765");
+  if (baseUrl.protocol !== "http:" || !["127.0.0.1", "localhost", "[::1]"].includes(baseUrl.hostname)) {
+    throw new Error("Events public UX smoke requires a local HTTP application server.");
+  }
+  const browser = await browserType.launch({ headless: true });
+  let inspectionFailed = false;
+  try {
+    await inspect(browser, baseUrl);
+  } catch (error) {
+    inspectionFailed = true;
+    throw error;
+  } finally {
+    try {
+      await browser.close();
+    } catch (error) {
+      if (!inspectionFailed) throw error;
+    }
+  }
+}
+
+const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isMain) await runEventsPublicUxSmoke();

@@ -287,7 +287,12 @@ assertIncludes("Supabase README Pixelfed mapping docs", readme, "`social_account
 for (const name of protectedFunctions) {
   const source = read(`supabase/functions/${name}/index.ts`);
   assertIncludes(`${name} CORS wrapper`, source, "withProtectedCors(req, handleRequest(req))");
-  assertIncludes(`${name} request handler`, source, "async function handleRequest(req: Request): Promise<Response>");
+  const testedGalleryHandler = name === "list-gallery-review-queue" || name === "submit-discord-gallery-image";
+  assertIncludes(`${name} request handler`, source, testedGalleryHandler
+    ? "export async function handleRequest(req: Request,"
+    : "async function handleRequest(req: Request): Promise<Response>");
+  if (testedGalleryHandler) assertIncludes(`${name} live entrypoint`, source,
+    "if (import.meta.main) Deno.serve((req: Request) => withProtectedCors(req, handleRequest(req)));");
 }
 
 for (const name of publicFunctions) {

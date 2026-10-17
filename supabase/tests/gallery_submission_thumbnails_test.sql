@@ -1,6 +1,22 @@
 begin;
 select plan(45);
 
+-- Adapt existing thumbnail transaction cases to the new mandatory full-view
+-- contract; all calls still execute the real public moderation function.
+create function pg_temp.commit_gallery_fixture(
+  sid uuid, actor uuid, action text, reason text, revision uuid, thumb text, mime text, bytes bigint, expected uuid
+) returns jsonb language sql as $$
+  select public.gallery_commit_moderation(sid,actor,action,reason,revision,thumb,mime,bytes,expected,
+    case when action='rejected' then null else (
+      select jsonb_build_object('storage_bucket',s.storage_bucket,'storage_path',s.storage_path,
+        'mime_type',s.mime_type,'size_bytes',s.size_bytes,'etag',repeat('1',32),'sha256',repeat('2',64),
+        'viewer_storage_path','_approved/full/' || sid::text || '/' || revision::text || '.webp',
+        'viewer_size_bytes',1000,'viewer_width',1280,'viewer_height',720,'processing_version','gallery-media-v1')
+      from public.gallery_submissions s where s.id=sid
+    ) end);
+$$;
+
+
 select has_column('public', 'gallery_submissions', 'thumbnail_revision_id', 'thumbnail revision exists');
 select has_column('public', 'gallery_submissions', 'thumbnail_storage_path', 'thumbnail storage path exists');
 select has_column('public', 'gallery_submissions', 'thumbnail_mime_type', 'thumbnail MIME type exists');
@@ -73,23 +89,23 @@ select ok(
 );
 
 select ok(
-  exists (
+  not exists (
     select 1 from pg_policies
     where schemaname = 'storage'
       and tablename = 'objects'
       and policyname = 'Members update own pending gallery originals'
   ),
-  'members have a pending-original-only update policy'
+  'members have no original update policy after reservation hardening'
 );
 
 select ok(
-  exists (
+  not exists (
     select 1 from pg_policies
     where schemaname = 'storage'
       and tablename = 'objects'
       and policyname = 'Members delete own pending or orphaned gallery originals'
   ),
-  'members have a pending-or-orphaned-original-only delete policy'
+  'members have no original delete policy after reservation hardening'
 );
 
 select ok(
@@ -103,9 +119,9 @@ select ok(
 );
 
 select ok(
-  not has_function_privilege('anon', 'public.gallery_commit_moderation(uuid,uuid,text,text,uuid,text,text,bigint,uuid)', 'execute')
-  and not has_function_privilege('authenticated', 'public.gallery_commit_moderation(uuid,uuid,text,text,uuid,text,text,bigint,uuid)', 'execute')
-  and has_function_privilege('service_role', 'public.gallery_commit_moderation(uuid,uuid,text,text,uuid,text,text,bigint,uuid)', 'execute'),
+  not has_function_privilege('anon', 'public.gallery_commit_moderation(uuid,uuid,text,text,uuid,text,text,bigint,uuid,jsonb)', 'execute')
+  and not has_function_privilege('authenticated', 'public.gallery_commit_moderation(uuid,uuid,text,text,uuid,text,text,bigint,uuid,jsonb)', 'execute')
+  and has_function_privilege('service_role', 'public.gallery_commit_moderation(uuid,uuid,text,text,uuid,text,text,bigint,uuid,jsonb)', 'execute'),
   'atomic moderation is service-role only'
 );
 
@@ -162,10 +178,16 @@ insert into public.gallery_submissions (
   ('22222222-2222-4222-8222-222222222223', '11111111-1111-4111-8111-111111111111', '11111111-1111-4111-8111-111111111111/atomic.webp', 'image/webp', 1200, 'Atomic failure fixture'),
   ('22222222-2222-4222-8222-222222222224', '11111111-1111-4111-8111-111111111111', '11111111-1111-4111-8111-111111111111/mismatch.webp', 'image/webp', 1300, 'Object mismatch fixture');
 
+update storage.objects set metadata=metadata || jsonb_build_object('eTag',repeat('1',32))
+where bucket_id='member-gallery' and name not like '_approved/%';
+insert into storage.objects(bucket_id,name,metadata)
+select bucket_id,replace(name,'_approved/thumbs/','_approved/full/'),'{"size":1000,"mimetype":"image/webp"}'::jsonb
+from storage.objects where bucket_id='member-gallery' and name like '_approved/thumbs/%';
+
 set local "request.jwt.claim.role" = 'service_role';
 
 select is(
-  (public.gallery_commit_moderation(
+  (pg_temp.commit_gallery_fixture(
     '22222222-2222-4222-8222-222222222221',
     '99999999-9999-4999-8999-999999999999',
     'approved', null,
@@ -215,7 +237,7 @@ select throws_ok(
     set storage_path = '11111111-1111-4111-8111-111111111111/replaced.webp'
     where id = '22222222-2222-4222-8222-222222222221'$$,
   '23514',
-  'A moderated gallery original is immutable.',
+  'A gallery original is immutable.',
   'moderated originals cannot be rebound in the database'
 );
 
@@ -262,25 +284,25 @@ with changed as (
 )
 select is(
   (select count(*)::bigint from changed),
-  1::bigint,
-  'member sessions may update their own pending original'
+  0::bigint,
+  'member sessions cannot update their recorded pending original'
 );
 
 select ok(
-  private.member_gallery_original_mutation_allowed(
+  not private.member_gallery_original_mutation_allowed(
     auth.uid(),
     'member-gallery',
     '11111111-1111-4111-8111-111111111111/pending.webp',
     true
   ),
-  'member deletion policy is limited to owned pending or orphaned originals'
+  'member deletion policy excludes recorded pending originals'
 );
 
 reset role;
 set local "request.jwt.claim.role" = 'service_role';
 
 select is(
-  (public.gallery_commit_moderation(
+  (pg_temp.commit_gallery_fixture(
     '22222222-2222-4222-8222-222222222221',
     '99999999-9999-4999-8999-999999999999',
     'thumbnail', null,
@@ -294,7 +316,7 @@ select is(
 );
 
 select is(
-  public.gallery_commit_moderation(
+  pg_temp.commit_gallery_fixture(
     '22222222-2222-4222-8222-222222222221',
     '99999999-9999-4999-8999-999999999999',
     'thumbnail', null,
@@ -315,7 +337,7 @@ select is(
 );
 
 select throws_ok(
-  $$select public.gallery_commit_moderation(
+  $$select pg_temp.commit_gallery_fixture(
     '22222222-2222-4222-8222-222222222223',
     '99999999-9999-4999-8999-999999999999',
     'rejected', repeat('x', 501), null, null, null, null, null
@@ -333,7 +355,7 @@ select is(
 );
 
 select is(
-  public.gallery_commit_moderation(
+  pg_temp.commit_gallery_fixture(
     '22222222-2222-4222-8222-222222222224',
     '99999999-9999-4999-8999-999999999999',
     'approved', null,

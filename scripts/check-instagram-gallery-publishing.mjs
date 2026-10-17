@@ -74,6 +74,8 @@ const migration = read(files.migration);
 const manualMigrationHistory = read(files.manualMigrationHistory);
 const discordIngest = read(files.discordIngest);
 const moderation = read(files.moderation);
+const mediaMigration = read("supabase/migrations/20261014223059_gallery_processed_media.sql");
+const admissionMigration = read("supabase/migrations/20261015203951_gallery_free_upload_admission.sql");
 const listQueue = read(files.listQueue);
 const checkMeta = read(files.checkMeta);
 const publish = read(files.publish);
@@ -146,10 +148,18 @@ assertMatches(
 [
   "instagramOptIn",
   "INSTAGRAM_OPT_IN_COPY_VERSION",
-  'instagram_opt_in_source: instagramOptIn ? "discord_slash_command" : null',
+  'rpc("gallery_complete_discord_upload", {',
+  "instagram_opt_in: instagramOptIn",
+  "instagram_opt_in_copy_version: instagramOptIn ? INSTAGRAM_OPT_IN_COPY_VERSION : null",
   ".eq(\"discord_message_id\", messageId)",
   ".eq(\"discord_attachment_id\", attachmentId)",
 ].forEach((snippet) => assertIncludes("submit-discord-gallery-image", discordIngest, snippet));
+
+[
+  "case when opt_in then clock_timestamp() else null end",
+  "case when opt_in then case when r.source='website' then 'website_upload' else 'discord_slash_command' end else null end",
+  "p_metadata->>'instagram_opt_in_copy_version' is distinct from copy_version",
+].forEach((snippet) => assertIncludes("server-authoritative upload consent", admissionMigration, snippet));
 
 assertNotMatches(
   "submit-discord-gallery-image",
@@ -161,11 +171,14 @@ assertNotMatches(
 [
   "gallery_instagram_publish_jobs",
   "gallery_instagram_publish_events",
-  'new Set(["image/jpeg"])',
+  "selected.mime_type='image/jpeg'",
   "ineligible",
-  "buildInstagramCaption",
-  "buildInstagramAltText",
-].forEach((snippet) => assertIncludes("moderate-gallery-submission", moderation, snippet));
+  "concat_ws(E'",
+  "Mōchirīī guild gallery submission:",
+  "on conflict(submission_id) do nothing",
+].forEach((snippet) => assertIncludes("atomic Instagram queue preservation", mediaMigration, snippet));
+["requireModeratorAccess(req)", "runGalleryModeration(req, access"].forEach((snippet) =>
+  assertIncludes("moderate-gallery-submission", moderation, snippet));
 
 [
   "requireModeratorAccess(req)",

@@ -27,9 +27,9 @@ function integer(value: unknown): number | null {
   return Number.isSafeInteger(number) ? number : null;
 }
 
-function decodeBase64(value: unknown): Uint8Array | null {
+function decodeBase64(value: unknown, maximum = GALLERY_THUMBNAIL_MAX_BYTES): Uint8Array | null {
   const encoded = String(value ?? "").trim();
-  const maximumEncodedLength = Math.ceil(GALLERY_THUMBNAIL_MAX_BYTES / 3) * 4;
+  const maximumEncodedLength = Math.ceil(maximum / 3) * 4;
 
   if (
     !encoded || encoded.length > maximumEncodedLength ||
@@ -44,7 +44,7 @@ function decodeBase64(value: unknown): Uint8Array | null {
       binary,
       (character) => character.charCodeAt(0),
     );
-    return bytes.length <= GALLERY_THUMBNAIL_MAX_BYTES ? bytes : null;
+    return bytes.length <= maximum ? bytes : null;
   } catch {
     return null;
   }
@@ -181,4 +181,30 @@ export function galleryThumbnailStoragePath(
   revisionId: string,
 ): string {
   return `_approved/thumbs/${submissionId}/${revisionId}.webp`;
+}
+
+// Full derivatives are additionally authenticated as output of the trusted Node
+// decoder. Edge retains its complete bounded libwebp decode for every thumbnail.
+export function parseGalleryFullPayload(value: unknown): GalleryThumbnailParseResult {
+  const payload = asRecord(value);
+  const bytes = decodeBase64(payload.base64, 3 * 1024 * 1024);
+  if (payload.mime_type !== "image/webp" || !bytes || payload.size_bytes !== bytes.length) {
+    return { ok: false, error: "full_bytes_invalid" };
+  }
+  const dimensions = webpDimensions(bytes);
+  if (!dimensions || payload.width !== dimensions.width || payload.height !== dimensions.height
+    || dimensions.width < 1 || dimensions.height < 1 || Math.max(dimensions.width, dimensions.height) > 2560) {
+    return { ok: false, error: "full_dimensions_invalid" };
+  }
+  let offset = 12;
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  while (offset < bytes.length) {
+    const tag = ascii(bytes, offset, 4);
+    // Sharp's published output contains no EXIF, ICC, XMP, animation, or unknown chunks.
+    if (!["VP8X", "ALPH", "VP8 ", "VP8L"].includes(tag)) return { ok: false, error: "full_metadata_rejected" };
+    const size = view.getUint32(offset + 4, true);
+    if (tag === "VP8X" && (bytes[offset + 8] & ~0x10)) return { ok: false, error: "full_metadata_rejected" };
+    offset += 8 + size + (size & 1);
+  }
+  return { ok: true, thumbnail: { bytes, ...dimensions, mimeType: "image/webp", sizeBytes: bytes.length } };
 }

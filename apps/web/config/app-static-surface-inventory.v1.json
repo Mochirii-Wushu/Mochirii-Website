@@ -80,8 +80,8 @@
     },
     {
       "path": "apps/web/app/leader-dashboard/page.tsx",
-      "bytes": 2191,
-      "sha256": "3622890780C5142787CAFE3F7EFF3B4E57DC85B593D43D4ABBFA24EE4401A95F"
+      "bytes": 2223,
+      "sha256": "235433FA9A01C172747523878E7EBE8BB7C601F4528CBB61BADE32718B71270B"
     },
     {
       "path": "apps/web/app/leaders/page.tsx",
@@ -186,7 +186,7 @@
     {
       "path": "apps/web/config/app-route-evidence.v1.json",
       "bytes": 66971,
-      "sha256": "C0BC1D13CABDD33B825E3510DB13103B201492B73825C3D9A989142D064F01FC"
+      "sha256": "AEBDF0475FB0D8315F8461306930F0D7D5BA81E36496099B433ECC0D133DB77F"
     },
     {
       "path": "apps/web/config/app-route-matrix.v1.json",
@@ -200,13 +200,13 @@
     },
     {
       "path": "scripts/check-all.mjs",
-      "bytes": 14247,
-      "sha256": "A1A5874896B8126EABC091CF82E3638F820654F8952D1A6EB46B30D9FB5C336A"
+      "bytes": 14912,
+      "sha256": "DE56B8E420219B2CB90098ABDA22277CF8AD7A5961647E8AEE548B98E02F94A0"
     },
     {
       "path": "scripts/check-app-static-surface-inventory.mjs",
       "bytes": 13000,
-      "sha256": "81110086FF42EADF54E0D5BC68C0CA3823191124625A786EC2C1B69519E2DD99"
+      "sha256": "1826D39B518BB68B4CB11F86E536FACC00EB85A007DEC598793479F4066E3233"
     },
     {
       "path": "scripts/check-assets.mjs",
@@ -231,7 +231,7 @@
     {
       "path": "scripts/lib/app-static-surface-inventory.test.mjs",
       "bytes": 133123,
-      "sha256": "CBDD770B3E7D9396FA497F29A7BDD30E640777D382445B24BD620DAF58073C5C"
+      "sha256": "B3F6E77DE1BA7697CD6463B8E3384465D50111831DBFB6C2B9731AD6FDC8F03D"
     }
   ],
   "metadataRoutes": [

@@ -437,57 +437,60 @@ function sourceEndpoint(supabaseUrl: string): string {
   return `${supabaseUrl.replace(/\/+$/, "")}/functions/v1/submit-discord-gallery-image`;
 }
 
-async function processSubmission(payload: JsonRecord, interactionToken: string, applicationId: string): Promise<void> {
-  const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-  const ingestSecret = Deno.env.get("DISCORD_GALLERY_INGEST_SECRET") || "";
+type GallerySubmissionDependencies = {
+  readConfig?: () => { supabaseUrl: string; ingestSecret: string };
+  fetchImpl?: typeof fetch;
+  reportFailure?: (category: string) => void;
+};
 
-  if (!supabaseUrl || !ingestSecret) {
-    console.error("reaper-discord-interactions missing submit-discord-gallery-image configuration", {
-      hasSupabaseUrl: Boolean(supabaseUrl),
-      hasIngestSecret: Boolean(ingestSecret),
-    });
-    await editOriginalInteractionResponse(
-      applicationId,
-      interactionToken,
-      "Discord gallery submissions are not configured yet.",
-    );
-    return;
-  }
-
+export async function processSubmission(
+  payload: JsonRecord,
+  interactionToken: string,
+  applicationId: string,
+  dependencies: GallerySubmissionDependencies = {},
+): Promise<void> {
+  const fetchImpl = dependencies.fetchImpl || fetch;
+  const reportFailure = (category: string) => {
+    try { (dependencies.reportFailure || console.error)(category); } catch { /* A diagnostic failure cannot repeat a submission. */ }
+  };
+  let message = "Gallery submission could not be queued.";
   try {
-    const response = await fetch(sourceEndpoint(supabaseUrl), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-mochirii-reaper-secret": ingestSecret,
-      },
-      body: JSON.stringify(payload),
-    });
-    const body = asRecord(await response.json().catch(() => ({})));
-
-    if (!response.ok || body.ok !== true) {
-      await editOriginalInteractionResponse(
-        applicationId,
-        interactionToken,
-        safeDiscordResponseMessage(body, "Gallery submission could not be queued."),
-      );
-      return;
+    const { supabaseUrl, ingestSecret } = dependencies.readConfig ? dependencies.readConfig() : {
+      supabaseUrl: Deno.env.get("SUPABASE_URL") || "",
+      ingestSecret: Deno.env.get("DISCORD_GALLERY_INGEST_SECRET") || "",
+    };
+    if (!supabaseUrl || !ingestSecret) {
+      reportFailure("reaper-discord-interactions missing submit-discord-gallery-image configuration");
+      message = "Discord gallery submissions are not configured yet.";
+    } else {
+      const response = await fetchImpl(sourceEndpoint(supabaseUrl), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-mochirii-reaper-secret": ingestSecret,
+        },
+        body: JSON.stringify(payload),
+      });
+      const body = asRecord(await response.json().catch(() => ({})));
+      message = response.ok && body.ok === true
+        ? successMessage(payload.instagramOptIn === true, body.duplicate === true)
+        : safeDiscordResponseMessage(body, message);
     }
-
-    await editOriginalInteractionResponse(
-      applicationId,
-      interactionToken,
-      successMessage(payload.instagramOptIn === true, body.duplicate === true),
-    );
-  } catch (error) {
-    console.error("reaper-discord-interactions background submission failed", {
-      message: error instanceof Error ? error.message : String(error),
+  } catch {
+    reportFailure("reaper-discord-interactions background submission failed");
+  }
+  try {
+    // The shared helper logs response-controlled statusText on HTTP failure.
+    // Keep this Gallery-only edit categorical without changing other commands.
+    const response = await fetchImpl(`${DISCORD_API_BASE_URL}/webhooks/${applicationId}/${interactionToken}/messages/@original`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: message.slice(0, 220), allowed_mentions: { parse: [] } }),
     });
-    await editOriginalInteractionResponse(
-      applicationId,
-      interactionToken,
-      "Gallery submission could not be queued.",
-    );
+    await response.body?.cancel();
+    if (!response.ok) reportFailure("reaper-discord-interactions gallery response edit failed");
+  } catch {
+    reportFailure("reaper-discord-interactions gallery response edit failed");
   }
 }
 
@@ -504,7 +507,7 @@ function hasModeratorRole(memberRoleIds: string[]): boolean {
   return EXPECTED_MODERATOR_ROLE_IDS.every((roleId) => memberRoleIds.includes(roleId));
 }
 
-Deno.serve(async (req: Request) => {
+if (import.meta.main) Deno.serve(async (req: Request) => {
   const path = new URL(req.url).pathname;
   if (path === EVENT_ADVANCE_PATH) {
     return handleEventAdvance(req, {

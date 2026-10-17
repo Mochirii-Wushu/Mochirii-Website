@@ -136,8 +136,8 @@
       "id": "repository-check-runner",
       "path": "scripts/check-all.mjs",
       "scope": "full-repository execution wiring for route-evidence checks",
-      "bytes": 14247,
-      "sha256": "A1A5874896B8126EABC091CF82E3638F820654F8952D1A6EB46B30D9FB5C336A",
+      "bytes": 14912,
+      "sha256": "DE56B8E420219B2CB90098ABDA22277CF8AD7A5961647E8AEE548B98E02F94A0",
       "status": "verified_source"
     },
     {

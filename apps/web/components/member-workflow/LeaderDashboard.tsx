@@ -25,7 +25,6 @@ import {
   publishInstagramGallerySubmission,
   reviewMemberVerification,
 } from "@/lib/supabase/moderation";
-import { createGalleryThumbnail } from "@/lib/gallery-thumbnail";
 import {
   text,
   type GalleryReviewQueue,
@@ -358,27 +357,19 @@ export function LeaderDashboard() {
           : "Preparing the gallery thumbnail before approval.",
     );
 
-    let thumbnail = null;
     if (action !== "rejected") {
       const previewUrl = text(item.signedPreviewUrl);
       if (!previewUrl) {
-        setReviewError("The image preview must be available before preparing its gallery thumbnail.");
+        setReviewError("The image preview must be available before preparing its viewing images.");
         setReviewStatus("");
         setBusy(false);
         return;
       }
 
-      try {
-        thumbnail = await createGalleryThumbnail(previewUrl);
-      } catch (error) {
-        setReviewError(error instanceof Error ? error.message : "The gallery thumbnail could not be prepared.");
-        setReviewStatus("");
-        setBusy(false);
-        return;
-      }
+      setReviewStatus("Preparing safe gallery viewing images.");
     }
 
-    const result = await moderateGallerySubmission(submissionId, action, reason, thumbnail);
+    const result = await moderateGallerySubmission(submissionId, action, reason);
     if (!result.ok) {
       setReviewError(result.message || "The submission could not be moderated.");
       setReviewStatus("");

@@ -1,6 +1,8 @@
-import { invokeEdgeFunction } from "./client";
+import { invokeEdgeFunction, requireBrowserSupabaseClient } from "./client";
+import { moderateProcessedGallery } from "../gallery/moderate-action";
 import {
   failedResult,
+  okResult,
   type GalleryReviewQueue,
   type InstagramApiStatus,
   type InstagramPublishQueue,
@@ -9,7 +11,6 @@ import {
   type ModerationStatus,
   type RejectedGalleryCleanupResponse,
 } from "./types";
-import type { GalleryThumbnailPayload } from "@/lib/gallery-thumbnail";
 
 export async function checkLeaderGalleryModerationAccess() {
   return invokeEdgeFunction<{ hasAccess?: boolean; moderatorId?: string }>("list-gallery-review-queue", {
@@ -36,7 +37,6 @@ export async function moderateGallerySubmission(
   submissionId: string,
   action: string,
   reason = "",
-  thumbnail: GalleryThumbnailPayload | null = null,
 ) {
   const cleanSubmissionId = String(submissionId || "").trim();
   const cleanAction = String(action || "").trim().toLowerCase();
@@ -47,11 +47,25 @@ export async function moderateGallerySubmission(
     return failedResult("Choose a gallery submission before moderating.");
   }
 
+  if (cleanAction === "approved" || cleanAction === "thumbnail") {
+    try {
+      const { data } = await requireBrowserSupabaseClient().auth.getSession();
+      if (!data.session?.access_token) return failedResult("Sign in again before moderating.");
+      const result = await moderateProcessedGallery({
+        accessToken: data.session.access_token,
+        submissionId: cleanSubmissionId,
+        action: cleanAction,
+        reason: String(reason || "").trim().slice(0, 500),
+      });
+      return result.ok ? okResult(null, result.message) : failedResult(result.message);
+    } catch {
+      return failedResult("The image could not be prepared. Refresh the queue before trying again.");
+    }
+  }
   return invokeEdgeFunction("moderate-gallery-submission", {
     submission_id: cleanSubmissionId,
     action: cleanAction,
     reason: String(reason || "").trim().slice(0, 500),
-    thumbnail,
   });
 }
 

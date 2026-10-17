@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
 import { chromium } from "playwright";
+import schedule from "../apps/web/public/data/guild-schedule.json" with { type: "json" };
+import { currentOrUpcomingEvent, websiteEventCardsFromSchedule } from "../apps/web/lib/guild-schedule.ts";
+import { formatPublicDate } from "../apps/web/lib/public-date.ts";
 
 const baseArgument = process.argv.find((value) => value.startsWith("--base-url="));
 const baseUrl = new URL(baseArgument?.slice("--base-url=".length) || "http://127.0.0.1:8765");
@@ -31,8 +34,29 @@ async function openAt(route, instant, timezoneId = "UTC", browserInstance = brow
     window.addEventListener("focus", (nativeEvent) => window.scheduleLifecycle.push({ event: "focus", visibility: document.visibilityState, trusted: nativeEvent.isTrusted, now: Date.now() }));
   });
   // Deliberately use a browser instant different from the request's real server clock.
-  await page.clock.install({ time: new Date(Date.parse(instant) - 60_000) });
-  await page.goto(new URL(route, baseUrl).href, { waitUntil: "networkidle" });
+  const initialTime = new Date(Date.parse(instant) - 60_000);
+  const initialEvent = currentOrUpcomingEvent(websiteEventCardsFromSchedule(schedule, initialTime), initialTime);
+  assert.ok(initialEvent, `${route}: no schedule event at the initial browser instant`);
+  await page.clock.install({ time: initialTime });
+  const url = new URL(route, baseUrl).href;
+  const response = await page.goto(url, { waitUntil: "domcontentloaded" });
+  assert.equal(response?.status(), 200, `${route}: application response was not successful`);
+  assert.equal(page.url(), url, `${route}: navigation left the requested route`);
+  // The hook replaces the real server's reference time only after hydration.
+  // Wait for that actual client render, not unrelated network silence.
+  await page.waitForFunction((expected) => {
+    const title = document.querySelector(expected.page === "home" ? "#featuredBulletinTitle" : "#featuredCard h3");
+    const meta = document.querySelector(expected.page === "home" ? "#featuredBulletinDate" : "#featuredCard .kicker");
+    return document.body?.dataset.page === expected.page && title?.textContent.trim() === expected.title
+      && meta?.textContent.includes(expected.date) && meta.textContent.includes(expected.time)
+      && meta.textContent.includes(expected.timezone);
+  }, {
+    page: route === "/" ? "home" : "events",
+    title: initialEvent.title,
+    date: formatPublicDate(new Date(`${initialEvent.date}T00:00:00Z`)),
+    time: initialEvent.timeText,
+    timezone: initialEvent.timezone,
+  });
   await page.clock.pauseAt(instant);
   return { context, page, route };
 }

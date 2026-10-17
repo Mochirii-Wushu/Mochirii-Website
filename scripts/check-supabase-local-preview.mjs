@@ -25,6 +25,9 @@ function git(cwd, args) {
 }
 
 assert.equal(classifySupabaseChanges(["docs/README.md"]).changed, false);
+assert.equal(classifySupabaseChanges(["packages/gallery-media/policy.ts"]).changed, true);
+assert.equal(classifySupabaseChanges(["packages/gallery-media/proof.ts"]).changed, true);
+assert.equal(classifySupabaseChanges(["packages/unrelated/example.ts"]).changed, false);
 assert.equal(classifySupabaseChanges(["supabase/migrations/20260101000000_example.sql"]).changed, true);
 assert.equal(classifySupabaseChanges(["package-lock.json"]).changed, true);
 assert.equal(classifySupabaseChanges(["scripts/check-supabase-edge-types.mjs"]).changed, true);
