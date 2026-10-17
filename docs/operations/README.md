@@ -1,52 +1,35 @@
-# Mochirii Operations
+# Mochirii release guides
 
-This directory contains durable, no-secret operational guidance for the
-canonical Mochirii repository and hosted production surfaces.
+Guides for safely releasing and maintaining the website, storefront theme, and
+shared community services.
 
-## Canonical Workspace
+## Find a guide
 
-```text
-C:\Github Repo's\Mochirii Website\
-  Website\      GitHub: Mochirii-Wushu/Mochirii-Website
-  Mochirii-Social-Mobile\  GitHub: Mochirii-Wushu/Mochirii-Social-Mobile
-  Mochirii-Pets\  GitHub: Mochirii-Wushu/Mochirii-Pets; fresh Unity source
-  Mochi Creds\  Private credential and recovery boundary, never Git tracked
-  AGENTS.md      Umbrella workspace guidance
-```
+- [Current state](CURRENT-STATE.md): recorded releases and outstanding checks.
+- [Deployment](deployment.md): release, verification, and rollback.
+- [Integration changes](integration-operations-runbook.md): approvals and safety.
+- [Repository ownership](repository-ownership.md): where each component belongs.
+- [Private live spinner](private-spinner.md): delivery, privacy, and recovery.
+- [Verification summaries](evidence/README.md): recording reviewed results.
 
-Within `Website`, the public website, storefront theme, and Supabase backend
-live under `apps/web`, `apps/shopify-theme`, and `supabase`. Social application,
-image, deployment, and recovery ownership belongs exclusively to
-`Mochirii-Wushu/Mochirii-Social`. The former Mochi Pets prototype and
-repository are deleted.
-`Mochirii-Wushu/Mochirii-Pets` is the fresh Unity source owner, while Website
-owns the server-only tester doorway and disconnected waiting room. No playable
-Web or iOS artifact is connected.
+The `history` directory preserves superseded plans and past release records;
+check current guidance before using a historical procedure.
 
-## Directory Contract
+## Related projects
 
-- `CURRENT-STATE.md`: current hosted state and exact resume point.
-- `deployment.md`: release, verification, and rollback boundaries.
-- `integration-operations-runbook.md`: provider-adjacent operating rules.
-- `ORGANIZATION-RECONCILIATION-2026-07-27.md`: public-safe repository,
-  branch, issue, worktree, provider-effect, and cleanup disposition ledger.
-- `private-spinner.md`: role-separated live-spinner operation, privacy,
-  delivery, release, and recovery boundaries.
-- `repository-ownership.md`: source and hosted ownership matrix.
-- `history/`: superseded plans and dated handoffs retained as evidence.
-- `evidence/`: durable no-secret approval and readiness packets.
+[Mochirii Social](https://github.com/Mochirii-Wushu/Mochirii-Social) owns the
+social application and its releases.
+[Mochirii Pets](https://github.com/Mochirii-Wushu/Mochirii-Pets) owns the fresh
+game foundation. The website currently provides only its concept page and
+optional tester doorway; no playable artifact is connected.
 
-Generated screenshots, logs, JSON readbacks, provider exports, and rollback
-captures do not belong here. Store them under ignored `.artifacts/operations`.
+## Documentation rules
 
-## Rules
+Keep durable, sanitized guidance here. Put generated screenshots, logs, exports,
+and archives in the ignored `.artifacts/operations` directory. Never commit
+credentials, private member data, supplier records, or recovery material.
 
-- Start each repository phase with `git status --short --branch`.
-- Keep credentials, cookies, tokens, private keys, signed URLs, customer data,
-  supplier evidence, and recovery material in `Mochi Creds` or protected hosted
-  secret stores only.
-- Preserve protected-PR delivery and exact approval gates for provider
-  mutations, deployments, theme publication, migrations, and secret changes.
-- Keep ActivityPub federation disabled.
-- Never require the workstation to serve traffic, process production jobs, hold
-  the only production data copy, or keep hosted integrations online.
+Use focused changes and the required review process. Production changes,
+database migrations, secret changes, and storefront publication need the exact
+approval described in the relevant guide. A successful source check does not
+authorize a release.

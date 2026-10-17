@@ -1,125 +1,75 @@
-# Mochirii
+# Mōchirīī
 
-Canonical source repository for the Mochirii website, cosmetics storefront
-theme, shared identity and authorization contracts, and hosted backend.
+The home of the Mōchirīī guild: a community website, member tools, shared
+community services, and the Mochirii Cosmetics storefront theme.
 
-## Production Surfaces
+[Visit Mōchirīī](https://mochirii.com)
 
-| Path | Purpose | Hosted by |
-| --- | --- | --- |
-| `apps/web` | `mochirii.com` Next.js website | Vercel |
-| `apps/shopify-theme` | `shop.mochirii.com` storefront theme | Shopify |
-| `supabase` | Auth, database migrations, RLS, and Edge Functions | Supabase |
+## What’s here
 
-GitHub is the source, review, CI, package, and delivery control plane. Production
-traffic, queues, schedules, media, authentication, and backups do not require a
-local workstation to remain online.
+- Guild information, recruitment, ranks, leaders, the Tome, announcements,
+  events, music, and member spotlights.
+- A public gallery with curated images and approved member submissions.
+- Member sign-in, account settings, guild verification, and image submissions.
+- Leader tools for moderation, consent-based Instagram sharing, and private
+  live raffle draws.
+- The Mochirii Cosmetics storefront theme and its reviewed customer copy.
+- Shared identity, permissions, database migrations, and community automation.
 
-The former Mochi Pets prototype and connected repository are retired.
-`/games/mochi-pets` is a public, indexable Website page with a private tester
-doorway available only when its complete access configuration is present. The
-fresh private game source is now
-`Mochirii-Wushu/Mochirii-Pets`; it does not restore the prototype and no playable
-artifact is connected. See `docs/mochi-pets-future-project.md`.
+Mochi Pets currently has a concept page and an optional protected tester
+doorway; no playable game is connected. Its game source belongs to
+[Mochirii Pets](https://github.com/Mochirii-Wushu/Mochirii-Pets).
+[Mochirii Social](https://github.com/Mochirii-Wushu/Mochirii-Social) owns the
+social application; this repository keeps the website’s sign-in and account
+connections to it.
 
-See [system architecture](docs/architecture.md) and
-[repository ownership](docs/operations/repository-ownership.md).
+## Start here
 
-## Repository Layout
+- [Website app](apps/web/README.md): pages, member features, and development.
+- [Storefront theme](apps/shopify-theme/README.md): theme files and checks.
+- [Shared backend](supabase/README.md): data, access rules, and integrations.
+- [Architecture](docs/architecture.md) and
+  [repository ownership](docs/operations/repository-ownership.md).
+- [Content guide](docs/content-guide.md): editing guild copy and media.
 
-```text
-apps/
-  web/                 Live website application and canonical public assets/data
-  shopify-theme/       Storefront theme source
-services/
-  social/              Guild-social source and container definitions
-supabase/              Migrations and Edge Functions
-docs/
-  integrations/        No-secret hosted-provider contracts
-  operations/          Runbooks and dated release evidence
-.artifacts/operations/ Ignored local evidence and rollback exports
-scripts/               Repository validation and operator tooling
-```
-
-The old root static website was retired after cutover verification. Its exact
-last state is preserved by GitHub release `legacy-static-final-2026-07-18`.
-`apps/web/public/assets` and `apps/web/public/data` are the only editable website
-asset and content sources.
+Website content and media live only in `apps/web/public/data` and
+`apps/web/public/assets`. The former static site is retained in the
+`legacy-static-final-2026-07-18` release for historical reference.
 
 ## Development
 
-Use the pinned Node.js runtime:
+Use Node.js 22.23.1 and npm 10, then run from the repository root:
 
-```powershell
-fnm use 22.23.1
+~~~sh
 npm ci
 npm run toolchain:check
 npm run check
-```
+~~~
 
-Website checks:
+To start the website:
 
-```powershell
-Set-Location apps/web
+~~~sh
+cd apps/web
 npm ci
-npm run toolchain:check
-npm run lint
-npm run build
-```
+npm run dev
+~~~
 
-Storefront checks:
+Follow each component’s README for its build and test commands. Read
+[CONTRIBUTING.md](CONTRIBUTING.md) and the applicable
+[repository guidance](AGENTS.md) before making a focused change.
 
-```powershell
-Set-Location apps/shopify-theme
-npm ci
-npm run check
-npm run theme:package
-```
+## Releases and safety
 
-Mochirii Social application source, image publication, deployment, and recovery
-belong exclusively to `Mochirii-Wushu/Mochirii-Social`. This repository retains
-only the Website-side doorway, OAuth, shared identity, and authorization
-contracts.
+Website and backend releases follow the protected-branch delivery process.
+Storefront publication, database changes, secret changes, and live service
+changes require their own approved release steps. See the
+[release guide](docs/operations/deployment.md).
 
-## Delivery
+Never commit credentials, private member data, supplier records, or generated
+release evidence. Report vulnerabilities through [SECURITY.md](SECURITY.md).
 
-- Work on a focused branch and merge through protected pull requests.
-- `main` deploys the website through the existing Vercel Git integration.
-- Supabase integration applies only reviewed backend changes from `main`.
-- Storefront source merges do not publish a theme automatically.
-- Social production accepts only an approved immutable image digest through the
-  canonical Social repository; Website has no Social release workflow.
-- Provider settings, secrets, theme publication, database migrations, and live
-  runtime changes remain scoped approval actions.
+## Rights
 
-The required `validate` context is produced by
-`.github/workflows/validate-static-site.yml`; its filename is retained for
-branch-protection continuity even though the job now validates the repository.
-
-## Security And Evidence
-
-- Store credentials only under the private `Mochi Creds` boundary or protected
-  provider secret stores. Never commit `.env` files, private keys, cookies,
-  signed URLs, customer data, supplier costs, or production state.
-- Keep durable no-secret Markdown in `docs/operations` or `docs/integrations`.
-- Keep screenshots, JSON readbacks, logs, exports, and generated archives under
-  ignored `.artifacts/operations`.
-- Preserve required open-source licenses and upstream attribution.
-- Keep ActivityPub federation disabled until its separate readiness packet is
-  approved.
-
-`npm run check:repository-boundaries` enforces current-tree brand and secret
-hygiene, generated-archive rejection, reviewed file-size limits, and a locked
-historical-residue baseline without rewriting public Git history.
-
-## Content And Product Guidance
-
-Route-specific guidance remains under `docs`. Protected website copy is guarded
-by exact hashes and must not be changed incidentally. Public guild surfaces use
-the NFC trademark forms `Mōchirīī` and `Mōchī`; technical identifiers, repository
-slugs, infrastructure, Shopify, and `Mochirii Cosmetics` commerce surfaces retain
-ASCII `Mochirii`. Supplier and provider names stay in internal code, required
-attribution, CI, and no-secret technical docs.
-
-Use [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), the root
-[AGENTS.md](AGENTS.md), and the nearest subdirectory `AGENTS.md` before changes.
+This repository is public for collaboration and visibility, but is not offered
+under an open-source license. See [COPYRIGHT.md](COPYRIGHT.md) and
+[NOTICE.md](NOTICE.md). Preserve third-party licenses and attribution.

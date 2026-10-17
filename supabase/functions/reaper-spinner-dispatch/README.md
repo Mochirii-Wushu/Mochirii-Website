@@ -1,136 +1,78 @@
-# Reaper spinner delivery
+# Mōchirīī raffle delivery
 
-`reaper-spinner-dispatch` is the server-only outbox consumer for live Mōchirīī
-raffles. It posts the live-page message once, stores the returned message ID,
-and edits that same message with the result after the authoritative reveal
-time. Optional replay media is a separate, best-effort job and can never block
-or change those two primary transitions. Protected browser-to-live command
-requests necessarily carry roster data. Scheduled dispatcher invocation
-requests and the start-message payload carry no roster or winner data. A
-job-scoped capability can disclose only the immutable animation manifest to
-the renderer after the winner message is complete; its participant list has
-numbered, wheel-truncated labels and no participant UUIDs or draw RNG values.
-All bot, dispatcher, and service credentials remain server-only.
+`reaper-spinner-dispatch` delivers live-draw announcements from a server-side
+outbox. It posts the start message and edits that same message with the stored
+result after the scheduled reveal. Optional replay media is independent and
+cannot change or block the primary result.
+
+## Safety guarantees
+
+- Bot, dispatch, and service credentials stay server-only.
+- Scheduled requests and start messages contain no roster or winner data.
+- Draw results are selected and durably staged before delivery. Lost responses
+  reuse the stored result rather than drawing again.
+- Discord mentions are disabled.
+- Delivery uses bounded claims, retries, and duplicate reconciliation.
+  The database and message service do not share an atomic transaction, so
+  exactly-once delivery is not guaranteed. Never retry blindly after an
+  ambiguous successful send.
+- Replay rendering receives a short-lived, job-scoped capability only after
+  the winner message completes. Its manifest contains bounded display labels,
+  not participant UUIDs or random draw values.
 
 ## Release prerequisites
 
-Provider changes remain approval-gated. During an approved Supabase release:
+Follow the [live-spinner release guide](../../../docs/operations/private-spinner.md)
+and [shared backend guide](../../README.md). Deploy only reviewed, matching
+function and migration revisions.
 
-1. Apply `20260726180052_add_private_live_spinner.sql`, the additive
-   `20260726213000_add_spinner_foreign_key_indexes.sql` follow-up, and
-   `20260727033342_add_spinner_media_jobs.sql`, followed by
-   `20260727054717_enforce_three_minute_spinner_countdown.sql`,
-   `20260727160000_add_official_spinner_raffle_publications.sql`,
-   `20260727211442_classify_reviewed_sya_spinner_draw.sql`, and finally
-   `20260831154230_spinner_elimination_sequence.sql`, from validated protected
-   commits. Keep `spinner-live-session` and
-   `reaper-spinner-dispatch` on the matching protected source. The connected
-   production integration redeploys all 34 functions declared in
-   `supabase/config.toml`, not only these two; require the exact-head Preview,
-   full inventory readback, and serialized release described in
-   `docs/operations/private-spinner.md`.
-2. Configure the Edge environment with `DISCORD_RAFFLE_CHANNEL_ID` set to
-   `1468667003366674721`, the existing server-only `DISCORD_BOT_TOKEN`, and a
-   new high-entropy `REAPER_SPINNER_DISPATCH_SECRET`. Never copy any of those
-   values into the website, repository, logs, or a command transcript.
-3. Store the canonical Supabase project URL in Vault as `project_url`. Store
-   the exact same high-entropy dispatcher secret in Vault as
-   `reaper_spinner_dispatch_secret`; the Edge environment and Vault values must
-   be rotated together. The migration
-   installs a five-second maintenance job using `pg_cron`, `pg_net`, and those
-   Vault values. It also queues an asynchronous dispatcher call in the same
-   transaction that creates an outbox row; network delivery begins only after
-   commit and never delays the authoritative spin response. Do not put either
-   value in migration SQL.
-4. Prove `spinner_discord_outbox` has zero rows, then invoke the dispatcher once
-   with `{ "limit": 1 }`. Require HTTP 200 with zero claimed, completed,
-   retried, and failed rows plus an empty results array; query the table again
-   and require zero. This empty claim must not make a Discord request. Then
-   use the first genuine moderator draw as the production canary; do not send a
-   synthetic guild result. Verify that one message links to
-   `https://mochirii.com/account?open=live-draw`, displays the authoritative
-   start time, and that the same message ID is edited after
-   reveal. Confirm no users, roles, `@here`, or `@everyone` were mentioned.
+The connected production integration redeploys all 34 functions declared in
+`supabase/config.toml`. A spinner-only source change therefore still requires
+the exact-head preview, complete function inventory, and serialized release
+checks.
 
-## Optional replay media
+Before enabling delivery, verify an empty outbox and make the documented
+empty-claim check. Require zero claimed, completed, retried, and failed rows,
+an empty result list, and no Discord request. Use the first genuine approved
+draw for live acceptance; do not create a synthetic guild result.
 
-`spinner_media_jobs` is service-only, protected by RLS plus explicit grants,
-and retains immutable manifest metadata for 30 days. It stores no media bytes.
-Row-lock claims use `SKIP LOCKED`; dispatch claims wait until the primary
-winner edit is complete, and a delayed native fallback becomes eligible 60
-seconds after reveal. Pre-render failures, attachment failures, manifest
-authorizations, and capability lifetime are independently bounded. A malformed
-or missing optional manifest is caught by the additive trigger and cannot roll
-back a draw or its message outbox.
+Configuration must use the reviewed channel and server-only
+`DISCORD_BOT_TOKEN` and `REAPER_SPINNER_DISPATCH_SECRET` values.
+The matching Vault value is `reaper_spinner_dispatch_secret`; rotate both
+copies together. Never put secret values in SQL, source, browser configuration,
+URLs, or logs.
 
-The existing `REAPER_SPINNER_DISPATCH_SECRET` signs opaque, high-entropy job
-capabilities. Only the SHA-256 capability hash is stored. The raw value is sent
-in the bounded `x-mochirii-spinner-media-capability` header, never a URL, body,
-database row, or log. The native `/spinner/media/render` route forwards that
-header with the small `{ "action": "manifest" }` request and existing public
-project configuration; it does not require a new website secret or renderer
-service. The Edge function validates the signature, expiry, stored hash, job
-status, and authorization budget before returning the immutable manifest.
+## Replay media
 
-After binding the capability, the dispatcher schedules the same-site render
-through the Edge runtime's background task lifecycle, so the five-second
-database caller is not held open. If that immediate attempt fails, the existing
-maintenance tick starts independently bounded retries after the 60-second
-fallback boundary. The render destination is pinned to the same-site
-`https://mochirii.com/spinner/media/render` route; it cannot be redirected by
-environment configuration. The background render has a 55-second request
-ceiling to accommodate cold starts and encoding while staying bounded. MP4 is capped at
-4,250,000 bytes and PNG at 3,000,000 bytes. The preferred replay remains the
-full 10.6 seconds at 1280x720/24 fps; a renderer may retry at 960x540/20 fps to
-fit the unchanged byte ceiling. MIME type, file signature, digest, exact
-draw-derived filename, allowlisted channel, completed message ID, and reveal
-time are all revalidated before attachment.
+Replay jobs retain metadata for 30 days and store no media bytes. Rendering is
+bounded independently from primary delivery, with a 55-second request ceiling,
+an MP4 limit of 4,250,000 bytes, and a PNG limit of 3,000,000 bytes.
 
-Attachment uses a read-before-write reconciliation check and a deterministic
-filename. A lost database response therefore adopts the existing exact file
-instead of posting it twice. The multipart edit omits message content, so it
-cannot replace the winner result, and disables all mentions. Media failures
-remain visible only as service metadata and never reopen or fail the completed
-primary outbox.
+Capabilities travel only in the bounded
+`x-mochirii-spinner-media-capability` header. Only their hashes are stored.
+The same-site renderer and dispatcher revalidate expiry, job state, media
+signature, digest, filename, channel, message identity, and reveal time.
 
-Claims use a 60-second lease and row locks with `SKIP LOCKED`. Start messages
-use Discord's enforced nonce with a stable draw-derived value, limiting
-duplicates if a successful HTTP response is lost. Rate limits and transient
-server errors retry with a bounded delay; invalid payloads, denied channels,
-missing message IDs, and exhausted attempts fail closed for operator review.
-The nonce is best-effort idempotency across the external message service and
-database, not an atomic exactly-once guarantee. If a post succeeds but its
-message ID cannot be recorded through a prolonged outage, reconcile that draw
-before retrying. Pause delivery, inspect only the affected outbox metadata and
-target-channel time window, require one unambiguous Reaper-authored start
-message, and adopt that exact message ID through the guarded transaction in
-`docs/operations/private-spinner.md`. Never retry blindly or edit/delete an
-ambiguous candidate.
+Attachments use read-before-write reconciliation and deterministic filenames.
+The edit preserves winner text and disables mentions. Failed replay media
+cannot reopen or fail a completed result.
 
-Attempts interrupted after reservation but before the selected result is
-durably staged fail closed. An unstaged spin command is terminalized as
-`spin_result_not_durable`, and a moderator must initiate a new command ID;
-reusing that command ID can never invoke the random source again. If staging
-committed but its response was lost, the frozen payload is retained and
-replayed without resampling.
+## Recovery and fairness
 
-The ordinary viewer response withholds the top-level selected index and winner
-until the final authoritative reveal. Its compact frozen elimination plan lets
-viewers cross every five-second round boundary without network-timing drift.
-This is presentation control, not cryptographic secrecy: an authorized viewer
-may inspect or infer future eliminations from that plan before their visible
-reveal. Receipts make the selection arithmetic replayable but are not
-independently tamper-proof.
+If a start message may have succeeded without its ID being recorded, pause
+delivery and reconcile the exact draw using the release guide. Do not edit or
+delete an ambiguous message.
 
-No function deployment, Vault or function-secret mutation, database push, or
-Discord request is performed by adding these source files. Applying the
-migration during an approved release creates the scheduler source described
-above.
+A command whose result was not durably staged fails closed as
+`spin_result_not_durable`. A new draw needs a new command ID; retrying the
+failed ID must not call randomness again.
 
-For an emergency delivery pause, first unset the Edge
-`REAPER_SPINNER_DISPATCH_SECRET` and then remove the Vault
-`reaper_spinner_dispatch_secret` entry. This makes already queued requests fail
-closed before stopping new scheduled requests, without touching the shared bot
-token or outbox evidence. Database changes remain forward-only; use a reviewed
-forward-fix migration instead of deleting tables, jobs, receipts, or migration
-history.
+Viewer responses hide the top-level winner until reveal, but the frozen
+elimination plan can reveal future outcomes to someone inspecting it.
+Animation timing is not cryptographic secrecy. Receipts permit arithmetic
+replay; they are not independent tamper-proof evidence.
+
+For an approved emergency pause, disable the Edge dispatch secret before
+removing its Vault counterpart. Preserve outbox evidence and the shared bot
+token. Database recovery uses a reviewed forward-fix migration, not deletion
+of tables, receipts, schedules, or migration history.

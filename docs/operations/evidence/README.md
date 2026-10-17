@@ -1,10 +1,18 @@
-# Operational Evidence
+# Release verification summaries
 
-Store concise, no-secret verification summaries under
-`YYYY-MM-DD/<provider>/`. Keep raw provider logs in the provider, and never
-copy credentials, authorization headers, cookies, signed URLs, private payloads,
-or database connection strings here.
+Keep concise, sanitized summaries in `YYYY-MM-DD/<service>/`.
 
-Each summary should record the UTC timestamp, affected repository commit,
-provider resource name or non-secret identifier, commands or checks performed,
-result, rollback state, and remaining approval gate.
+Each summary should record:
+
+- UTC timestamp and the exact repository commit
+- The affected service and a safe reference
+- Checks performed and their results
+- Recovery or rollback status
+- Any remaining approval or verification requirement
+
+Raw logs, screenshots, exports, and generated archives belong in the ignored
+`.artifacts/operations` directory. Never include credentials, authorization
+headers, cookies, signed URLs, private payloads, member data, or database
+connection strings.
+
+See the [release guides](../README.md) for the relevant procedure.

@@ -1,27 +1,24 @@
-# Hosted Integrations
+# Mochirii integrations
 
-This directory documents the no-secret contracts that connect the canonical
-repository to hosted providers. It may record project names, regions, expected
-environment-variable names, callback paths, deployment ownership, and rollback
-procedures. It must never contain credential values, cookies, signed URLs,
-private keys, customer data, supplier costs, or private formula evidence.
+Reference material for the connections between the website, member services,
+storefront, and community features.
 
-## Ownership
+## Start here
 
-- Website delivery: Vercel Git integration from protected `main`.
-- Backend delivery: Supabase migrations and Edge Functions from protected
-  `main`.
-- Storefront delivery: Shopify theme source under `apps/shopify-theme`; theme
-  publishing remains an explicit release action.
-- Social delivery is owned exclusively by `Mochirii-Wushu/Mochirii-Social`;
-  Website retains only its doorway, OAuth, shared identity, and authorization
-  integration contracts.
-- Edge and DNS: Cloudflare settings remain provider-managed and evidence-gated.
-- Community automation: Discord interactions are served by hosted Edge
-  Functions, never a workstation process.
+- [Architecture](../architecture.md)
+- [Repository ownership](../operations/repository-ownership.md)
+- [Hosted service contracts](hosted-runtime.json)
+- [Member entitlement foundation](member-entitlement-state-foundation.v1.md)
+- [Forums sign-in](mochirii-forums-discourse-connect.md)
+- [Mochi Pets website contract](mochi-pets-website-contract.md)
 
-Operational steps and dated evidence belong in `docs/operations`.
+The Website repository owns the website, storefront theme, shared backend,
+and its identity connections. Mochirii Social application releases and recovery
+belong to [Mochirii Social](https://github.com/Mochirii-Wushu/Mochirii-Social).
 
-See [Hosted runtime ownership](hosted-runtime.json) and
-[the host-independence runbook](../operations/HOST-INDEPENDENCE.md) for the
-machine-checked offline-workstation boundary and its remaining readbacks.
+These documents describe interfaces and responsibilities. Follow the
+[release guides](../operations/README.md) for approved changes.
+
+Keep credential values, cookies, signed URLs, private keys, member data, and
+supplier records out of these files. Configuration names and sanitized examples
+are sufficient.
