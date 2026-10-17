@@ -1,7 +1,8 @@
 # Mōchirīī
 
-The home of the Mōchirīī guild: a community website, member tools, shared
-community services, and the Mochirii Cosmetics storefront theme.
+The website and member tools for Mōchirīī, an Asia-Pacific guild for casual
+Where Winds Meet players. It brings together guild information, events,
+screenshots, member accounts, and the Mochirii Cosmetics storefront theme.
 
 [Visit Mōchirīī](https://mochirii.com)
 
@@ -24,6 +25,9 @@ social application; this repository keeps the website’s sign-in and account
 connections to it.
 
 ## Start here
+
+New to the guild? Read the [joining guide](https://mochirii.com/join).
+To contribute, choose the relevant guide below.
 
 - [Website app](apps/web/README.md): pages, member features, and development.
 - [Storefront theme](apps/shopify-theme/README.md): theme files and checks.

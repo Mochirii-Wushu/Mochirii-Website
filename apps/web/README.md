@@ -1,7 +1,9 @@
 # Mōchirīī website
 
-The application behind [mochirii.com](https://mochirii.com), built with
-Next.js, React, and TypeScript.
+Public guild pages and member tools for [Mōchirīī](https://mochirii.com),
+built with Next.js, React, and TypeScript. Members can start with the
+[joining guide](https://mochirii.com/join); the instructions below are for
+contributors working on the website.
 
 ## Features
 

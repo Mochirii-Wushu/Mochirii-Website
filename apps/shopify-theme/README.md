@@ -3,8 +3,9 @@
 The storefront theme for Mochirii Cosmetics, with product pages, collections,
 navigation, cart presentation, and reviewed customer copy.
 
-The theme keeps the twenty approved products visible. Checkout remains
-disabled until the store’s separate launch approval.
+The theme keeps the selected twenty-product catalog visible for preview.
+Product, packaging, and store launch reviews are separate. Checkout remains
+disabled until the store’s launch approval.
 
 ## Contents
 
