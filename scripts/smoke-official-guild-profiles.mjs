@@ -189,7 +189,9 @@ async function inspectPage(context, browserName, viewport, navigationUrl) {
 }
 
 async function verifyDesktopHeader(page) {
-  const trigger = page.getByRole("button", { name: /^Guild\b/ });
+  const home = new URL(page.url()).pathname === "/";
+  const groupLabel = home ? "Resources" : "Guild";
+  const trigger = page.getByRole("button", { name: home ? /^Resources\b/ : /^Guild\b/ });
   assert(await trigger.count() === 1, "desktop Guild trigger is missing or duplicated");
   assert(await trigger.isVisible(), "desktop Guild trigger is not visible");
 
@@ -197,10 +199,10 @@ async function verifyDesktopHeader(page) {
   await trigger.press("Enter");
   await waitForAttribute(trigger, "aria-expanded", "true");
 
-  const menu = page.locator("#nav-menu-guild");
+  const menu = page.locator(home ? "#nav-menu-resources" : "#nav-menu-guild");
   assert(await menu.isVisible(), "desktop Guild menu did not open from the keyboard");
   const profiles = menu.locator('[data-official-profiles="header"]');
-  await verifyProfileSection(profiles, headerProfiles, "desktop Guild menu");
+  await verifyProfileSection(profiles, headerProfiles, `desktop ${groupLabel} menu`);
   await assertElementInsideViewport(page, menu, "desktop Guild menu");
   await assertDocumentReflow(page, "open desktop Guild menu");
 
@@ -280,7 +282,7 @@ async function verifyFooter(page) {
 async function verifyProfileSection(section, expectedProfiles, label) {
   assert(await section.count() === 1, `${label} section is missing or duplicated`);
   const expectedSectionLabel = label.startsWith("desktop")
-    ? "Official Mōchirīī social profiles in the Guild menu"
+    ? `Official Mōchirīī social profiles in the ${label.includes("Resources") ? "Resources" : "Guild"} menu`
     : label.startsWith("mobile")
       ? "Official Mōchirīī social profiles in the mobile menu"
       : "Official Mōchirīī social profiles in the footer";

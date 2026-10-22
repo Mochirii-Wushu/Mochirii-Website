@@ -13,8 +13,8 @@ const expected = {
   gatheringTitle: "Monthly Guild Gathering",
   gatheringDescription: "A monthly gathering where every member can discuss anything they'd like with the guild.",
   footer: "Mōchirīī is an Asia Pacific Where Winds Meet guild for casual players, guild events, and member projects.",
-  heroIntro: "Mōchirīī is an Asia Pacific guild for casual Where Winds Meet players. We organize teams, events, raffles, guides & member projects.",
-  heroFollowup: "Discord handles onboarding & event planning. The website keeps guild rules, ranks, leaders, updates, screenshots, social posts & forums in one place.",
+  heroIntro: "Mōchirīī is a Southeast Asia-focused Where Winds Meet guild.",
+  heroFollowup: "Join teams, events and community activities, with schedules in UTC+8.",
   join: "There is room in the guild for pretty Wanderers. We gather in Asia Pacific & players farther away are welcome when the ping works for them.",
   displayTimezone: "UTC+8",
   brandSubtitle: "Asia Pacific Guild",
@@ -81,10 +81,10 @@ assert(home.hero?.descriptor?.[1] === expected.heroFollowup, "home.hero.descript
 assertJsonEqual("Home hero badges", home.hero?.badges, ["Cross-Platform", "Casual Play", "UTC+8 Events"]);
 assert(home.copy?.spotlightIntro === expected.spotlight, "home Spotlight text must match the approved copy.");
 assertJsonEqual("Home section introductions", home.copy, {
-  bulletinIntro: "Check the next event, current raffle & latest announcement.",
+  bulletinIntro: "Raffle status and guild notices.",
   doorsIntro: "Use these pages to join the guild, review ranks, find leaders & read the rules.",
   spotlightIntro: expected.spotlight,
-  galleryIntro: "Recent screenshots from combat, exploration, events & member gatherings.",
+  galleryIntro: "Guild screenshots from combat, exploration, events and member gatherings.",
 });
 assert(home.seal?.title === "Guild Seal", "Home seal title must be Guild Seal.");
 assert(home.seal?.imageAlt === "Mōchirīī guild seal", "Home seal alt text must identify the guild seal.");
@@ -176,32 +176,30 @@ assertCompactOccurrenceCount(
   'className="home-guild-seal" aria-label="Guild seal"',
   1,
 );
-assertIncludes("Next Home recruitment state", homePage, "recruitmentPresentation(recruitmentData.meta.status)");
+assertIncludes("Next Home recruitment state", homePage, "getHomeRecruitment(recruitmentData.meta.status)");
+assertIncludes("Next Home recruitment destination", homePage, "href={recruitment.href}");
+assertIncludes("Next Home recruitment label", homePage, "{recruitment.label}");
 assertIncludes("Next Home recognition", homePage, "spotlightRecognition(spotlight, winner)");
 for (const snippet of [
-  'if (state === "open") return { badge: "Recruitment Open", paused: false };',
-  'if (state === "limited") return { badge: "Limited Recruitment", paused: false };',
-  'return { badge: "Recruitment Paused", paused: true };',
-  "View Recruitment Status",
-  'href="/recruitment"',
-  "Join on Discord",
   "Read the Joining Guide",
   'alt=""',
-  'label: "Next Event"',
-  'cta: "View All Events"',
   'label: "Raffle Status"',
   'title: "No raffle is open."',
   'cta: "View Raffle History"',
-  'label: "Latest Announcement"',
+  'label: "Guild Announcement"',
   'cta: "View All Announcements"',
-  "View Guild Gallery",
+  "View gallery",
+  "Double Counter verification",
+  "A website account is optional.",
 ]) assertIncludes("Next Home exact presentation", homePage, snippet);
 assertInOrder("Next Home section order", homePage, [
-  'aria-label="Guild seal"',
-  'aria-label="Guild bulletin"',
-  'aria-label="Guild guide"',
-  'aria-label="Member spotlight"',
+  'className="home-hero"',
+  "<HomeNextEvent",
+  'id="guild-activity"',
   'aria-label="Guild gallery"',
+  'id="start-here"',
+  'id="member-resources"',
+  'aria-label="Guild seal"',
 ]);
 
 const footerComponent = read("apps/web/components/SiteFooter.tsx");

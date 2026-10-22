@@ -1,57 +1,36 @@
-/* =========================================================
-   HOME â€” Guild seal (glass container)
-   ========================================================= */
-.home-guild-seal{
+/* Supporting guild identity follows the actionable Home sections. */
+.home-page .home-guild-seal{
   display:flex;
-  flex-direction:column;
   align-items:center;
-  gap:14px;
-
-  padding:22px;
-  border-radius:26px;
-  border:1px solid var(--line);
-  background:var(--bg-1);
-  box-shadow:var(--shadow);
-  backdrop-filter:var(--blur);
-  -webkit-backdrop-filter:var(--blur);
+  justify-content:center;
+  gap:28px;
+  min-width:0;
+  padding:28px;
+  border-top:1px solid rgba(218,181,94,.30);
+  text-align:center;
 }
-
-.home-guild-seal img{
-  width:96px;
-  max-width:100%;
+.home-page .home-guild-seal img{
+  display:block;
+  flex:0 0 auto;
+  width:116px;
   height:auto;
   object-fit:contain;
-  display:block;
 }
-
-.home-seal-verse{
-  margin:0;
-  text-align:center;
-  color:var(--ink-1);
-  font-size:14px;
-  line-height:1.6;
-  max-width:32ch;
-}
-
-.home-seal-title{
-  margin:0;
+.home-page .home-seal-title{
+  margin:0 0 12px;
   font-family:var(--font-display);
-  font-size:44px;
-  letter-spacing:.08em;
-  text-transform:none;
-  color:var(--ink-0);
-  text-align:center;
+  font-size:34px;
+  font-weight:400;
+  color:#f3e5c7;
 }
-
-.home-hero-row{
-  display:grid;
-  grid-template-columns:minmax(0, 1fr) clamp(220px, 24vw, 320px);
-  align-items:stretch;
-  gap:clamp(14px, 2vw, 24px);
+.home-page .home-seal-verse{
+  margin:0;
+  max-width:64ch;
+  font-size:13px;
+  line-height:1.8;
 }
-
-@media (max-width:820px){
-  .home-hero-row{
-    grid-template-columns:1fr;
-  }
+@media (max-width:640px){
+  .home-page .home-guild-seal{flex-direction:column;gap:20px;padding:24px 0 0;}
+  .home-page .home-guild-seal img{width:96px;}
+  .home-page .home-seal-verse{font-size:12px;}
 }

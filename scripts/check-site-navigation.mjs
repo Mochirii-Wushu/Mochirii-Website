@@ -147,7 +147,9 @@ assertIncludes("SiteFooter recruitment link", footer, [
 assertCount("SiteFooter recruitment link", footer, `href="/recruitment"`, 1);
 assertNotIncludes("SiteFooter retired recruitment label", footer, "Recruitment Tips");
 assertNotIncludes("SiteFooter retired recruitment label", footer, "Recruitment Note");
-assertIncludes("Home Discord destination", homePage, "href={DISCORD_INVITE_URL}");
+assertIncludes("Home recruitment destination", homePage, "href={recruitment.href}");
+assertIncludes("Home recruitment status", homePage, "getHomeRecruitment(recruitmentData.meta.status)");
+assertIncludes("Home canonical Discord destination", read("apps/web/lib/home-recruitment.ts"), "publicUrls.discordInviteUrl");
 assertIncludes("Account Discord destination", accountPanel, "href={DISCORD_INVITE_URL}");
 assertIncludes("Join Discord destination", discordServerPreview, "href={DISCORD_INVITE_URL}");
 assertIncludes("Events board Discord fallback", eventsBoard, "DISCORD_INVITE_URL");

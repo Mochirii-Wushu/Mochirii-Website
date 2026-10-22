@@ -1,9 +1,9 @@
 {
   "copy": {
-    "bulletinIntro": "Check the next event, current raffle & latest announcement.",
+    "bulletinIntro": "Raffle status and guild notices.",
     "doorsIntro": "Use these pages to join the guild, review ranks, find leaders & read the rules.",
     "spotlightIntro": "Each month, members recognize one person for a specific contribution.",
-    "galleryIntro": "Recent screenshots from combat, exploration, events & member gatherings."
+    "galleryIntro": "Guild screenshots from combat, exploration, events and member gatherings."
   },
   "celebrationSplash": {
     "enabled": false,
@@ -17,8 +17,8 @@
     "image": "./assets/img/hero/hero.webp",
     "atmosphereImage": "",
     "descriptor": [
-      "Mōchirīī is an Asia Pacific guild for casual Where Winds Meet players. We organize teams, events, raffles, guides & member projects.",
-      "Discord handles onboarding & event planning. The website keeps guild rules, ranks, leaders, updates, screenshots, social posts & forums in one place."
+      "Mōchirīī is a Southeast Asia-focused Where Winds Meet guild.",
+      "Join teams, events and community activities, with schedules in UTC+8."
     ],
     "badges": [
       "Cross-Platform",

@@ -88,6 +88,10 @@ Checklist copy should remain clear, not overly poetic. Do not add interactive co
 
 ## 6. Links and CTAs
 
+The server onboarding step follows the welcome prompt and Double Counter verification specified by the owner.
+Website sign-in is optional and separate; verified-member features still require current membership/role checks.
+Do not describe moderator verification as the normal Discord joining flow or promise automatic guild admission.
+
 Current link behavior:
 
 - `quickStart.links` render as badge-row links.

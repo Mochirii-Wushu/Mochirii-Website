@@ -13,7 +13,7 @@ const failures = [];
 const warnings = [];
 
 const routes = [
-  { route: "/", label: "Home", file: "apps/web/app/page.tsx", type: "public", workflow: "guild overview", expectsLiveRegion: true },
+  { route: "/", label: "Home", file: "apps/web/app/page.tsx", type: "public", workflow: "guild overview", componentFiles: ["apps/web/components/public-pages/HomeNextEvent.tsx"], expectsLiveRegion: true },
   { route: "/join", label: "Join", file: "apps/web/app/join/page.tsx", type: "public", workflow: "website to Discord funnel", componentFiles: ["apps/web/components/public-pages/DiscordServerPreview.tsx"] },
   { route: "/events", label: "Events", file: "apps/web/app/events/page.tsx", type: "public", workflow: "community schedule", componentFiles: ["apps/web/components/public-pages/EventsBoard.tsx"], expectsLiveRegion: true },
   { route: "/gallery", label: "Gallery", file: "apps/web/app/gallery/page.tsx", type: "public", workflow: "media browsing", componentFiles: ["apps/web/components/public-pages/GalleryBrowser.tsx"], expectsLiveRegion: true },

@@ -21,6 +21,7 @@ const checkRows = [
   ["check:recruitment-audio-player", ["node", "scripts/check-recruitment-audio-player.mjs"]],
   ["check:content", ["node", "scripts/check-content-guardrails.mjs"]],
   ["check:apac-content", ["node", "scripts/check-apac-content.mjs"]],
+  ["test:homepage-presentation", ["node", "--experimental-default-type=module", "--experimental-strip-types", "--test", "scripts/homepage-navigation.test.mjs", "apps/web/lib/home-recruitment.test.mts"]],
   ["check:brand-boundaries", ["node", "scripts/check-brand-boundaries.mjs"]],
   ["check:repository-boundaries", ["node", "scripts/check-repository-boundaries.mjs"]],
   ["check:host-independence", ["node", "scripts/check-host-independence.mjs"]],

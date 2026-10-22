@@ -15,8 +15,9 @@ Home should route visitors onward without duplicating:
 - Leaders contact structure.
 - Twills personal profile.
 
-Current Home order is Hero with Guild Seal, Guild Bulletin, Guild Guide, Member Spotlight, Guild Gallery, then the
-global footer. Keep current/actionable information and primary destinations ahead of supporting identity material.
+Current Home order is the proposition and recruitment-gated action, next current/upcoming event, Guild Activity
+(gallery, current-month Spotlight and supporting updates), Start here, grouped member resources, Guild Seal, then
+the global footer. Keep current/actionable information ahead of supporting identity material.
 
 ## 2. Data Source
 
@@ -44,7 +45,8 @@ Renderer notes:
   `recruitment.json` at build time and renders the canonical `/` route.
 - Scheduled event dates come from `guild-schedule.json` when a bulletin has `scheduleId`. Open/closed raffle state
   and its closing instant come from `raffles.json`.
-- The Hero recruitment chip and primary action derive from the single `recruitment.json` `meta.status` value. Supported
+- Every Home Discord action, including its header, onboarding and footer actions, derives from the single
+  `recruitment.json` `meta.status` value. Supported
   states are `open`, `limited`, and `paused`; unknown values fail closed to the paused presentation.
 - Home reads the same current-month, randomly selected Website member name returned by `get-current-spotlight-winner`
   as the dedicated Spotlight page and passes that single result to `SpotlightWinnerTitle`. The path is name-only and
@@ -77,6 +79,12 @@ Header behavior comes from `apps/web/components/SiteHeader.tsx`, its focused hel
 The header and footer brand blocks match: the prominent `Mōchirīī` guild name sits above the concise `Asia Pacific Guild` regional label. Keep the game name in metadata and approved supporting contexts instead of the brand subtitle.
 
 Current desktop navigation:
+
+Home alone uses Events, Guild Activity (`/#guild-activity`) and Resources, with a separate Login/Account control
+and recruitment-gated action. Resources retains the complete existing groups and official profiles; Social and
+Forums are secondary Coming Soon destinations. Home mobile navigation retains the complete destination inventory
+and existing dialog behavior. Other routes retain the navigation below. The server layout passes only recruitment
+status to the shared shell; never import the protected recruitment body into the client header.
 
 - Guild: Home, Spotlight, Gallery, Social, Forums, Mochi Pets.
 - The Guild dropdown contains the five owner-approved profile links from `apps/web/config/public-urls.json`: Facebook, Instagram, TikTok, Twitch, and YouTube.
@@ -155,7 +163,7 @@ and permission contract; authentication-provider marks are not reusable.
 - Home should feel clear, human, xianxia-inspired, and Mōchirīī-specific.
 - Cupcake warmth may appear lightly.
 - Do not overuse Cupcake language.
-- The explicitly approved first hero paragraph may say `casual Where Winds Meet players`; this Hero string is the
+- The explicitly approved first hero paragraph is `Mōchirīī is a Southeast Asia-focused Where Winds Meet guild.`; this Hero string is the
   only regular visible Home body-copy exception for the exact game name.
 - Do not use `Where Winds Meet` elsewhere in regular visible Home body copy.
 - Keep functional labels clear.
@@ -192,7 +200,10 @@ Home image behavior:
 - Hero image: `./assets/img/hero/hero.webp`
 - Background image: `./assets/bg/wuxia-bg.webp`
 - Seal image: `./assets/img/brand/emblem.webp`
-- Bulletin, door, and spotlight images render from `apps/web/public/data/home.json`; Home Gallery candidates come from `apps/web/public/data/gallery.json`, with `home.json` gallery entries retained only as fallback.
+- Secondary bulletin and Spotlight artwork render from `apps/web/public/data/home.json`; the next-event cover
+  comes from the selected sanitized schedule event. Resource cards retain the existing tile copy/links without
+  repeating their artwork. Home Gallery candidates come from `apps/web/public/data/gallery.json`, with
+  `home.json` gallery entries retained only as fallback.
 - Home gallery thumbnails should use thumbnail paths where intended, and `full` should point to the full image used by the lightbox.
 - Home Guild Gallery uses the same fluid, proportional lightbox geometry as `/gallery`; shared sizing belongs in
   `apps/web/app/styles/shell-lightbox.css`, not Home- or Gallery-only CSS.
@@ -215,13 +226,19 @@ Image expectations:
 
 Next app shared hero presentation:
 
-- Shared `PageHero` routes and Home use the same stable `3 / 2` hero image frame inside the tokenized `--hero-frame-max-width` container.
-- The hero image frame renders first, then Home may place the intro card and guild seal together in a slim row below
-  it with positive spacing. Main page content follows below the hero header.
-- Hero images should render with `object-fit: contain` and `object-position: center`, with no crop, scrim, tint, CSS filter, transform, or overlay covering the image.
-- Do not use negative `--hero-image-to-card-gap` values, page-scoped hero geometry tokens, one-off hero margins, or page-local hero aspect/size overrides.
+- Shared `PageHero` routes use the stable `3 / 2` hero image frame inside the tokenized `--hero-frame-max-width` container.
+- Shared hero images render with `object-fit: contain` and `object-position: center`, with no crop, scrim, tint,
+  CSS filter, transform, or overlay covering the image. Intro content follows with positive spacing.
+- Home intentionally has its own `.home-page` / `.home-hero` composition: shorter desktop artwork with readable
+  text on the right, and proportionate artwork above content/actions on phones. Its hero lives inside `#main`.
+  Its guild seal follows resources. Do not implement this exception by overriding shared `.page-hero` geometry.
+- Preserve the existing emblem, fonts and approved artwork bytes. Keep Home's actual LCP image eager and reserve
+  image dimensions. The proposition and primary action must fit at `390x844` and `1440x900`.
+- Shared `PageHero` routes must not use negative `--hero-image-to-card-gap` values, page-scoped hero geometry
+  tokens, one-off hero margins, or page-local hero aspect/size overrides. Home must not redefine these shared tokens.
 - Surface tiers should remain explicit: hero shell, primary content card, quiet card, tool panel, and admin/member panel.
-- Keep page-specific palette, border, and glass styling scoped by `body[data-page="..."]`; do not change text, alt text, image paths, or route data for visual-only passes.
+- Scope Home geometry to server-rendered Home classes; it must work before `BodyPageMarker` hydration. Keep
+  other pages' palette/border/glass scope and geometry intact.
 - Validate Home plus each shared `PageHero` route at `360px`, `390px`, `768px`, `1024px`, and `1440px` before release.
 
 ## 10. Asset and Cache Conventions
@@ -266,6 +283,8 @@ npm run check:production
 npm run setup:playwright
 npm --prefix apps/web run build
 npm run smoke:gallery
+npm run test:homepage-presentation
+npm run smoke:home -- --base-url http://127.0.0.1:8765
 ```
 
 The exact public-name, URL, and surface decision is recorded in

@@ -8,24 +8,26 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
 import { useHeaderAuthState } from "@/components/site-header/use-header-auth-state";
+import { getHomeRecruitment } from "@/lib/home-recruitment";
 
 function isIsolatedSpinnerPath(pathname: string) {
   return pathname === "/spinner" || pathname.startsWith("/spinner/");
 }
 
-export function SiteRouteShell({ children }: { children: ReactNode }) {
+export function SiteRouteShell({ children, recruitmentStatus }: { children: ReactNode; recruitmentStatus: string }) {
   const pathname = usePathname();
   if (isIsolatedSpinnerPath(pathname)) return children;
 
-  return <OrdinarySiteShell>{children}</OrdinarySiteShell>;
+  return <OrdinarySiteShell home={pathname === "/"} recruitmentStatus={recruitmentStatus}>{children}</OrdinarySiteShell>;
 }
 
-function OrdinarySiteShell({ children }: { children: ReactNode }) {
+function OrdinarySiteShell({ children, home, recruitmentStatus }: { children: ReactNode; home: boolean; recruitmentStatus: string }) {
   const auth = useHeaderAuthState();
+  const homeRecruitment = home ? getHomeRecruitment(recruitmentStatus) : undefined;
 
   return (
     <>
-      <SiteHeader {...auth} />
+      <SiteHeader {...auth} homeRecruitment={homeRecruitment} />
       <div className="bg-photo" aria-hidden="true">
         <Image
           src="/assets/bg/wuxia-bg.webp"
@@ -37,7 +39,7 @@ function OrdinarySiteShell({ children }: { children: ReactNode }) {
         />
       </div>
       {children}
-      <SiteFooter authState={auth.authState} launchSpinnerViewer={auth.launchSpinnerViewer} />
+      <SiteFooter authState={auth.authState} launchSpinnerViewer={auth.launchSpinnerViewer} homeRecruitment={homeRecruitment} />
       <Analytics />
       <SpeedInsights />
     </>

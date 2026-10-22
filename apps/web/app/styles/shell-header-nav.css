@@ -333,3 +333,30 @@
   .nav{display:none;}
   .burger{display:inline-flex;}
 }
+
+.site-header[data-variant="home"]{
+  padding-top:max(10px, var(--safe-area-top));
+  padding-bottom:10px;
+}
+.site-header[data-variant="home"] .header-wrap{gap:10px;}
+.site-header[data-variant="home"] .nav{gap:6px;flex-wrap:nowrap;}
+.home-resources-menu{
+  left:50%;
+  transform:translateX(-50%);
+  width:min(640px, calc(100vw - 48px));
+  max-height:calc(100dvh - 110px);
+  overflow-y:auto;
+  overscroll-behavior:contain;
+}
+.home-resource-groups{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;}
+.home-resource-group{min-width:0;}
+.home-resource-title{margin:7px 12px;color:var(--ink-2);font-size:11px;letter-spacing:.08em;text-transform:uppercase;}
+.home-resources-menu .nav-item{white-space:normal;overflow-wrap:anywhere;}
+.home-resources-menu .official-profile-list{grid-template-columns:repeat(3,minmax(0,1fr));min-width:0;}
+
+@media (max-width:600px){
+  .site-header[data-variant="home"] .utils > .cta{display:none;}
+  .site-header[data-variant="home"] .brand-mark{width:44px;height:44px;}
+  .site-header[data-variant="home"] .brand-name{font-size:26px;}
+  .site-header[data-variant="home"] .brand-sub{font-size:10px;}
+}
