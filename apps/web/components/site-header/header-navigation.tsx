@@ -33,12 +33,14 @@ export function SiteNavLink({
   className,
   onClick,
   hidden = false,
+  prefetch,
 }: {
   item: NavItem;
   activeKey?: string;
   className: string;
   onClick?: (event: MouseEvent<HTMLAnchorElement>) => void;
   hidden?: boolean;
+  prefetch?: false;
 }) {
   const isActive = !item.external && item.nav === activeKey;
   const authAttrs =
@@ -74,6 +76,7 @@ export function SiteNavLink({
       className={`${className}${isActive ? " is-active" : ""}`}
       href={item.href}
       data-nav={item.nav}
+      prefetch={prefetch}
       aria-current={isActive ? "page" : undefined}
       onClick={onClick}
       hidden={hidden}

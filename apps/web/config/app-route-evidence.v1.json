@@ -32,8 +32,8 @@
       "id": "accessibility-route-matrix",
       "path": "scripts/check-accessibility-route-matrix.mjs",
       "scope": "source-only accessibility route definitions; no browser or assistive-technology claim",
-      "bytes": 18750,
-      "sha256": "E68A314A33115EB84AAE60CD20D3E619A9CC5E8F3384B6F1FEE80824907D135E",
+      "bytes": 18822,
+      "sha256": "FB19BFD16AB98F010EEFFA5812B793B5F7630045BE75D8529C92D9CE2A7A9113",
       "status": "verified_source"
     },
     {
@@ -96,8 +96,8 @@
       "id": "metadata-smoke",
       "path": "scripts/check-observability-metadata-smoke.mjs",
       "scope": "offline metadata contract; live mode is not claimed by this ledger",
-      "bytes": 29788,
-      "sha256": "EFB2A7237B1E502E8E9DE84EA6F0692AED93142837F730B5BE6079A90BC0CF4D",
+      "bytes": 29836,
+      "sha256": "9A29D1DA27682742687974B9FF9E52922C7FC40F6112A07C452CE674E389FC87",
       "status": "verified_source"
     },
     {
@@ -136,8 +136,8 @@
       "id": "repository-check-runner",
       "path": "scripts/check-all.mjs",
       "scope": "full-repository execution wiring for route-evidence checks",
-      "bytes": 14247,
-      "sha256": "A1A5874896B8126EABC091CF82E3638F820654F8952D1A6EB46B30D9FB5C336A",
+      "bytes": 14655,
+      "sha256": "2BF9ADE8A7E2C426DCC511D336EBB9CB04483E93689167611C883ED1B09670FD",
       "status": "verified_source"
     },
     {
@@ -160,8 +160,8 @@
       "id": "site-navigation",
       "path": "scripts/check-site-navigation.mjs",
       "scope": "source-only shared navigation contract; no browser journey claim",
-      "bytes": 27592,
-      "sha256": "0120BC5039AD87A9D1B34CB1EF5DD0AE28E5054A4A51E85F37720CAA4C5D08F7",
+      "bytes": 27825,
+      "sha256": "C984AB766E58C3B35C705D6991E6FAB8C41E24FB32EF0E2D24DEBD49A6C2FFD1",
       "status": "verified_source"
     }
   ],

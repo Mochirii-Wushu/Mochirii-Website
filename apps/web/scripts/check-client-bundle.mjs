@@ -7,6 +7,7 @@ const manifestPath = path.join(buildRoot, "server", "app", "page_client-referenc
 const spinnerManifestPath = path.join(buildRoot, "server", "app", "spinner", "page_client-reference-manifest.js");
 const layoutLimit = 63 * 1024;
 const homeIncrementalLimit = 5 * 1024;
+const homeSceneLimit = 8 * 1024;
 const publicRouteLimit = 225 * 1024;
 const forbiddenRuntimeMarkers = ["GoTrueClient", "PostgrestError", "RealtimeClient"];
 const forbiddenSecretMarkers = ["MOCHIRII_FORUMS_DISCOURSE_CONNECT_SECRET"];
@@ -164,6 +165,22 @@ function chunksContaining(marker) {
   const encoded = Buffer.from(marker);
   return staticChunks.filter((chunk) => chunk.buffer.includes(encoded)).map((chunk) => chunk.file);
 }
+const sceneFiles = chunksContaining("HOME_SCENE_RENDERER_V1");
+if (sceneFiles.length !== 1) failures.push(`expected one deferred Home renderer chunk, found ${sceneFiles.length}`);
+for (const file of sceneFiles) {
+  if (layoutFiles.includes(file) || homeFiles.includes(file)) failures.push(`Home renderer is eager: ${file}`);
+}
+// Count the whole new shared controller and preference source conservatively,
+// in addition to the compiled renderer. Their compiled bytes also remain in
+// the unchanged shared-entry guard. The renderer intentionally has no imports.
+const sceneSource = readFileSync(path.resolve("components/home-scene.ts"), "utf8");
+if (/^\s*import\s/m.test(sceneSource)) failures.push("Home renderer dependencies need explicit budget accounting");
+const sceneHelperBytes = ["components/DecorativeMotion.tsx", "lib/decorative-motion.ts"]
+  .reduce((total, file) => total + brotliBytes(readFileSync(path.resolve(file))), 0);
+const sceneBrotli = sceneFiles.reduce((total, file) => total + brotliBytes(readChunk(file)), 0);
+if (sceneBrotli + sceneHelperBytes > homeSceneLimit) {
+  failures.push(`Home scene and helpers are ${formatKiB(sceneBrotli + sceneHelperBytes)}; limit is ${formatKiB(homeSceneLimit)}`);
+}
 for (const marker of forbiddenSecretMarkers) {
   const offenders = chunksContaining(marker);
   if (offenders.length) failures.push(`client chunks contain server-only marker ${marker}: ${offenders.join(", ")}`);
@@ -189,6 +206,9 @@ for (const route of publicRoutes) {
   try {
     const bundle = publicRouteBundle(route);
     routeBundles.set(route, bundle);
+    if (route === "/" && bundle.brotliBytes + sceneBrotli > publicRouteLimit) {
+      failures.push(`Home entry plus deferred scene exceeds ${formatKiB(publicRouteLimit)}`);
+    }
     if (bundle.brotliBytes > publicRouteLimit) {
       failures.push(`${route} entry JavaScript is ${formatKiB(bundle.brotliBytes)}; limit is ${formatKiB(publicRouteLimit)}`);
     }
@@ -237,6 +257,8 @@ if (failures.length) {
 console.log("Client bundle guard passed.");
 console.log(`- Initial layout: ${formatKiB(layoutBrotli)} across ${layoutFiles.length} chunk(s).`);
 console.log(`- Home incremental: ${formatKiB(homeIncrementalBrotli)} across ${homeIncrementalFiles.length} chunk(s).`);
+console.log(`- Deferred Home scene: ${formatKiB(sceneBrotli)}; conservative shared-helper charge: ${formatKiB(sceneHelperBytes)}; combined limit ${formatKiB(homeSceneLimit)}.`);
+console.log(`- Home entry plus deferred scene: ${formatKiB(layoutBrotli + homeIncrementalBrotli + sceneBrotli)}.`);
 console.log("- Supabase Auth, PostgREST, and Realtime markers are absent from the initial layout.");
 for (const route of publicRoutes) {
   const bundle = routeBundles.get(route);

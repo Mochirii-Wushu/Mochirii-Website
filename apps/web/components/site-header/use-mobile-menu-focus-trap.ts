@@ -61,7 +61,7 @@ export function useMobileMenuFocusTrap({
     setMobileOpen(false);
     if (returnFocus) {
       window.setTimeout(() => {
-        const focusTarget = lastFocusRef.current || menuButtonRef.current;
+        const focusTarget = menuButtonRef.current || lastFocusRef.current;
         focusTarget?.focus({ preventScroll: true });
         lastFocusRef.current = null;
       }, 0);

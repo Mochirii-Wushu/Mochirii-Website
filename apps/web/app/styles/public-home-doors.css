@@ -1,113 +1,16 @@
-/* =========================================================
-   HOME â€” Doors (grid spacing)
-   ========================================================= */
-.home-doors{
-  display:grid;
-  gap:clamp(12px, 2.2vw, 18px);
-  margin-top:clamp(12px, 2.2vw, 18px);
-}
+.home-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:0;padding:0;list-style:none;}
+.home-steps > li{display:flex;gap:14px;align-items:flex-start;min-width:0;padding:20px 16px;border:1px solid #8ba18a88;border-radius:10px;background:linear-gradient(120deg,#122720eb,#132027e6);}
+.home-step-number{display:flex;align-items:center;justify-content:center;flex:0 0 36px;height:36px;border:1px solid #e3c684;border-radius:50%;color:#ffe8b6;font-size:21px;line-height:1;}
+.home-steps h3{font-size:17px;margin:2px 0 8px;}
+.home-steps p{color:#c7d1cd;font-size:14px;line-height:1.65;}
+.home-steps a{display:inline-flex;align-items:center;min-height:44px;color:#f5dba7;font-size:13px;text-underline-offset:4px;}
+.home-page .home-verification-note{max-width:85ch;margin:14px auto 0;padding:12px 18px;color:#c7d1cd;background:#081014c9;border-radius:8px;font-size:13px;text-align:center;}
+.home-resource-links > a,.home-resource-links > span{min-width:0;overflow-wrap:anywhere;}
+.home-resource-links{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;}
+.home-resource-links > :is(a,span){display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:48px;padding:10px 14px;border:1px solid #82998b88;border-radius:8px;background:#10191de8;font-size:14px;text-decoration:none;}
+.home-resource-links .home-coming-soon{flex-wrap:wrap;color:#c7d1cd;background:#10191dc4;border-color:#82998b55;}
+.home-coming-soon small{font-size:11px;color:#c7d1cd;}
+@media(max-width:900px){.home-steps{grid-template-columns:1fr;gap:10px;}.home-steps > li{padding:14px 16px;}.home-steps p{margin-bottom:0;}.home-steps a{min-height:36px;}}
+@media(max-width:680px){.home-resource-links{grid-template-columns:repeat(2,minmax(0,1fr));}.home-page .home-verification-note{text-align:left;padding:14px;}}
 
-@media (min-width:900px){
-  .home-doors{
-    grid-template-columns:repeat(2, minmax(0, 1fr));
-  }
-}
-
-/* =========================================================
-   HOME â€” Doors (plate rhythm and typography)
-   ========================================================= */
-.home-door__plate{
-  display:flex;
-  flex-direction:column;
-  align-items:flex-start;
-  gap:8px;
-}
-
-.home-door__title,
-.home-door__subtitle{
-  margin:0;
-}
-
-.home-door__title{
-  font-family:var(--font-body);
-  font-size:14px;
-  letter-spacing:.14em;
-  text-transform:uppercase;
-  line-height:1.35;
-  color:var(--ink-1);
-}
-
-@media (max-width:640px){
-  .home-door__title{
-    font-size:24px;
-  }
-}
-
-/* =========================================================
-   HOME â€” Doors (label pill; visual only)
-   ========================================================= */
-.home-door__label{
-  display:inline-flex;
-  align-items:center;
-  padding:6px 10px;
-  border-radius:999px;
-  border:var(--pill-border,2px) solid var(--card-line, rgba(255,255,255,.12));
-  background:rgba(0,0,0,.22);
-  color:var(--ink-1);
-  animation:border-shift 7.5s var(--ease) infinite;
-  width:fit-content;
-
-  font-family:var(--font-display);
-  font-size:24px;
-  letter-spacing:.04em;
-  text-transform:none;
-  margin:0;
-
-  }
-
-.home-gallery{
-  width:100%;
-  display:grid;
-  grid-template-columns:repeat(2, minmax(0, 1fr));
-  gap:12px;
-  margin-top:clamp(14px, 2.4vw, 20px);
-}
-
-.home-thumb{
-  border-radius:18px;
-  border:1px solid var(--line);
-  background:rgba(10,12,14,.55);
-  cursor:zoom-in;
-  transition:transform .18s var(--ease), border-color .18s var(--ease);
-}
-
-.home-thumb:hover,
-.home-thumb:focus-visible{
-  transform:translateY(-1px);
-  border-color:rgba(200,162,75,.42);
-}
-
-@media (min-width:760px){
-  .home-gallery{grid-template-columns:repeat(4, minmax(0, 1fr));}
-}
-
-@media (max-width:640px){
-  .home-featured,
-  .home-spotlight{min-height:240px;}
-
-  .home-featured__plate,
-  .home-spotlight__plate{
-    margin-top:88px;
-    padding:14px;
-  }
-
-  .home-bulletin,
-  .home-door{
-    grid-template-columns:1fr;
-  }
-
-  .home-bulletin__media,
-  .home-door__media{
-    min-height:0;
-  }
-}
+.home-page .home-thumb{border:0;border-radius:4px;background:#18252a;cursor:zoom-in;}

@@ -5,7 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { OfficialGuildProfiles } from "@/components/OfficialGuildProfiles";
 import { DISCORD_INVITE_URL } from "@/lib/public-urls";
-import { accountWorkflowLinks, navGroups, publicUtilityLinks } from "@/lib/site-navigation";
+import type { HomeRecruitment } from "@/lib/home-recruitment";
+import { accountWorkflowLinks, navGroups, publicUtilityLinks, type NavGroup } from "@/lib/site-navigation";
 import {
   useEffect,
   useRef,
@@ -25,14 +26,25 @@ export function SiteHeader({
   ensureAuthLoaded,
   ensureModeratorAccess,
   launchSpinnerViewer,
+  homeRecruitment,
 }: {
   authState: HeaderAuthState;
   ensureAuthLoaded: () => Promise<void>;
   ensureModeratorAccess: () => Promise<void>;
   launchSpinnerViewer: () => Promise<boolean>;
+  homeRecruitment?: HomeRecruitment;
 }) {
   const pathname = usePathname();
   const activeKey = navKeyFromPath(pathname);
+  const navigationGroups = homeRecruitment ? navGroups.map((group) => ({
+    ...group,
+    items: group.items.map((item) => item.nav === "social-host" || item.nav === "forums-host"
+      ? { ...item, label: `${item.label} (Coming Soon)` }
+      : item.nav === "join" ? { ...item, label: "Joining Guide" } : item),
+  })) : navGroups;
+  const desktopGroups: NavGroup[] = homeRecruitment
+    ? [{ id: "resources", label: "Resources", items: [] }]
+    : navGroups;
   const [openGroup, setOpenGroup] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -91,6 +103,7 @@ export function SiteHeader({
       id="site-header"
       ref={headerRef}
       className="site-header"
+      data-variant={homeRecruitment ? "home" : undefined}
       data-state={scrolled ? "scrolled" : "top"}
       onPointerEnter={() => void ensureAuthLoaded()}
       onPointerDown={() => void ensureAuthLoaded()}
@@ -121,7 +134,13 @@ export function SiteHeader({
         </Link>
 
         <nav className="nav" aria-label="Primary">
-          {navGroups.map((group) => {
+          {homeRecruitment ? (
+            <>
+              <Link className="nav-link" href="/events" data-nav="events">Events</Link>
+              <Link className="nav-link" href="/#guild-activity">Guild Activity</Link>
+            </>
+          ) : null}
+          {desktopGroups.map((group) => {
             const isOpen = openGroup === group.id;
 
             return (
@@ -159,12 +178,39 @@ export function SiteHeader({
                   {group.label} <span className="nav-caret" aria-hidden="true">▾</span>
                 </button>
                 <div
-                  className="nav-menu"
+                  className={`nav-menu${group.id === "resources" ? " home-resources-menu" : ""}`}
                   id={`nav-menu-${group.id}`}
                   hidden={!isOpen}
                   data-dropdown-menu
                 >
-                  {group.items.filter((item) => !navItemHidden(item, authState)).map((item) => (
+                  {group.id === "resources" ? (
+                    <>
+                      <div className="home-resource-groups">
+                        {navigationGroups.map((resourceGroup) => (
+                          <div className="home-resource-group" key={resourceGroup.id}>
+                            <div className="home-resource-title">{resourceGroup.label}</div>
+                            {resourceGroup.items.filter((item) => !navItemHidden(item, authState)).map((item) => (
+                              <SiteNavLink
+                                className="nav-item"
+                                item={item}
+                                activeKey={activeKey}
+                                key={item.nav}
+                                onClick={() => setOpenGroup(null)}
+                              />
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                      {publicUtilityLinks.filter((item) => !item.auth).map((item) => (
+                        <SiteNavLink className="nav-item" item={item} key={item.nav} onClick={() => setOpenGroup(null)} />
+                      ))}
+                      <OfficialGuildProfiles
+                        placement="header"
+                        headerGroupLabel="Official Mōchirīī social profiles in the Resources menu"
+                        onNavigate={() => setOpenGroup(null)}
+                      />
+                    </>
+                  ) : group.items.filter((item) => !navItemHidden(item, authState)).map((item) => (
                     <SiteNavLink
                       className="nav-item"
                       item={item}
@@ -184,7 +230,7 @@ export function SiteHeader({
             );
           })}
 
-          {publicUtilityLinks.filter((item) => !item.auth).map((item) => (
+          {!homeRecruitment ? publicUtilityLinks.filter((item) => !item.auth).map((item) => (
             <SiteNavLink
               className={`nav-link${item.auth ? " nav-auth-link" : ""}`}
               item={item}
@@ -192,7 +238,7 @@ export function SiteHeader({
               key={item.nav}
               hidden={navItemHidden(item, authState)}
             />
-          ))}
+          )) : null}
 
           <div className="nav-auth-slot">
             {authState.signedIn ? (
@@ -266,6 +312,7 @@ export function SiteHeader({
                 <SiteNavLink
                   className="nav-link nav-auth-link"
                   item={item}
+                  prefetch={homeRecruitment ? false : undefined}
                   activeKey={activeKey}
                   key={item.nav}
                 />
@@ -275,7 +322,15 @@ export function SiteHeader({
         </nav>
 
         <div className="utils">
-          <a
+          {homeRecruitment ? (
+            homeRecruitment.open ? (
+              <a className="cta" href={homeRecruitment.href} target="_blank" rel="noopener noreferrer">
+                {homeRecruitment.label}<span className="cta-glint" aria-hidden="true" />
+              </a>
+            ) : (
+              <Link className="cta" href={homeRecruitment.href}>{homeRecruitment.label}</Link>
+            )
+          ) : <a
             className="cta"
             href={DISCORD_INVITE_URL}
             target="_blank"
@@ -283,7 +338,7 @@ export function SiteHeader({
             aria-label="Join Mōchirīī"
           >
             Join Mōchirīī <span className="cta-glint" aria-hidden="true" />
-          </a>
+          </a>}
 
           <button
             className="burger"
@@ -360,7 +415,14 @@ export function SiteHeader({
           </div>
 
           <nav className="mobile-nav" aria-label="Primary mobile">
-            {navGroups.map((group) => (
+            {homeRecruitment ? (
+              <div className="mobile-group">
+                <div className="mobile-group-title">Explore</div>
+                <Link className="mobile-link" href="/events" onClick={() => closeMobile()}>Events</Link>
+                <Link className="mobile-link" href="/#guild-activity" onClick={() => closeMobile()}>Guild Activity</Link>
+              </div>
+            ) : null}
+            {navigationGroups.map((group) => (
               <div className="mobile-group" key={group.id}>
                 <div className="mobile-group-title">{group.label}</div>
                 {group.items.filter((item) => !navItemHidden(item, authState)).map((item) => (

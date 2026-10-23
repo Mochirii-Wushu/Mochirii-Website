@@ -5,6 +5,7 @@ const cssPath = "apps/web/app/styles/*.css";
 const css = readAppCss().replace(/\r\n/g, "\n");
 const homePagePath = "apps/web/app/page.tsx";
 const homePage = readFileSync(homePagePath, "utf8").replace(/\r\n/g, "\n");
+const homeVisual = readFileSync("apps/web/app/styles/public-home-visual.css", "utf8");
 
 function fail(message) {
   console.error(message);
@@ -27,9 +28,9 @@ assertIncludes("Shared hero radius", "border-radius:var(--hero-image-radius);");
 assertIncludes("Shared hero image fit", "object-fit:contain;");
 assertIncludes("Shared hero image position", "object-position:center;");
 assertIncludes("Shared hero card gap", ".hero-overlap{margin-top:var(--hero-image-to-card-gap); padding-bottom:var(--hero-stack-bottom-gap);}");
-assertIncludes("Home intro and seal row", ".home-hero-row{");
-assertIncludes("Home slim seal column", "grid-template-columns:minmax(0, 1fr) clamp(220px, 24vw, 320px);");
-assertIncludes("Home mobile/tablet seal stack", "@media (max-width:820px){\n  .home-hero-row{");
+assertIncludes("Home first-paint scope", ".home-page{");
+assertIncludes("Home separate hero", ".home-hero{");
+assertIncludes("Home responsive hero image", ".home-hero__image{");
 assertIncludes("Surface hero shell token", "--surface-hero-shell:var(--bg-1);");
 assertIncludes("Surface primary card token", "--surface-primary-card:var(--bg-0);");
 assertIncludes("Surface quiet card token", "--surface-quiet-card:var(--bg-2);");
@@ -122,23 +123,22 @@ for (const match of css.matchAll(/--hero-image-to-card-gap\s*:\s*([^;]+);/g)) {
   }
 }
 
-if (!/<div className="container hero-overlap">\s*<div className="home-hero-row">/.test(homePage)) {
-  fail(`Home guild seal row must live directly inside the hero-overlap container in ${homePagePath}.`);
+const homeMainStart = homePage.indexOf('<main className="home-page" id="main" tabIndex={-1}>');
+const homeHeroStart = homePage.indexOf('<section className="home-hero"');
+const homeResourcesStart = homePage.indexOf('id="member-resources"');
+const homeSealStart = homePage.indexOf('<section className="home-guild-seal"');
+if (homeMainStart < 0 || homeHeroStart < homeMainStart) {
+  fail(`Home proposition and actions must live in the keyboard-focusable main landmark in ${homePagePath}.`);
 }
-
-const homeHeroStart = homePage.indexOf('<section className="page-hero');
-const homeOverlapStart = homePage.indexOf('<div className="container hero-overlap">');
-const homeHeaderEnd = homePage.indexOf("</header>", homeOverlapStart);
-if (homeHeroStart === -1 || homeOverlapStart === -1 || homeOverlapStart < homeHeroStart) {
-  fail(`Home hero image section must appear before the hero-overlap row in ${homePagePath}.`);
-} else {
-  const homeImageFrame = homePage.slice(homeHeroStart, homeOverlapStart);
-  if (homeImageFrame.includes("home-guild-seal")) {
-    fail(`Home guild seal must not be inside the page-hero image frame in ${homePagePath}.`);
-  }
-  if (homeHeaderEnd === -1 || !homePage.slice(homeOverlapStart, homeHeaderEnd).includes('className="home-guild-seal"')) {
-    fail(`Home guild seal must remain inside the hero-overlap row in ${homePagePath}.`);
-  }
+if (homeResourcesStart < homeHeroStart || homeSealStart < homeResourcesStart) {
+  fail(`Home guild seal must follow actionable member resources in ${homePagePath}.`);
+}
+if (/className="[^"]*\bpage-hero/.test(homePage)) {
+  fail(`Home must use its separate hero composition without overriding shared PageHero geometry in ${homePagePath}.`);
+}
+if ([...homePage.matchAll(/<h1\b/g)].length !== 1) fail("Home must retain one meaningful h1.");
+for (const match of homeVisual.matchAll(/body\[data-page="home"\]\s+([^,{]+)/g)) {
+  if (!match[1].startsWith(".birthday-splash")) fail("Home geometry must use server-rendered classes; only the dormant birthday surface may depend on the body marker.");
 }
 
 for (const match of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {

@@ -434,15 +434,15 @@ for (const snippet of [
   "if (isIsolatedSpinnerPath(pathname)) return children;",
 ]) includes("route-aware site shell", source.siteShell, snippet);
 for (const snippet of [
-  "<SiteHeader {...auth} />",
-  '<SiteFooter authState={auth.authState} launchSpinnerViewer={auth.launchSpinnerViewer} />',
+  "<SiteHeader {...auth} homeRecruitment={homeRecruitment} />",
+  '<SiteFooter authState={auth.authState} launchSpinnerViewer={auth.launchSpinnerViewer} homeRecruitment={homeRecruitment} />',
   "<Analytics />",
   "<SpeedInsights />",
 ]) {
   includes("ordinary route site shell", source.siteShell, snippet);
   excludes("root layout", source.layout, snippet.slice(0, -3));
 }
-includes("root layout", source.layout, "<SiteRouteShell>{children}</SiteRouteShell>");
+includes("root layout", source.layout, "<SiteRouteShell recruitmentStatus={recruitmentData.meta.status}>{children}</SiteRouteShell>");
 
 for (const snippet of [
   "poweredByHeader: false",

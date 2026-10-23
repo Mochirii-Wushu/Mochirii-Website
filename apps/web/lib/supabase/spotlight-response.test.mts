@@ -30,6 +30,29 @@ const selected = {
   },
 };
 
+test("a delayed public response remains usable without changing the no-store boundary", async () => {
+  const winner = await fetchCurrentSpotlightWinner({
+    endpoint: ENDPOINT, publishableKey: "placeholder", currentTime: AUGUST_TIME,
+    fetchImpl: async () => { await new Promise(resolve => setTimeout(resolve, 30)); return jsonResponse(selected); },
+  });
+  assert.deepEqual(winner, { winnerName: "Nur Syidah", monthKey: "2026-08-01" });
+});
+
+test("a stalled request is aborted at the existing deadline and returns the honest fallback", async () => {
+  const keepAlive = setTimeout(() => {}, 7000);
+  let aborted = false;
+  try {
+    const winner = await fetchCurrentSpotlightWinner({
+      endpoint: ENDPOINT, publishableKey: "placeholder", currentTime: AUGUST_TIME,
+      fetchImpl: async (_input, init) => new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => { aborted = true; reject(init.signal?.reason); }, { once: true });
+      }),
+    });
+    assert.equal(aborted, true);
+    assert.equal(winner, null);
+  } finally { clearTimeout(keepAlive); }
+});
+
 test("the actual fetch boundary accepts only the exact bounded public winner DTO", async () => {
   const requests: Array<{ input: string; init?: RequestInit }> = [];
   const fetchImpl: SpotlightFetch = async (input, init) => {

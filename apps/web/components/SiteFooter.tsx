@@ -2,10 +2,12 @@ import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { OfficialGuildProfiles } from "@/components/OfficialGuildProfiles";
+import { MotionToggle } from "@/components/DecorativeMotion";
 import type { HeaderAuthState } from "@/components/site-header/header-navigation";
 import { SpinnerViewerNavLink } from "@/components/site-header/spinner-viewer-nav-link";
 import { DISCORD_INVITE_URL, FORUMS_HOST, SOCIAL_HOST } from "@/lib/public-urls";
 import { accountWorkflowLinks } from "@/lib/site-navigation";
+import type { HomeRecruitment } from "@/lib/home-recruitment";
 
 type FooterLink = {
   href: string;
@@ -69,16 +71,22 @@ const spinnerViewerLink = accountWorkflowLinks.find((item) => item.auth === "spi
 export function SiteFooter({
   authState,
   launchSpinnerViewer,
+  homeRecruitment,
 }: {
   authState: HeaderAuthState;
   launchSpinnerViewer: () => Promise<boolean>;
+  homeRecruitment?: HomeRecruitment;
 }) {
   const year = new Date().getFullYear();
+  const displayedGuildLinks = homeRecruitment ? guildLinks.map((link) => link.href === SOCIAL_HOST || link.href === FORUMS_HOST
+    ? { ...link, label: `${link.label} (Coming Soon)` } : link) : guildLinks;
+  const displayedCultureLinks = homeRecruitment ? cultureLinks.map((link) => link.href === "/join"
+    ? { ...link, label: "Joining Guide" } : link) : cultureLinks;
 
   return (
-    <footer className="site-footer" role="contentinfo">
+    <footer className="site-footer" role="contentinfo" data-variant={homeRecruitment ? "home" : undefined}>
       <div className="footer-wrap">
-        <div className="footer-top">
+        <div className="footer-top" data-motion-key="shell-footer">
           <div className="footer-brand">
             <Link className="footer-brand-link" href="/">
               <Image
@@ -101,7 +109,15 @@ export function SiteFooter({
               </p>
 
               <div className="footer-actions">
-                <a
+                {homeRecruitment ? (
+                  homeRecruitment.open ? (
+                    <a className="footer-cta" href={homeRecruitment.href} target="_blank" rel="noopener noreferrer">
+                      {homeRecruitment.label}<span className="footer-cta-glint" aria-hidden="true" />
+                    </a>
+                  ) : (
+                    <Link className="footer-cta" href={homeRecruitment.href}>{homeRecruitment.label}</Link>
+                  )
+                ) : <a
                   className="footer-cta"
                   href={DISCORD_INVITE_URL}
                   target="_blank"
@@ -109,7 +125,7 @@ export function SiteFooter({
                   aria-label="Join Mōchirīī on Discord"
                 >
                   Join Mōchirīī<span className="footer-cta-glint" aria-hidden="true" />
-                </a>
+                </a>}
 
                 <Link className="footer-link" href="/recruitment">
                   View Recruitment
@@ -119,8 +135,8 @@ export function SiteFooter({
           </div>
 
           <div className="footer-cols" aria-label="Footer navigation">
-            <FooterColumn title="Guild" links={guildLinks} />
-            <FooterColumn title="Culture" links={cultureLinks} />
+            <FooterColumn title="Guild" links={displayedGuildLinks} />
+            <FooterColumn title="Culture" links={displayedCultureLinks} />
             <FooterColumn title="Updates" links={updateLinks}>
               {spinnerViewerLink ? (
                 <SpinnerViewerNavLink
@@ -136,6 +152,7 @@ export function SiteFooter({
         </div>
 
         <div className="footer-bottom">
+          <MotionToggle />
           <div className="footer-meta">
             <span id="copyright-text">© {year} Mōchirīī</span>
             <span className="dot" aria-hidden="true">•</span>

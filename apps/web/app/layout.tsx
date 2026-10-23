@@ -3,6 +3,7 @@ import localFont from "next/font/local";
 import type { ReactNode } from "react";
 import { SiteRouteShell } from "@/components/SiteRouteShell";
 import { SITE_ORIGIN } from "@/lib/public-urls";
+import recruitmentData from "@/public/data/recruitment.json";
 import {
   SITE_DESCRIPTION,
   SITE_LANGUAGE,
@@ -89,7 +90,7 @@ export default function RootLayout({
   return (
     <html lang={SITE_LANGUAGE} className={`${displayFont.variable} ${bodyFont.variable}`}>
       <body data-page="home">
-        <SiteRouteShell>{children}</SiteRouteShell>
+        <SiteRouteShell recruitmentStatus={recruitmentData.meta.status}>{children}</SiteRouteShell>
       </body>
     </html>
   );

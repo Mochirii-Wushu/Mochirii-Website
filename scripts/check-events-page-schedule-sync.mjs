@@ -46,7 +46,14 @@ assertNotIncludes("EventsPage", eventsSource, "eventBoardItemsFromSchedule");
 
 assertIncludes("Home", homeSource, "<HomeNextEvent");
 assertIncludes("Home", homeSource, "referenceTime={referenceTime}");
-assertIncludes("Home", homeSource, '<span className="home-link">View All Events</span>');
+assertIncludes("Home event navigation", homeSource, 'href="/events"');
+assertIncludes("Home event navigation", homeSource, 'View all events');
+assertIncludes("Home selected event cover", homeEventSource, 'src={event.image.replace(/^\\.\\//, "/")}');
+assertIncludes("Home empty event fallback", homeSource, 'No event is scheduled.');
+assertIncludes("Home empty event behavior", homeEventSource, 'if (!event) return emptyState;');
+assertIncludes("Home responsive event cover", homeEventSource, 'import Image from "next/image";');
+assertIncludes("Home deferred event cover", homeEventSource, 'loading="lazy"');
+assertIncludes("Home current event label", homeEventSource, '"Current Event"');
 assertNotIncludes("Home", homeSource, "monthlyScheduleDate");
 for (const [label, source] of [["Home next event", homeEventSource], ["Events featured", eventsScheduleSource]]) {
   assertIncludes(label, source, "useGuildSchedule(scheduleData, referenceTime)");

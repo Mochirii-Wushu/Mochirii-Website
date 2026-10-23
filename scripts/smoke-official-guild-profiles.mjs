@@ -15,7 +15,7 @@ if (args.includes("--help")) {
 }
 
 const baseUrl = resolveBaseUrl();
-const routePath = "/";
+let routePath = "/";
 const failures = [];
 let scenarios = 0;
 
@@ -97,9 +97,11 @@ try {
   process.exit(1);
 }
 
-await runEngine(playwright.chromium, "Chromium", chromiumViewports);
-await runEngine(playwright.firefox, "Firefox", representativeViewports);
-await runEngine(playwright.webkit, "WebKit", representativeViewports);
+for (routePath of ["/", "/events"]) {
+  await runEngine(playwright.chromium, "Chromium", chromiumViewports);
+  await runEngine(playwright.firefox, "Firefox", representativeViewports);
+  await runEngine(playwright.webkit, "WebKit", representativeViewports);
+}
 
 if (failures.length > 0) {
   console.error(`Official guild-profile smoke failed with ${failures.length} finding${failures.length === 1 ? "" : "s"}.`);
@@ -189,7 +191,8 @@ async function inspectPage(context, browserName, viewport, navigationUrl) {
 }
 
 async function verifyDesktopHeader(page) {
-  const trigger = page.getByRole("button", { name: /^Guild\b/ });
+  const home = routePath === "/";
+  const trigger = page.getByRole("button", { name: home ? /^Resources\b/ : /^Guild\b/ });
   assert(await trigger.count() === 1, "desktop Guild trigger is missing or duplicated");
   assert(await trigger.isVisible(), "desktop Guild trigger is not visible");
 
@@ -197,7 +200,7 @@ async function verifyDesktopHeader(page) {
   await trigger.press("Enter");
   await waitForAttribute(trigger, "aria-expanded", "true");
 
-  const menu = page.locator("#nav-menu-guild");
+  const menu = page.locator(home ? "#nav-menu-resources" : "#nav-menu-guild");
   assert(await menu.isVisible(), "desktop Guild menu did not open from the keyboard");
   const profiles = menu.locator('[data-official-profiles="header"]');
   await verifyProfileSection(profiles, headerProfiles, "desktop Guild menu");
@@ -280,7 +283,7 @@ async function verifyFooter(page) {
 async function verifyProfileSection(section, expectedProfiles, label) {
   assert(await section.count() === 1, `${label} section is missing or duplicated`);
   const expectedSectionLabel = label.startsWith("desktop")
-    ? "Official Mōchirīī social profiles in the Guild menu"
+    ? `Official Mōchirīī social profiles in the ${routePath === "/" ? "Resources" : "Guild"} menu`
     : label.startsWith("mobile")
       ? "Official Mōchirīī social profiles in the mobile menu"
       : "Official Mōchirīī social profiles in the footer";

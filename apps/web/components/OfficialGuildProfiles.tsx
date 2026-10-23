@@ -8,6 +8,7 @@ import {
 type OfficialGuildProfilesProps = {
   placement: "header" | "mobile" | "footer";
   onNavigate?: () => void;
+  headerGroupLabel?: string;
 };
 
 function profilesFor(placement: OfficialGuildProfilesProps["placement"]) {
@@ -62,14 +63,14 @@ function OfficialGuildProfileLink({
   );
 }
 
-export function OfficialGuildProfiles({ placement, onNavigate }: OfficialGuildProfilesProps) {
+export function OfficialGuildProfiles({ placement, onNavigate, headerGroupLabel }: OfficialGuildProfilesProps) {
   const profiles = profilesFor(placement);
 
   return (
     <div
       className={`official-profiles official-profiles--${placement}`}
       role="group"
-      aria-label={placementLabels[placement]}
+      aria-label={placement === "header" && headerGroupLabel ? headerGroupLabel : placementLabels[placement]}
       data-official-profiles={placement}
     >
       {placement === "footer" ? (

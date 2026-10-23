@@ -139,7 +139,7 @@ function checkLayoutObservability() {
 
   assertIncludes("root layout", layout, 'import { SiteRouteShell } from "@/components/SiteRouteShell";');
   assertIncludes("root layout", layout, 'import { SITE_ORIGIN } from "@/lib/public-urls";');
-  assertIncludes("root layout", layout, "<SiteRouteShell>{children}</SiteRouteShell>");
+  assertIncludes("root layout", layout, "<SiteRouteShell recruitmentStatus={recruitmentData.meta.status}>{children}</SiteRouteShell>");
   assertIncludes("root layout", layout, "metadataBase: new URL(SITE_ORIGIN)");
   assertIncludes("root layout", layout, 'canonical: "/"');
 

@@ -277,7 +277,14 @@ async function verifyAccessibleNames(page, surface) {
     page,
     featured,
     "link",
-    await featured.innerText(),
+    await featured.evaluate(element => {
+      const copy = element.cloneNode(true);
+      copy.querySelectorAll('[aria-hidden="true"]').forEach(node => node.remove());
+      const walker = document.createTreeWalker(copy, NodeFilter.SHOW_TEXT);
+      const parts = [];
+      while (walker.nextNode()) parts.push(walker.currentNode.textContent);
+      return parts.join(" ");
+    }),
     "Featured bulletin",
     false,
   );

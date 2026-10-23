@@ -254,7 +254,10 @@ excludes(
   "winner={winner}",
   '<ProseStack id="spotlightBody" lines={appreciation}',
 ].forEach((snippet) => includes("Spotlight page", spotlightPage, snippet));
-includes("home page", homePage, "SpotlightWinnerTitle");
+includes("Home pure title formatter", homePage, 'spotlightWinnerTitle("home", spotlight.title, winner)');
+includes("Home bounded async winner", homePage, "async function CurrentHomeSpotlight()");
+includes("Home bounded async winner", homePage, "const winner = await getCurrentSpotlightWinner();");
+includes("Home streaming fallback", homePage, '<Suspense fallback={<SpotlightCard winner={null} loading />}');
 includes("Spotlight data", spotlightData, "{{winnerName}}");
 includes("Spotlight data", spotlightData, "Selected From Active Website Members");
 includes("privacy page", privacyPage, "Monthly member Spotlight");

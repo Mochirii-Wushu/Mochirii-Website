@@ -154,12 +154,14 @@ for (const snippet of [
   'pathname === "/spinner"',
   'pathname.startsWith("/spinner/")',
   "if (isIsolatedSpinnerPath(pathname)) return children;",
-  "<SiteHeader {...auth} />",
+  "<SiteHeader {...auth} homeRecruitment={homeRecruitment} />",
+  'home={pathname === "/"}',
   "<SiteFooter authState={auth.authState}",
 ]) assertIncludes("SiteRouteShell", routeShell, snippet);
 assertNotIncludes("SiteRouteShell", routeShell, "OfficialGuildProfiles");
 assertIncludes("profile component", component, 'role="group"');
-assertIncludes("profile component", component, 'aria-label={placementLabels[placement]}');
+assertIncludes("profile component", component, 'aria-label={placement === "header" && headerGroupLabel ? headerGroupLabel : placementLabels[placement]}');
+assertIncludes("Home profile group", header, 'headerGroupLabel="Official Mōchirīī social profiles in the Resources menu"');
 assertIncludes("profile component", component, 'Official Mōchirīī social profiles in the Guild menu');
 assertIncludes("profile component", component, 'Official Mōchirīī social profiles in the mobile menu');
 assertIncludes("profile component", component, 'Official Mōchirīī social profiles in the footer');

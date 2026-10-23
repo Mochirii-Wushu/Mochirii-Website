@@ -141,6 +141,15 @@ test("weekly overnight occurrences retain the previous date until their exclusiv
   assert.equal(nextWeeklyOccurrence(guildScheduleData, item, new Date("2027-01-01T01:00:00+08:00"))?.date, "2027-01-07");
 });
 
+test("an overnight leap-day occurrence retains February 29 until its exact UTC+8 end", () => {
+  const item = { id: "leap-day-fixture", days: [2], startTime: "23:00", endTime: "01:00" };
+  const current = nextWeeklyOccurrence(guildScheduleData, item, new Date("2028-03-01T00:59:59.999+08:00"));
+  assert.equal(current?.date, "2028-02-29");
+  assert.equal(current?.startIso, "2028-02-29T15:00:00.000Z");
+  assert.equal(current?.endIso, "2028-02-29T17:00:00.000Z");
+  assert.equal(nextWeeklyOccurrence(guildScheduleData, item, new Date("2028-03-01T01:00:00+08:00"))?.date, "2028-03-07");
+});
+
 test("first-Wednesday gathering suppresses only the exact Guild Party slot", () => {
   const now = new Date("2026-11-04T21:30:00+08:00");
   const cards = websiteEventCardsFromSchedule(firstWednesdaySchedule, now);

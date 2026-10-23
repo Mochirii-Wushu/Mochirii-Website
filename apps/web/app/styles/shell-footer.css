@@ -36,17 +36,20 @@
 }
 
 .footer-wrap{max-width:var(--container); margin:0 auto; position:relative; z-index:1;}
-.footer-top{display:grid;grid-template-columns:minmax(0,.95fr) minmax(0,1.05fr);gap:22px;align-items:start;}
+.footer-top{display:grid;grid-template-columns:minmax(0,1fr);gap:32px;align-items:start;}
 
-.footer-brand{display:flex; gap:14px; align-items:flex-start; min-width:0;}
+.footer-brand{display:grid;gap:16px;justify-items:start;min-width:0;max-width:68ch;}
 .footer-brand-link{
   display:flex;
   align-items:flex-start;
   text-decoration:none;
   gap:14px;
   min-width:0;
+  max-width:100%;
   border-radius:20px;
 }
+.footer-brand-link .brand-text{min-width:0;}
+.footer-brand-link .brand-name{white-space:nowrap;}
 .footer-emblem{
   width:var(--emblem);
   height:var(--emblem);
@@ -58,7 +61,7 @@
 
 .footer-brand-text{min-width:0;}
 .footer-desc{
-  margin-top:12px;
+  margin:0;
   font-size:14px;
   line-height:1.55;
   color:var(--ink-1);
@@ -122,7 +125,7 @@
   box-shadow:inset 0 1px 0 rgba(255,255,255,.045);
 }
 
-.footer-cols{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px; min-width:0;}
+.footer-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,8rem),1fr));gap:20px;min-width:0;}
 .footer-col{min-width:0;}
 .footer-col-title{
   font-size:12px;
@@ -195,9 +198,11 @@
 .footer-legal a:hover{color:var(--ink-0);text-decoration-color:currentColor;}
 .footer-legal a:focus-visible{outline:2px solid rgba(221,239,255,.76);outline-offset:3px;border-radius:6px;}
 
-@media (max-width:980px){
-  .footer-top{grid-template-columns:1fr;}
-  .footer-cols{grid-template-columns:repeat(2,minmax(0,1fr));}
+.site-footer[data-variant="home"]{
+  margin-top:0;
+  background:radial-gradient(ellipse at 10% 0%, rgba(31,122,99,.15), transparent 48%), #0b1418;
+  backdrop-filter:none;
+  -webkit-backdrop-filter:none;
 }
 
 @media (max-width:560px){
@@ -280,4 +285,39 @@
     opacity:.42;
     transform:none!important;
   }
+}
+
+/* Optional decoration is static before hydration, without JS, and when disabled. */
+.site-shell .cta-glint,
+.site-shell .footer-cta-glint{animation:none;opacity:0;}
+.site-shell .page-main .glass-card{animation:none;--card-line:rgba(31,122,99,.34);}
+.motion-toggle{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:128px;
+  min-height:44px;
+  padding:10px 14px;
+  border:1px solid #819d91;
+  border-radius:12px;
+  background:#10191d;
+  color:#fff5e4;
+  font:inherit;
+  font-size:14px;
+  cursor:pointer;
+}
+.motion-toggle[aria-disabled="true"]{cursor:default;}
+.motion-toggle:focus-visible{outline:2px solid #f5dba7;outline-offset:4px;}
+.site-shell[data-decorative-motion="off"] :is(.site-header,.nav-link,.nav-item,.cta,.footer-cta,.footer-link,.footer-nav,.burger,.brand,.mobile-link,.icon-btn,.official-profile-link,.mobile-sheet,.mobile-scrim){transition:none;}
+.site-shell[data-decorative-motion="off"] .nav-link::after{transition:none;}
+.site-shell[data-decorative-motion="off"] :is(.nav-link,.cta,.footer-cta,.burger,.icon-btn,.official-profile-link):hover{transform:none;}
+.site-shell[data-decorative-motion="on"] [data-motion-key="shell-footer"][data-motion-state="enter"] .footer-brand{
+  animation:shell-settle 420ms var(--ease) both;
+}
+@keyframes shell-settle{from{opacity:.96;}to{opacity:1;}}
+.site-shell[data-motion-hidden] :is(.site-header,.nav-link,.nav-item,.cta,.footer-cta,.footer-link,.footer-nav,.burger,.brand,.mobile-link,.icon-btn,.official-profile-link){transition:none!important;}
+@media (prefers-reduced-motion:reduce){
+  .site-shell [data-motion-key],
+  .site-shell [data-motion-key] *,
+  .site-shell [data-motion-key]::after{animation:none!important;}
 }

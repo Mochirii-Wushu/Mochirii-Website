@@ -19,6 +19,9 @@ The Gallery is Mōchirīī's visual memory: screenshots of scenes, members, gath
 - Thumbnail paths must use `apps/web/public/assets/img/gallery/thumbs/`.
 - Full image paths must use the optimized full-size Gallery path, such as `apps/web/public/assets/img/gallery/shot-01.webp`.
 - The grid uses thumbnails for page speed.
+- Static JSON now selects the reviewed `shot-NN-720.webp` derivatives. Original thumbnail paths remain
+  byte-identical compatibility files; full viewer sources and exact-pixel exceptions are unchanged.
+  See `docs/asset-naming-and-delivery.md` for the bounded export recipe and compatibility contract.
 - The lightbox opens full images.
 - Never let the lightbox open `/thumbs/` images.
 - Committed static full images used by Gallery and Home Guild Gallery are WebP files no larger than 2 MiB and 2560 pixels on either edge. This contract covers all 73 `full` references in `apps/web/public/data/gallery.json`; Home Gallery and its fallbacks must draw from that same thumbnail/full inventory. It excludes page heroes, the guild seal, event imagery, Shopify theme imagery, member uploads, and private source originals.

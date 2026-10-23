@@ -1,9 +1,9 @@
 {
   "copy": {
-    "bulletinIntro": "Check the next event, current raffle & latest announcement.",
+    "bulletinIntro": "Raffle status and guild notices.",
     "doorsIntro": "Use these pages to join the guild, review ranks, find leaders & read the rules.",
     "spotlightIntro": "Each month, members recognize one person for a specific contribution.",
-    "galleryIntro": "Recent screenshots from combat, exploration, events & member gatherings."
+    "galleryIntro": "Guild screenshots from combat, exploration, events and member gatherings."
   },
   "celebrationSplash": {
     "enabled": false,
@@ -14,16 +14,14 @@
     "storageKey": "sinbell-birthday-2026"
   },
   "hero": {
-    "image": "./assets/img/hero/hero.webp",
+    "image": "./assets/home/hero/cherry-valley-dawn/cherry-valley-panorama-1344.webp",
     "atmosphereImage": "",
     "descriptor": [
-      "Mōchirīī is an Asia Pacific guild for casual Where Winds Meet players. We organize teams, events, raffles, guides & member projects.",
-      "Discord handles onboarding & event planning. The website keeps guild rules, ranks, leaders, updates, screenshots, social posts & forums in one place."
+      "Mōchirīī is a Southeast Asia guild. Join teams, events and community activities."
     ],
     "badges": [
       "Cross-Platform",
-      "Casual Play",
-      "UTC+8 Events"
+      "Casual Play"
     ]
   },
   "seal": {
@@ -112,22 +110,22 @@
   },
   "gallery": [
     {
-      "image": "./assets/img/gallery/thumbs/shot-01.webp",
+      "image": "./assets/img/gallery/thumbs/shot-01-720.webp",
       "full": "./assets/img/gallery/shot-01.webp",
       "alt": "Character standing among pink flowers"
     },
     {
-      "image": "./assets/img/gallery/thumbs/shot-02.webp",
+      "image": "./assets/img/gallery/thumbs/shot-02-720.webp",
       "full": "./assets/img/gallery/shot-02.webp",
       "alt": "Armored character during combat"
     },
     {
-      "image": "./assets/img/gallery/thumbs/shot-03.webp",
+      "image": "./assets/img/gallery/thumbs/shot-03-720.webp",
       "full": "./assets/img/gallery/shot-03.webp",
       "alt": "White-robed character using an emote"
     },
     {
-      "image": "./assets/img/gallery/thumbs/shot-04.webp",
+      "image": "./assets/img/gallery/thumbs/shot-04-720.webp",
       "full": "./assets/img/gallery/shot-04.webp",
       "alt": "Party facing a horned enemy in a cave"
     }

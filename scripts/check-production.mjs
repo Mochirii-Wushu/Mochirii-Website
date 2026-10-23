@@ -1,6 +1,18 @@
 import { closeSync, fstatSync, openSync, readSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
+import { createRequire } from "node:module";
+
+const requirePreview3Source = createRequire(import.meta.url);
+let preview3ScheduleHelpers;
+function getPreview3ScheduleHelpers() {
+  // Load only after identifying the sealed shell and validating its schedule.
+  // Invalid CLI input and historical fixture-only policies remain standalone.
+  return preview3ScheduleHelpers ??= {
+    ...requirePreview3Source("../apps/web/lib/guild-schedule.ts"),
+    ...requirePreview3Source("../apps/web/lib/public-date.ts"),
+  };
+}
 
 const DEFAULT_PUBLIC_URLS_CONFIG = new URL("../apps/web/config/public-urls.json", import.meta.url);
 const DEFAULT_PUBLIC_URLS_BYTE_LIMIT = 16 * 1024;
@@ -454,7 +466,157 @@ async function fetchProductionResponse(client, value, { asset = false, label = "
 
 async function fetchText(client, path, media) {
   const response = await fetchProductionResponse(client, path, { label: path });
-  return readBoundedUtf8Response(response, MEDIA_CONTRACTS[media]);
+  const text = await readBoundedUtf8Response(response, MEDIA_CONTRACTS[media]);
+  if (path !== "/" || media !== "html") return text;
+  const completed = normalizeProductionHomeSpotlightStreaming(text);
+  if (completed === null) throw failure("HTML_DOCUMENT_REJECTED");
+  return completed;
+}
+
+// Next 16.3.8's pinned React completion protocol. Never execute response scripts.
+// Complete only our single passive Spotlight region, then apply all existing
+// namespace, script, Flight, metadata and resource policies to the result.
+const HOME_STREAM_TIMING = "requestAnimationFrame(function(){$RT=performance.now()});";
+const HOME_STREAM_COMPLETION = '$RB=[];$RV=function(a){$RT=performance.now();for(var b=0;b<a.length;b+=2){var c=a[b],e=a[b+1];null!==e.parentNode&&e.parentNode.removeChild(e);var f=c.parentNode;if(f){var g=c.previousSibling,h=0;do{if(c&&8===c.nodeType){var d=c.data;if("/$"===d||"/&"===d)if(0===h)break;else h--;else"$"!==d&&"$?"!==d&&"$~"!==d&&"$!"!==d&&"&"!==d||h++}d=c.nextSibling;f.removeChild(c);c=d}while(c);for(;e.firstChild;)f.insertBefore(e.firstChild,c);g.data="$";g._reactRetry&&requestAnimationFrame(g._reactRetry)}}a.length=0};\n$RC=function(a,b){if(b=document.getElementById(b))(a=document.getElementById(a))?(a.previousSibling.data="$~",$RB.push(a,b),2===$RB.length&&("number"!==typeof $RT?requestAnimationFrame($RV.bind(null,$RB)):(a=performance.now(),setTimeout($RV.bind(null,$RB),2300>a&&2E3<a?2300-a:$RT+300-a)))):b.parentNode.removeChild(b)};';
+const HOME_STREAM_IDS = new Set(["spotlightCard", "spotlightImage", "spotlightTag", "spotlightTitle", "spotlightSummary"]);
+const HOME_STREAM_CLASSES = new Set(["home-spotlight", "home-spotlight__img", "home-spotlight__plate", "home-pill", "home-title", "home-summary", "home-link", "sr-only"]);
+const HOME_STREAM_TAGS = new Set(["div", "img", "span", "h3", "p", "a", "strong", "br"]);
+const HOME_STREAM_ATTRIBUTES = new Set(["id", "class", "aria-label", "aria-hidden", "role"]);
+const HOME_STREAM_IMAGE_ATTRIBUTES = new Set(["alt", "decoding", "loading", "width", "height", "data-nimg", "sizes", "style", "src", "srcset", "fetchpriority"]);
+
+function homeStreamImageUrlIsSafe(url) {
+  return url === "/assets/img/featured/spotlight.webp"
+    || /^\/_next\/image\?url=%2Fassets%2Fimg%2Ffeatured%2Fspotlight\.webp&amp;w=(?:32|48|64|96|128|256|384|640|750|828|1080|1200|1920|2048|3840)&amp;q=(?:75|85)$/.test(url);
+}
+
+export function normalizeProductionHomeSpotlightStreaming(html) {
+  if (typeof html !== "string" || Buffer.byteLength(html) > PRODUCTION_CHECK_LIMITS.htmlBytes) return null;
+  if (!html.includes("$RB=") && !html.includes("$RT=") && !html.includes('id="B:')) return html;
+  if (!asciiLower(html).startsWith(PRODUCTION_DOCTYPE)) return null;
+  const parsed = parsePreview3Html(html);
+  if (!parsed) return null;
+  const {nodes, comments} = parsed;
+  const under = (node, ancestor) => {
+    for (let parent = node.parent; parent; parent = parent.parent) if (parent === ancestor) return true;
+    return false;
+  };
+  const active = node => {
+    for (let parent = node; parent; parent = parent.parent) {
+      if (PRODUCTION_NAMESPACE_REJECTED_CONTEXT_ELEMENTS.has(parent.tag.name)
+        || PRODUCTION_NAMESPACE_INERT_CONTAINERS.has(parent.tag.name)
+        || ["header", "footer", "head"].includes(parent.tag.name)
+        || parent.tag.attributeNames.has("hidden") || parent.tag.attributeNames.has("inert")) return false;
+    }
+    return true;
+  };
+  const mains = nodes.filter(n => n.tag.name === "main" && n.tag.attributes.get("id") === "main");
+  const owners = nodes.filter(n => n.tag.name === "section"
+    && n.tag.attributes.get("class") === "home-supporting-card"
+    && n.tag.attributes.get("aria-label") === "Member spotlight");
+  if (mains.length !== 1 || owners.length !== 1 || !under(owners[0], mains[0]) || !active(owners[0])) return null;
+  const owner = owners[0];
+  const pending = comments.filter(c => c.text === "$?");
+  const timing = nodes.filter(n => n.tag.name === "script" && n.text === HOME_STREAM_TIMING);
+  const completions = nodes.filter(n => n.tag.name === "script" && n.text?.startsWith(HOME_STREAM_COMPLETION));
+  const templates = nodes.filter(n => /^B:/.test(n.tag.attributes.get("id") || ""));
+  const receivers = nodes.filter(n => /^S:/.test(n.tag.attributes.get("id") || ""));
+  if ([pending, timing, completions, templates, receivers].some(list => list.length !== 1)) return null;
+  const [boundary] = templates, [receiver] = receivers, [clock] = timing, [completion] = completions;
+  const id = boundary.tag.attributes.get("id");
+  if (!/^B:(?:0|[1-9][0-9]{0,2})$/.test(id)) return null;
+  const receiverId = "S:" + id.slice(2);
+  if (completion.text !== HOME_STREAM_COMPLETION + '$RC("' + id + '","' + receiverId + '")'
+    || clock.tag.attributeNames.size || completion.tag.attributeNames.size
+    || clock.parent?.tag.name !== "body" || completion.parent !== clock.parent
+    || receiver.parent !== clock.parent || receiver.tag.name !== "div"
+    || !productionTagHasExactAttributeNames(receiver.tag, new Set(["hidden", "id"]))
+    || receiver.tag.attributes.get("id") !== receiverId || receiver.tag.attributes.get("hidden") !== ""
+    || boundary.tag.name !== "template" || boundary.parent !== owner
+    || !productionTagHasExactAttributeNames(boundary.tag, new Set(["id"]))
+    || boundary.openEnd !== boundary.closeStart || pending[0].parent !== owner
+    || pending[0].end !== boundary.start
+    || !(owner.end < clock.start && clock.end <= receiver.start && receiver.end <= completion.start)) return null;
+  const closes = comments.filter(c => c.parent === owner && c.text === "/$" && c.start > boundary.end);
+  if (closes.length !== 1) return null;
+  const fallbackNodes = nodes.filter(n => n.parent === owner && n.start >= boundary.end && n.end <= closes[0].start);
+  const receivedNodes = nodes.filter(n => n.parent === receiver);
+  if (fallbackNodes.length !== 1 || receivedNodes.length !== 1
+    || fallbackNodes[0].start !== boundary.end || fallbackNodes[0].end !== closes[0].start
+    || receivedNodes[0].start !== receiver.openEnd || receivedNodes[0].end !== receiver.closeStart) return null;
+  for (const root of [fallbackNodes[0], receivedNodes[0]]) {
+    if (root.tag.name !== "div" || root.tag.attributes.get("id") !== "spotlightCard"
+      || root.tag.attributes.get("class") !== "home-spotlight") return null;
+    const seen = new Set();
+    for (const n of nodes.filter(n => n === root || under(n, root))) {
+      const attrs = n.tag.attributes, nodeId = attrs.get("id");
+      if (!HOME_STREAM_TAGS.has(n.tag.name) || n.tag.duplicates.size
+        || [...n.tag.attributeNames].some(a => !HOME_STREAM_ATTRIBUTES.has(a)
+          && !(n.tag.name === "img" && HOME_STREAM_IMAGE_ATTRIBUTES.has(a))
+          && !(n.tag.name === "a" && a === "href"))
+        || n.tag.attributeNames.has("hidden") || n.tag.attributeNames.has("inert")
+        || attrs.has("style") && (n.tag.name !== "img" || attrs.get("style") !== "color:transparent")
+        || attrs.has("class") && !HOME_STREAM_CLASSES.has(attrs.get("class"))
+        || n.tag.name === "a" && attrs.get("href") !== "/spotlight"
+        || n.tag.name === "img" && (nodeId !== "spotlightImage" || !homeStreamImageUrlIsSafe(attrs.get("src"))
+          || attrs.has("srcset") && !attrs.get("srcset").split(", ").every(value => {
+            const match = /^(.*) ([1-9][0-9]{0,3})w$/.exec(value);
+            return match && homeStreamImageUrlIsSafe(match[1]);
+          }))
+        || nodeId && (!HOME_STREAM_IDS.has(nodeId) || seen.has(nodeId))) return null;
+      if (nodeId) seen.add(nodeId);
+    }
+    if (seen.size !== HOME_STREAM_IDS.size) return null;
+  }
+  if (nodes.some(n => HOME_STREAM_IDS.has(n.tag.attributes.get("id"))
+    && n !== fallbackNodes[0] && n !== receivedNodes[0]
+    && !under(n, fallbackNodes[0]) && !under(n, receivedNodes[0]))) return null;
+  if (comments.some(c => c.start >= receiver.openEnd && c.end <= receiver.closeStart)) return null;
+  const edits = [
+    [pending[0].start, closes[0].end, "<!--$-->" + html.slice(receiver.openEnd, receiver.closeStart) + "<!--/$-->"],
+    [clock.start, clock.end, ""], [receiver.start, receiver.end, ""], [completion.start, completion.end, ""],
+  ].sort((a, b) => b[0] - a[0]);
+  let result = html;
+  for (const [start, end, replacement] of edits) result = result.slice(0, start) + replacement + result.slice(end);
+  return result;
+}
+
+function parsePreview3Html(html) {
+  const lower = asciiLower(html), nodes = [], stack = [], comments = [];
+  let cursor = PRODUCTION_DOCTYPE.length;
+  while (cursor < html.length) {
+    const start = html.indexOf("<", cursor);
+    if (start < 0) break;
+    if (html.startsWith("<!--", start)) {
+      const end = html.indexOf("-->", start + 4);
+      if (end < 0) return null;
+      comments.push({ start, end: end + 3, text: html.slice(start + 4, end), parent: stack.at(-1) });
+      cursor = end + 3;
+      continue;
+    }
+    const tag = parseHtmlTagAt(html, start);
+    if (!tag || tag.malformed || tag.duplicates.size || !/^[a-z][a-z0-9-]*$/.test(tag.name)) return null;
+    if (tag.closing) {
+      const node = stack.pop();
+      if (!node || node.tag.name !== tag.name || !/^<\/[a-z][a-z0-9-]*\s*>$/i.test(html.slice(start, tag.end + 1))) return null;
+      node.closeStart = start;
+      node.end = tag.end + 1;
+      cursor = node.end;
+      continue;
+    }
+    if (nodes.length >= PRODUCTION_HTML_TAG_LIMIT || stack.length >= PRODUCTION_HTML_DEPTH_LIMIT) return null;
+    const node = { tag, start, openEnd: tag.end + 1, parent: stack.at(-1), end: tag.end + 1, closeStart: tag.end + 1 };
+    nodes.push(node);
+    cursor = node.openEnd;
+    if (PRODUCTION_NAMESPACE_RAW_TEXT_ELEMENTS.has(tag.name)) {
+      const close = findRawTextClose(html, lower, cursor, tag.name);
+      if (!close) return null;
+      node.closeStart = close.closingStart;
+      node.end = cursor = close.end;
+      node.text = html.slice(node.openEnd, node.closeStart);
+    } else if (!PRODUCTION_VOID_ELEMENTS.has(tag.name)) stack.push(node);
+  }
+  if (stack.length) return null;
+  return {nodes, comments};
 }
 
 function assertIncludes(text, pattern, label) {
@@ -3648,10 +3810,239 @@ function readActiveProductionNextStaticNamespace(html, {
   });
 }
 
+// Separately reviewed Preview 3 source oracle. These seals cover the COMPLETE
+// document and Flight graph, including text, attributes, ordering and imports.
+// They do not replace or broaden any pre-existing production policy.
+const PREVIEW3_DOCUMENT_SEALS = Object.freeze({
+  // Independently observed immediate and delayed completion orders. The full
+  // document is identical; the complete, ID-bound Flight records are unchanged.
+  home: Object.freeze([
+    "93368305B47CC73387D104E662546D2E807632998DD86B587A35BA0F2EE78EDB",
+    "DB31CB8B339A00D76CA9336DBD2CDAB114F193EE5E73628FE1AB04411636C9AC",
+  ]),
+  recruitment: "CF6934A2B30B6B2EFFA56E63A9F1296E9A32795C8DE3AA2216761E27161E050B",
+  privacy: "7AF1F591423EF5D2AE34583103C9410964B8C2F883556EA2DA8E7582E4042644",
+  deletion: "99EC956EDB1E19C05835801687EEBCC5B5C52F45069368C6B9C6B7F144EFDB65",
+});
+const PREVIEW3_FALLBACK_SUMMARY = "Each month, one active website member is selected for the guild Spotlight.";
+
+function preview3Escape(value) {
+  return String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;").replaceAll("'", "&#x27;");
+}
+
+function preview3WinnerNameIsSafe(value) {
+  if (typeof value !== "string" || value.length < 1 || value.length > 120
+    || value !== value.trim() || /\s{2}|[^\S ]/u.test(value)
+    || /[\u0000-\u001f\u007f-\u009f\u061c\u200e\u200f\u2028-\u202e\u2066-\u2069]/u.test(value)) return false;
+  return value.isWellFormed();
+}
+
+function canonicalizePreview3Document(html, resourceProfile, homeRuntime) {
+  if (typeof html !== "string" || Buffer.byteLength(html) > PRODUCTION_CHECK_LIMITS.htmlBytes
+    || !Object.hasOwn(PREVIEW3_DOCUMENT_SEALS, resourceProfile)
+    || !asciiLower(html).startsWith(PRODUCTION_DOCTYPE)) return null;
+  const parsed = parsePreview3Html(html);
+  if (!parsed) return null;
+  const {nodes, comments} = parsed;
+  const under = (node, ancestor) => {
+    for (let p = node.parent; p; p = p.parent) if (p === ancestor) return true;
+    return false;
+  };
+  const single = predicate => { const list = nodes.filter(predicate); return list.length === 1 ? list[0] : null; };
+  const root = single(n => n.tag.name === "html"), head = single(n => n.tag.name === "head");
+  const body = single(n => n.tag.name === "body"), main = single(n => n.tag.name === "main" && n.tag.attributes.get("id") === "main");
+  const header = single(n => n.tag.name === "header" && n.tag.attributes.get("class") === "site-header");
+  const footer = single(n => n.tag.name === "footer");
+  const shell = single(n => n.tag.name === "div" && n.tag.attributes.get("class") === "site-shell");
+  if (!root || root.parent || !head || head.parent !== root || !body || body.parent !== root
+    || !shell || shell.parent !== body || !header || header.parent !== shell
+    || !footer || footer.parent !== shell || !main || main.parent !== shell
+    || nodes.some(n => PRODUCTION_REJECTED_ELEMENTS.has(n.tag.name) && n.tag.name !== "audio")
+    || comments.some(c => !PRODUCTION_SAFE_COMMENT_BODIES.has(c.text))) return null;
+  const documentPath = {home: "/", recruitment: "/recruitment", privacy: "/privacy", deletion: "/meta-data-deletion"}[resourceProfile];
+  const namespace = readActiveProductionNextStaticNamespace(html, {documentUrl: "https://mochirii.com" + documentPath});
+  if (!namespace) return null;
+  const edits = [], nextIds = new Set();
+  let flight = "", initializer = 0;
+  for (const n of nodes.filter(n => n.tag.name === "script")) {
+    if (!productionScriptTagIsSafe(n.tag, n.text)) return null;
+    const payload = productionScriptPayloadText(n.tag, n.text);
+    if (payload === null) return null;
+    if (payload !== undefined) { flight += payload; edits.push([n.start, n.end, ""]); }
+    if (n.text === "(self.__next_f=self.__next_f||[]).push([0])") {
+      initializer += 1;
+      edits.push([n.start, n.end, ""]);
+    }
+  }
+  if (initializer !== 1 || flight.length > PRODUCTION_CHECK_LIMITS.htmlBytes) return null;
+  const genericFlight = canonicalizeProductionFlightResourceEnvelopeStream(flight, nextIds);
+  if (genericFlight === null) return null;
+  let canonicalFlight = genericFlight;
+  if (resourceProfile === "home") {
+    if (!productionHomeRuntimeIntervalIsValid(homeRuntime)) return null;
+    const rows = genericFlight.trimEnd().split("\n"), models = new Map();
+    if (rows.length > 96) return null;
+    for (const [index, line] of rows.entries()) {
+      const match = /^([0-9a-f]+):([\s\S]+)$/.exec(line);
+      if (!match || !/^[\[{"ntf0-9-]/.test(match[2])) continue;
+      try { models.set(match[1], {value: JSON.parse(match[2]), index}); } catch { return null; }
+    }
+    const times = [], cards = [];
+    let count = 0;
+    const walk = value => {
+      if (++count > 16384) throw new Error("Preview 3 Flight bound");
+      if (Array.isArray(value)) {
+        if (value.length === 4 && value[0] === "$" && value[3] && typeof value[3] === "object" && !Array.isArray(value[3])) {
+          const props = value[3];
+          if (Object.hasOwn(props, "referenceTime")) times.push(value);
+        }
+        for (const child of value) walk(child);
+      } else if (value && typeof value === "object") for (const child of Object.values(value)) walk(child);
+    };
+    try { for (const record of models.values()) walk(record.value); } catch { return null; }
+    for (const record of models.values()) {
+      const v = record.value;
+      if (Array.isArray(v) && v.length === 4 && v[0] === "$" && v[1] === "div" && v[3]?.id === "spotlightCard") cards.push(v);
+    }
+    if (times.length !== 1 || cards.length !== 1) return null;
+    const eventProps = times[0][3], time = Date.parse(eventProps.referenceTime);
+    const eventImport = models.get(times[0][1].slice(2));
+    // Imports are not JSON model rows; bind their exact export and all props
+    // through the complete graph seal below, in addition to the schedule hash.
+    if (eventImport || !/^\$L[0-9a-f]+$/.test(times[0][1])
+      || !Number.isFinite(time) || new Date(time).toISOString() !== eventProps.referenceTime
+      || time < homeRuntime.requestStartedAtMs - PRODUCTION_HOME_CLOCK_SKEW_MS
+      || time > homeRuntime.responseReceivedAtMs + PRODUCTION_HOME_CLOCK_SKEW_MS
+      || createHash("sha256").update(JSON.stringify(eventProps.scheduleData)).digest("hex").toUpperCase() !== PRODUCTION_HOME_PUBLIC_SCHEDULE_SHA256) return null;
+    const now = new Date(time);
+    const {currentOrUpcomingEvent, websiteEventCardsFromSchedule, formatPublicDate} = getPreview3ScheduleHelpers();
+    const event = currentOrUpcomingEvent(websiteEventCardsFromSchedule(eventProps.scheduleData, now), now);
+    if (!event) return null; // The sealed live schedule always includes public recurring events.
+    eventProps.referenceTime = "1970-01-01T00:00:00.000Z";
+    const card = cards[0], cardElements = [];
+    const collect = value => {
+      if (!Array.isArray(value)) return;
+      if (value.length === 4 && value[0] === "$") cardElements.push(value);
+      for (const child of value) {
+        if (Array.isArray(child)) collect(child);
+        else if (child && typeof child === "object") for (const v of Object.values(child)) collect(v);
+      }
+    };
+    collect(card);
+    const titleElements = cardElements.filter(v => v[1] === "h3" && v[3]?.id === "spotlightTitle");
+    const summaries = cardElements.filter(v => v[1] === "p" && v[3]?.id === "spotlightSummary");
+    const links = cardElements.filter(v => v[3]?.href === "/spotlight");
+    if (titleElements.length !== 1 || summaries.length !== 1 || links.length !== 1) return null;
+    const title = titleElements[0][3].children;
+    const summary = summaries[0][3].children, label = links[0][3]["aria-label"];
+    if (!preview3WinnerNameIsSafe(title)
+      || label !== "Open " + title + "’s Member Spotlight" && !(title === "Member Spotlight" && label === "Open the Member Spotlight")
+      || summary !== PREVIEW3_FALLBACK_SUMMARY && !(new Date(time + 480 * 60000).toISOString().slice(0, 7) === "2026-08"
+        && summary === "Recognized for helping members & contributing to guild activities.")) return null;
+    const titleNode = single(n => n.tag.name === "h3" && n.tag.attributes.get("id") === "spotlightTitle");
+    const summaryNode = single(n => n.tag.name === "p" && n.tag.attributes.get("id") === "spotlightSummary");
+    const cardNode = single(n => n.tag.name === "div" && n.tag.attributes.get("id") === "spotlightCard");
+    const linkNode = single(n => n.tag.name === "a" && under(n, cardNode) && n.tag.attributes.get("href") === "/spotlight");
+    if (!titleNode || !summaryNode || !cardNode || !under(cardNode, main) || !under(titleNode, cardNode)
+      || !under(summaryNode, cardNode) || !linkNode || linkNode.tag.attributes.get("aria-label") !== preview3Escape(label)
+      || html.slice(titleNode.openEnd, titleNode.closeStart) !== preview3Escape(title)
+      || html.slice(summaryNode.openEnd, summaryNode.closeStart) !== preview3Escape(summary)) return null;
+    edits.push([titleNode.openEnd, titleNode.closeStart, "Member Spotlight"],
+      [summaryNode.openEnd, summaryNode.closeStart, PREVIEW3_FALLBACK_SUMMARY],
+      [linkNode.start, linkNode.openEnd, html.slice(linkNode.start, linkNode.openEnd).replace('aria-label="' + preview3Escape(label) + '"', 'aria-label="Open the Member Spotlight"')]);
+    titleElements[0][3].children = "Member Spotlight";
+    summaries[0][3].children = PREVIEW3_FALLBACK_SUMMARY;
+    links[0][3]["aria-label"] = "Open the Member Spotlight";
+    const featured = single(n => n.tag.name === "a" && n.tag.attributes.get("id") === "featuredBulletin");
+    if (!featured || !under(featured, main)) return null;
+    for (const [id, expected, replacement] of [
+      ["featuredBulletinType", Date.parse(event.startIso) <= time ? "Current Event" : "Next Event", "__EVENT_STATE__"],
+      ["featuredBulletinTitle", event.title, "__EVENT_TITLE__"],
+      ["featuredBulletinDate", [formatPublicDate(new Date(event.date)), event.timeText, event.timezone].join(" • "), "__EVENT_DATE__"],
+    ]) {
+      const node = single(n => n.tag.attributes.get("id") === id);
+      if (!node || !under(node, featured) || html.slice(node.openEnd, node.closeStart) !== preview3Escape(expected)) return null;
+      edits.push([node.openEnd, node.closeStart, replacement]);
+    }
+    const image = single(n => n.tag.name === "img" && n.tag.attributes.get("id") === "featuredBulletinImage");
+    if (!image || !under(image, featured)) return null;
+    const cover = event.image.replace(/^\.\//, "/");
+    const safeCover = value => {
+      try {
+        const u = new URL(value.replaceAll("&amp;", "&"), "https://mochirii.com");
+        return u.origin === "https://mochirii.com" && u.pathname === "/_next/image" && !u.hash
+          && [...u.searchParams.keys()].join(",") === "url,w,q" && u.searchParams.get("url") === cover
+          && PRODUCTION_NEXT_IMAGE_WIDTHS.has(Number(u.searchParams.get("w"))) && u.searchParams.get("q") === "75";
+      } catch { return false; }
+    };
+    if (!safeCover(image.tag.attributes.get("src"))
+      || !image.tag.attributes.get("srcset")?.split(", ").every(v => {
+        const match = /^(.*) ([1-9][0-9]{0,3})w$/.exec(v); return match && safeCover(match[1]);
+      })) return null;
+    edits.push([image.start, image.openEnd, html.slice(image.start, image.openEnd).replaceAll(encodeURIComponent(cover), "__EVENT_COVER__")]);
+    for (const [id, record] of models) rows[record.index] = id + ":" + JSON.stringify(record.value);
+    canonicalFlight = rows.join("\n") + "\n";
+  }
+  edits.sort((a, b) => b[0] - a[0]);
+  let canonicalHtml = html, boundary = html.length;
+  for (const [start, end, replacement] of edits) {
+    if (end > boundary) return null;
+    canonicalHtml = canonicalHtml.slice(0, start) + replacement + canonicalHtml.slice(end);
+    boundary = start;
+  }
+  canonicalHtml = canonicalizeProductionResourceEnvelopeShape(canonicalHtml, nextIds);
+  if (canonicalHtml === null || nextIds.size > 1) return null;
+  return {canonical: JSON.stringify([canonicalHtml, canonicalFlight]), nodes, head, footer, body, html, namespace};
+}
+
+function readSealedPreview3Document(html, {resourceProfile, homeRuntime, reportDiagnostic}) {
+  const profile = canonicalizePreview3Document(html, resourceProfile, homeRuntime);
+  if (!profile) return null;
+  const digest = createHash("sha256").update(profile.canonical).digest("hex").toUpperCase();
+  if (!productionDocumentDigestMatches(PREVIEW3_DOCUMENT_SEALS[resourceProfile], digest)) {
+    reportDiagnostic("Preview 3 document seal rejected " + resourceProfile + " " + digest);
+    return null;
+  }
+  const {nodes, head, footer, body} = profile;
+  const inside = (n, ancestor) => { for (let p = n.parent; p; p = p.parent) if (p === ancestor) return true; return false; };
+  const text = n => html.slice(n.openEnd, n.closeStart);
+  const legal = nodes.filter(n => n.tag.name === "nav" && n.tag.attributes.get("class") === "footer-legal" && inside(n, footer));
+  if (legal.length !== 1) return null;
+  const legalLinks = nodes.filter(n => n.tag.name === "a" && n.parent === legal[0]);
+  const ranges = nodes.flatMap(n => n.text !== undefined ? [[n.start, n.end]]
+    : [[n.start, n.openEnd], ...(n.closeStart < n.end ? [[n.closeStart, n.end]] : [])]);
+  for (const c of parsePreview3Html(html).comments) ranges.push([c.start, c.end]);
+  ranges.sort((a, b) => a[0] - b[0]);
+  let position = body.openEnd;
+  const visible = [];
+  for (const [start, end] of ranges) {
+    if (end <= position) continue;
+    if (start > position && position >= body.openEnd && start <= body.closeStart) {
+      const ancestry = nodes.filter(n => n.openEnd <= position && n.closeStart >= start);
+      if (!ancestry.some(n => productionElementIsHidden(n.tag, false))) visible.push(html.slice(position, start));
+    }
+    position = end;
+  }
+  return Object.freeze({
+    activeText: visible.join(" "),
+    footerCount: 1,
+    footerLegalLinkCount: legalLinks.length,
+    nextStaticBuildId: profile.namespace.nextStaticBuildId,
+    title() { const t = nodes.filter(n => n.tag.name === "title" && n.parent === head); return t.length === 1 ? text(t[0]) : ""; },
+    link(rel) { const n = nodes.filter(n => n.tag.name === "link" && n.parent === head && n.tag.attributes.get("rel") === rel); return n.length === 1 ? n[0].tag.attributes.get("href") : ""; },
+    meta(name, value) { const n = nodes.filter(n => n.tag.name === "meta" && n.parent === head && n.tag.attributes.get(name) === value); return n.length === 1 ? n[0].tag.attributes.get("content") : ""; },
+    footerLinkCount(href, label) { return legalLinks.filter(n => n.tag.attributes.get("href") === href && text(n) === label).length; },
+  });
+}
+
 function readActiveProductionHtml(html, {
   allowPlainAudio = false, documentPolicies, reportDiagnostic = () => undefined, resourceProfile = "",
   homeRuntime = null,
 } = {}) {
+  const preview3 = documentPolicies === PRODUCTION_DOCUMENT_POLICIES
+    ? readSealedPreview3Document(html, { resourceProfile, homeRuntime, reportDiagnostic }) : null;
+  if (preview3 !== null) return preview3;
   if (typeof html !== "string") return null;
   let documentPolicy = documentPolicies?.[resourceProfile];
   if (!documentPolicy) return null;

@@ -1,112 +1,13 @@
-/* =========================================================
-   HOME â€” Bulletins (grid spacing and rhythm)
-   ========================================================= */
-.home-bulletins{
-  display:grid;
-  gap:clamp(12px, 2.2vw, 18px);
-  margin-top:clamp(12px, 2.2vw, 18px);
-}
-
-.home-featured{
-  margin-top:clamp(12px, 2.2vw, 18px);
-  margin-bottom:clamp(12px, 2.2vw, 18px);
-}
-
-.home-bulletin{min-height:150px;}
-
-@media (min-width:900px){
-  .home-bulletins{
-    grid-template-columns:repeat(2, minmax(0, 1fr));
-  }
-}
-
-.home-featured__meta,
-.home-bulletin__body{
-  display:flex;
-  flex-direction:column;
-  align-items:flex-start;
-  gap:8px;
-}
-
-.home-featured__plate .home-title,
-.home-featured__plate .home-summary{
-  margin:0;
-}
-
-.home-featured__plate .home-summary{
-  margin-top:8px;
-}
-
-.home-bulletin{
-  display:grid;
-  grid-template-columns:minmax(160px, .8fr) 1fr;
-}
-
-.home-bulletin__media,
-.home-door__media{
-  position:relative;
-  min-height:100%;
-  aspect-ratio:16 / 10;
-  overflow:hidden;
-}
-
-.home-bulletin__tag,
-.home-door__label{
-  position:absolute;
-  left:12px;
-  bottom:12px;
-  z-index:1;
-}
-
-.home-bulletin__body,
-.home-door__plate{
-  padding:clamp(14px, 2.2vw, 18px);
-}
-
-.home-bulletin__date,
-.home-bulletin__title,
-.home-bulletin__summary{
-  margin:0;
-}
-
-/* =========================================================
-   HOME â€” Bulletins (title typography)
-   ========================================================= */
-.home-title,
-.home-bulletin__title{
-  font-family:var(--font-body);
-  font-size:14px;
-  letter-spacing:.14em;
-  text-transform:uppercase;
-  line-height:1.35;
-  color:var(--ink-1);
-}
-
-@media (max-width:640px){
-  .home-featured .home-title,
-  .home-bulletin__title{
-    font-size:24px;
-  }
-}
-
-/* =========================================================
-   HOME â€” Bulletins (pill labels; visual only)
-   ========================================================= */
-.home-pill,
-.home-bulletin__tag{
-  display:inline-flex;
-  align-items:center;
-  padding:6px 10px;
-  border-radius:999px;
-  border:var(--pill-border,2px) solid var(--card-line, rgba(255,255,255,.12));
-  background:rgba(0,0,0,.22);
-  color:var(--ink-1);
-  animation:border-shift 7.5s var(--ease) infinite;
-  width:fit-content;
-
-  font-family:var(--font-display);
-  font-size:24px;
-  letter-spacing:.04em;
-  text-transform:none;
-
-}
+/* Schedule-derived event art retains its complete 5:2 frame. */
+.home-page .home-featured{position:relative;display:grid;grid-template-columns:minmax(0,1.65fr) minmax(260px,1fr);overflow:hidden;border:1px solid #8da281;border-radius:10px;background:#10191df2;color:#fff5e4;text-decoration:none;}
+.home-featured__media{position:relative;aspect-ratio:5/2;align-self:center;overflow:hidden;}
+.home-page .home-featured__img{display:block;width:100%;height:100%;object-fit:contain;}
+.home-page .home-featured__body{padding:24px;align-self:center;min-width:0;}
+.home-event-highlight{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;opacity:0;}
+.home-event-highlight path{fill:none;stroke:#ffe5a4;stroke-width:2;vector-effect:non-scaling-stroke;stroke-dasharray:1;stroke-dashoffset:1;}
+.home-updates{padding:22px 24px;background:linear-gradient(120deg,#10251fe8,#10191de6);}
+.home-updates h2{font-size:24px;margin:0 0 12px;}
+.home-updates p{color:#c7d1cd;font-size:15px;}
+.home-updates .home-raffle-note{font-size:13px;color:#c7d1cd;margin:12px 0 0;border-top:1px solid #617d6b77;padding-top:12px;}
+.home-raffle-note a{text-underline-offset:4px;}
+@media(max-width:900px){.home-page .home-featured{grid-template-columns:1fr;}.home-page .home-featured__body{padding:18px 22px;}.home-featured__media{width:100%;}.home-page .home-featured__body .home-title{font-size:26px;}}

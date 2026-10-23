@@ -15,8 +15,10 @@ Home should route visitors onward without duplicating:
 - Leaders contact structure.
 - Twills personal profile.
 
-Current Home order is Hero with Guild Seal, Guild Bulletin, Guild Guide, Member Spotlight, Guild Gallery, then the
-global footer. Keep current/actionable information and primary destinations ahead of supporting identity material.
+Current Home order is the compact panoramic hero, current/upcoming event, three activity cards (Events,
+Team play and the live Gallery mosaic), current-month Spotlight and updates, three onboarding steps,
+resources, the unboxed protected Guild Seal, then the global footer. Keep current/actionable information
+ahead of supporting identity material. The mosaic is an intentional difference from the design board.
 
 ## 2. Data Source
 
@@ -50,6 +52,9 @@ Renderer notes:
   as the dedicated Spotlight page and passes that single result to `SpotlightWinnerTitle`. The path is name-only and
   must not expose account IDs, Discord data, profile links, avatars, selection audit details, or candidate lists. Home
   is dynamically rendered without a page cache, matching the dedicated page on the first request after selection.
+- The bounded request starts inside `CurrentHomeSpotlight`, an asynchronous child of `Suspense`.
+  The synchronous Home parent renders the hero and a stable, usable Spotlight fallback without awaiting it.
+  Preserve the server-only response validation, timeout and `no-store` behavior.
 - Reviewed contribution copy may be keyed by `monthKey` in `home.json` `spotlight.recognitions`, but static content must
   never persist the member name. The contribution renders only when the bounded current-winner response has that exact
   month; otherwise Home retains the truthful random-selection fallback.
@@ -77,6 +82,13 @@ Header behavior comes from `apps/web/components/SiteHeader.tsx`, its focused hel
 The header and footer brand blocks match: the prominent `Mōchirīī` guild name sits above the concise `Asia Pacific Guild` regional label. Keep the game name in metadata and approved supporting contexts instead of the brand subtitle.
 
 Current desktop navigation:
+
+- Home alone uses Events, Guild Activity (`/#guild-activity`), Resources, Login/Account and the recruitment action.
+  Resources combines every canonical public/authorized destination and official profile. Other routes keep the
+  existing grouped header below. Only recruitment `meta.status` crosses the server layout boundary.
+- Open/limited Home actions use the canonical invite; paused/unknown states consistently use
+  `Recruitment Paused` and `/recruitment`. Double Counter verification is a Discord onboarding step;
+  Website sign-in is optional and does not grant member eligibility or promise guild admission.
 
 - Guild: Home, Spotlight, Gallery, Social, Forums, Mochi Pets.
 - The Guild dropdown contains the five owner-approved profile links from `apps/web/config/public-urls.json`: Facebook, Instagram, TikTok, Twitch, and YouTube.
@@ -312,3 +324,59 @@ Home/Shell work must not alter:
 - `apps/web/public/data/recruitment.json` `content.paragraphs`
 - `apps/web/public/data/recruitment.json` `content.conclusion`
 - `apps/web/public/data/twills.json` `profile.bio`
+
+## 15. Optional ordinary-shell motion
+
+`DecorativeMotion` owns the independent, versioned `mochirii.decorative-motion.v1` local preference.
+The footer and first-scene controls synchronize and have unique descriptions. Explicit Off persists;
+live OS reduced motion and unavailable storage force static presentation. Spinner retains its own setting
+and isolated shell. Server-rendered and no-JavaScript content is always visible.
+
+One shared observer handles once-per-visit entrances (420 ms, decorative rules move 12 px; card opacity .94 to 1,
+50 ms staggers capped below 600 ms) and scene visibility. Focus/anchor targeting finishes entrances.
+Fine-pointer card hover uses 180 ms border-color feedback. Card frames, text and controls stay in place. Text, controls and card frames do not follow scrolling.
+
+Home alone imports `components/home-scene.ts` after the usable poster has painted, preferences permit motion
+and the scene is visible. The renderer has no package imports. A 30 fps capped, low-power WebGL mesh uses
+two 1280 × 853 registered local textures, DPR capped at 2, pinned hair/robe regions and a separate anchored
+alpha branch. Its ambient clock accumulates visible time and never reverses with scrolling. Hidden/offscreen
+and focused scenes pause; Off, reduced motion, navigation, asset failure or context loss clean up GPU work and
+retain the complete poster. An LCP observation establishes poster paint; engines without that observation
+use a conservative post-load fallback. Petals and separate mist layers remain decorative and noninteractive.
+
+Lossless WebP alpha masks exported from authored SVG preserve ink paths, grain and the border highlight while keeping the retained
+public SVG restriction intact. CSS clip reveals retrace normalized section progress (entry 0% to exit 100%),
+with zero/start, full/middle and zero/end emphasis. Native view timelines use a passive, frame-coalesced
+fallback. Lantern glow/flame accents apply only to the suitable Guild Party cover; approved event pixels
+remain unchanged. The selected hero has no moon or flags, so those effects are not applicable. The seal
+has no enclosing border or animation. See the ignored Preview evidence's scene manifest for masks,
+anchors, timing, measured rendering cost and unresolved limitations.
+
+Keep the existing 5 KiB initial Home, 63 KiB shared and 225 KiB route guards. The approved deferred scene
+allowance is 8 KiB Brotli including new helpers; shared helper bytes also remain charged to the shared guard.
+Do not move existing Home code to satisfy a budget. Asset recipes and compatibility rules are in
+`docs/asset-naming-and-delivery.md`. Performance evidence is lab evidence, not field p75 improvement.
+
+## 16. Preview 3 document policy
+
+The release smoke retains every earlier document policy. Its separately sealed Preview 3 profile binds
+the complete rendered document and canonical Flight graph, including shell ancestry, attributes, text,
+imports, resources and legal links. The only variable substitutions are the bounded server reference
+instant, the event calculated from the pinned public schedule, and the validated Spotlight title/summary
+and matching accessible label. Unknown markup, scripts, graph records or resources change the seal or
+fail the existing namespace checks. Do not replace a seal merely because a response fails validation.
+
+The pinned React streaming normalizer never executes response JavaScript. It matches the exact timing
+and completion helpers and their single owned, paired Spotlight boundary, validates both the initial
+fallback and passive replacement, and presents the completed region to the document policies.
+
+Home formats an already-fetched winner synchronously through `spotlightWinnerTitle`; only the bounded
+winner lookup suspends. The Spotlight section reserves its fallback size across delayed responses.
+Unusually long names occupy up to two visual heading lines, while the complete name remains in the
+heading's accessible text, the destination link's label, and the full Spotlight page.
+
+With the reviewed built server running only on `127.0.0.1:8765`, run
+`node scripts/smoke-preview3-document-profile.mjs http://127.0.0.1:8765/` for actual source oracles,
+bounded winner substitutions and hostile mutations. Root `npm run check` includes the standalone
+streaming rejection controls. Run the existing gallery and official-profile browser smokes with an
+explicit local origin; profile coverage includes Home Resources and the unchanged ordinary Events menu.

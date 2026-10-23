@@ -13,8 +13,8 @@
     "metadataRoutes": 28,
     "indexedMetadataRoutes": 17,
     "nonindexedMetadataRoutes": 11,
-    "publicFiles": 250,
-    "publicBytes": 50245776,
+    "publicFiles": 336,
+    "publicBytes": 52482429,
     "sourceFiles": 43
   },
   "sourceCatalog": [
@@ -75,8 +75,8 @@
     },
     {
       "path": "apps/web/app/layout.tsx",
-      "bytes": 2361,
-      "sha256": "3176BB878FBDEC921355229611F5F7DA33CBE3EA27C8C847AE78B4745E3AE68E"
+      "bytes": 2471,
+      "sha256": "7309C9036003E5AF6C0B7D22A695750EC7F08DA309E27DB15EE0988ACAE09C9D"
     },
     {
       "path": "apps/web/app/leader-dashboard/page.tsx",
@@ -105,8 +105,8 @@
     },
     {
       "path": "apps/web/app/page.tsx",
-      "bytes": 23183,
-      "sha256": "BCBA1AE6F660CBCD04C58D134AF7673CE7699124A6DA26BB75CDF85A3D86659B"
+      "bytes": 14619,
+      "sha256": "90928E06E3C3B757088AF23BE2962296A950B5E5377BBF723639EC19D9FFEE47"
     },
     {
       "path": "apps/web/app/privacy/page.tsx",
@@ -186,7 +186,7 @@
     {
       "path": "apps/web/config/app-route-evidence.v1.json",
       "bytes": 66971,
-      "sha256": "C0BC1D13CABDD33B825E3510DB13103B201492B73825C3D9A989142D064F01FC"
+      "sha256": "5C2A83B5D9E1E787F3056E8086A00F224C156B362D16A9EDB82181E96D7D4E99"
     },
     {
       "path": "apps/web/config/app-route-matrix.v1.json",
@@ -200,13 +200,13 @@
     },
     {
       "path": "scripts/check-all.mjs",
-      "bytes": 14247,
-      "sha256": "A1A5874896B8126EABC091CF82E3638F820654F8952D1A6EB46B30D9FB5C336A"
+      "bytes": 14655,
+      "sha256": "2BF9ADE8A7E2C426DCC511D336EBB9CB04483E93689167611C883ED1B09670FD"
     },
     {
       "path": "scripts/check-app-static-surface-inventory.mjs",
-      "bytes": 13000,
-      "sha256": "81110086FF42EADF54E0D5BC68C0CA3823191124625A786EC2C1B69519E2DD99"
+      "bytes": 12998,
+      "sha256": "DF3FE6436C11E721252E1E72C2A3F3783FD0904D81967FDD1E35C007960CF4CE"
     },
     {
       "path": "scripts/check-assets.mjs",
@@ -215,8 +215,8 @@
     },
     {
       "path": "scripts/check-observability-metadata-smoke.mjs",
-      "bytes": 29788,
-      "sha256": "EFB2A7237B1E502E8E9DE84EA6F0692AED93142837F730B5BE6079A90BC0CF4D"
+      "bytes": 29836,
+      "sha256": "9A29D1DA27682742687974B9FF9E52922C7FC40F6112A07C452CE674E389FC87"
     },
     {
       "path": "scripts/lib/app-router-inventory.mjs",
@@ -230,8 +230,8 @@
     },
     {
       "path": "scripts/lib/app-static-surface-inventory.test.mjs",
-      "bytes": 133123,
-      "sha256": "CBDD770B3E7D9396FA497F29A7BDD30E640777D382445B24BD620DAF58073C5C"
+      "bytes": 133117,
+      "sha256": "477B6DC01369C3290043D3D259064AE1EE82E8B1322E6E075126CB0124937717"
     }
   ],
   "metadataRoutes": [
@@ -640,6 +640,94 @@
       "sha256": "9EBD5A8240E25EF72CC7A5840AF381F5B3C8788FC78B32BC63D54B146F163901",
       "category": "asset",
       "format": "css"
+    },
+    {
+      "url": "/assets/home/decor/cherry-valley-mist-far.webp",
+      "source": "apps/web/public/assets/home/decor/cherry-valley-mist-far.webp",
+      "bytes": 2500,
+      "sha256": "5C6341812498629D148C94F50F7B37CDFF82225FC2B8F71D6F4277678DD76782",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/home/decor/cherry-valley-mist-near.webp",
+      "source": "apps/web/public/assets/home/decor/cherry-valley-mist-near.webp",
+      "bytes": 2750,
+      "sha256": "E7261E3D237890AA0F733159E10740BC16E47D52B1A36F20C290BA76640BA7AF",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/home/decor/event-edge.webp",
+      "source": "apps/web/public/assets/home/decor/event-edge.webp",
+      "bytes": 84,
+      "sha256": "D58A3963AA892BAA42F97BAC7D6F31A12070CCE6D3893EB61DC7206CCD824B41",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/home/decor/event-ink-grain.webp",
+      "source": "apps/web/public/assets/home/decor/event-ink-grain.webp",
+      "bytes": 116,
+      "sha256": "32C6C1A2E264575B6363242C05043C62A2B932B38931BCAE16D287B71077A6FF",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/home/decor/event-ink.webp",
+      "source": "apps/web/public/assets/home/decor/event-ink.webp",
+      "bytes": 3688,
+      "sha256": "F657B8E77615263B224152842F619D9197CB8580A37625EC258BE04552A8FA99",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/home/decor/event-lantern-flame.webp",
+      "source": "apps/web/public/assets/home/decor/event-lantern-flame.webp",
+      "bytes": 558,
+      "sha256": "7933634EE8AA0FD99FA9E8B084778642F52E8EEDE7AAAC20E4BBA610DF6AB8E3",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/home/decor/event-lantern-glow.webp",
+      "source": "apps/web/public/assets/home/decor/event-lantern-glow.webp",
+      "bytes": 4318,
+      "sha256": "8AEBE590C6B156A0860F54F9C33F372D7FD2A91F4D0A92D33F316A72CB4867BD",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/home/hero/cherry-valley-dawn/branch-alpha-1280.webp",
+      "source": "apps/web/public/assets/home/hero/cherry-valley-dawn/branch-alpha-1280.webp",
+      "bytes": 94230,
+      "sha256": "CF485534EA80C0E9DBE4AACC64A897A312E898231A2632C37408ADFC049B2B49",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/home/hero/cherry-valley-dawn/cherry-valley-panorama-1344.webp",
+      "source": "apps/web/public/assets/home/hero/cherry-valley-dawn/cherry-valley-panorama-1344.webp",
+      "bytes": 70960,
+      "sha256": "1DDBA386AD8226ACCFC49218D88725BC5E3120C976237FE5F58788F3D6DCC571",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/home/hero/cherry-valley-dawn/clean-plate-1280.webp",
+      "source": "apps/web/public/assets/home/hero/cherry-valley-dawn/clean-plate-1280.webp",
+      "bytes": 155326,
+      "sha256": "675D56688FC5604B7293F7ECD5B8469AA9C6A25C39F7E940D069BBC1A5C3048A",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/home/scenery/bamboo-valley-1280.webp",
+      "source": "apps/web/public/assets/home/scenery/bamboo-valley-1280.webp",
+      "bytes": 104526,
+      "sha256": "7CF2DADF1C7444736A1525F299954431C13104FAD906A6F093A52C4C23753EDB",
+      "category": "asset",
+      "format": "webp"
     },
     {
       "url": "/assets/img/announcements/hero.webp",
@@ -1402,10 +1490,26 @@
       "format": "webp"
     },
     {
+      "url": "/assets/img/gallery/thumbs/shot-01-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-01-720.webp",
+      "bytes": 47688,
+      "sha256": "0D9BBB2335C6240C020DCDC0985821DF1498287CD37C7020A75C007B7ABE0C42",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
       "url": "/assets/img/gallery/thumbs/shot-01.webp",
       "source": "apps/web/public/assets/img/gallery/thumbs/shot-01.webp",
       "bytes": 86980,
       "sha256": "CEB371AA9FA6BF8D6D297BF984675DA7F8F97CD1EAD2B9D8E6E670F74FD0B961",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-02-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-02-720.webp",
+      "bytes": 8506,
+      "sha256": "A907F55AA9A073E97D613F10A20C3E5FA87A5B86336A6B63EBFCB8C49D0E12F3",
       "category": "asset",
       "format": "webp"
     },
@@ -1418,10 +1522,26 @@
       "format": "webp"
     },
     {
+      "url": "/assets/img/gallery/thumbs/shot-03-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-03-720.webp",
+      "bytes": 22618,
+      "sha256": "7F9D1708269A80EAFA238151C02FE3320A3A26E3FCB922B1052FC2B0B7DB3BCE",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
       "url": "/assets/img/gallery/thumbs/shot-03.webp",
       "source": "apps/web/public/assets/img/gallery/thumbs/shot-03.webp",
       "bytes": 42852,
       "sha256": "5CC4DD08FAAA3088AB848D2F41228157CFF9DDD37B0CDD80D96215D059F23ED8",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-04-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-04-720.webp",
+      "bytes": 6466,
+      "sha256": "B2706198AB437326A0EED1AB6BF6BF966BD498B52DCC019E8B1E950CE3DD55CB",
       "category": "asset",
       "format": "webp"
     },
@@ -1434,10 +1554,26 @@
       "format": "webp"
     },
     {
+      "url": "/assets/img/gallery/thumbs/shot-05-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-05-720.webp",
+      "bytes": 3848,
+      "sha256": "965415366E7956B0379E241BB5EB0DCB5389DBFC7792C96E6247B5314FDDC4F5",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
       "url": "/assets/img/gallery/thumbs/shot-05.webp",
       "source": "apps/web/public/assets/img/gallery/thumbs/shot-05.webp",
       "bytes": 6626,
       "sha256": "BEE2B72340814030D7534C1C65945073D0D7E394E0FC2F52D1FE304D18A15841",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-06-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-06-720.webp",
+      "bytes": 10716,
+      "sha256": "1DEF680FFB59480F70694C9D38048FE55BB715B63FB1AABDA7E2A59A8AB7B8EB",
       "category": "asset",
       "format": "webp"
     },
@@ -1450,10 +1586,26 @@
       "format": "webp"
     },
     {
+      "url": "/assets/img/gallery/thumbs/shot-07-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-07-720.webp",
+      "bytes": 24974,
+      "sha256": "849A385C3546AF6A566C8758D658D903FB57F69E2C15E6AE9084180637290791",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
       "url": "/assets/img/gallery/thumbs/shot-07.webp",
       "source": "apps/web/public/assets/img/gallery/thumbs/shot-07.webp",
       "bytes": 50650,
       "sha256": "2E2E989585C3706E79482E75285715C39096D9EC7C1EC680E40A85799B387668",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-08-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-08-720.webp",
+      "bytes": 24736,
+      "sha256": "4EFC3DFE6B0C999E86344298DF876D2EC6AEB8A7CE989CF6158AF9042718DF6A",
       "category": "asset",
       "format": "webp"
     },
@@ -1466,10 +1618,26 @@
       "format": "webp"
     },
     {
+      "url": "/assets/img/gallery/thumbs/shot-09-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-09-720.webp",
+      "bytes": 20864,
+      "sha256": "5EA27CA2017C21490E38F8249D1AD8AD4ADA6B08F2A4B2FEE6E748C91D5BFFBA",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
       "url": "/assets/img/gallery/thumbs/shot-09.webp",
       "source": "apps/web/public/assets/img/gallery/thumbs/shot-09.webp",
       "bytes": 41604,
       "sha256": "C7F38A9F2C22CC863FA7F8EA4B895842667ABE15D1B04452AE86B0AC39CFDBB5",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-10-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-10-720.webp",
+      "bytes": 23596,
+      "sha256": "7C0FBC72B13F2AEC9FA1C8294AF4C2E9F1C74B6BF9BD4F0CE938D2107F57E8A9",
       "category": "asset",
       "format": "webp"
     },
@@ -1482,10 +1650,26 @@
       "format": "webp"
     },
     {
+      "url": "/assets/img/gallery/thumbs/shot-11-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-11-720.webp",
+      "bytes": 13218,
+      "sha256": "9B1DFF91457332F5FDB7464500030349514DCE7D807558F0120110A228A19327",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
       "url": "/assets/img/gallery/thumbs/shot-11.webp",
       "source": "apps/web/public/assets/img/gallery/thumbs/shot-11.webp",
       "bytes": 23200,
       "sha256": "60F133CFAFFD895F8A1911CA79461B8886ACED22E428230254A3FF39458107C2",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-12-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-12-720.webp",
+      "bytes": 12666,
+      "sha256": "7FA6F740A5A450161ABAEE8F1AF1255A097E953F2A5A979FD55CA2020A0D90D2",
       "category": "asset",
       "format": "webp"
     },
@@ -1498,10 +1682,26 @@
       "format": "webp"
     },
     {
+      "url": "/assets/img/gallery/thumbs/shot-13-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-13-720.webp",
+      "bytes": 18584,
+      "sha256": "14C1F8D0328916D535E31AB0181FB362C05CF67405B1C6431C68F390D095C536",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
       "url": "/assets/img/gallery/thumbs/shot-13.webp",
       "source": "apps/web/public/assets/img/gallery/thumbs/shot-13.webp",
       "bytes": 36442,
       "sha256": "64695CEF28ACFC336D1CE85572010CFB83C26EDFA23C4A762F5AF0C78172C506",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-14-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-14-720.webp",
+      "bytes": 12918,
+      "sha256": "0566BD913C12F2D4B8B933736D28A8C8F78DBB3143AC3666237EAB7B8B47F874",
       "category": "asset",
       "format": "webp"
     },
@@ -1514,10 +1714,26 @@
       "format": "webp"
     },
     {
+      "url": "/assets/img/gallery/thumbs/shot-15-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-15-720.webp",
+      "bytes": 27002,
+      "sha256": "6D1A8AC804E216BCBC6AA4553E90A1CDB5C5768BE1EAC258F25DD49D680FA496",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
       "url": "/assets/img/gallery/thumbs/shot-15.webp",
       "source": "apps/web/public/assets/img/gallery/thumbs/shot-15.webp",
       "bytes": 50910,
       "sha256": "229BE5DB146F85CF584E6EB74324FBC78E10357EC833ADC6ACFEB76F5D38312F",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-16-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-16-720.webp",
+      "bytes": 8584,
+      "sha256": "E80EBB69318A1ACA27C0DCD65D46062D3163871DB6DA59BFBA2121E863C6CA11",
       "category": "asset",
       "format": "webp"
     },
@@ -1530,10 +1746,26 @@
       "format": "webp"
     },
     {
+      "url": "/assets/img/gallery/thumbs/shot-17-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-17-720.webp",
+      "bytes": 8410,
+      "sha256": "F3514C7EEFCF7412BF67C0B7EBB1363DE64AA4F179198E6AE64B8B8B0D806B0E",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
       "url": "/assets/img/gallery/thumbs/shot-17.webp",
       "source": "apps/web/public/assets/img/gallery/thumbs/shot-17.webp",
       "bytes": 14422,
       "sha256": "30D1E9FA79CFB1AC98B1088843C9143D8A5D84368255A4973EDAC63A7E134CB4",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-18-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-18-720.webp",
+      "bytes": 7138,
+      "sha256": "07753405C5B7DAD88F71E0A6F62706AE35714C86913431857FA0AA286EEF8D03",
       "category": "asset",
       "format": "webp"
     },
@@ -1546,10 +1778,26 @@
       "format": "webp"
     },
     {
+      "url": "/assets/img/gallery/thumbs/shot-19-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-19-720.webp",
+      "bytes": 29632,
+      "sha256": "B3DE481DBD4DE09F4BC81768E7B400287E1B05181644386E41480CB9AE6F0157",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
       "url": "/assets/img/gallery/thumbs/shot-19.webp",
       "source": "apps/web/public/assets/img/gallery/thumbs/shot-19.webp",
       "bytes": 59690,
       "sha256": "470C055948CEDEF141F97AB2E317D933EE20A3E931EF5576456955694940BC14",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-20-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-20-720.webp",
+      "bytes": 36006,
+      "sha256": "D62D56DD671200AE9BE1DC1C03B33D3D7FAC9679038ED48CC472341121722DAB",
       "category": "asset",
       "format": "webp"
     },
@@ -1562,10 +1810,26 @@
       "format": "webp"
     },
     {
+      "url": "/assets/img/gallery/thumbs/shot-21-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-21-720.webp",
+      "bytes": 13596,
+      "sha256": "979EC253F3092EA53C33C8F0A05DDE3AFFB81B53C9D6B7616C34BC9AF33C43DF",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
       "url": "/assets/img/gallery/thumbs/shot-21.webp",
       "source": "apps/web/public/assets/img/gallery/thumbs/shot-21.webp",
       "bytes": 28702,
       "sha256": "FA6870EFBC1C0CF43A17C4A06AD1168439F0E5483DA660C3BDF12049D208260D",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-22-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-22-720.webp",
+      "bytes": 30920,
+      "sha256": "CFD4FD6ABCDA4FD82B13EC72B5F181A8C05A4B5E07F2711D8EA3C406A74F5ED8",
       "category": "asset",
       "format": "webp"
     },
@@ -1578,10 +1842,26 @@
       "format": "webp"
     },
     {
+      "url": "/assets/img/gallery/thumbs/shot-23-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-23-720.webp",
+      "bytes": 26300,
+      "sha256": "5088B6D1D8B3B58D86D51CEA5CF179A9A0B55AED463A3959DBD9AFCB3DC82759",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
       "url": "/assets/img/gallery/thumbs/shot-23.webp",
       "source": "apps/web/public/assets/img/gallery/thumbs/shot-23.webp",
       "bytes": 49210,
       "sha256": "BEA36F6A42D045C0F0FB2BD1741A400BD4EA1C16862F92FF0D106EE3BB6A145A",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-24-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-24-720.webp",
+      "bytes": 44158,
+      "sha256": "0A5EED1FEACF831AD241BB8227B914BD6119BB58D0EF4EC42E7475EDB564D264",
       "category": "asset",
       "format": "webp"
     },
@@ -1594,10 +1874,26 @@
       "format": "webp"
     },
     {
+      "url": "/assets/img/gallery/thumbs/shot-25-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-25-720.webp",
+      "bytes": 39298,
+      "sha256": "6EBE713A1D206E627C02B7CA5EF57DAF5CBBD76D4C04C43AD1A521A491EFED37",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
       "url": "/assets/img/gallery/thumbs/shot-25.webp",
       "source": "apps/web/public/assets/img/gallery/thumbs/shot-25.webp",
       "bytes": 71232,
       "sha256": "5F03FCCA69C08B1B53CAD00E047DCF4D5E9E8DD92EB63E326AC785A3E081BD26",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-26-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-26-720.webp",
+      "bytes": 26164,
+      "sha256": "2D9B5D8BB74774B2706267AB71684A76D9B9B47FB55D5DC4FCD35655FD7FDC10",
       "category": "asset",
       "format": "webp"
     },
@@ -1610,10 +1906,26 @@
       "format": "webp"
     },
     {
+      "url": "/assets/img/gallery/thumbs/shot-27-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-27-720.webp",
+      "bytes": 18332,
+      "sha256": "08DE9FB5CDA8794C9F6D4169075447952FB96D6BDA3E720A9C8DD0C2CBF3BDAF",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
       "url": "/assets/img/gallery/thumbs/shot-27.webp",
       "source": "apps/web/public/assets/img/gallery/thumbs/shot-27.webp",
       "bytes": 35136,
       "sha256": "DC07236C8AF9A7890E7433CD06D17737F9258824F93D343986830491E4B02220",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-28-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-28-720.webp",
+      "bytes": 13208,
+      "sha256": "03B434C24E48CAEAAF737810C203FD97872895FFE0C90EC3C497C94549721102",
       "category": "asset",
       "format": "webp"
     },
@@ -1626,10 +1938,26 @@
       "format": "webp"
     },
     {
+      "url": "/assets/img/gallery/thumbs/shot-29-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-29-720.webp",
+      "bytes": 27058,
+      "sha256": "3C91EEB6F32F0E9AEE7CB3E3D2AE469F270D0802FFEC02992A49D1B774D9EF8F",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
       "url": "/assets/img/gallery/thumbs/shot-29.webp",
       "source": "apps/web/public/assets/img/gallery/thumbs/shot-29.webp",
       "bytes": 51136,
       "sha256": "AE513B2C837C85FD97347917B6D3C4630683316F44CA3E15AF2F1868A7EFFD86",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-30-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-30-720.webp",
+      "bytes": 11604,
+      "sha256": "5C795C2904A24EDE6671A1C3881FA42080BF90410890B457B8CC47213F073B65",
       "category": "asset",
       "format": "webp"
     },
@@ -1642,10 +1970,26 @@
       "format": "webp"
     },
     {
+      "url": "/assets/img/gallery/thumbs/shot-31-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-31-720.webp",
+      "bytes": 13614,
+      "sha256": "6E6A9EAAAF0DEDA84C6B9F64A255227384EAEC86B58E849A58300F381D00E396",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
       "url": "/assets/img/gallery/thumbs/shot-31.webp",
       "source": "apps/web/public/assets/img/gallery/thumbs/shot-31.webp",
       "bytes": 25456,
       "sha256": "B9450AD0DC629AAF7476B3868669C759639B0080608B31986B8509D23CF1F76C",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-32-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-32-720.webp",
+      "bytes": 17458,
+      "sha256": "18F41A1FD81A48A0DBD900501EAC5D9D766AADFC096FBA85A094FC349DF7ADD7",
       "category": "asset",
       "format": "webp"
     },
@@ -1658,10 +2002,26 @@
       "format": "webp"
     },
     {
+      "url": "/assets/img/gallery/thumbs/shot-33-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-33-720.webp",
+      "bytes": 8942,
+      "sha256": "BEB0F8927DD3E9F02D5BD3C66C9FCEBC3B5D043FAA550642A2562461A19653F2",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
       "url": "/assets/img/gallery/thumbs/shot-33.webp",
       "source": "apps/web/public/assets/img/gallery/thumbs/shot-33.webp",
       "bytes": 15338,
       "sha256": "C2E888251B0F5E426F1D05EC15CD8EEC14C6412C87D27B67B5E41D2BF4F7BC36",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-34-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-34-720.webp",
+      "bytes": 10560,
+      "sha256": "ACBE37F6091BCAF2D2E4500A9C98B08FC9554BB0D8C303E1D3A3FD7BD2CCF77F",
       "category": "asset",
       "format": "webp"
     },
@@ -1674,10 +2034,26 @@
       "format": "webp"
     },
     {
+      "url": "/assets/img/gallery/thumbs/shot-35-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-35-720.webp",
+      "bytes": 14228,
+      "sha256": "F15513DEBD6DC558D026C13D305B58EDACCBF65BABCA3C6FF41146CA264ECC8F",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
       "url": "/assets/img/gallery/thumbs/shot-35.webp",
       "source": "apps/web/public/assets/img/gallery/thumbs/shot-35.webp",
       "bytes": 24312,
       "sha256": "A90EC065D4F87F95C104B2C758BD61041C33B5447FCCB482486B6753B8820D4D",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-36-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-36-720.webp",
+      "bytes": 11272,
+      "sha256": "A0860382EF21A7ED3BE6534E05276ECC51A769515B9ECE0AC1FAEAB1020A4E75",
       "category": "asset",
       "format": "webp"
     },
@@ -1690,10 +2066,26 @@
       "format": "webp"
     },
     {
+      "url": "/assets/img/gallery/thumbs/shot-37-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-37-720.webp",
+      "bytes": 13814,
+      "sha256": "3E249FC3BF7B24E8FF1BC17A054E43967716C8A98465B53CB2EC32BE408C619A",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
       "url": "/assets/img/gallery/thumbs/shot-37.webp",
       "source": "apps/web/public/assets/img/gallery/thumbs/shot-37.webp",
       "bytes": 24546,
       "sha256": "6C6EDA2B6E88E9520454026854C48E963CD884CF7DF437F0D2A94F23B4CED125",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-38-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-38-720.webp",
+      "bytes": 11746,
+      "sha256": "1BBD212117765C6DC77FC47955FF7F75A042A6C996FDA4DBEC0C1C59CC6E1C6F",
       "category": "asset",
       "format": "webp"
     },
@@ -1706,10 +2098,26 @@
       "format": "webp"
     },
     {
+      "url": "/assets/img/gallery/thumbs/shot-39-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-39-720.webp",
+      "bytes": 17476,
+      "sha256": "128CA6AD2D645C1D10D76D56B92B00A70CD4FC465FAA1B223AF7D010F910B7B5",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
       "url": "/assets/img/gallery/thumbs/shot-39.webp",
       "source": "apps/web/public/assets/img/gallery/thumbs/shot-39.webp",
       "bytes": 30360,
       "sha256": "2579B6037710AC34B3C373C9334BD9DA3142584B992752A228BBE95172CD5FFD",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-40-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-40-720.webp",
+      "bytes": 32726,
+      "sha256": "3B0780B712F9173C33965D22FAD0D712452719FBD34771B88E59314EE16C16BD",
       "category": "asset",
       "format": "webp"
     },
@@ -1722,10 +2130,26 @@
       "format": "webp"
     },
     {
+      "url": "/assets/img/gallery/thumbs/shot-41-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-41-720.webp",
+      "bytes": 32614,
+      "sha256": "DD6E9158ECE1F5741A5F9920AAA6605A916B17DB0E37C0F0DBE9329677F630B1",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
       "url": "/assets/img/gallery/thumbs/shot-41.webp",
       "source": "apps/web/public/assets/img/gallery/thumbs/shot-41.webp",
       "bytes": 67946,
       "sha256": "CA5A64C5D95C003BFFEE6B7BF76BFCDE6AD26D5711C826B1D288D1EFCE1FA5C6",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-42-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-42-720.webp",
+      "bytes": 38574,
+      "sha256": "1D62393EF3A5EFC22B6CA223B221F5C045842911F53D8C20C2D384040CAA989D",
       "category": "asset",
       "format": "webp"
     },
@@ -1738,10 +2162,26 @@
       "format": "webp"
     },
     {
+      "url": "/assets/img/gallery/thumbs/shot-43-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-43-720.webp",
+      "bytes": 36800,
+      "sha256": "76747FB5A6548DFA8213DCC273BED4E18EA6EAA28523CB96A3FD3BFB7B54FA99",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
       "url": "/assets/img/gallery/thumbs/shot-43.webp",
       "source": "apps/web/public/assets/img/gallery/thumbs/shot-43.webp",
       "bytes": 71140,
       "sha256": "974BA05ABAA5663B39D8130B38C4F9AA90CCF052A4ABEC48F2F590CDF8D17684",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-44-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-44-720.webp",
+      "bytes": 45212,
+      "sha256": "ECB2D3522CF23B3E9E1E562C84EB049938ACD083467C6D7AFBA07BC3859AF68E",
       "category": "asset",
       "format": "webp"
     },
@@ -1754,10 +2194,26 @@
       "format": "webp"
     },
     {
+      "url": "/assets/img/gallery/thumbs/shot-45-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-45-720.webp",
+      "bytes": 24884,
+      "sha256": "248F4451CFAB684301772058133B077913C6CB342813311035FD4A24E841B822",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
       "url": "/assets/img/gallery/thumbs/shot-45.webp",
       "source": "apps/web/public/assets/img/gallery/thumbs/shot-45.webp",
       "bytes": 52646,
       "sha256": "57FE48EE5D662D2CDDD9A7CF312E008D2384BAC0F6992ED15C4F570195587E94",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-46-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-46-720.webp",
+      "bytes": 37320,
+      "sha256": "484B71021E8F4A831BDDA4A583FB8A7DFCF2206C4468E40145DB00DA42A86FD7",
       "category": "asset",
       "format": "webp"
     },
@@ -1770,10 +2226,26 @@
       "format": "webp"
     },
     {
+      "url": "/assets/img/gallery/thumbs/shot-47-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-47-720.webp",
+      "bytes": 17554,
+      "sha256": "433648BEC718EFB062D8A3E5F3CE85226BDE41FB98BB121E6400354BC92035D0",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
       "url": "/assets/img/gallery/thumbs/shot-47.webp",
       "source": "apps/web/public/assets/img/gallery/thumbs/shot-47.webp",
       "bytes": 34180,
       "sha256": "5969731E6933CF0266603123DD84C17ED11B40AAA298D617A65080430FC4F018",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-48-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-48-720.webp",
+      "bytes": 11960,
+      "sha256": "12A088BA13E5DBFEFBDA0744C088A92D7231A31A84264FA8066D3662529CAAB9",
       "category": "asset",
       "format": "webp"
     },
@@ -1786,10 +2258,26 @@
       "format": "webp"
     },
     {
+      "url": "/assets/img/gallery/thumbs/shot-49-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-49-720.webp",
+      "bytes": 14232,
+      "sha256": "7C21430823A9E2AEA5241F2D57413F30D128F97D857CDA33FC1644CE3994C643",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
       "url": "/assets/img/gallery/thumbs/shot-49.webp",
       "source": "apps/web/public/assets/img/gallery/thumbs/shot-49.webp",
       "bytes": 26974,
       "sha256": "4A178B35370284115CAC640808F606A2A2632E50EB119CF77D0E77CBE99F58DD",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-50-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-50-720.webp",
+      "bytes": 26416,
+      "sha256": "706EFFDFCA5704D1B1F98676BB26388BDF723611A343E6779B7BF0A8E2B29685",
       "category": "asset",
       "format": "webp"
     },
@@ -1802,10 +2290,26 @@
       "format": "webp"
     },
     {
+      "url": "/assets/img/gallery/thumbs/shot-51-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-51-720.webp",
+      "bytes": 15798,
+      "sha256": "11469699AAFA14780F4977D5F26D63E7295F98BCA92F7394076CA987EF10523F",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
       "url": "/assets/img/gallery/thumbs/shot-51.webp",
       "source": "apps/web/public/assets/img/gallery/thumbs/shot-51.webp",
       "bytes": 30948,
       "sha256": "004BA5B953FA78B6EDBB25706AD58C32C5F13F2D5570565D48373ACC9AB25524",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-52-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-52-720.webp",
+      "bytes": 35384,
+      "sha256": "5733550BCED9F0F39F4FE1F2884161439AEF98A6C500A4518E1CA5FF5491E7D0",
       "category": "asset",
       "format": "webp"
     },
@@ -1818,10 +2322,26 @@
       "format": "webp"
     },
     {
+      "url": "/assets/img/gallery/thumbs/shot-53-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-53-720.webp",
+      "bytes": 11900,
+      "sha256": "9F93BC72DAB54861F01A1D021C5B8CFDB4662701FBC5172CC95E99FA746D3DD6",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
       "url": "/assets/img/gallery/thumbs/shot-53.webp",
       "source": "apps/web/public/assets/img/gallery/thumbs/shot-53.webp",
       "bytes": 20978,
       "sha256": "D7A88DE10547029B7A81777C13D54279718120BDE91659B29095B752159FEF8A",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-54-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-54-720.webp",
+      "bytes": 18842,
+      "sha256": "1BE1C1B475B81B8B339C966DA9431EA123DB6B6F15406D52BCC4E79F3AE5EA2C",
       "category": "asset",
       "format": "webp"
     },
@@ -1834,10 +2354,26 @@
       "format": "webp"
     },
     {
+      "url": "/assets/img/gallery/thumbs/shot-55-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-55-720.webp",
+      "bytes": 14678,
+      "sha256": "F89C41F99A2FE5CB62C019DAB40015AC810B6281CC855933A51A9EA60564B5EB",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
       "url": "/assets/img/gallery/thumbs/shot-55.webp",
       "source": "apps/web/public/assets/img/gallery/thumbs/shot-55.webp",
       "bytes": 36346,
       "sha256": "C0148C99F76AA3C9E11A9734A1CC244163D2ACCEFFDE5BA735500D5EE34009B5",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-56-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-56-720.webp",
+      "bytes": 12820,
+      "sha256": "E7CCD1A4F5A00AEEC75E67967D1EAF0E0408342E2F68EE8EB4F44809472575D9",
       "category": "asset",
       "format": "webp"
     },
@@ -1850,10 +2386,26 @@
       "format": "webp"
     },
     {
+      "url": "/assets/img/gallery/thumbs/shot-57-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-57-720.webp",
+      "bytes": 30432,
+      "sha256": "A4C103EBB6AEA09E4865FBB6548CF79E57BE4D8B4F39ED80F9570945C381BE17",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
       "url": "/assets/img/gallery/thumbs/shot-57.webp",
       "source": "apps/web/public/assets/img/gallery/thumbs/shot-57.webp",
       "bytes": 59162,
       "sha256": "59FE89BE93D773A376C4922E13826A3A9E34470B491F544088BC5D069266EA34",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-58-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-58-720.webp",
+      "bytes": 14912,
+      "sha256": "7D400B9CC277ACD08DDFA404C032C78EA7787D83FFBFE210F64A38633E0A9F76",
       "category": "asset",
       "format": "webp"
     },
@@ -1866,10 +2418,26 @@
       "format": "webp"
     },
     {
+      "url": "/assets/img/gallery/thumbs/shot-59-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-59-720.webp",
+      "bytes": 27626,
+      "sha256": "9E6C126DFDB57E36130E1AF75D0F91E1059CD89CE7A467E0E30E19AEC4186EE9",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
       "url": "/assets/img/gallery/thumbs/shot-59.webp",
       "source": "apps/web/public/assets/img/gallery/thumbs/shot-59.webp",
       "bytes": 52386,
       "sha256": "888A2F2D577EB1CB6D93C38CE26686F0E73DD455E415086C3A57DD580098D14D",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-60-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-60-720.webp",
+      "bytes": 28016,
+      "sha256": "FEF4C7D170C054D9004C88C1B5CF6EB38B6025039C7FCCC1CDE384BFE46A3633",
       "category": "asset",
       "format": "webp"
     },
@@ -1882,10 +2450,26 @@
       "format": "webp"
     },
     {
+      "url": "/assets/img/gallery/thumbs/shot-61-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-61-720.webp",
+      "bytes": 10520,
+      "sha256": "72377AB391D7F46E6A6A634EB3F8F0B16923A0DC3AD1ADA2A5D7161FC43DB9CB",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
       "url": "/assets/img/gallery/thumbs/shot-61.webp",
       "source": "apps/web/public/assets/img/gallery/thumbs/shot-61.webp",
       "bytes": 19798,
       "sha256": "14BDA52D4338B406D90603F9F568D2F2C5F62104DC9FB88FCEA6C52FEF220C04",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-62-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-62-720.webp",
+      "bytes": 18324,
+      "sha256": "364A628EDD1090D06A7E512B41FAA8FED3826CF6547A6AFBACED9F5C5A1DF35C",
       "category": "asset",
       "format": "webp"
     },
@@ -1898,10 +2482,26 @@
       "format": "webp"
     },
     {
+      "url": "/assets/img/gallery/thumbs/shot-63-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-63-720.webp",
+      "bytes": 29606,
+      "sha256": "C31E217B58C81B867DFB73B263F7802687518DEA0DC1C940D6D55D275AF2AB81",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
       "url": "/assets/img/gallery/thumbs/shot-63.webp",
       "source": "apps/web/public/assets/img/gallery/thumbs/shot-63.webp",
       "bytes": 56574,
       "sha256": "0419E34D29A35B12AAC76270C1613CF79868A8D7B274E283AC7278A2486AE006",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-64-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-64-720.webp",
+      "bytes": 22642,
+      "sha256": "55EC69E60E3086F9597AA4BF38667C7BB36912ACDC4EE78AE2D6F9D6352C4EB7",
       "category": "asset",
       "format": "webp"
     },
@@ -1914,10 +2514,26 @@
       "format": "webp"
     },
     {
+      "url": "/assets/img/gallery/thumbs/shot-65-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-65-720.webp",
+      "bytes": 12072,
+      "sha256": "6CABE66D21D4190B45C0505995535675CF072C964CC301BE5DC1355856D244DC",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
       "url": "/assets/img/gallery/thumbs/shot-65.webp",
       "source": "apps/web/public/assets/img/gallery/thumbs/shot-65.webp",
       "bytes": 21396,
       "sha256": "EDB887F4AD9A38DE0C052FA3D3DDB6691779764353DEE2EE4E2C366038ECEF90",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-66-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-66-720.webp",
+      "bytes": 5162,
+      "sha256": "435F174A78142FA80644ABDCC8960131E49655701D94E52E830D87C8C26DB11A",
       "category": "asset",
       "format": "webp"
     },
@@ -1930,10 +2546,26 @@
       "format": "webp"
     },
     {
+      "url": "/assets/img/gallery/thumbs/shot-67-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-67-720.webp",
+      "bytes": 22288,
+      "sha256": "D2F8BE6A8E6DC73157C042F61B9193C1AC02CFF9CA18A3E9C16A714B7372C520",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
       "url": "/assets/img/gallery/thumbs/shot-67.webp",
       "source": "apps/web/public/assets/img/gallery/thumbs/shot-67.webp",
       "bytes": 47570,
       "sha256": "1A59042356840741C8A8098C8893C728CD5D88C572392EF93E0A16B131A73510",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-68-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-68-720.webp",
+      "bytes": 16640,
+      "sha256": "D2B33747CA75EEEAFCAE030CB91AE8FD9D4DA8939EC448A1479F9EEC6B043209",
       "category": "asset",
       "format": "webp"
     },
@@ -1946,10 +2578,26 @@
       "format": "webp"
     },
     {
+      "url": "/assets/img/gallery/thumbs/shot-69-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-69-720.webp",
+      "bytes": 18626,
+      "sha256": "149614B25C54F779C5B38E2CD06731D33C677F4B1CF45C81902C69A3C57F942E",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
       "url": "/assets/img/gallery/thumbs/shot-69.webp",
       "source": "apps/web/public/assets/img/gallery/thumbs/shot-69.webp",
       "bytes": 36480,
       "sha256": "F7E1A8EB7DBCCF5E64BB28A6BE9899526C01B9D3253941E4FCC50B37C05E7332",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-70-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-70-720.webp",
+      "bytes": 37806,
+      "sha256": "3D1A4EC889DBE6F5C678652F885704326410D2DCB3EB53FC6ED73A684106F419",
       "category": "asset",
       "format": "webp"
     },
@@ -1962,6 +2610,14 @@
       "format": "webp"
     },
     {
+      "url": "/assets/img/gallery/thumbs/shot-71-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-71-720.webp",
+      "bytes": 33466,
+      "sha256": "CB941F86166D2AC72F463C6D8060855AA7283067AE76D312E1FB3E254429C19D",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
       "url": "/assets/img/gallery/thumbs/shot-71.webp",
       "source": "apps/web/public/assets/img/gallery/thumbs/shot-71.webp",
       "bytes": 67000,
@@ -1970,10 +2626,26 @@
       "format": "webp"
     },
     {
+      "url": "/assets/img/gallery/thumbs/shot-72-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-72-720.webp",
+      "bytes": 10408,
+      "sha256": "3FFCA24EBD184E6E56ADE19FD8E28D2FC6ABFF4BA009197664B23C27C98B6698",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
       "url": "/assets/img/gallery/thumbs/shot-72.webp",
       "source": "apps/web/public/assets/img/gallery/thumbs/shot-72.webp",
       "bytes": 22144,
       "sha256": "8C64083461DF1BF05E37E3293F0B0F432F8AA484695B66249B78AD0C5A79A278",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/gallery/thumbs/shot-73-720.webp",
+      "source": "apps/web/public/assets/img/gallery/thumbs/shot-73-720.webp",
+      "bytes": 11338,
+      "sha256": "44F9D0DCD52156AAB9D4F0733BDD6EEE75EE15244CF937F462464E7C755C622E",
       "category": "asset",
       "format": "webp"
     },
@@ -2058,6 +2730,14 @@
       "format": "webp"
     },
     {
+      "url": "/assets/img/leaders/lotus-warden.webp",
+      "source": "apps/web/public/assets/img/leaders/lotus-warden.webp",
+      "bytes": 170972,
+      "sha256": "EC9919609CEA639BB8C33EC6EB53243ED17B3BAE1813BF66421270DA612A7665",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
       "url": "/assets/img/leaders/lotus_warden.webp",
       "source": "apps/web/public/assets/img/leaders/lotus_warden.webp",
       "bytes": 170972,
@@ -2070,6 +2750,14 @@
       "source": "apps/web/public/assets/img/leaders/panel.webp",
       "bytes": 170322,
       "sha256": "A48D40C15DDD837DFC349B4017176149EE7B1BA838D8219386DDC510D7848E87",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/img/leaders/petal-keeper.webp",
+      "source": "apps/web/public/assets/img/leaders/petal-keeper.webp",
+      "bytes": 111032,
+      "sha256": "1635632BDAE6FA25AF645A07779873C954E3196F41675B0152F66F1F99E045CF",
       "category": "asset",
       "format": "webp"
     },
@@ -2484,8 +3172,8 @@
     {
       "url": "/data/gallery.json",
       "source": "apps/web/public/data/gallery.json",
-      "bytes": 40121,
-      "sha256": "47E5948F9A84C030CA8658FB4A057F650792D8CAB1DD76C914DBE37F0BC8E650",
+      "bytes": 40413,
+      "sha256": "2D111575A35CC20301026A7E0E3BECA6F59F0B06D78C9ACC2B0D23435F9CA598",
       "category": "public_data",
       "format": "json"
     },
@@ -2500,16 +3188,16 @@
     {
       "url": "/data/home.json",
       "source": "apps/web/public/data/home.json",
-      "bytes": 4593,
-      "sha256": "CE649BAD5A70901178757D7712418C433EB474919D5B77CEBE89AE1146E27122",
+      "bytes": 4393,
+      "sha256": "F1F33A622D46E5969B327B7ED3E91F4D79D37141183204E18C8AB6B8DC0C4DE9",
       "category": "public_data",
       "format": "json"
     },
     {
       "url": "/data/join.json",
       "source": "apps/web/public/data/join.json",
-      "bytes": 4319,
-      "sha256": "AB5CD5709D5DB36A8A9A81DF106D1AF6824BC03768DD9A6756E032759B5F086D",
+      "bytes": 4304,
+      "sha256": "0856217405F99F84B58F346407EDD962F59F4B18C992D17ABF55E0A23B32D067",
       "category": "public_data",
       "format": "json"
     },
@@ -2517,7 +3205,7 @@
       "url": "/data/leaders.json",
       "source": "apps/web/public/data/leaders.json",
       "bytes": 4075,
-      "sha256": "A0BECA68CEC33AB962F60747F3099C6439502A55C46AA1E94F31D75924E6F290",
+      "sha256": "93957A04A630C10BAB7A4979A71AD11AEC6DE35391437629C34BE86589E9D019",
       "category": "public_data",
       "format": "json"
     },
