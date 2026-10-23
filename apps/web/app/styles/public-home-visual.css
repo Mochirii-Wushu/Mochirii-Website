@@ -228,6 +228,9 @@
 .home-page .hero-cta:hover,
 .home-page .home-text-link:hover{color:#fff7e8;}
 @media (max-width:1023px) and (min-width:768px){
+  .home-page .home-hero::after{
+    background:linear-gradient(270deg, rgba(5,10,15,.97), rgba(5,10,15,.90) 64%, rgba(5,10,15,.45) 80%, rgba(5,10,15,.12));
+  }
   .home-page .home-hero__content{width:62%;padding:28px;}
   .home-page .home-start{grid-template-columns:1fr;}
 }
