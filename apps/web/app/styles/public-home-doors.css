@@ -12,8 +12,8 @@
   min-width:0;
   padding:20px;
   border:1px solid rgba(220,235,245,.22);
-  border-radius:14px;
-  background:var(--home-panel);
+  border-radius:var(--home-radius-sm);
+  background:linear-gradient(145deg, rgba(160,199,177,.05), transparent), var(--home-panel);
   color:inherit;
   text-decoration:none;
 }
@@ -27,7 +27,7 @@
 .home-page .home-door__subtitle{
   margin:0 0 12px;
   color:var(--ink-1);
-  font-size:13px;
+  font-size:14px;
   line-height:1.6;
 }
 .home-page .home-door .home-link{margin-top:auto;min-height:32px;}
@@ -52,7 +52,7 @@
   gap:10px;
   min-height:44px;
   color:#ddd9ce;
-  font-size:13px;
+  font-size:14px;
   text-underline-offset:4px;
 }
 .home-page .home-future-resources a > span:not(.sr-only){

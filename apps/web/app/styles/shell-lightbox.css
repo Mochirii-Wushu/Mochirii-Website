@@ -205,3 +205,6 @@
   max-width:100%;
   height:auto;
 }
+/* Portal controls follow the ordinary shell preference; Spinner has no shell. */
+.site-shell[data-decorative-motion="off"] ~ #modalRoot .icon-btn{transition:none;}
+.site-shell[data-decorative-motion="off"] ~ #modalRoot .icon-btn:hover{transform:none;}

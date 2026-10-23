@@ -6,7 +6,9 @@
   gap:28px;
   min-width:0;
   padding:28px;
-  border-top:1px solid rgba(218,181,94,.30);
+  border:1px solid rgba(200,162,75,.38);
+  border-radius:var(--home-radius-md);
+  background:radial-gradient(ellipse at 72% 20%, rgba(191,159,171,.09), transparent 65%), var(--home-surface);
   text-align:center;
 }
 .home-page .home-guild-seal img{
@@ -26,11 +28,11 @@
 .home-page .home-seal-verse{
   margin:0;
   max-width:64ch;
-  font-size:13px;
+  font-size:14px;
   line-height:1.8;
 }
 @media (max-width:640px){
-  .home-page .home-guild-seal{flex-direction:column;gap:20px;padding:24px 0 0;}
+  .home-page .home-guild-seal{flex-direction:column;gap:20px;padding:24px 16px;}
   .home-page .home-guild-seal img{width:96px;}
-  .home-page .home-seal-verse{font-size:12px;}
+  .home-page .home-seal-verse{font-size:14px;}
 }

@@ -198,7 +198,8 @@ Current conventions:
 Home image behavior:
 
 - Hero image: `./assets/img/hero/hero.webp`
-- Background image: `./assets/bg/wuxia-bg.webp`
+- Other ordinary routes retain the fixed background image `./assets/bg/wuxia-bg.webp`. Home uses opaque ink surfaces
+  and omits that occluded image request; the source artwork remains unchanged.
 - Seal image: `./assets/img/brand/emblem.webp`
 - Secondary bulletin and Spotlight artwork render from `apps/web/public/data/home.json`; the next-event cover
   comes from the selected sanitized schedule event. Resource cards retain the existing tile copy/links without
@@ -285,6 +286,7 @@ npm --prefix apps/web run build
 npm run smoke:gallery
 npm run test:homepage-presentation
 npm run smoke:home -- --base-url http://127.0.0.1:8765
+npm run smoke:home-polish -- --base-url http://127.0.0.1:8765
 ```
 
 The exact public-name, URL, and surface decision is recorded in

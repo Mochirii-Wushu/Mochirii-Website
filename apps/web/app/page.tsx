@@ -330,6 +330,7 @@ function BulletinList({ items }: { items: Bulletin[] }) {
         return (
           <a
             className="home-bulletin"
+            data-quiet={cleanLabel(item.type).toLowerCase() === "raffle" && raffleData.publicView.cycleStatus !== "open"}
             href={cleanRoute(item.href)}
             aria-label={presentation.ariaLabel}
             key={item.title}
@@ -363,7 +364,7 @@ function BulletinList({ items }: { items: Bulletin[] }) {
 
 function DoorGrid({ tiles }: { tiles: DoorTile[] }) {
   return (
-    <div id="doorsGrid" className="home-doors" aria-label="Guild guide links">
+    <div id="doorsGrid" className="home-doors" aria-label="Guild guide links" data-motion-key="home-resources">
       {tiles.slice(0, 4).map((tile) => (
         <Link className="home-door" href={cleanRoute(tile.href)} key={tile.href}>
           <h3 className="home-door__label">{tile.label}</h3>
@@ -375,6 +376,20 @@ function DoorGrid({ tiles }: { tiles: DoorTile[] }) {
         </Link>
       ))}
     </div>
+  );
+}
+
+function HomeEdge({ id, rose = false }: { id: string; rose?: boolean }) {
+  return (
+    <svg className="home-edge" aria-hidden="true" focusable="false">
+      <defs>
+        <linearGradient id={id}>
+          <stop stopColor={rose ? "#bf9fab" : "#a0c7b1"} />
+          <stop offset="1" stopColor="#c8a24b" />
+        </linearGradient>
+      </defs>
+      <rect x="1" y="1" width="100%" height="100%" rx="22" pathLength="100" vectorEffect="non-scaling-stroke" stroke={`url(#${id})`} />
+    </svg>
   );
 }
 
@@ -467,8 +482,8 @@ export default async function Home() {
           </section>
 
           <section className="home-section" aria-labelledby="homeEventHeading">
-            <h2 className="section-title home-section__heading" id="homeEventHeading">Your guild event</h2>
-            <Link id="featuredBulletin" className="home-featured" href="/events">
+            <h2 className="section-title home-section__heading" id="homeEventHeading" data-motion-key="home-event-rule">Your guild event</h2>
+            <Link id="featuredBulletin" className="home-featured" href="/events" data-motion-key="home-event" data-motion-featured="true">
               <HomeNextEvent
                 referenceTime={referenceTime}
                 scheduleData={publicGuildSchedule}
@@ -484,12 +499,13 @@ export default async function Home() {
               >
                 {eventCta}
               </HomeNextEvent>
+              <HomeEdge id="home-event-edge" />
             </Link>
           </section>
 
           <section className="home-section" id="guild-activity" aria-labelledby="homeActivityHeading">
-            <h2 className="section-title home-section__heading" id="homeActivityHeading">Life in Mōchirīī</h2>
-            <div className="home-activity">
+            <h2 className="section-title home-section__heading" id="homeActivityHeading" data-motion-key="home-activity-rule">Life in Mōchirīī</h2>
+            <div className="home-activity" data-motion-key="home-activity">
               <section className="home-gallery-panel" aria-label="Guild gallery">
                 <div className="home-card-heading">
                   <h3>Guild Gallery</h3>
@@ -526,7 +542,7 @@ export default async function Home() {
               </Link>
             </div>
 
-            <div className="home-updates" aria-label="Guild bulletin">
+            <div className="home-updates" aria-label="Guild bulletin" data-motion-key="home-updates">
               <div className="home-card-heading">
                 <h3>Guild updates</h3>
                 <p className="muted" id="bulletinIntro">{homeData.copy.bulletinIntro}</p>
@@ -536,8 +552,8 @@ export default async function Home() {
           </section>
 
           <section className="home-section" id="start-here" aria-labelledby="homeStartHeading">
-            <h2 className="section-title home-section__heading" id="homeStartHeading">Start here</h2>
-            <ol className="home-start">
+            <h2 className="section-title home-section__heading" id="homeStartHeading" data-motion-key="home-start-rule">Start here</h2>
+            <ol className="home-start" data-motion-key="home-start">
               <li>
                 <span className="home-start__number" aria-hidden="true">1</span>
                 <div>
@@ -576,7 +592,7 @@ export default async function Home() {
           </section>
 
           <section className="home-section" id="member-resources" aria-labelledby="homeResourcesHeading">
-            <h2 className="section-title home-section__heading" id="homeResourcesHeading">Member resources</h2>
+            <h2 className="section-title home-section__heading" id="homeResourcesHeading" data-motion-key="home-resources-rule">Member resources</h2>
             <p className="muted" id="doorsIntro">{homeData.copy.doorsIntro}</p>
             <DoorGrid tiles={homeData.tiles} />
             <nav className="home-resource-links" aria-label="More member resources">
@@ -595,7 +611,7 @@ export default async function Home() {
             </div>
           </section>
 
-          <section className="home-guild-seal" aria-label="Guild seal">
+          <section className="home-guild-seal" aria-label="Guild seal" data-motion-key="home-seal" data-motion-featured="true">
             <StaticImage
               id="sealImage"
               src={publicPath(homeData.seal.image, "/assets/img/brand/emblem.webp")}
@@ -608,6 +624,7 @@ export default async function Home() {
               <h2 id="sealTitle" className="home-seal-title">{homeData.seal.title}</h2>
               <p id="sealVerse" className="home-seal-verse muted"><SealVerse lines={sealVerse} /></p>
             </div>
+            <HomeEdge id="home-seal-edge" rose />
           </section>
         </div>
       </main>

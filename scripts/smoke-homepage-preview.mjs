@@ -6,7 +6,7 @@ const args = process.argv.slice(2);
 const baseUrl = new URL(args[args.indexOf("--base-url") + 1] || "http://127.0.0.1:8765");
 assert(["127.0.0.1", "localhost"].includes(baseUrl.hostname), "Use the local fixture server.");
 const sharedRoutes = ["/join", "/events", "/gallery", "/spotlight", "/recruitment", "/tome", "/ranks", "/leaders", "/announcements", "/raffle", "/spotify", "/twills"];
-const viewports = [[320, 800], [375, 812], [390, 844], [768, 1024], [1024, 768], [1280, 900], [1440, 900]];
+const viewports = [[320, 800], [360, 800], [375, 812], [390, 844], [768, 1024], [1024, 768], [1280, 900], [1440, 900]];
 const browser = await chromium.launch();
 let scenarios = 0;
 try {

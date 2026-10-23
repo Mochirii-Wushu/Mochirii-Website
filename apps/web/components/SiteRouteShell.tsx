@@ -7,6 +7,7 @@ import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
+import { DecorativeMotion } from "@/components/DecorativeMotion";
 import { useHeaderAuthState } from "@/components/site-header/use-header-auth-state";
 import { getHomeRecruitment } from "@/lib/home-recruitment";
 
@@ -26,9 +27,9 @@ function OrdinarySiteShell({ children, home, recruitmentStatus }: { children: Re
   const homeRecruitment = home ? getHomeRecruitment(recruitmentStatus) : undefined;
 
   return (
-    <>
+    <DecorativeMotion>
       <SiteHeader {...auth} homeRecruitment={homeRecruitment} />
-      <div className="bg-photo" aria-hidden="true">
+      {!home ? <div className="bg-photo" aria-hidden="true">
         <Image
           src="/assets/bg/wuxia-bg.webp"
           alt=""
@@ -37,11 +38,11 @@ function OrdinarySiteShell({ children, home, recruitmentStatus }: { children: Re
           sizes="100vw"
           loading="eager"
         />
-      </div>
+      </div> : null}
       {children}
       <SiteFooter authState={auth.authState} launchSpinnerViewer={auth.launchSpinnerViewer} homeRecruitment={homeRecruitment} />
       <Analytics />
       <SpeedInsights />
-    </>
+    </DecorativeMotion>
   );
 }
