@@ -62,12 +62,13 @@ routeStyles.forEach((style) => expectExcludes("root layout", rootLayout, style))
 
 const routeContracts = {
   "apps/web/app/page.tsx": [
-    "public-content-shared.css",
     "public-home-seal.css",
     "public-home-media.css",
     "public-home-bulletins.css",
     "public-home-doors.css",
     "public-home-visual.css",
+    "public-home-pvp-swords.css",
+    "shell-gallery-media.css",
     "shell-lightbox.css",
   ],
   "apps/web/app/join/page.tsx": ["public-join.css", "public-content-shared.css"],
@@ -143,6 +144,8 @@ for (const file of ["apps/web/app/page.tsx", "apps/web/app/spotlight/page.tsx"])
 }
 
 const homePage = read("apps/web/app/page.tsx");
+// Home consumes neither shared-content selector; keep its unused CSS off the critical path.
+expectExcludes("home page", homePage, "public-content-shared.css");
 expectExcludes("home page", homePage, 'import { HomeBirthdaySplash } from "@/components/HomeBirthdaySplash";');
 [
   "async function OptionalBirthdaySplash",

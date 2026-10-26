@@ -8,7 +8,9 @@ const npmCli = process.env.npm_execpath || bundledNpmCli;
 const npmCommand = existsSync(npmCli) ? [process.execPath, npmCli] : ["npm"];
 
 const checkRows = [
+  ["test:pvp-clips", ["node", "--experimental-strip-types", "--test", "apps/web/lib/pvp-clips.test.mts"]],
   ["test:homepage-navigation", ["node", "--test", "scripts/homepage-navigation.test.mjs"]],
+  ["test:home-scene", ["node", "--test", "scripts/home-scene.test.mjs"]],
   ["test:homepage-preferences", ["node", "--experimental-default-type=module", "--experimental-strip-types", "--test", "apps/web/lib/home-recruitment.test.mts", "apps/web/lib/decorative-motion.test.mts"]],
   ["check:js", ["node", "scripts/check-js.mjs"]],
   ["check:json", ["node", "scripts/check-json.mjs"]],
@@ -84,6 +86,7 @@ const checkRows = [
   ["test:production-home-streaming", ["node", "--test", "scripts/check-production-home-streaming.test.mjs"]],
   ["test:production-static-normalization", ["node", "--test", "scripts/check-production-static-normalization.test.mjs"]],
   ["check:next-route-delivery", ["node", "scripts/check-next-route-delivery.mjs"]],
+  ["test:next-route-delivery", ["node", "--test", "scripts/next-route-delivery.test.mjs"]],
   ["check:guild-schedule", ["node", "scripts/check-guild-schedule.mjs"]],
   ["check:home-celebration-splash", ["node", "scripts/check-home-celebration-splash.mjs"]],
   ["check:header-auth-loading", ["node", "scripts/check-header-auth-loading.mjs"]],

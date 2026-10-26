@@ -32,7 +32,7 @@ apps/
   web/                 Live website application and canonical public assets/data
   shopify-theme/       Storefront theme source
 services/
-  social/              Guild-social source and container definitions
+  social/              Inert ownership marker; application source belongs to Mochirii-Social
 supabase/              Migrations and Edge Functions
 docs/
   integrations/        No-secret hosted-provider contracts
@@ -84,6 +84,7 @@ contracts.
 ## Delivery
 
 - Work on a focused branch and merge through protected pull requests.
+- An explicitly approved nonproduction branch or PR can produce a Vercel Preview through the existing Git integration. Preview review does not authorize a merge, promotion or production deployment.
 - `main` deploys the website through the existing Vercel Git integration.
 - Supabase integration applies only reviewed backend changes from `main`.
 - Storefront source merges do not publish a theme automatically.
@@ -120,6 +121,12 @@ the NFC trademark forms `Mōchirīī` and `Mōchī`; technical identifiers, repo
 slugs, infrastructure, Shopify, and `Mochirii Cosmetics` commerce surfaces retain
 ASCII `Mochirii`. Supplier and provider names stay in internal code, required
 attribution, CI, and no-secret technical docs.
+
+Display names are defined in `apps/web/lib/brand.ts`; official destinations are
+defined in `apps/web/config/public-urls.json` and exposed by `apps/web/lib/public-urls.ts`.
+The Website, persistent Reaper Gateway and Twitch editing workflow have distinct
+owners and acceptance gates; see the ownership matrix. Accepted editing outputs
+are not automatically cleared for Website media publication.
 
 Use [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), the root
 [AGENTS.md](AGENTS.md), and the nearest subdirectory `AGENTS.md` before changes.

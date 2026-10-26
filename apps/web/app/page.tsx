@@ -1,9 +1,9 @@
-import "./styles/public-content-shared.css";
 import "./styles/public-home-seal.css";
 import "./styles/public-home-media.css";
 import "./styles/public-home-bulletins.css";
 import "./styles/public-home-doors.css";
 import "./styles/public-home-visual.css";
+import "./styles/public-home-pvp-swords.css";
 import "./styles/shell-gallery-media.css";
 import "./styles/shell-lightbox.css";
 import { Fragment, Suspense } from "react";
@@ -12,6 +12,10 @@ import homeData from "@/public/data/home.json";
 import galleryData from "@/public/data/gallery.json";
 import raffleData from "@/public/data/raffles.json";
 import recruitmentData from "@/public/data/recruitment.json";
+import pvpData from "@/public/data/pvp-clips.json";
+import { HomeArrow, DiscordSymbol } from "@/components/home/HomeArrow";
+import { HomePvpHighlights } from "@/components/home/HomePvpHighlights";
+import { selectPvpClips } from "@/lib/pvp-clips";
 import { HomeGallerySpotlight } from "@/components/HomeGallerySpotlight";
 import type { GallerySpotlightItem } from "@/components/HomeGalleryLightbox";
 import { MotionToggle } from "@/components/DecorativeMotion";
@@ -77,7 +81,7 @@ function SpotlightCard({ winner, loading = false }: { winner: CurrentSpotlightWi
         <h3 className="home-title" id="spotlightTitle">{spotlightWinnerTitle("home", spotlight.title, winner)}</h3>
         <p className="home-summary" id="spotlightSummary">{summary}</p>
         {loading ? <span className="sr-only" role="status">Loading the current month’s Spotlight.</span> : null}
-        <Link className="home-link" href={cleanRoute(spotlight.href)} aria-label={winnerName ? "Open " + winnerName + "’s Member Spotlight" : "Open the Member Spotlight"}>View Spotlight <span aria-hidden="true">↗</span></Link>
+        <Link className="home-link" href={cleanRoute(spotlight.href)} aria-label={winnerName ? "Open " + winnerName + "’s Member Spotlight" : "Open the Member Spotlight"}>View Spotlight <span aria-hidden="true" /></Link>
       </div>
     </div>
   );
@@ -91,8 +95,21 @@ async function CurrentHomeSpotlight() {
 
 async function OptionalBirthdaySplash({ config }: { config: typeof homeData.celebrationSplash }) {
   if (config.enabled !== true) return null;
+  if (!config.title.trim() || !config.message.trim()) return null;
   const { HomeBirthdaySplash } = await import("@/components/HomeBirthdaySplash");
-  return <HomeBirthdaySplash config={config} />;
+  return <HomeBirthdaySplash config={{ enabled: config.enabled, startsAt: config.startsAt, endsAt: config.endsAt }}>
+    <div className="birthday-splash" role="dialog" aria-modal="true" aria-labelledby="birthdaySplashTitle">
+      <div className="birthday-splash__firework birthday-splash__firework--one" aria-hidden="true" />
+      <div className="birthday-splash__firework birthday-splash__firework--two" aria-hidden="true" />
+      <div className="birthday-splash__firework birthday-splash__firework--three" aria-hidden="true" />
+      <section className="birthday-splash__panel" aria-describedby="birthdaySplashMessage">
+        <button className="birthday-splash__close" type="button" data-dismiss aria-label="Close birthday splash">Close</button>
+        <p className="birthday-splash__kicker">A lantern-bright wish</p>
+        <h2 id="birthdaySplashTitle" className="birthday-splash__title">{config.title.trim()}</h2>
+        <p id="birthdaySplashMessage" className="birthday-splash__message">{config.message.trim()}</p>
+      </section>
+    </div>
+  </HomeBirthdaySplash>;
 }
 
 export default function Home() {
@@ -120,39 +137,45 @@ export default function Home() {
             <div className="prose-stack" id="heroDescriptor"><p>{homeData.hero.descriptor[0]}</p></div>
             <div className="badge-row" id="heroBadges" aria-label="Guild badges"><span>{recruitment.statusLabel}</span>{homeData.hero.badges.map(badge => <span key={badge}>{badge}</span>)}</div>
             <div className="hero-cta-row" aria-label="Primary actions">
-              {recruitment.open ? <a id="heroJoinCta" className="hero-cta hero-cta--primary" href={recruitment.href} target="_blank" rel="noopener noreferrer">{recruitment.label}</a> : <Link id="heroJoinCta" className="hero-cta hero-cta--primary" href={recruitment.href}>{recruitment.label}</Link>}
-              <Link className="hero-cta" href="/events">See Upcoming Events <span aria-hidden="true">→</span></Link>
+              {recruitment.open ? <a id="heroJoinCta" className="hero-cta hero-cta--primary" href={recruitment.href} target="_blank" rel="noopener noreferrer"><DiscordSymbol />{recruitment.label}</a> : <Link id="heroJoinCta" className="hero-cta hero-cta--primary" href={recruitment.href}>{recruitment.label}</Link>}
+              <Link className="hero-cta" href="/events">See Upcoming Events <HomeArrow /></Link>
             </div>
           </div>
           <div className="home-hero__motion"><MotionToggle /></div>
         </section>
+        <div className="home-sword-duel" aria-hidden="true" data-motion-key="home-swords" data-motion-persistent>
+          <span className="home-sword home-sword--jade"><img src="/assets/home/transitions/sword-duel/jade-jian.svg" width={480} height={104} alt="" loading="lazy" /></span>
+          <span className="home-sword home-sword--celadon"><img src="/assets/home/transitions/sword-duel/celadon-jian.svg" width={480} height={104} alt="" loading="lazy" /></span>
+          <span className="home-sword-contact" />
+        </div>
         <div className="home-content container">
-        <div className="home-scenery" aria-hidden="true"><StaticImage src="/assets/home/scenery/bamboo-valley-1280.webp" alt="" width={1280} height={853} sizes="100vw" fetchPriority="low" /></div>
-          <section className="home-section home-event-section" aria-labelledby="home-event-heading" data-motion-key="home-event" data-motion-persistent>
-            <span className="home-ink-transition" aria-hidden="true"><span className="home-ink-path" /><span className="home-ink-texture" /></span><h2 id="home-event-heading" className="section-title">Your next guild event</h2>
+          <div className="home-scenery" aria-hidden="true"><img src="/assets/home/scenery/bamboo-valley-tall-1024.webp" alt="" width={1024} height={1536} loading="lazy" decoding="async" fetchPriority="low" /></div>
+          <section className="home-section home-event-section" aria-labelledby="home-event-heading" data-motion-key="home-event" data-motion-featured data-motion-persistent>
+            <h2 id="home-event-heading" className="section-title">Your next guild event</h2>
             <Link id="featuredBulletin" className="home-featured" href="/events">
-              <HomeNextEvent referenceTime={referenceTime} scheduleData={publicGuildSchedule} imageSizes="(max-width: 900px) calc(100vw - 32px), 740px" emptyState={<div className="home-featured__body"><h3 className="home-title">No event is scheduled.</h3><p className="home-summary">Check the UTC+8 schedule for the next event.</p><span className="home-link">View all events →</span></div>}><span className="hero-cta hero-cta--primary">View event <span aria-hidden="true">→</span></span></HomeNextEvent>
+              <HomeNextEvent referenceTime={referenceTime} scheduleData={publicGuildSchedule} imageSizes="(max-width: 900px) calc(100vw - 32px), 740px" emptyState={<div className="home-featured__body"><h3 className="home-title">No event is scheduled.</h3><p className="home-summary">Check the UTC+8 schedule for the next event.</p><span className="home-link">View all events <HomeArrow /></span></div>}><span className="hero-cta hero-cta--primary">View event <HomeArrow /></span></HomeNextEvent>
               <span className="home-lanterns" aria-hidden="true"><span className="home-lantern-flame" /></span><span className="home-event-highlight" aria-hidden="true" />
             </Link>
           </section>
           <section className="home-section" id="guild-activity" aria-labelledby="guild-activity-heading" data-motion-key="home-activity">
             <h2 className="section-title" id="guild-activity-heading">Life in Mōchirīī</h2>
             <div className="home-activities">
-              <Link className="home-activity-card" href="/events"><StaticImage src="/assets/img/bulletins/featured.webp" alt="Guild gathering illustration" width={1280} height={720} sizes="(max-width: 680px) 42vw, 380px" fetchPriority="low" /><span>Guild events <span aria-hidden="true">→</span></span></Link>
-              <Link className="home-activity-card" href="/join" prefetch={false}><StaticImage src="/assets/img/tiles/join.webp" alt="Guild joining guide illustration" width={960} height={600} sizes="(max-width: 680px) 42vw, 380px" fetchPriority="low" /><span>Team play <span aria-hidden="true">→</span></span></Link>
-              <div className="home-activity-card home-gallery-card" aria-label="Guild gallery"><HomeGallerySpotlight candidates={galleryItems} fallbackItems={fallbackGalleryItems} /><Link className="home-gallery-link" href="/gallery">Member Gallery <span aria-hidden="true">→</span></Link></div>
+              <Link className="home-activity-card" href="/events"><StaticImage src="/assets/img/bulletins/featured.webp" alt="Guild gathering illustration" width={1280} height={720} sizes="(max-width: 680px) 42vw, 380px" fetchPriority="low" /><span>Guild events <HomeArrow /></span></Link>
+              <Link className="home-activity-card" href="/join" prefetch={false}><StaticImage src="/assets/img/tiles/join.webp" alt="Guild joining guide illustration" width={960} height={600} sizes="(max-width: 680px) 42vw, 380px" fetchPriority="low" /><span>Team play <HomeArrow /></span></Link>
+              <div className="home-activity-card home-gallery-card" aria-label="Guild gallery"><HomeGallerySpotlight candidates={galleryItems} fallbackItems={fallbackGalleryItems} /><Link className="home-gallery-link" href="/gallery">Member Gallery <HomeArrow /></Link></div>
             </div>
+            <HomePvpHighlights clips={selectPvpClips(pvpData.clips, pvpData.approvedMediaOrigins)} />
             <div className="home-supporting-row">
               <section className="home-supporting-card" aria-label="Member spotlight"><h2 className="sr-only">Member Spotlight</h2><Suspense fallback={<SpotlightCard winner={null} loading />}><CurrentHomeSpotlight /></Suspense></section>
-              <section className="home-supporting-card home-updates" aria-labelledby="home-updates-title"><h2 id="home-updates-title">Guild updates</h2>{announcement ? <p>{announcement.title}</p> : <p>Read guild notices and announcements.</p>}<Link className="home-link" href="/announcements">Read announcements →</Link><p className="home-raffle-note">{raffleData.publicView.cycleStatus === "open" ? "A raffle is open. " : "No raffle is open. "}<Link href="/raffle">View raffle status and history</Link></p></section>
+              <section className="home-supporting-card home-updates" aria-labelledby="home-updates-title"><h2 id="home-updates-title">Guild updates</h2>{announcement ? <p>{announcement.title}</p> : <p>Read guild notices and announcements.</p>}<Link className="home-link" href="/announcements">Read announcements <HomeArrow /></Link><p className="home-raffle-note">{raffleData.publicView.cycleStatus === "open" ? "A raffle is open. " : "No raffle is open. "}<Link href="/raffle">View raffle status and history</Link></p></section>
             </div>
           </section>
           <section className="home-section home-onboarding" id="start-here" aria-labelledby="start-heading" data-motion-key="home-start">
             <h2 className="section-title" id="start-heading">Start here</h2>
-            <ol className="home-steps"><li><span className="home-step-number" aria-hidden="true">1</span><div><h3>Join Discord</h3><p>No website account is needed to join Discord.</p><a href={recruitment.href} target={recruitment.open ? "_blank" : undefined} rel={recruitment.open ? "noopener noreferrer" : undefined}>{recruitment.label} →</a></div></li><li><span className="home-step-number" aria-hidden="true">2</span><div><h3>Choose your guild channels</h3><p>After Discord verification, explore the channels that match your interests.</p><Link href="/join">Read the Joining Guide →</Link></div></li><li><span className="home-step-number" aria-hidden="true">3</span><div><h3>Take part in an event</h3><p>Find a time in UTC+8 and follow the event’s joining details.</p><Link href="/events">See events →</Link></div></li></ol>
+            <ol className="home-steps"><li><span className="home-step-number" aria-hidden="true">1</span><div><h3>Join Discord</h3><p>No website account is needed to join Discord.</p><a href={recruitment.href} target={recruitment.open ? "_blank" : undefined} rel={recruitment.open ? "noopener noreferrer" : undefined}>{recruitment.open ? <DiscordSymbol /> : null}{recruitment.label} <HomeArrow /></a></div></li><li><span className="home-step-number" aria-hidden="true">2</span><div><h3>Choose your guild channels</h3><p>After Discord verification, explore the channels that match your interests.</p><Link href="/join">Read the Joining Guide <HomeArrow /></Link></div></li><li><span className="home-step-number" aria-hidden="true">3</span><div><h3>Take part in an event</h3><p>Find a time in UTC+8 and follow the event’s joining details.</p><Link href="/events">See events <HomeArrow /></Link></div></li></ol>
             <p className="home-verification-note">Complete Double Counter verification in Discord. A website account is optional. Website member features require a separate membership check; Discord verification does not promise guild admission or website access.</p>
           </section>
-          <section className="home-section home-resources" id="member-resources" aria-labelledby="resources-heading" data-motion-key="home-resources"><h2 className="section-title" id="resources-heading">Member resources</h2><div className="home-resource-links">{resources.map(resource => <Link key={resource.href} href={resource.href}>{resource.label} <span aria-hidden="true">→</span></Link>)}<span className="home-coming-soon">Forums <small>Coming Soon</small></span><span className="home-coming-soon">Social <small>Coming Soon</small></span></div></section>
+          <section className="home-section home-resources" id="member-resources" aria-labelledby="resources-heading" data-motion-key="home-resources"><h2 className="section-title" id="resources-heading">Member resources</h2><div className="home-resource-links">{resources.map(resource => <Link key={resource.href} href={resource.href}>{resource.label} <HomeArrow /></Link>)}<span className="home-coming-soon">Forums <small>Coming Soon</small></span><span className="home-coming-soon">Social <small>Coming Soon</small></span></div></section>
           <section className="home-guild-seal" aria-label="Guild seal"><StaticImage id="sealImage" src={publicPath(homeData.seal.image)} alt={homeData.seal.imageAlt} width={1024} height={1024} sizes="(max-width: 680px) 100px, 140px" /><div><h2 className="home-seal-title" id="sealTitle">{homeData.seal.title}</h2><p className="home-seal-verse" id="sealVerse">{homeData.seal.verse.map((line, index) => <Fragment key={line}>{line}{index < homeData.seal.verse.length - 1 ? <br /> : null}</Fragment>)}</p></div></section>
         </div>
       </main>

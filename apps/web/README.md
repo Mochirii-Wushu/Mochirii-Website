@@ -7,10 +7,15 @@ For the current production, fallback, Vercel dashboard checklist, and rollback g
 
 ## Local Development
 
+Use Node `22.23.1` through `fnm` and the committed npm lockfile. Install with
+`npm ci` only on a fresh checkout or when the manifest/lockfile changes;
+otherwise reuse the existing installation.
+
 ```sh
 cd apps/web
-npm install
-npm run dev
+fnm use 22.23.1
+npm ci
+npm run dev -- --hostname 127.0.0.1
 ```
 
 Open the local URL printed by Next.js.
@@ -19,8 +24,7 @@ Open the local URL printed by Next.js.
 
 ```sh
 cd apps/web
-npm run lint
-npm run build
+npm run verify:local
 ```
 
 Optional local cleanup scripts:
@@ -29,32 +33,30 @@ Optional local cleanup scripts:
 cd apps/web
 npm run clean
 npm run build:clean
-npm run vercel:build:local
 ```
 
-`npm run clean` removes only `.next` and `.vercel/output`; it does not remove `.vercel/project.json` or local env files. `npm run vercel:build:local` runs the same root command documented below: `vercel build --prod --cwd apps/web`.
+`npm run clean` removes only `.next` and `.vercel/output`; it does not remove `.vercel/project.json` or local env files. The separate `npm run vercel:build:local` helper runs `vercel build --prod --cwd apps/web`: it uses Production configuration and is not a Preview verification command. Use it only within an explicitly approved production-configuration operation. [Vercel build environment reference](https://vercel.com/docs/cli/build).
 
 ## Vercel Setup
 
-Set the Vercel project Root Directory to:
+The existing Vercel project Root Directory is:
 
 ```text
 apps/web
 ```
 
-Dashboard settings remain manual. The website GitHub repository is currently public, so release decisions should use fresh Vercel/GitHub required checks rather than stale private-organization plan-limit statuses. If the owner later approves making the repository private again and Vercel Git checks are blocked, use owner-approved manual Vercel CLI production deploys after protected/admin merges. Run production deploys from the repository root while reading project IDs from `apps/web/.vercel/project.json`; the Vercel project already has `apps/web` configured as Root Directory, and running `vercel deploy` from inside `apps/web` can double-apply that path on current CLI versions.
+Preserve the existing project, Root Directory, environment settings and deployment protection. Check current GitHub/Vercel required checks and bindings rather than treating dated visibility or provider-plan observations as current evidence. Manual recovery and production actions remain separately approved operations under the deployment runbook.
 
-The safest local workflow is to pull settings for the linked app, clean generated output, then run the Vercel build from the repository root with `--cwd apps/web`:
+For a local built Preview check, use reviewed local configuration or fixtures, run the app verification above, then bind the server to loopback:
 
 ```sh
 cd apps/web
-vercel pull --environment=preview --yes
-npm run clean
-cd ../..
-vercel build --prod --cwd apps/web
+npm run start -- --hostname 127.0.0.1 --port 8765
 ```
 
-Root-level `vercel link --repo` was tested as a reversible monorepo-link cleanup path, but it prompts for confirmation before linking the repository to Vercel projects. Do not answer that prompt or relink the project without an operator present. Dashboard Root Directory remains the authoritative production/preview setting.
+Supply an explicit loopback or reviewed Preview origin to browser checks and disable inherited provider/write/report switches. Never use their production defaults. Environment pulls and project linking require their own reviewed scope; do not pull values, relink or auto-accept settings during ordinary source verification.
+
+Publish only the approved nonproduction branch through the existing Git integration. Verify the exact commit, project, Preview environment, READY state, unique URL, branch alias and preserved protection. A Preview URL is not production approval. [Vercel environment reference](https://vercel.com/docs/deployments/environments).
 
 Do not commit `.vercel/`.
 
@@ -195,6 +197,9 @@ Visual-only shell releases should verify Home and all shared routes at `360`, `3
 
 ## Migrated in Phase 2
 
+Migration sections record historical work, not standing deployment instructions.
+Use the current local verification and explicitly approved delivery path above.
+
 - Public/static routes migrated into App Router pages:
   `/join`, `/ranks`, `/leaders`, `/tome`, `/events`, `/announcements`,
   `/raffle`, `/gallery`, `/spotlight`, `/spotify`, `/recruitment`, and `/twills`.
@@ -202,7 +207,7 @@ Visual-only shell releases should verify Home and all shared routes at `360`, `3
 - Public client-side interactions migrated where needed: gallery filters/query links/lightbox, event filters, and Spotify filtering.
 - Legacy `.html` redirects for migrated pages are verified in `next.config.ts`.
 
-Phase 2 validation:
+Historical Phase 2 validation (not Preview instructions):
 
 ```sh
 cd ../..
@@ -227,7 +232,7 @@ vercel build --prod --cwd apps/web
 - Member workflow React components added under `components/member-workflow/`.
 - The header now shows member workflow links based on browser auth state, while protected pages still enforce access themselves.
 - Root GitHub Pages auth/member/upload/moderation files remain untouched as rollback/reference material.
-- Vercel settings, Discord settings, dashboard settings, and DNS remain unchanged by the Next UI. The Instagram queue migration and Supabase Edge Functions are deployed in production. The private Reaper source repo now exists at `Mochirii-Wushu/Reaper`; direct Meta API secrets and any real Instagram API post remain external owner-approved steps. Current Instagram launch mode is moderator-controlled manual sharing from the Leader Dashboard.
+- Vercel settings, Discord settings, dashboard settings, and DNS remain unchanged by the Next UI. Website owns its Supabase Edge contracts; the distinct persistent Gateway source is `Mochirii-Wushu/Reaper-Discord-Bot`, as named by the versioned Gateway operations contract. Source publication does not establish hosted readiness or transfer Edge ownership. Direct Meta API secrets and any real Instagram API post remain external owner-approved steps. Current Instagram launch mode is moderator-controlled manual sharing from the Leader Dashboard.
 
 What stays in Supabase:
 
@@ -290,7 +295,7 @@ Discord OAuth callback should remain:
 https://deyvmtncimmcinldjyqe.supabase.co/auth/v1/callback
 ```
 
-Phase 3 validation:
+Historical Phase 3 validation (not Preview instructions):
 
 ```sh
 cd ../..
@@ -314,7 +319,7 @@ restorable historical artifact, not a live hosting or authentication fallback.
 ## Accepted or Deferred Warnings
 
 - `assets/audio/mochiriiiiii.mp3` is intentionally over the static asset warning threshold. It is preserved exactly as-is because audio quality is preferred over file-size optimization. This is not a Vercel blocker. Do not compress, re-encode, replace, delete, externalize, or otherwise optimize this audio without explicit user approval.
-- A local `vercel build --prod` can warn if `.next` exists. Run `npm run vercel:build:local` to clean local generated output first.
+- For separately approved Production-configuration builds only, `vercel:build:local` cleans generated output before `vercel build --prod`. Do not use it for Preview work.
 - The previous local `outputFileTracingRoot` / `turbopack.root` mismatch is fixed by matching `turbopack.root` to the `apps/web` project root used by `vercel build --prod --cwd apps/web`.
 - Vercel Development env is intentionally skipped for now. Production and Preview envs are what matter for current deployed and PR-preview builds.
 
@@ -326,10 +331,9 @@ vercel whoami
 vercel env ls production
 vercel env ls preview
 vercel env ls development
-vercel pull --environment=preview --yes
 ```
 
-Report env names only as present or missing. Do not print values.
+Report env names only as present or missing. Do not print values or pull them into local files as part of this read-only inventory.
 
 ## Live Domain And Fallback
 

@@ -154,20 +154,51 @@ const homeIncrementalChunks = homeIncrementalFiles.map((file) => ({ file, buffer
 const layoutBrotli = layoutChunks.reduce((total, chunk) => total + brotliBytes(chunk.buffer), 0);
 const homeIncrementalBrotli = homeIncrementalChunks.reduce((total, chunk) => total + brotliBytes(chunk.buffer), 0);
 
-const staticChunkDirectory = path.join(buildRoot, "static", "chunks");
-const staticChunks = readdirSync(staticChunkDirectory, { withFileTypes: true })
-  .filter((entry) => entry.isFile() && entry.name.endsWith(".js"))
-  .map((entry) => ({
-    file: `static/chunks/${entry.name}`,
-    buffer: readFileSync(path.join(staticChunkDirectory, entry.name)),
-  }));
+const staticChunkDirectory = path.join(buildRoot, "static");
+function readStaticChunks(directory, relative = "static") {
+  return readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
+    const file = `${relative}/${entry.name}`;
+    if (entry.isDirectory()) return readStaticChunks(path.join(directory, entry.name), file);
+    return entry.isFile() && entry.name.endsWith(".js") ? [{ file, buffer: readChunk(file) }] : [];
+  });
+}
+const staticChunks = readStaticChunks(staticChunkDirectory);
 function chunksContaining(marker) {
   const encoded = Buffer.from(marker);
   return staticChunks.filter((chunk) => chunk.buffer.includes(encoded)).map((chunk) => chunk.file);
 }
 const sceneFiles = chunksContaining("HOME_SCENE_RENDERER_V1");
-if (sceneFiles.length !== 1) failures.push(`expected one deferred Home renderer chunk, found ${sceneFiles.length}`);
+const sceneWorkerFiles = chunksContaining("Scene worker unavailable");
+if (sceneWorkerFiles.length !== 1) failures.push(`expected one deferred Home worker module, found ${sceneWorkerFiles.length}`);
+const chunkByPath = new Map(staticChunks.map(chunk => [chunk.file, chunk]));
+function referencedChunks(file) {
+  const source = chunkByPath.get(file)?.buffer.toString("utf8") || "";
+  const references = new Set();
+  for (const match of source.matchAll(/["']([^"'\\]*static\/(?:chunks|media)\/[^"'\\]*\.js)["']/g)) {
+    const reference = match[1].replace(/^\/?_next\//, "").replace(/^\//, "");
+    if (!chunkByPath.has(reference)) failures.push(`unresolved Home scene chunk reference in ${file}: ${reference}`);
+    else references.add(reference);
+  }
+  return references;
+}
+// Follow every emitted bootstrap/module/dependency path, including nested chunks.
+// The worker and its runtime stay charged even when not part of the Home entry.
+const sceneClosure = new Set([...sceneFiles, ...sceneWorkerFiles]);
+for (const file of sceneClosure) for (const reference of referencedChunks(file)) sceneClosure.add(reference);
 for (const file of sceneFiles) {
+  const references = referencedChunks(file);
+  if (!sceneWorkerFiles.every(workerFile => references.has(workerFile))) failures.push(`Home controller must identify its emitted worker module: ${file}`);
+}
+const pvpPlayerFiles = chunksContaining("This clip could not be loaded. You can try opening it directly.");
+if (pvpPlayerFiles.length !== 1) failures.push(`expected one intent-loaded PvP player chunk, found ${pvpPlayerFiles.length}`);
+for (const file of pvpPlayerFiles) {
+  if (layoutFiles.includes(file) || homeFiles.includes(file)) failures.push(`PvP player is eager: ${file}`);
+}
+const pvpPlayerSource = readFileSync(path.resolve("components/home/pvp-player.ts"), "utf8");
+if (/^\s*import\s/m.test(pvpPlayerSource)) failures.push("PvP player dependencies need explicit budget accounting");
+const pvpPlayerBrotli = pvpPlayerFiles.reduce((total, file) => total + brotliBytes(readChunk(file)), 0);
+if (sceneFiles.length !== 1) failures.push(`expected one deferred Home renderer chunk, found ${sceneFiles.length}`);
+for (const file of sceneClosure) {
   if (layoutFiles.includes(file) || homeFiles.includes(file)) failures.push(`Home renderer is eager: ${file}`);
 }
 // Count the whole new shared controller and preference source conservatively,
@@ -175,9 +206,11 @@ for (const file of sceneFiles) {
 // the unchanged shared-entry guard. The renderer intentionally has no imports.
 const sceneSource = readFileSync(path.resolve("components/home-scene.ts"), "utf8");
 if (/^\s*import\s/m.test(sceneSource)) failures.push("Home renderer dependencies need explicit budget accounting");
+const workerSource = readFileSync(path.resolve("components/home-scene-worker.js"), "utf8");
+if (/^\s*import\s/m.test(workerSource)) failures.push("Home worker dependencies need explicit budget accounting");
 const sceneHelperBytes = ["components/DecorativeMotion.tsx", "lib/decorative-motion.ts"]
   .reduce((total, file) => total + brotliBytes(readFileSync(path.resolve(file))), 0);
-const sceneBrotli = sceneFiles.reduce((total, file) => total + brotliBytes(readChunk(file)), 0);
+const sceneBrotli = [...sceneClosure].reduce((total, file) => total + brotliBytes(readChunk(file)), 0);
 if (sceneBrotli + sceneHelperBytes > homeSceneLimit) {
   failures.push(`Home scene and helpers are ${formatKiB(sceneBrotli + sceneHelperBytes)}; limit is ${formatKiB(homeSceneLimit)}`);
 }
@@ -206,8 +239,8 @@ for (const route of publicRoutes) {
   try {
     const bundle = publicRouteBundle(route);
     routeBundles.set(route, bundle);
-    if (route === "/" && bundle.brotliBytes + sceneBrotli > publicRouteLimit) {
-      failures.push(`Home entry plus deferred scene exceeds ${formatKiB(publicRouteLimit)}`);
+    if (route === "/" && bundle.brotliBytes + sceneBrotli + pvpPlayerBrotli > publicRouteLimit) {
+      failures.push(`Home entry plus deferred scene and PvP player exceeds ${formatKiB(publicRouteLimit)}`);
     }
     if (bundle.brotliBytes > publicRouteLimit) {
       failures.push(`${route} entry JavaScript is ${formatKiB(bundle.brotliBytes)}; limit is ${formatKiB(publicRouteLimit)}`);
@@ -257,8 +290,9 @@ if (failures.length) {
 console.log("Client bundle guard passed.");
 console.log(`- Initial layout: ${formatKiB(layoutBrotli)} across ${layoutFiles.length} chunk(s).`);
 console.log(`- Home incremental: ${formatKiB(homeIncrementalBrotli)} across ${homeIncrementalFiles.length} chunk(s).`);
-console.log(`- Deferred Home scene: ${formatKiB(sceneBrotli)}; conservative shared-helper charge: ${formatKiB(sceneHelperBytes)}; combined limit ${formatKiB(homeSceneLimit)}.`);
-console.log(`- Home entry plus deferred scene: ${formatKiB(layoutBrotli + homeIncrementalBrotli + sceneBrotli)}.`);
+console.log(`- Deferred Home scene including worker/bootstrap/dependencies: ${formatKiB(sceneBrotli)} across ${sceneClosure.size} chunks; conservative shared-helper charge: ${formatKiB(sceneHelperBytes)}; combined limit ${formatKiB(homeSceneLimit)}.`);
+console.log(`- Intent-loaded PvP player: ${formatKiB(pvpPlayerBrotli)}; included in the unchanged public-route limit.`);
+console.log(`- Home entry plus deferred scene and PvP player: ${formatKiB(layoutBrotli + homeIncrementalBrotli + sceneBrotli + pvpPlayerBrotli)}.`);
 console.log("- Supabase Auth, PostgREST, and Realtime markers are absent from the initial layout.");
 for (const route of publicRoutes) {
   const bundle = routeBundles.get(route);

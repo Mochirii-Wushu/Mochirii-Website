@@ -43,3 +43,22 @@ Record SHA-256, bytes, dimensions, alpha/metadata, consumers, provenance, crop, 
 new derivative. Validate references, case collisions, legacy bytes, negotiated format, currentSrc and
 delivered dimensions. Inspect quality at actual display size before publication. A source inventory refresh
 must use actual files and rerun hostile controls; never relax validation to accept an unexplained mismatch.
+
+Preview 4 adds a separate closed vector registry in the static-surface validator. It permits only the
+exact hashes and paths for the owned arrow, two original jian ornaments and the unmodified official
+white Discord symbol. SVG remains absent from the general format registry; unknown vectors, changed
+bytes and inline SVG remain rejected. Earlier profiles and protected assets retain their exact bytes.
+
+`scripts/export-home-preview-4-scene.mjs <reviewed-ignored-master-directory>` creates additive
+`home/hero/cherry-valley-dawn-v2` textures and a portrait scenery derivative. It retains the original
+poster and old public URLs. Original-pixel hair locks and one silk ribbon have genuine alpha, independent
+pinned motion weights and reconstructed background under their bounded masks. The fixed body, face,
+hands and weapon do not enter those masks. The small atlas is registered on the 1536×1024 artboard at
+x1196/y372, 244×184. The existing registered branch remains a separate texture. Use the ignored export
+manifest for current hashes/bytes/recipes; inspect rest and moving composites before acceptance.
+
+The portrait scenery is a single original adaptation of the retained bamboo-valley artwork. Its 1024×1536
+WebP is capped at 220 KiB, with bounded quality trials rather than increasing the ceiling. It begins below
+the hero/sword transition, continues behind content and uses proportional desktop/phone crops and local
+jade text surfaces. Masters, rejected variants, prompts, screenshots and performance traces stay under
+ignored `.artifacts/operations/homepage-preview-4`. The generation service did not expose a model/checkpoint.

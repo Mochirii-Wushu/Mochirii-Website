@@ -51,6 +51,19 @@ const FORMAT_BY_EXTENSION = Object.freeze({
   ".xml": "xml",
 });
 const TEXT_PUBLIC_FORMAT_PATTERN = /^(?:css|json|txt|xml)$/;
+// P4 owner approval is limited to these exact delivered vectors. SVG remains
+// absent from the general extension registry; unknown paths or bytes fail shut.
+export const PREVIEW4_VECTOR_ASSETS = Object.freeze({
+  "assets/home/icons/arrow-right.svg": Object.freeze({ bytes: 218, sha256: "9B211E2728CE4ABCFB6B40E599BD0CE50800A0EBAA064D0BE2A56807DC4EB9C7" }),
+  "assets/home/icons/discord-symbol-white.svg": Object.freeze({ bytes: 1306, sha256: "EB3BF5A2E8B9F9AA39C1B1D38AEAA7C2997084567634C55F4141AA39CF426CEC" }),
+  "assets/home/transitions/sword-duel/jade-jian.svg": Object.freeze({ bytes: 1378, sha256: "52372591D4649E2751345EAC7392BC9B45069CBCA2AC2107C4A5582EAC52F329" }),
+  "assets/home/transitions/sword-duel/celadon-jian.svg": Object.freeze({ bytes: 1378, sha256: "65B099B5C9584B22442C62008C4F5A8AB3530A0C22CD6BDEA9972D0A6D7C6E0A" }),
+});
+
+export function preview4VectorAssetMatches(relativePath, buffer) {
+  const expected = Object.hasOwn(PREVIEW4_VECTOR_ASSETS, relativePath) ? PREVIEW4_VECTOR_ASSETS[relativePath] : null;
+  return !!expected && Buffer.isBuffer(buffer) && buffer.length === expected.bytes && sha256(buffer) === expected.sha256;
+}
 const RESERVED_APP_STATIC_FILE_PATTERN = /^(?:favicon\.ico|robots\.(?:txt|js|jsx|ts|tsx)|sitemap\.(?:xml|js|jsx|ts|tsx)|manifest\.(?:json|webmanifest|js|jsx|ts|tsx)|(?:icon|apple-icon)[0-9]*\.(?:ico|jpg|jpeg|png|svg|js|jsx|ts|tsx)|(?:opengraph-image|twitter-image)[0-9]*\.(?:jpg|jpeg|png|gif|js|jsx|ts|tsx)|(?:opengraph-image|twitter-image)[0-9]*\.alt\.txt)$/i;
 const APP_LAYOUT_FILE_PATTERN = /^layout\.(?:js|jsx|ts|tsx)$/;
 
@@ -424,6 +437,7 @@ function publicCategory(relativePath) {
 }
 
 function publicFormat(relativePath) {
+  if (Object.hasOwn(PREVIEW4_VECTOR_ASSETS, relativePath)) return "svg";
   const format = FORMAT_BY_EXTENSION[path.extname(relativePath).toLowerCase()];
   if (!format) fail("PUBLIC_TREE");
   return format;
@@ -484,6 +498,7 @@ export function enumeratePublicFiles({ rootDirectory, publicDirectory = "apps/we
         failureCode: "PUBLIC_TREE",
       });
       const buffer = canonicalPublicFileBytes(rawBuffer, format);
+      if (format === "svg" && !preview4VectorAssetMatches(relativePath, buffer)) fail("PUBLIC_TREE");
       rawAggregateBytes += rawBuffer.length;
       canonicalAggregateBytes += buffer.length;
       if (rows.length >= STATIC_SURFACE_LIMITS.publicFiles

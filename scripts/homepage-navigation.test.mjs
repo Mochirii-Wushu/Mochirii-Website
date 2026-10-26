@@ -9,6 +9,8 @@ import test from "node:test";
 const webRoot = fileURLToPath(new URL("../apps/web/", import.meta.url));
 const requireWeb = createRequire(resolve(webRoot, "package.json"));
 const React = requireWeb("react");
+let birthdayHooks = null;
+const birthdayReact = Object.fromEntries(["useState", "useRef", "useEffect"].map(name => [name, (...args) => (birthdayHooks || React)[name](...args)]));
 const { renderToStaticMarkup } = requireWeb("react-dom/server");
 const ts = requireWeb("typescript");
 let pathname = "/";
@@ -37,6 +39,7 @@ function loadComponentSource(filename) {
   const errors = diagnostics.filter((entry) => entry.category === ts.DiagnosticCategory.Error);
   assert.deepEqual(errors.map((entry) => ts.flattenDiagnosticMessageText(entry.messageText, "\n")), []);
   const localRequire = (specifier) => {
+    if (specifier === "react" && filename.endsWith("HomeBirthdaySplash.tsx")) return birthdayReact;
     if (specifier.endsWith(".css")) return {};
     if (specifier === "next/link") return ({ children, ...props }) => React.createElement("a", props, children);
     if (specifier === "next/image") return Object.assign((props) => {
@@ -70,6 +73,7 @@ const { SiteHeader } = loadComponentSource(resolve(webRoot, "components/SiteHead
 const { SiteFooter } = loadComponentSource(resolve(webRoot, "components/SiteFooter.tsx"));
 const { HomeNextEvent } = loadComponentSource(resolve(webRoot, "components/public-pages/HomeNextEvent.tsx"));
 const { getHomeRecruitment } = loadComponentSource(resolve(webRoot, "lib/home-recruitment.ts"));
+const { HomePvpHighlights } = loadComponentSource(resolve(webRoot, "components/home/HomePvpHighlights.tsx"));
 const { publicGuildSchedule } = loadComponentSource(resolve(webRoot, "lib/events/public-schedule.ts"));
 const { websiteEventCardsFromSchedule } = loadComponentSource(resolve(webRoot, "lib/guild-schedule.ts"));
 const publicUrls = JSON.parse(readFileSync(resolve(webRoot, "config/public-urls.json"), "utf8"));
@@ -80,6 +84,24 @@ const eventImageSizes = "(max-width: 767px) 100vw, 700px";
 function unexpectedRequest() {
   throw new Error("rendering navigation must not initiate auth, moderator, or spinner requests");
 }
+
+test("PvP keeps its empty state honest and loads no player or invented cards", () => {
+  const html = renderToStaticMarkup(React.createElement(HomePvpHighlights, { clips: [] }));
+  assert.match(html, /PvP Highlights/);
+  assert.match(html, /Duel highlights will appear here/);
+  assert.doesNotMatch(html, /<video|data-pvp-play|<button/);
+});
+
+test("reviewed PvP cards keep poster dimensions and a native link fallback without video sources before intent", () => {
+  const html = renderToStaticMarkup(React.createElement(HomePvpHighlights, { clips: [{ id: "local-fixture", title: "Fixture duel", description: "Two fixture fighters", durationSeconds: 92,
+    width: 1920, height: 1080, poster: "/assets/home/pvp/local-fixture/poster.webp", source: "/assets/home/pvp/local-fixture/clip-h264.mp4",
+    captions: { source: "/assets/home/pvp/local-fixture/captions.vtt", language: "en", label: "English" }, transcript: "A fixture transcript." }] }));
+  assert.match(html, /href="\/assets\/home\/pvp\/local-fixture\/clip-h264.mp4"/);
+  assert.match(html, /loading="lazy"/);
+  assert.match(html, /<video hidden="" controls="" playsInline="" preload="none" width="1920" height="1080"/);
+  assert.doesNotMatch(html, /<video[^>]*\ssrc=|<source|<track[^>]*\ssrc=|autoplay=/i);
+  assert.match(html, /A fixture transcript/);
+});
 
 function renderShell(authState, { home = true, status = "open" } = {}) {
   pathname = home ? "/" : "/join";
@@ -214,6 +236,61 @@ function findElement(node, id) {
   if (!React.isValidElement(node)) return undefined;
   return node.props.id === id ? node : findElement(node.props.children, id);
 }
+
+test("disabled celebration stays absent; enabled static frame and copy remain server-owned", async () => {
+  const { default: Home } = loadComponentSource(resolve(webRoot, "app/page.tsx"));
+  const splash = findComponent(Home(), "OptionalBirthdaySplash");
+  assert.equal(await splash.type(splash.props), null);
+  assert.equal(await splash.type({ config: { ...homeData.celebrationSplash, enabled: true, title: " " } }), null);
+  const enabled = await splash.type({ config: { ...homeData.celebrationSplash, enabled: true } });
+  const html = renderToStaticMarkup(enabled.props.children);
+  assert.match(html, /role="dialog" aria-modal="true"/);
+  assert.match(html, /data-dismiss/);
+  assert.equal((html.match(/birthday-splash__firework birthday-splash__firework--/g) || []).length, 3);
+  assert(html.includes(homeData.celebrationSplash.title));
+  assert(html.includes(homeData.celebrationSplash.message));
+  assert.equal(Object.hasOwn(enabled.props.config, "title"), false);
+});
+
+test("celebration controller preserves date bounds, focus, 5200ms dismissal, Escape and cleanup", () => {
+  const { HomeBirthdaySplash } = loadComponentSource(resolve(webRoot, "components/HomeBirthdaySplash.tsx"));
+  const oldWindow = globalThis.window, oldNow = Date.now, oldSetTimeout = globalThis.setTimeout, oldClearTimeout = globalThis.clearTimeout;
+  const now = Date.parse("2026-10-24T00:00:00.000Z");
+  const timers = new Map(), listeners = new Map(); let visible = false, effects = [], focused = 0, sequence = 0;
+  birthdayHooks = {
+    useState: () => [visible, value => { visible = value; }],
+    useRef: () => ({ current: { querySelector: () => ({ focus: () => focused++ }) } }),
+    useEffect: callback => { effects.push(callback); },
+  };
+  globalThis.window = {
+    setTimeout: (callback, delay) => { const id = ++sequence; timers.set(id, { callback, delay }); return id; },
+    clearTimeout: id => timers.delete(id),
+    addEventListener: (name, fn) => listeners.set(name, fn),
+    removeEventListener: (name, fn) => { if (listeners.get(name) === fn) listeners.delete(name); },
+  };
+  globalThis.setTimeout = globalThis.window.setTimeout; globalThis.clearTimeout = globalThis.window.clearTimeout;
+  Date.now = () => now;
+  const render = config => { effects = []; return HomeBirthdaySplash({ config, children: "server frame" }); };
+  try {
+    for (const config of [undefined, { enabled: false }, { enabled: true, startsAt: "invalid" }, { enabled: true, endsAt: "invalid" },
+      { enabled: true, startsAt: "2026-10-24T00:00:00.001Z" }, { enabled: true, endsAt: "2026-10-23T23:59:59.999Z" }]) {
+      assert.equal(render(config), null); assert.equal(effects[0](), undefined); assert.equal(timers.size, 0);
+    }
+    for (const unbounded of [{ enabled: true }, { enabled: true, startsAt: "  ", endsAt: "" }]) {
+      render(unbounded); const stop = effects[0](); assert.equal(timers.size, 1); stop(); assert.equal(timers.size, 0);
+    }
+    const config = { enabled: true, startsAt: "2026-10-24T00:00:00.000Z", endsAt: "2026-10-24T00:00:00.000Z" };
+    render(config); const stopShow = effects[0](); const show = [...timers.values()].find(t => t.delay === 0); show.callback(); stopShow();
+    assert.equal(visible, true);
+    const tree = render(config), stopVisible = effects[1]();
+    assert.equal(tree.props.children, "server frame");
+    [...timers.values()].find(t => t.delay === 80).callback(); assert.equal(focused, 1);
+    [...timers.values()].find(t => t.delay === 5200).callback(); assert.equal(visible, false);
+    visible = true; listeners.get("keydown")({ key: "Escape" }); assert.equal(visible, false);
+    visible = true; tree.props.onClick({ target: { closest: () => ({}) } }); assert.equal(visible, false);
+    stopVisible(); assert.equal(timers.size, 0); assert.equal(listeners.size, 0);
+  } finally { globalThis.window = oldWindow; Date.now = oldNow; globalThis.setTimeout = oldSetTimeout; globalThis.clearTimeout = oldClearTimeout; birthdayHooks = null; }
+});
 
 test("actual Home supplies the real empty-state copy inside its Events link", async () => {
   const { default: Home } = loadComponentSource(resolve(webRoot, "app/page.tsx"));

@@ -337,23 +337,33 @@ One shared observer handles once-per-visit entrances (420 ms, decorative rules m
 Fine-pointer card hover uses 180 ms border-color feedback. Card frames, text and controls stay in place. Text, controls and card frames do not follow scrolling.
 
 Home alone imports `components/home-scene.ts` after the usable poster has painted, preferences permit motion
-and the scene is visible. The renderer has no package imports. A 30 fps capped, low-power WebGL mesh uses
-two 1280 × 853 registered local textures, DPR capped at 2, pinned hair/robe regions and a separate anchored
-alpha branch. Its ambient clock accumulates visible time and never reverses with scrolling. Hidden/offscreen
-and focused scenes pause; Off, reduced motion, navigation, asset failure or context loss clean up GPU work and
-retain the complete poster. An LCP observation establishes poster paint; engines without that observation
+and the scene is visible. This DOM controller transfers its canvas to the Next-managed
+`components/home-scene-worker.js` module asset; graphics setup and drawing run in that dedicated worker.
+Neither module has package imports. A 30 fps capped, low-power WebGL mesh uses
+three registered local textures: a 1280 × 853 underpainted backdrop, a cropped original-pixel hair/fabric
+alpha atlas, and a separate anchored 1280 × 853 alpha branch. DPR is capped at 2. Face, hands, weapon
+and body stay fixed. Its ambient clock accumulates visible time and never reverses with scrolling. Hidden/offscreen
+and focused scenes pause through controller messages. Off, reduced motion and navigation terminate the worker;
+asset failure, worker failure or context loss restore the complete poster. Unsupported worker/offscreen-canvas
+engines retain that poster without starting main-thread graphics. The canvas is attached only after its first
+successful worker paint. An LCP observation establishes poster paint; engines without that observation
 use a conservative post-load fallback. Petals and separate mist layers remain decorative and noninteractive.
+Fragment highp support is enforced by the shader preprocessor and existing compile/link failure path,
+after required texture decoding; no redundant precision query synchronizes immediate context startup.
 
-Lossless WebP alpha masks exported from authored SVG preserve ink paths, grain and the border highlight while keeping the retained
-public SVG restriction intact. CSS clip reveals retrace normalized section progress (entry 0% to exit 100%),
-with zero/start, full/middle and zero/end emphasis. Native view timelines use a passive, frame-coalesced
-fallback. Lantern glow/flame accents apply only to the suitable Guild Party cover; approved event pixels
+The Preview 4 sword strip uses two original, closed-profile jian SVG images. Native view timelines retrace
+approach, one contact and separation in either scroll direction, with a passive, frame-coalesced fallback.
+Off and reduced motion retain deliberate static poses. Its view timeline is registered only for a visible
+sword strip with Motion On and no OS reduced-motion preference. Hero badge borders remain static,
+including before hydration and without JavaScript. The heading ink reveal lasts 420 ms; the featured
+edge is finite at 1350 ms. Lantern glow/flame accents apply only to the suitable Guild Party cover; approved event pixels
 remain unchanged. The selected hero has no moon or flags, so those effects are not applicable. The seal
 has no enclosing border or animation. See the ignored Preview evidence's scene manifest for masks,
 anchors, timing, measured rendering cost and unresolved limitations.
 
 Keep the existing 5 KiB initial Home, 63 KiB shared and 225 KiB route guards. The approved deferred scene
 allowance is 8 KiB Brotli including new helpers; shared helper bytes also remain charged to the shared guard.
+Worker bootstrap, renderer and dependency chunks remain included in the deferred and total-route accounting.
 Do not move existing Home code to satisfy a budget. Asset recipes and compatibility rules are in
 `docs/asset-naming-and-delivery.md`. Performance evidence is lab evidence, not field p75 improvement.
 
@@ -380,3 +390,25 @@ With the reviewed built server running only on `127.0.0.1:8765`, run
 bounded winner substitutions and hostile mutations. Root `npm run check` includes the standalone
 streaming rejection controls. Run the existing gallery and official-profile browser smokes with an
 explicit local origin; profile coverage includes Home Resources and the unchanged ordinary Events menu.
+
+## 17. Preview 4 presentation and media gate
+
+Preview 4 retains all previous document profiles and rejection controls. Its separate seal permits only
+four exact SVG image paths; the static inventory additionally pins their bytes and SHA-256. Unknown SVG,
+inline SVG, injected media, arbitrary Flight records and substituted resource graphs remain rejected.
+Run `node scripts/smoke-preview4-document-profile.mjs http://127.0.0.1:8765/` and
+`node scripts/smoke-homepage-preview-4.mjs --base-url http://127.0.0.1:8765/` against the reviewed loopback build.
+Do not replace a seal without reviewing its complete canonical document and resource graph.
+
+PvP Highlights follows the activity cards and precedes Spotlight. Its publication-cleared manifest is
+empty until the separate media handoff and hosting gates in `docs/homepage-pvp-media.md` pass. Real native
+video resources require a further exact graph/asset review; an empty-state seal does not approve exports.
+The design Preview can be delivered with that honest empty state. Actual clips and hosting are separate
+Website integration gates; they do not require a new derivatives/posters/captions project from the clip owner.
+`scripts/smoke-homepage-pvp.mjs --base-url http://127.0.0.1:8765/` exercises the actual player with synthetic,
+local-only media. It cannot establish real clip rights, audio quality or production delivery support.
+The intent-loaded player remains included in the unchanged 225 KiB total route budget.
+
+The disabled birthday splash still returns null before importing its controller. Its static dialog frame
+belongs to the server page; the client retains date bounds, focus, dismissal timers, Escape and cleanup.
+Do not move existing interactive Home behavior into another entry to satisfy the 5 KiB Home limit.

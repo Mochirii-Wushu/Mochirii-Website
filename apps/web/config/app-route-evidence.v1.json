@@ -88,8 +88,8 @@
       "id": "content-guardrails",
       "path": "scripts/check-content-guardrails.mjs",
       "scope": "source-only public content and protected-copy guardrails",
-      "bytes": 21051,
-      "sha256": "A14E72EF99CB3ACAD385E0EEFA25C51380542DA675FAD95A1594CF407B286EE9",
+      "bytes": 21117,
+      "sha256": "7E56EA5BF778000521AD1074AC223FF9D7D9501884AEA6C39C4D7F183062F4F6",
       "status": "verified_source"
     },
     {
@@ -104,8 +104,8 @@
       "id": "next-route-delivery",
       "path": "scripts/check-next-route-delivery.mjs",
       "scope": "source and build-contract route delivery checks; no live delivery claim",
-      "bytes": 8316,
-      "sha256": "4A65E72234E61507E5B6CE841D5EFF7965846F103C9C04DB7C337B668FB74507",
+      "bytes": 8509,
+      "sha256": "53C61C97794DF45FD1BF6036BFDA0E75B68CAD0F1D0DCEA51CE7D344A7AB8E04",
       "status": "verified_source"
     },
     {
@@ -136,8 +136,8 @@
       "id": "repository-check-runner",
       "path": "scripts/check-all.mjs",
       "scope": "full-repository execution wiring for route-evidence checks",
-      "bytes": 14655,
-      "sha256": "2BF9ADE8A7E2C426DCC511D336EBB9CB04483E93689167611C883ED1B09670FD",
+      "bytes": 14928,
+      "sha256": "50EA9701C253002B46EE3FD518167927EA8E8DCCD0EA4E7F61CA4C9AED4A9705",
       "status": "verified_source"
     },
     {

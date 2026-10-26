@@ -1625,8 +1625,9 @@ function productionHomeLegacyGatheringDate(nowMs) {
 
 function canonicalizeProductionFlightResourceEnvelopeStreamWithProfile(
   value, buildIds, resourceUrls = null, canonicalDocumentUrl = null,
-  normalizeHomeSpotlight = false, homeRuntime = null,
+  normalizeHomeSpotlight = false, homeRuntime = null, presentationProfile = null,
 ) {
+  if (presentationProfile !== null && presentationProfile !== PREVIEW4_PROFILE_IDENTITY) return null;
   if (typeof value !== "string" || value.length > PRODUCTION_CHECK_LIMITS.htmlBytes) return null;
   if (resourceUrls !== null && !Array.isArray(resourceUrls)) return null;
   if (typeof normalizeHomeSpotlight !== "boolean") return null;
@@ -1818,13 +1819,16 @@ function canonicalizeProductionFlightResourceEnvelopeStreamWithProfile(
     return Number.isSafeInteger(value) && value > 0 && value <= PRODUCTION_IMAGE_DIMENSION_LIMIT;
   }
 
-  function productionFlightImageUrl(node, sourceOffset, { allowStaticMedia = true } = {}) {
+  function productionFlightImageUrl(node, sourceOffset, { allowStaticMedia = true, allowPreview4Vector = false } = {}) {
     if (node?.type !== "string"
       || node.value.length === 0
       || node.value.length > PRODUCTION_CHECK_LIMITS.assetUrlCharacters
       || /[\\\u0000-\u001f\u007f]/.test(node.value)) return false;
     let canonical = node.value;
-    if (/^\/assets(?:\/[A-Za-z0-9_-][A-Za-z0-9._-]*)+\.webp$/.test(node.value)) {
+    if (allowPreview4Vector && presentationProfile === PREVIEW4_PROFILE_IDENTITY && PREVIEW4_VECTOR_URLS.has(node.value)) {
+      // Exactly registered P4 vectors; complete graph seal and static-byte
+      // registry remain mandatory. No general SVG or srcset permission.
+    } else if (/^\/assets(?:\/[A-Za-z0-9_-][A-Za-z0-9._-]*)+\.webp$/.test(node.value)) {
       // Exact public asset surface.
     } else if (allowStaticMedia
       && /^\/_next\/static\/(?:[A-Za-z0-9_-]{1,64}\/)?media\/[A-Za-z0-9._-]+\.webp$/.test(node.value)) {
@@ -2085,7 +2089,7 @@ function canonicalizeProductionFlightResourceEnvelopeStreamWithProfile(
               const entry = productionJsonObjectEntry(properties, name)?.value;
               return entry !== undefined && !productionFlightBoundedString(entry, 256);
             })
-            || !productionFlightImageUrl(source, sourceOffset)
+            || !productionFlightImageUrl(source, sourceOffset, { allowPreview4Vector: presentationProfile === PREVIEW4_PROFILE_IDENTITY })
             || !productionFlightImageSrcset(sourceSet)) return false;
           return true;
         }
@@ -3557,8 +3561,9 @@ function productionScriptPayloadText(tag, text) {
 }
 
 function readActiveProductionNextStaticNamespace(html, {
-  documentUrl, reportDiagnostic = () => undefined,
+  documentUrl, reportDiagnostic = () => undefined, presentationProfile = null,
 } = {}) {
+  if (presentationProfile !== null && presentationProfile !== PREVIEW4_PROFILE_IDENTITY) return null;
   if (typeof html !== "string") return null;
   const asciiLowerHtml = asciiLower(html);
   if (!asciiLowerHtml.startsWith(PRODUCTION_DOCTYPE)) return null;
@@ -3781,9 +3786,10 @@ function readActiveProductionNextStaticNamespace(html, {
   }
   if (activeFlightPayloadSeen) {
     const structuralResourceUrls = [];
-    if (canonicalizeProductionFlightResourceEnvelopeStream(
-      activeFlightPayloadStream, nextStaticBuildIds, structuralResourceUrls, canonicalDocumentUrl,
-    ) === null || !structuralResourceUrls.every(recordActiveUrl)) {
+    const normalized = canonicalizeProductionFlightResourceEnvelopeStreamWithProfile(
+      activeFlightPayloadStream, nextStaticBuildIds, structuralResourceUrls, canonicalDocumentUrl, false, null, presentationProfile,
+    );
+    if (normalized === null || !structuralResourceUrls.every(recordActiveUrl)) {
       diagnose("PAYLOAD_MODEL");
       return null;
     }
@@ -3825,6 +3831,15 @@ const PREVIEW3_DOCUMENT_SEALS = Object.freeze({
   deletion: "99EC956EDB1E19C05835801687EEBCC5B5C52F45069368C6B9C6B7F144EFDB65",
 });
 const PREVIEW3_FALLBACK_SUMMARY = "Each month, one active website member is selected for the guild Spotlight.";
+// Separately approved P4 profile. Prior presentation seals remain unchanged.
+// Active clip publication requires a new reviewed complete graph seal; an empty
+// cleared-media manifest never grants permission for arbitrary video markup.
+const PREVIEW4_DOCUMENT_SEALS = Object.freeze({ home: Object.freeze(["A47C773806F6FCF187AC1B96A2E5C59559B05DF6AF72FCE0AF084E0D9D365A57", "A6005D2BED585E619AD6FB54FC8DD3175284B61C75B8B509CE9E21355D7A4851"]) });
+const PREVIEW4_PROFILE_IDENTITY = Symbol("sealed-preview-4");
+const PREVIEW4_VECTOR_URLS = new Set([
+  "/assets/home/icons/arrow-right.svg", "/assets/home/icons/discord-symbol-white.svg",
+  "/assets/home/transitions/sword-duel/jade-jian.svg", "/assets/home/transitions/sword-duel/celadon-jian.svg",
+]);
 
 function preview3Escape(value) {
   return String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
@@ -3839,8 +3854,16 @@ function preview3WinnerNameIsSafe(value) {
 }
 
 function canonicalizePreview3Document(html, resourceProfile, homeRuntime) {
+  return canonicalizeSealedPresentationDocument(html, resourceProfile, homeRuntime, PREVIEW3_DOCUMENT_SEALS);
+}
+
+function canonicalizePreview4Document(html, resourceProfile, homeRuntime) {
+  return canonicalizeSealedPresentationDocument(html, resourceProfile, homeRuntime, PREVIEW4_DOCUMENT_SEALS);
+}
+
+function canonicalizeSealedPresentationDocument(html, resourceProfile, homeRuntime, seals) {
   if (typeof html !== "string" || Buffer.byteLength(html) > PRODUCTION_CHECK_LIMITS.htmlBytes
-    || !Object.hasOwn(PREVIEW3_DOCUMENT_SEALS, resourceProfile)
+    || !Object.hasOwn(seals, resourceProfile)
     || !asciiLower(html).startsWith(PRODUCTION_DOCTYPE)) return null;
   const parsed = parsePreview3Html(html);
   if (!parsed) return null;
@@ -3861,7 +3884,8 @@ function canonicalizePreview3Document(html, resourceProfile, homeRuntime) {
     || nodes.some(n => PRODUCTION_REJECTED_ELEMENTS.has(n.tag.name) && n.tag.name !== "audio")
     || comments.some(c => !PRODUCTION_SAFE_COMMENT_BODIES.has(c.text))) return null;
   const documentPath = {home: "/", recruitment: "/recruitment", privacy: "/privacy", deletion: "/meta-data-deletion"}[resourceProfile];
-  const namespace = readActiveProductionNextStaticNamespace(html, {documentUrl: "https://mochirii.com" + documentPath});
+  const presentationProfile = seals === PREVIEW4_DOCUMENT_SEALS ? PREVIEW4_PROFILE_IDENTITY : null;
+  const namespace = readActiveProductionNextStaticNamespace(html, {documentUrl: "https://mochirii.com" + documentPath, presentationProfile});
   if (!namespace) return null;
   const edits = [], nextIds = new Set();
   let flight = "", initializer = 0;
@@ -3876,7 +3900,7 @@ function canonicalizePreview3Document(html, resourceProfile, homeRuntime) {
     }
   }
   if (initializer !== 1 || flight.length > PRODUCTION_CHECK_LIMITS.htmlBytes) return null;
-  const genericFlight = canonicalizeProductionFlightResourceEnvelopeStream(flight, nextIds);
+  const genericFlight = canonicalizeProductionFlightResourceEnvelopeStreamWithProfile(flight, nextIds, null, null, false, null, presentationProfile)?.stream ?? null;
   if (genericFlight === null) return null;
   let canonicalFlight = genericFlight;
   if (resourceProfile === "home") {
@@ -3998,10 +4022,19 @@ function canonicalizePreview3Document(html, resourceProfile, homeRuntime) {
 
 function readSealedPreview3Document(html, {resourceProfile, homeRuntime, reportDiagnostic}) {
   const profile = canonicalizePreview3Document(html, resourceProfile, homeRuntime);
+  return readSealedPresentationDocument(profile, html, resourceProfile, PREVIEW3_DOCUMENT_SEALS, reportDiagnostic);
+}
+
+function readSealedPreview4Document(html, {resourceProfile, homeRuntime, reportDiagnostic}) {
+  const profile = canonicalizePreview4Document(html, resourceProfile, homeRuntime);
+  return readSealedPresentationDocument(profile, html, resourceProfile, PREVIEW4_DOCUMENT_SEALS, reportDiagnostic);
+}
+
+function readSealedPresentationDocument(profile, html, resourceProfile, seals, reportDiagnostic) {
   if (!profile) return null;
   const digest = createHash("sha256").update(profile.canonical).digest("hex").toUpperCase();
-  if (!productionDocumentDigestMatches(PREVIEW3_DOCUMENT_SEALS[resourceProfile], digest)) {
-    reportDiagnostic("Preview 3 document seal rejected " + resourceProfile + " " + digest);
+  if (!productionDocumentDigestMatches(seals[resourceProfile], digest)) {
+    reportDiagnostic("Sealed presentation document rejected " + resourceProfile + " " + digest);
     return null;
   }
   const {nodes, head, footer, body} = profile;
@@ -4040,6 +4073,9 @@ function readActiveProductionHtml(html, {
   allowPlainAudio = false, documentPolicies, reportDiagnostic = () => undefined, resourceProfile = "",
   homeRuntime = null,
 } = {}) {
+  const preview4 = documentPolicies === PRODUCTION_DOCUMENT_POLICIES
+    ? readSealedPreview4Document(html, { resourceProfile, homeRuntime, reportDiagnostic }) : null;
+  if (preview4 !== null) return preview4;
   const preview3 = documentPolicies === PRODUCTION_DOCUMENT_POLICIES
     ? readSealedPreview3Document(html, { resourceProfile, homeRuntime, reportDiagnostic }) : null;
   if (preview3 !== null) return preview3;
@@ -4426,20 +4462,30 @@ function readActiveProductionHtml(html, {
   });
 }
 
-function productionHtmlNamespaceMatchesPath(client, path, html) {
+function productionHtmlNamespaceMatchesPath(client, path, html, { documentPolicies = null, homeRuntime = null } = {}) {
+  // The availability pass also sees P4 vectors. Grant its private identity only
+  // after the complete Home seal, runtime interval and exact policy validate.
+  const presentationProfile = path === "/" && documentPolicies === PRODUCTION_DOCUMENT_POLICIES
+    && readSealedPreview4Document(html, {resourceProfile: "home", homeRuntime, reportDiagnostic: () => undefined})
+    ? PREVIEW4_PROFILE_IDENTITY : null;
   const document = readActiveProductionNextStaticNamespace(html, {
     documentUrl: new URL(path, client.baseUrl).href,
     reportDiagnostic: client.diagnose ? client.reportDiagnostic : () => undefined,
+    presentationProfile,
   });
   return document !== null
     && productionNextStaticNamespaceMatchesPath(client, path, document.nextStaticBuildId);
 }
 
-async function checkUrlAvailability(client) {
+async function checkUrlAvailability(client, documentPolicies) {
   for (const contract of PAGE_CONTRACTS) {
+    const requestStartedAtMs = Date.now();
     const body = await fetchText(client, contract.path, contract.media);
+    const responseReceivedAtMs = Date.now();
     if (contract.media === "html") {
-      if (!productionHtmlNamespaceMatchesPath(client, contract.path, body)) {
+      if (!productionHtmlNamespaceMatchesPath(client, contract.path, body, {
+        documentPolicies, homeRuntime: {requestStartedAtMs, responseReceivedAtMs},
+      })) {
         if (client.diagnose) client.reportDiagnostic("HTML namespace rejected " + contract.path);
         throw failure("HTML_DOCUMENT_REJECTED");
       }
@@ -4451,7 +4497,9 @@ async function checkMetadata(client, documentPolicies) {
   const requestStartedAtMs = Date.now();
   const home = await fetchText(client, "/", "html");
   const responseReceivedAtMs = Date.now();
-  if (!productionHtmlNamespaceMatchesPath(client, "/", home)) {
+  if (!productionHtmlNamespaceMatchesPath(client, "/", home, {
+    documentPolicies, homeRuntime: {requestStartedAtMs, responseReceivedAtMs},
+  })) {
     if (client.diagnose) client.reportDiagnostic("HTML metadata namespace rejected /");
     throw failure("HTML_DOCUMENT_REJECTED");
   }
@@ -4711,7 +4759,7 @@ async function checkProductionWithDocumentPolicies({
     nextStaticBuildId: null,
     reportDiagnostic,
   };
-  await checkUrlAvailability(client);
+  await checkUrlAvailability(client, documentPolicies);
   await checkMetadata(client, documentPolicies);
   await checkDiscoveryFiles(client);
   return Object.freeze({ ok: true });

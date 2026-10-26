@@ -9,12 +9,21 @@ run jobs, store production state, or keep integrations online.
 - Production: `https://mochirii.com`
 - Canonical source: `apps/web`
 - Delivery: protected GitHub `main` through the existing Vercel Git integration
-- Preview: Vercel Preview on pull requests
+- Preview: approved nonproduction branches and pull requests through the existing Vercel Git integration
 - Canonical public content: `apps/web/public/data`
 - Canonical public media: `apps/web/public/assets`
 
 The Vercel project Root Directory remains `apps/web`. Do not relink, change
 domains, or edit environment values as part of ordinary source work.
+
+Preview-only approval permits only the explicitly approved branch publication
+and read-only hosted verification. Verify the exact commit, project, Preview
+environment, READY state, unique URL, branch alias and preserved protection.
+It does not authorize a merge, promotion, production deployment or provider
+change. Production-bearing helpers such as `vercel:build:local` use Production
+configuration and are excluded from Preview verification. See the official
+[environment](https://vercel.com/docs/deployments/environments) and
+[build environment](https://vercel.com/docs/cli/build) references.
 
 ### Vercel Release Policy
 

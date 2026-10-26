@@ -69,9 +69,14 @@ componentReferences.forEach((file) => {
   "endsAt",
   "setTimeout",
   "Escape",
-  'role="dialog"',
-  "aria-modal",
 ].forEach((snippet) => assertIncludes("HomeBirthdaySplash component", component, snippet));
+[
+  'role="dialog"',
+  'aria-modal="true"',
+  'data-dismiss',
+  'id="birthdaySplashTitle"',
+  'id="birthdaySplashMessage"',
+].forEach((snippet) => assertIncludes("Home server-rendered celebration frame", page, snippet));
 
 if (component.includes("sessionStorage")) {
   fail("HomeBirthdaySplash must not persist dismissal in sessionStorage; refresh should show the splash again.");

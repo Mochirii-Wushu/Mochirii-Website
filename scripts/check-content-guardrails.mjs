@@ -17,6 +17,7 @@ const topLevelManifest = {
   "home.json": ["copy", "celebrationSplash", "hero", "seal", "bulletins", "tiles", "spotlight", "gallery"],
   "join.json": ["hero", "steps", "quickStart", "checklist", "culture", "notes"],
   "leaders.json": ["hero", "panel", "council", "leaders", "responsibilities"],
+  "pvp-clips.json": ["version", "approvedMediaOrigins", "clips"],
   "raffles.json": [
     "schemaVersion",
     "programName",

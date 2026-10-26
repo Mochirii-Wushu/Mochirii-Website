@@ -14,6 +14,7 @@ export const appCssFiles = [
   "apps/web/app/styles/public-home-bulletins.css",
   "apps/web/app/styles/public-home-doors.css",
   "apps/web/app/styles/public-home-visual.css",
+  "apps/web/app/styles/public-home-pvp-swords.css",
   "apps/web/app/styles/public-profiles.css",
   "apps/web/app/styles/public-profile-cards.css",
   "apps/web/app/styles/public-ceremony.css",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   HomeGalleryLightbox,
   type GallerySpotlightItem,
@@ -24,11 +24,9 @@ function uniqueItems(items: GallerySpotlightItem[]) {
 }
 
 function randomValue() {
-  const values = new Uint32Array(1);
-
-  if (globalThis.crypto?.getRandomValues) {
-    globalThis.crypto.getRandomValues(values);
-    return values[0] / 0x100000000;
+  const crypto = globalThis.crypto;
+  if (crypto?.getRandomValues) {
+    return crypto.getRandomValues(new Uint32Array(1))[0] / 0x100000000;
   }
 
   return Math.random();
@@ -74,11 +72,7 @@ export function HomeGallerySpotlight({
   candidates: GallerySpotlightItem[];
   fallbackItems: GallerySpotlightItem[];
 }) {
-  const initialItems = useMemo(
-    () => deterministicItems(candidates, fallbackItems),
-    [candidates, fallbackItems],
-  );
-  const [items, setItems] = useState(initialItems);
+  const [items, setItems] = useState(() => deterministicItems(candidates, fallbackItems));
 
   useEffect(() => {
     const timer = window.setTimeout(() => {

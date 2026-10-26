@@ -13,8 +13,8 @@
     "metadataRoutes": 28,
     "indexedMetadataRoutes": 17,
     "nonindexedMetadataRoutes": 11,
-    "publicFiles": 336,
-    "publicBytes": 52482429,
+    "publicFiles": 344,
+    "publicBytes": 52866173,
     "sourceFiles": 43
   },
   "sourceCatalog": [
@@ -105,8 +105,8 @@
     },
     {
       "path": "apps/web/app/page.tsx",
-      "bytes": 14619,
-      "sha256": "90928E06E3C3B757088AF23BE2962296A950B5E5377BBF723639EC19D9FFEE47"
+      "bytes": 16477,
+      "sha256": "E9EF90593DB477BC5223553F40490C7C14BB5376F2F09FE9B5D9BA7F5DEA161D"
     },
     {
       "path": "apps/web/app/privacy/page.tsx",
@@ -186,7 +186,7 @@
     {
       "path": "apps/web/config/app-route-evidence.v1.json",
       "bytes": 66971,
-      "sha256": "5C2A83B5D9E1E787F3056E8086A00F224C156B362D16A9EDB82181E96D7D4E99"
+      "sha256": "BF2C010908CBABC19F7B9D0840270822511CC46F2758695D02BFDA3D1AF2F838"
     },
     {
       "path": "apps/web/config/app-route-matrix.v1.json",
@@ -200,13 +200,13 @@
     },
     {
       "path": "scripts/check-all.mjs",
-      "bytes": 14655,
-      "sha256": "2BF9ADE8A7E2C426DCC511D336EBB9CB04483E93689167611C883ED1B09670FD"
+      "bytes": 14928,
+      "sha256": "50EA9701C253002B46EE3FD518167927EA8E8DCCD0EA4E7F61CA4C9AED4A9705"
     },
     {
       "path": "scripts/check-app-static-surface-inventory.mjs",
-      "bytes": 12998,
-      "sha256": "DF3FE6436C11E721252E1E72C2A3F3783FD0904D81967FDD1E35C007960CF4CE"
+      "bytes": 12997,
+      "sha256": "0B9C5E2C335C4C2FF30BC10D43D14D03EB631DCCCEBF776B6DC9A6DEFE134B2C"
     },
     {
       "path": "scripts/check-assets.mjs",
@@ -225,13 +225,13 @@
     },
     {
       "path": "scripts/lib/app-static-surface-inventory.mjs",
-      "bytes": 24913,
-      "sha256": "B0370216A311FC19A6206580806CD8312572F2589989C7038359D1F9D7547733"
+      "bytes": 26244,
+      "sha256": "368BC8DF86CDCF0CFEFAAA11445514983CA6A989A4C3C23F252A2531DD44164C"
     },
     {
       "path": "scripts/lib/app-static-surface-inventory.test.mjs",
-      "bytes": 133117,
-      "sha256": "477B6DC01369C3290043D3D259064AE1EE82E8B1322E6E075126CB0124937717"
+      "bytes": 134025,
+      "sha256": "1810A22DF648B7FE0C18C41A82620BF574EAABB61F88188C7761597C9F5CCE61"
     }
   ],
   "metadataRoutes": [
@@ -698,6 +698,22 @@
       "format": "webp"
     },
     {
+      "url": "/assets/home/hero/cherry-valley-dawn-v2/backdrop-1280.webp",
+      "source": "apps/web/public/assets/home/hero/cherry-valley-dawn-v2/backdrop-1280.webp",
+      "bytes": 155394,
+      "sha256": "489442DDC166B2546C93DA535DF776D7A958EEC2023AAF949F0D0CE00D2EAF2E",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/home/hero/cherry-valley-dawn-v2/hair-fabric-alpha.webp",
+      "source": "apps/web/public/assets/home/hero/cherry-valley-dawn-v2/hair-fabric-alpha.webp",
+      "bytes": 5508,
+      "sha256": "58E08932D829D4A0A73B441E9F80F4D18526701361E549E7C5721F6345378862",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
       "url": "/assets/home/hero/cherry-valley-dawn/branch-alpha-1280.webp",
       "source": "apps/web/public/assets/home/hero/cherry-valley-dawn/branch-alpha-1280.webp",
       "bytes": 94230,
@@ -722,12 +738,52 @@
       "format": "webp"
     },
     {
+      "url": "/assets/home/icons/arrow-right.svg",
+      "source": "apps/web/public/assets/home/icons/arrow-right.svg",
+      "bytes": 218,
+      "sha256": "9B211E2728CE4ABCFB6B40E599BD0CE50800A0EBAA064D0BE2A56807DC4EB9C7",
+      "category": "asset",
+      "format": "svg"
+    },
+    {
+      "url": "/assets/home/icons/discord-symbol-white.svg",
+      "source": "apps/web/public/assets/home/icons/discord-symbol-white.svg",
+      "bytes": 1306,
+      "sha256": "EB3BF5A2E8B9F9AA39C1B1D38AEAA7C2997084567634C55F4141AA39CF426CEC",
+      "category": "asset",
+      "format": "svg"
+    },
+    {
       "url": "/assets/home/scenery/bamboo-valley-1280.webp",
       "source": "apps/web/public/assets/home/scenery/bamboo-valley-1280.webp",
       "bytes": 104526,
       "sha256": "7CF2DADF1C7444736A1525F299954431C13104FAD906A6F093A52C4C23753EDB",
       "category": "asset",
       "format": "webp"
+    },
+    {
+      "url": "/assets/home/scenery/bamboo-valley-tall-1024.webp",
+      "source": "apps/web/public/assets/home/scenery/bamboo-valley-tall-1024.webp",
+      "bytes": 218498,
+      "sha256": "AE862ACBC2C446445F94E7C4FC80DB90A78BFEB43587A6EBC30C132AC9C82696",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/home/transitions/sword-duel/celadon-jian.svg",
+      "source": "apps/web/public/assets/home/transitions/sword-duel/celadon-jian.svg",
+      "bytes": 1378,
+      "sha256": "65B099B5C9584B22442C62008C4F5A8AB3530A0C22CD6BDEA9972D0A6D7C6E0A",
+      "category": "asset",
+      "format": "svg"
+    },
+    {
+      "url": "/assets/home/transitions/sword-duel/jade-jian.svg",
+      "source": "apps/web/public/assets/home/transitions/sword-duel/jade-jian.svg",
+      "bytes": 1378,
+      "sha256": "52372591D4649E2751345EAC7392BC9B45069CBCA2AC2107C4A5582EAC52F329",
+      "category": "asset",
+      "format": "svg"
     },
     {
       "url": "/assets/img/announcements/hero.webp",
@@ -3206,6 +3262,14 @@
       "source": "apps/web/public/data/leaders.json",
       "bytes": 4075,
       "sha256": "93957A04A630C10BAB7A4979A71AD11AEC6DE35391437629C34BE86589E9D019",
+      "category": "public_data",
+      "format": "json"
+    },
+    {
+      "url": "/data/pvp-clips.json",
+      "source": "apps/web/public/data/pvp-clips.json",
+      "bytes": 64,
+      "sha256": "31EEF7614CECF9FCEE4EAF9F6D01CB3413953A03FE12DD5BC30083273366A010",
       "category": "public_data",
       "format": "json"
     },

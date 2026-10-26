@@ -10,7 +10,7 @@ commits; the workstation is never a serving or job-processing dependency.
 
 | Path | Owner | Hosted runtime |
 | --- | --- | --- |
-| `apps/web` | Public website and hosted game doorways | Vercel |
+| `apps/web` | Public website and optional protected tester doorway; no connected game runtime | Vercel |
 | `apps/shopify-theme` | Customer storefront theme | Shopify |
 | `supabase` | Database migrations and Edge Functions | Supabase |
 | `docs/integrations` | No-secret provider contracts and architecture notes | GitHub |
@@ -43,8 +43,25 @@ known set and CI rejects every new occurrence.
   doorway, OAuth, shared identity, and authorization contracts it exposes.
 - Cloudflare remains an edge and DNS boundary. Provider configuration changes
   require exact, scoped approval.
-- Discord/Reaper runs through hosted Edge Functions. No local bot process is a
-  production dependency.
+- Website owns its shared database and Discord-facing Edge contracts. The
+  persistent Reaper Gateway is a distinct source/runtime owned by
+  `Mochirii-Wushu/Reaper-Discord-Bot`, the consumer named in the
+  [Gateway operations contract](integrations/reaper-gateway-operations.v1.json).
+  Source/image publication does not prove hosted readiness or transfer Website
+  Edge ownership. No local bot process is a production dependency. See the
+  [Gateway operations runbook](operations/reaper-gateway-operations.md).
+
+The separate Twitch editing owner controls Resolve, source footage, render
+queues and editing acceptance. Website consumes accepted completed outputs and
+their basic inventory, then owns its media integration and publication/delivery
+checks. An export or editing acceptance alone does not grant public hosting or
+media rights. An honest empty-media design Preview is independent of that
+handoff; see the [PvP media contract](homepage-pvp-media.md).
+
+The Website uses App Router server rendering with focused client components for
+interactions, as described by the [Next.js server/client component model](https://nextjs.org/docs/app/getting-started/server-and-client-components).
+Discord's persistent [Gateway connection](https://docs.discord.com/developers/events/gateway)
+is a separate runtime concern from Website rendering and Edge request handlers.
 
 ## Mochi Pets Boundary
 
