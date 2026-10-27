@@ -61,6 +61,7 @@ class SceneElement extends EventHub {
   }
   getBoundingClientRect() { return this.box || { width: 1198, height: 418 }; }
   contains(target) { return this.children.includes(target); }
+  matches() { return false; }
   closest() { return null; }
 }
 
@@ -268,6 +269,7 @@ function mainFixture(options = {}) {
   node.closest = selector => ({ ".home-hero": section, main, ".site-shell": shell })[selector];
   main.querySelector = () => sword;
   const frames = new Map(), workers = [], window = new EventHub();
+  window.scrollY = 0;
   let nextFrame = 0, transfers = 0, mainGlCalls = 0;
   const offscreen = { kind: "transferred canvas" };
   class Canvas extends SceneElement {
@@ -280,7 +282,11 @@ function mainFixture(options = {}) {
   }
   if (options.noOffscreen || options.noTransfer) delete Canvas.prototype.transferControlToOffscreen;
   const canvas = new Canvas();
-  const document = { hidden: false, activeElement: null, createElement: () => canvas };
+  const document = Object.assign(new EventHub(), {
+    hidden: false, activeElement: null, body: new SceneElement(), documentElement: new SceneElement(),
+    blocker: null, querySelector: () => document.blocker, createElement: () => canvas,
+  });
+  document.documentElement.scrollHeight = 2900;
   class Worker extends EventHub {
     messages = [];
     terminations = 0;
@@ -297,7 +303,7 @@ function mainFixture(options = {}) {
     terminate() { this.terminations++; }
   }
   const module = { exports: {} };
-  runInNewContext(mainSource, {
+  const scope = {
     module, exports: module.exports, document, window, Element: SceneElement,
     HTMLCanvasElement: Canvas, OffscreenCanvas: options.noOffscreen ? undefined : class {},
     Worker: options.noWorker ? undefined : Worker, URL, setTimeout, clearTimeout,
@@ -305,10 +311,12 @@ function mainFixture(options = {}) {
     matchMedia: () => ({ matches: options.small === true }), devicePixelRatio: options.dpr || 1, innerHeight: 900,
     requestAnimationFrame(callback) { frames.set(++nextFrame, callback); return nextFrame; },
     cancelAnimationFrame(id) { frames.delete(id); },
-  }, { filename: "home-scene.ts" });
+  };
+  runInNewContext(mainSource, scope, { filename: "home-scene.ts" });
   return {
-    abort, node, canvas, section, main, shell, sword, poster, offscreen, workers, window, document, frames,
+    abort, node, canvas, section, main, shell, sword, poster, offscreen, workers, window, document, frames, scope,
     mount: () => module.exports.mountHomeScene(node, abort.signal),
+    mountSwords: () => module.exports.mountHomeSwords(sword, abort.signal),
     get worker() { return workers[0]; }, get transfers() { return transfers; }, get mainGlCalls() { return mainGlCalls; },
     flushFrames() {
       for (const [id, callback] of [...frames]) { frames.delete(id); callback(1000); }
@@ -437,18 +445,205 @@ test("main forwards bounded resize and pauses for focus, hidden state and offscr
   assertPosterOnly(fixture);
 });
 
-test("main fallback scroll work is frame-coalesced and removed on disposal", async () => {
+function assertSwordsDisposed(fixture) {
+  assert.equal(fixture.sword.dataset.swordsReady, undefined);
+  assert.equal(fixture.sword.dataset.swordsActive, undefined);
+  assert.equal(fixture.sword.properties.size, 0);
+  assert.equal(fixture.frames.size, 0);
+  assert.equal(fixture.window.listeners.size, 0);
+  assert.equal(fixture.document.listeners.size, 0);
+  assert.equal(getEventListeners(fixture.abort.signal, "abort").length, 0);
+}
+
+test("independent sword fallback follows document start, contact, end and reverse with one queued frame", () => {
   const fixture = mainFixture({ nativeTimeline: false });
-  const pending = fixture.mount();
-  fixture.worker.emit("message", { data: { type: "ready" } });
-  const controller = await pending;
+  const controller = fixture.mountSwords();
   assert.ok(controller);
+  const progress = () => fixture.sword.properties.get("--home-sword-progress");
+  assert.equal(fixture.sword.dataset.swordsReady, "true");
+  assert.equal(fixture.sword.dataset.swordsActive, "true");
+  assert.equal(progress(), "0.00000");
+  fixture.window.scrollY = 1000;
   fixture.window.emit("scroll");
   fixture.window.emit("scroll");
   assert.equal(fixture.frames.size, 1);
   fixture.flushFrames();
-  assert.ok(fixture.main.properties.has("--home-sword-approach"));
+  assert.equal(progress(), "0.50000");
+  for (const [scrollY, expected] of [[2000, "1.00000"], [500, "0.25000"], [-20, "0.00000"], [2100, "1.00000"]]) {
+    fixture.window.scrollY = scrollY;
+    fixture.window.emit("scroll");
+    fixture.flushFrames();
+    assert.equal(progress(), expected);
+  }
+  assert.equal(fixture.workers.length, 0);
+  assert.equal(fixture.mainGlCalls, 0);
   controller.dispose();
-  assert.equal(fixture.main.properties.size, 0);
+  assertSwordsDisposed(fixture);
+});
+
+test("sword resize recomputes progress using the current viewport and document height", () => {
+  const fixture = mainFixture({ nativeTimeline: false });
+  fixture.window.scrollY = 1000;
+  const controller = fixture.mountSwords();
+  assert.equal(fixture.sword.properties.get("--home-sword-progress"), "0.50000");
+  fixture.document.documentElement.scrollHeight = 4900;
+  fixture.window.emit("resize");
+  fixture.flushFrames();
+  assert.equal(fixture.sword.properties.get("--home-sword-progress"), "0.25000");
+  fixture.scope.innerHeight = 1900;
+  fixture.window.emit("resize");
+  fixture.flushFrames();
+  assert.equal(fixture.sword.properties.get("--home-sword-progress"), "0.33333");
+  fixture.document.documentElement.scrollHeight = 100;
+  fixture.window.scrollY = 0;
+  fixture.window.emit("resize");
+  fixture.flushFrames();
+  assert.equal(fixture.sword.properties.get("--home-sword-progress"), "0.00000");
+  controller.dispose();
+  assertSwordsDisposed(fixture);
+});
+
+test("hidden swords cancel work and restore the current document progress without resetting it", () => {
+  const fixture = mainFixture({ nativeTimeline: false });
+  fixture.window.scrollY = 1000;
+  const controller = fixture.mountSwords();
+  fixture.window.emit("scroll");
+  assert.equal(fixture.frames.size, 1);
+  fixture.document.hidden = true;
+  controller.setVisible(false);
+  assert.equal(fixture.sword.dataset.swordsActive, "false");
+  assert.equal(fixture.frames.size, 0);
+  fixture.window.scrollY = 1600;
+  fixture.window.emit("scroll");
+  assert.equal(fixture.frames.size, 0);
+  assert.equal(fixture.sword.properties.get("--home-sword-progress"), "0.50000");
+  fixture.document.hidden = false;
+  controller.setVisible(true);
+  assert.equal(fixture.sword.dataset.swordsActive, "true");
+  assert.equal(fixture.sword.properties.get("--home-sword-progress"), "0.80000");
+  controller.dispose();
+  assertSwordsDisposed(fixture);
+});
+
+for (const nativeTimeline of [false, true]) {
+  test(`sword ${nativeTimeline ? "native" : "fallback"} stage hides during keyboard focus and restores after blur`, () => {
+    const fixture = mainFixture({ nativeTimeline });
+    fixture.window.scrollY = 1000;
+    const controller = fixture.mountSwords();
+    const link = new SceneElement();
+    link.matches = selector => selector === ":focus-visible";
+    fixture.document.activeElement = link;
+    fixture.document.emit("focusin");
+    assert.equal(fixture.sword.dataset.swordsActive, "false");
+    fixture.window.emit("scroll");
+    assert.equal(fixture.frames.size, 0);
+    fixture.document.activeElement = fixture.document.body;
+    fixture.document.emit("focusout");
+    fixture.flushFrames();
+    assert.equal(fixture.sword.dataset.swordsActive, "true");
+    if (!nativeTimeline) assert.equal(fixture.sword.properties.get("--home-sword-progress"), "0.50000");
+    controller.dispose();
+    assertSwordsDisposed(fixture);
+  });
+
+  test(`sword ${nativeTimeline ? "native" : "fallback"} stage keeps pointer-focused buttons and the Motion control active`, () => {
+    const fixture = mainFixture({ nativeTimeline });
+    const controller = fixture.mountSwords();
+    const button = new SceneElement();
+    fixture.document.activeElement = button;
+    fixture.document.emit("focusin");
+    assert.equal(fixture.sword.dataset.swordsActive, "true");
+    fixture.window.scrollY = 1000;
+    fixture.window.emit("scroll");
+    fixture.flushFrames();
+    if (!nativeTimeline) assert.equal(fixture.sword.properties.get("--home-sword-progress"), "0.50000");
+    const toggle = new SceneElement();
+    toggle.matches = selector => selector === ":focus-visible";
+    toggle.closest = selector => selector === ".motion-toggle" ? toggle : null;
+    fixture.document.activeElement = toggle;
+    fixture.document.emit("focusin");
+    assert.equal(fixture.sword.dataset.swordsActive, "true");
+    controller.dispose();
+    assertSwordsDisposed(fixture);
+  });
+
+  for (const lock of ["menu", "modal", "fixed-body", "overflow-lock"]) {
+    test(`sword ${nativeTimeline ? "native" : "fallback"} stage suspends during ${lock} without recording a false scroll position`, () => {
+      const fixture = mainFixture({ nativeTimeline });
+      fixture.window.scrollY = 1000;
+      const controller = fixture.mountSwords();
+      if (lock === "fixed-body") fixture.document.body.style.position = "fixed";
+      else if (lock === "overflow-lock") fixture.document.body.style.overflow = "hidden";
+      else fixture.document.blocker = new SceneElement();
+      if (lock === "menu") fixture.document.activeElement = new SceneElement();
+      fixture.document.emit("click");
+      fixture.flushFrames();
+      assert.equal(fixture.sword.dataset.swordsActive, "false");
+      fixture.window.scrollY = 0;
+      fixture.window.emit("scroll");
+      assert.equal(fixture.frames.size, 0);
+      if (!nativeTimeline) assert.equal(fixture.sword.properties.get("--home-sword-progress"), "0.50000");
+      fixture.document.body.style.position = "";
+      fixture.document.body.style.overflow = "";
+      fixture.document.blocker = null;
+      fixture.window.scrollY = 1000;
+      fixture.document.emit("keydown");
+      fixture.flushFrames();
+      assert.equal(fixture.sword.dataset.swordsActive, "true");
+      if (!nativeTimeline) assert.equal(fixture.sword.properties.get("--home-sword-progress"), "0.50000");
+      controller.dispose();
+      assertSwordsDisposed(fixture);
+    });
+  }
+}
+
+test("native root timelines require neither scroll RAF nor JavaScript progress properties", () => {
+  const fixture = mainFixture();
+  const controller = fixture.mountSwords();
+  assert.equal(fixture.sword.dataset.swordsActive, "true");
+  fixture.window.emit("scroll");
+  fixture.window.emit("scroll");
+  assert.equal(fixture.frames.size, 0);
+  assert.equal(fixture.sword.properties.size, 0);
+  controller.dispose();
+  assertSwordsDisposed(fixture);
+});
+
+test("swords remain independent when hero Worker and offscreen canvas are unsupported", async () => {
+  const fixture = mainFixture({ nativeTimeline: false, noWorker: true, noOffscreen: true });
+  assert.equal(await fixture.mount(), null);
+  const controller = fixture.mountSwords();
+  assert.ok(controller);
+  fixture.window.scrollY = 1000;
+  fixture.window.emit("scroll");
+  fixture.flushFrames();
+  assert.equal(fixture.sword.properties.get("--home-sword-progress"), "0.50000");
+  assert.equal(fixture.workers.length, 0);
+  assert.equal(fixture.mainGlCalls, 0);
+  assert.deepEqual(fixture.node.children, [fixture.poster]);
+  fixture.abort.abort();
+  assertSwordsDisposed(fixture);
   assertPosterOnly(fixture);
+});
+
+test("Off or reduced-motion abort before sword mounting preserves static markup", () => {
+  const fixture = mainFixture({ nativeTimeline: false });
+  fixture.abort.abort();
+  assert.equal(fixture.mountSwords(), null);
+  assertSwordsDisposed(fixture);
+});
+
+test("sword abort cancels its pending frame and removes every listener, attribute and progress value", () => {
+  const fixture = mainFixture({ nativeTimeline: false });
+  const controller = fixture.mountSwords();
+  fixture.window.scrollY = 1000;
+  fixture.window.emit("scroll");
+  assert.equal(fixture.frames.size, 1);
+  fixture.abort.abort();
+  assertSwordsDisposed(fixture);
+  controller.dispose();
+  controller.setVisible(true);
+  fixture.window.emit("scroll");
+  fixture.document.emit("click");
+  assertSwordsDisposed(fixture);
 });

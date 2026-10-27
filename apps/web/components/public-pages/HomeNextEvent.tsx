@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import Image from "next/image";
-import { type GuildScheduleData, currentOrUpcomingEvent } from "@/lib/guild-schedule";
+import type { GuildScheduleData } from "@/lib/guild-schedule";
 import { useGuildSchedule } from "@/lib/events/use-guild-schedule";
 import { formatPublicDate } from "@/lib/public-date";
 
@@ -20,9 +20,11 @@ export function HomeNextEvent({
   emptyState: ReactNode;
 }) {
   const schedule = useGuildSchedule(scheduleData, referenceTime);
-  const event = currentOrUpcomingEvent(schedule.items, new Date(schedule.referenceTime));
+  const referenceTimeMs = Date.parse(schedule.referenceTime);
+  // The hook already sorts by start and ID; active cards precede future cards.
+  const event = schedule.items.find((card) => Date.parse(card.endIso) > referenceTimeMs);
   if (!event) return emptyState;
-  const current = Date.parse(event.startIso) <= Date.parse(schedule.referenceTime);
+  const current = Date.parse(event.startIso) <= referenceTimeMs;
   // The public schedule requires its generated date, clock range and timezone.
   const eventMeta = [formatPublicDate(new Date(event.date)), event.timeText, event.timezone].join(" • ");
 
@@ -33,11 +35,12 @@ export function HomeNextEvent({
           <Image
             id="featuredBulletinImage"
             className="home-featured__img"
-            src={event.image.replace(/^\.\//, "/")}
+            src={event.image}
             alt=""
             width={1600}
             height={640}
-            loading="lazy"
+            loading="eager"
+            fetchPriority="low"
             sizes={imageSizes}
           />
         </div>

@@ -17,6 +17,8 @@ let pathname = "/";
 let scheduleState;
 let spotlightFixture = null;
 let spotlightRequests = 0;
+let renderedImageProps = [];
+let telemetryRenders = { analytics: 0, speedInsights: 0 };
 const cache = new Map();
 
 // Compile the actual components in memory. No production fixture hooks, global
@@ -41,8 +43,9 @@ function loadComponentSource(filename) {
   const localRequire = (specifier) => {
     if (specifier === "react" && filename.endsWith("HomeBirthdaySplash.tsx")) return birthdayReact;
     if (specifier.endsWith(".css")) return {};
-    if (specifier === "next/link") return ({ children, ...props }) => React.createElement("a", props, children);
+    if (specifier === "next/link") return ({ children, prefetch: _prefetch, ...props }) => React.createElement("a", props, children);
     if (specifier === "next/image") return Object.assign((props) => {
+      renderedImageProps.push(props);
       const imageProps = { ...props };
       delete imageProps.fill;
       delete imageProps.priority;
@@ -50,6 +53,8 @@ function loadComponentSource(filename) {
       return React.createElement("img", imageProps);
     }, { getImageProps: (props) => ({ props }) });
     if (specifier === "next/navigation") return { usePathname: () => pathname };
+    if (specifier === "@vercel/analytics/next") return { Analytics: () => { telemetryRenders.analytics++; return null; } };
+    if (specifier === "@vercel/speed-insights/next") return { SpeedInsights: () => { telemetryRenders.speedInsights++; return null; } };
     if (specifier === "server-only") return {};
     if (specifier === "@/lib/supabase/spotlight") return { getCurrentSpotlightWinner: async () => {
       spotlightRequests++;
@@ -71,11 +76,13 @@ function loadComponentSource(filename) {
 
 const { SiteHeader } = loadComponentSource(resolve(webRoot, "components/SiteHeader.tsx"));
 const { SiteFooter } = loadComponentSource(resolve(webRoot, "components/SiteFooter.tsx"));
+const { SiteRouteShell } = loadComponentSource(resolve(webRoot, "components/SiteRouteShell.tsx"));
 const { HomeNextEvent } = loadComponentSource(resolve(webRoot, "components/public-pages/HomeNextEvent.tsx"));
+const { EventsSchedule } = loadComponentSource(resolve(webRoot, "components/public-pages/EventsSchedule.tsx"));
 const { getHomeRecruitment } = loadComponentSource(resolve(webRoot, "lib/home-recruitment.ts"));
 const { HomePvpHighlights } = loadComponentSource(resolve(webRoot, "components/home/HomePvpHighlights.tsx"));
 const { publicGuildSchedule } = loadComponentSource(resolve(webRoot, "lib/events/public-schedule.ts"));
-const { websiteEventCardsFromSchedule } = loadComponentSource(resolve(webRoot, "lib/guild-schedule.ts"));
+const { websiteEventCardsFromSchedule, currentOrUpcomingEvent } = loadComponentSource(resolve(webRoot, "lib/guild-schedule.ts"));
 const publicUrls = JSON.parse(readFileSync(resolve(webRoot, "config/public-urls.json"), "utf8"));
 const scheduleAuthority = JSON.parse(readFileSync(resolve(webRoot, "public/data/guild-schedule.json"), "utf8"));
 const homeData = JSON.parse(readFileSync(resolve(webRoot, "public/data/home.json"), "utf8"));
@@ -84,6 +91,47 @@ const eventImageSizes = "(max-width: 767px) 100vw, 700px";
 function unexpectedRequest() {
   throw new Error("rendering navigation must not initiate auth, moderator, or spinner requests");
 }
+
+test("Home serves exact responsive background candidates with the original fallback and preserves other routes", () => {
+  const { getImageProps } = requireWeb("next/image");
+  for (const route of ["/", "/join", "/spinner", "/spinner/live"]) {
+    pathname = route;
+    renderedImageProps = [];
+    telemetryRenders = { analytics: 0, speedInsights: 0 };
+    const html = renderToStaticMarkup(React.createElement(SiteRouteShell, { recruitmentStatus: "open" }, "Shell fixture"));
+    const background = renderedImageProps.find((props) => props.className === "bg-photo__image");
+    if (route.startsWith("/spinner")) {
+      assert.equal(background, undefined);
+      assert.equal(html, "Shell fixture");
+      assert.deepEqual(telemetryRenders, { analytics: 0, speedInsights: 0 });
+      continue;
+    }
+    if (route === "/") {
+      assert.equal(background, undefined);
+      const tag = html.match(/<img\b[^>]*class="bg-photo__image"[^>]*>/)?.[0];
+      assert.ok(tag);
+      const attrs = Object.fromEntries([...tag.matchAll(/([A-Za-z]+)="([^"]*)"/g)].map((match) => [match[1], match[2]]));
+      assert.equal(attrs.src, "/assets/bg/wuxia-bg.webp");
+      assert.equal(attrs.srcSet, [640, 828, 1080, 1200, 1536].map((width) => `/assets/home/background/wuxia-bg-${width}.webp ${width}w`).join(", "));
+      assert.equal(attrs.sizes, "100vw");
+      assert.equal(attrs.loading, "eager");
+      assert.equal(attrs.fetchPriority, "low");
+      assert.equal(attrs.decoding, "async");
+      assert.equal(attrs.alt, "");
+      assert.equal(attrs.width, "1536");
+      assert.equal(attrs.height, "1024");
+      assert.equal(attrs.style, "position:absolute;height:100%;width:100%;left:0;top:0;right:0;bottom:0");
+      assert.doesNotMatch(html, /<picture|<source/);
+    } else {
+      assert.ok(background);
+      const { props } = getImageProps(background);
+      assert.deepEqual(props, getImageProps({ src: "/assets/bg/wuxia-bg.webp", alt: "", className: "bg-photo__image", fill: true, sizes: "100vw", loading: "eager" }).props);
+      assert.ok(props.srcSet.includes("/_next/image?"));
+    }
+    assert.deepEqual(telemetryRenders, { analytics: 1, speedInsights: 1 });
+  }
+  pathname = "/";
+});
 
 test("PvP keeps its empty state honest and loads no player or invented cards", () => {
   const html = renderToStaticMarkup(React.createElement(HomePvpHighlights, { clips: [] }));
@@ -201,6 +249,10 @@ test("HomeNextEvent renders the genuine upcoming event and versioned public cove
   assert.match(html, /id="featuredBulletinTitle"[^>]*>Guild Party</);
   assert.ok(html.includes(`/assets/img/discord-events/guild-party.png?v=${scheduleAuthority.discordCoverVersion}`));
   assert.ok(html.includes(`sizes="${eventImageSizes}"`));
+  const cover = html.match(/<img\b[^>]*id="featuredBulletinImage"[^>]*>/)?.[0];
+  assert.ok(cover, "The real event cover remains in server-rendered content");
+  assert.match(cover, /loading="eager"/);
+  assert.match(cover, /fetchPriority="low"/);
   assert.match(html, /9:30 PM/);
   assert.match(html, /UTC\+8/);
   assert.equal(html.includes("discordEventId"), false);
@@ -231,11 +283,101 @@ test("HomeNextEvent empty schedules forward the supplied fallback without stale 
   assert.equal(html.includes("Guild Party"), false);
 });
 
+test("HomeNextEvent matches shared selection for preordered cards, overlapping times and rollover", () => {
+  const tiedSchedule = {
+    timezone: publicGuildSchedule.timezone,
+    monthly: {},
+    weekly: ["zeta", "alpha"].map((id) => ({ id, title: `Fixture ${id}`, days: [4], startTime: "23:00", endTime: "01:00", discord: true, discordCoverImage: `/assets/img/discord-events/${id}.png?v=fixture` })),
+  };
+  const instants = ["2026-12-31T15:00:00.000Z", "2026-12-31T16:59:59.999Z", "2026-12-31T17:00:00.000Z"];
+  for (let day = 1; day <= 14; day += 1) {
+    for (const hour of [0, 12, 13.5, 14, 15, 16, 23]) {
+      instants.push(new Date(Date.UTC(2026, 10, day) + hour * 3600000).toISOString());
+    }
+  }
+  for (const schedule of [publicGuildSchedule, tiedSchedule]) {
+    for (const referenceTime of instants) {
+      const now = new Date(referenceTime);
+      const expected = currentOrUpcomingEvent(websiteEventCardsFromSchedule(schedule, now), now);
+      const html = renderEvent(referenceTime, schedule);
+      const title = renderToStaticMarkup(React.createElement("span", null, expected.title)).slice(6, -7);
+      assert.ok(html.includes(`id="featuredBulletinTitle" class="home-title">${title}</h3>`), referenceTime);
+      assert.ok(html.includes(`>${Date.parse(expected.startIso) <= now.getTime() ? "Current Event" : "Next Event"}</span>`), referenceTime);
+      assert.ok(html.includes(`src="${expected.image}"`), referenceTime);
+    }
+  }
+});
+
+test("EventsSchedule keeps identical rendered covers and board when the server resolves public paths", () => {
+  const priorSchedule = structuredClone(publicGuildSchedule);
+  for (const item of [...Object.values(priorSchedule.monthly), ...priorSchedule.weekly]) {
+    item.discordCoverImage = `.${item.discordCoverImage}`;
+  }
+  const featured = JSON.parse(readFileSync(resolve(webRoot, "public/data/events.json"), "utf8")).featured;
+  for (const referenceTime of ["2026-10-09T13:29:59.999Z", "2026-10-09T13:30:00.000Z", "2026-10-09T14:00:00.000Z", "2026-12-31T23:59:59.999Z"]) {
+    const render = (scheduleData) => {
+      scheduleState = { referenceTime, items: websiteEventCardsFromSchedule(scheduleData, new Date(referenceTime)) };
+      return renderToStaticMarkup(React.createElement(EventsSchedule, { referenceTime, featured, scheduleData }));
+    };
+    const html = render(publicGuildSchedule);
+    assert.equal(html, render(priorSchedule), referenceTime);
+    assert.match(html, /class="events-featured__img"/);
+    assert.match(html, /class="events-list__image"/);
+    assert.match(html, /\/assets\/img\/discord-events\//);
+  }
+});
+
 function findElement(node, id) {
   if (Array.isArray(node)) return node.map((child) => findElement(child, id)).find(Boolean);
   if (!React.isValidElement(node)) return undefined;
   return node.props.id === id ? node : findElement(node.props.children, id);
 }
+
+test("Home keeps its approved compressed poster intact with one eager high-priority preload", () => {
+  const { default: Home } = loadComponentSource(resolve(webRoot, "app/page.tsx"));
+  const hero = findElement(Home(), "heroImage");
+  assert.ok(hero);
+  assert.equal(hero.props.unoptimized, true);
+  assert.equal(hero.props.width, 1344);
+  assert.equal(hero.props.height, 490);
+  assert.equal(hero.props.loading, "eager");
+  assert.equal(hero.props.fetchPriority, "high");
+  const { default: NextImage, getImageProps } = requireWeb("next/image");
+  const { props } = getImageProps(hero.props);
+  assert.equal(props.src, "/assets/home/hero/cherry-valley-dawn/cherry-valley-panorama-1344.webp");
+  assert.equal(props.srcSet, undefined);
+  const html = renderToStaticMarkup(React.createElement(NextImage, hero.props));
+  const preloads = html.match(/<link\b[^>]*rel="preload"[^>]*as="image"[^>]*>/g) || [];
+  assert.equal(preloads.length, 1);
+  assert.ok(preloads[0].includes(`href="${props.src}"`));
+  assert.match(preloads[0], /fetchPriority="high"/);
+  assert.doesNotMatch(html, /\/_next\/image\?/);
+  assert.ok(readFileSync(resolve(webRoot, `public${props.src}`)).length <= 80 * 1024);
+});
+
+test("fixed visible sword images are eager at Low priority and keep one unchanged artwork source", () => {
+  const { default: Home } = loadComponentSource(resolve(webRoot, "app/page.tsx"));
+  const images = [];
+  const visit = (node) => {
+    if (Array.isArray(node)) return node.forEach(visit);
+    if (!React.isValidElement(node)) return;
+    if (node.type === "img" && node.props.src === "/assets/home/transitions/sword-duel/forged-jian-1024.webp") images.push(node);
+    visit(node.props.children);
+  };
+  visit(Home());
+  assert.equal(images.length, 4);
+  for (const { props } of images) {
+    assert.equal(props.loading, "eager");
+    assert.equal(props.fetchPriority, "low");
+    assert.equal(props.decoding, "async");
+    assert.equal(props.width, 1024);
+    assert.equal(props.height, 118);
+    assert.equal(props.alt, "");
+  }
+  const html = renderToStaticMarkup(React.createElement(React.Fragment, null, ...images));
+  assert.equal((html.match(/<img\b/g) || []).length, 4);
+  assert.doesNotMatch(html, /<link\b[^>]*rel="preload"/);
+});
 
 test("disabled celebration stays absent; enabled static frame and copy remain server-owned", async () => {
   const { default: Home } = loadComponentSource(resolve(webRoot, "app/page.tsx"));

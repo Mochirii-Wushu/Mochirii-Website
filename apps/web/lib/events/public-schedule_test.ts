@@ -27,7 +27,7 @@ function publicFields(card: WebsiteEventCard) {
   return { id, title, date, days, dayText, startTime, endTime, startIso, endIso, timeText, timezone, location, href, summary, discord };
 }
 
-test("the compact public projection preserves schedule behavior and versions only cover URLs", () => {
+test("the compact public projection preserves schedule behavior and resolves versioned cover URLs", () => {
   for (const instant of [
     "2026-10-09T21:59:59.999+08:00", "2026-10-09T22:00:00+08:00",
     "2026-10-09T22:59:59.999+08:00", "2026-10-09T23:00:00+08:00",
@@ -44,6 +44,7 @@ test("the compact public projection preserves schedule behavior and versions onl
     const projected = websiteEventCardsFromSchedule(publicGuildSchedule, now);
     assert.deepEqual(projected.map(publicFields), expected.map(publicFields), instant);
     for (let index = 0; index < projected.length; index += 1) {
+      assert.match(projected[index].image, /^\/assets\/img\/discord-events\//);
       const actual = new URL(projected[index].image, "https://mochirii.com");
       const original = new URL(expected[index].image, "https://mochirii.com");
       assert.equal(actual.origin, original.origin);
@@ -63,6 +64,7 @@ test("the browser projection excludes streams, the inactive raffle and Discord m
   assert.deepEqual(monthly.map((item) => item.id), ["monthly-gathering"]);
   assert.equal(monthly[0].startDayOffset, 1);
   for (const item of [...monthly, ...(publicGuildSchedule.weekly || [])]) {
+    assert.match(item.discordCoverImage || "", /^\/assets\/img\/discord-events\//);
     for (const field of ["discordEventId", "discordDuplicateEventIds", "discordRecurrenceRule", "discordLocation"]) {
       assert.equal(field in item, false);
     }

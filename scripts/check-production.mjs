@@ -3835,6 +3835,18 @@ const PREVIEW3_FALLBACK_SUMMARY = "Each month, one active website member is sele
 // Active clip publication requires a new reviewed complete graph seal; an empty
 // cleared-media manifest never grants permission for arbitrary video markup.
 const PREVIEW4_DOCUMENT_SEALS = Object.freeze({ home: Object.freeze(["A47C773806F6FCF187AC1B96A2E5C59559B05DF6AF72FCE0AF084E0D9D365A57", "A6005D2BED585E619AD6FB54FC8DD3175284B61C75B8B509CE9E21355D7A4851"]) });
+// This reviewed visual revision is an independent closed profile. Retain the
+// original profile and its two-digest bound rather than enlarging either.
+const PREVIEW4_VISUAL_REVISION_SEALS = Object.freeze({
+  home: "6C3955B2F9C6D178E9A85A2C9B978D819681B568D0747FF1FBEC809CE23678FF",
+});
+// Native Home delivery has its own complete document/Flight seal and public
+// schedule projection. Only this private object selects its root-relative covers.
+const PREVIEW4_NATIVE_DELIVERY_SEALS = Object.freeze({
+  home: "FAB5D9739AA93F30C29168DA8983556DB032CD1B211D0CA9AD4C3E78B902BEB8",
+});
+const PREVIEW4_NATIVE_DELIVERY_SCHEDULE_SHA256 =
+  "63B52BE701306E728EEEDD729DDBAE60A5E2CA860B370F03582847B8FC3F8C60";
 const PREVIEW4_PROFILE_IDENTITY = Symbol("sealed-preview-4");
 const PREVIEW4_VECTOR_URLS = new Set([
   "/assets/home/icons/arrow-right.svg", "/assets/home/icons/discord-symbol-white.svg",
@@ -3861,6 +3873,10 @@ function canonicalizePreview4Document(html, resourceProfile, homeRuntime) {
   return canonicalizeSealedPresentationDocument(html, resourceProfile, homeRuntime, PREVIEW4_DOCUMENT_SEALS);
 }
 
+function canonicalizePreview4NativeDeliveryDocument(html, resourceProfile, homeRuntime) {
+  return canonicalizeSealedPresentationDocument(html, resourceProfile, homeRuntime, PREVIEW4_NATIVE_DELIVERY_SEALS);
+}
+
 function canonicalizeSealedPresentationDocument(html, resourceProfile, homeRuntime, seals) {
   if (typeof html !== "string" || Buffer.byteLength(html) > PRODUCTION_CHECK_LIMITS.htmlBytes
     || !Object.hasOwn(seals, resourceProfile)
@@ -3884,7 +3900,8 @@ function canonicalizeSealedPresentationDocument(html, resourceProfile, homeRunti
     || nodes.some(n => PRODUCTION_REJECTED_ELEMENTS.has(n.tag.name) && n.tag.name !== "audio")
     || comments.some(c => !PRODUCTION_SAFE_COMMENT_BODIES.has(c.text))) return null;
   const documentPath = {home: "/", recruitment: "/recruitment", privacy: "/privacy", deletion: "/meta-data-deletion"}[resourceProfile];
-  const presentationProfile = seals === PREVIEW4_DOCUMENT_SEALS ? PREVIEW4_PROFILE_IDENTITY : null;
+  const nativeDelivery = seals === PREVIEW4_NATIVE_DELIVERY_SEALS;
+  const presentationProfile = seals === PREVIEW4_DOCUMENT_SEALS || nativeDelivery ? PREVIEW4_PROFILE_IDENTITY : null;
   const namespace = readActiveProductionNextStaticNamespace(html, {documentUrl: "https://mochirii.com" + documentPath, presentationProfile});
   if (!namespace) return null;
   const edits = [], nextIds = new Set();
@@ -3938,7 +3955,8 @@ function canonicalizeSealedPresentationDocument(html, resourceProfile, homeRunti
       || !Number.isFinite(time) || new Date(time).toISOString() !== eventProps.referenceTime
       || time < homeRuntime.requestStartedAtMs - PRODUCTION_HOME_CLOCK_SKEW_MS
       || time > homeRuntime.responseReceivedAtMs + PRODUCTION_HOME_CLOCK_SKEW_MS
-      || createHash("sha256").update(JSON.stringify(eventProps.scheduleData)).digest("hex").toUpperCase() !== PRODUCTION_HOME_PUBLIC_SCHEDULE_SHA256) return null;
+      || createHash("sha256").update(JSON.stringify(eventProps.scheduleData)).digest("hex").toUpperCase()
+        !== (nativeDelivery ? PREVIEW4_NATIVE_DELIVERY_SCHEDULE_SHA256 : PRODUCTION_HOME_PUBLIC_SCHEDULE_SHA256)) return null;
     const now = new Date(time);
     const {currentOrUpcomingEvent, websiteEventCardsFromSchedule, formatPublicDate} = getPreview3ScheduleHelpers();
     const event = currentOrUpcomingEvent(websiteEventCardsFromSchedule(eventProps.scheduleData, now), now);
@@ -4026,8 +4044,12 @@ function readSealedPreview3Document(html, {resourceProfile, homeRuntime, reportD
 }
 
 function readSealedPreview4Document(html, {resourceProfile, homeRuntime, reportDiagnostic}) {
+  const nativeProfile = canonicalizePreview4NativeDeliveryDocument(html, resourceProfile, homeRuntime);
+  const nativeDocument = readSealedPresentationDocument(nativeProfile, html, resourceProfile, PREVIEW4_NATIVE_DELIVERY_SEALS, () => {});
+  if (nativeDocument) return nativeDocument;
   const profile = canonicalizePreview4Document(html, resourceProfile, homeRuntime);
-  return readSealedPresentationDocument(profile, html, resourceProfile, PREVIEW4_DOCUMENT_SEALS, reportDiagnostic);
+  return readSealedPresentationDocument(profile, html, resourceProfile, PREVIEW4_VISUAL_REVISION_SEALS, () => {})
+    || readSealedPresentationDocument(profile, html, resourceProfile, PREVIEW4_DOCUMENT_SEALS, reportDiagnostic);
 }
 
 function readSealedPresentationDocument(profile, html, resourceProfile, seals, reportDiagnostic) {

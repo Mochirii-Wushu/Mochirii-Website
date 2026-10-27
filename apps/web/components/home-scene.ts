@@ -18,22 +18,15 @@ export async function mountHomeScene(node: HTMLElement, signal: AbortSignal): Pr
   catch { return null; }
 
   const section = node.closest<HTMLElement>(".home-hero");
-  const main = node.closest<HTMLElement>("main");
-  const shell = node.closest<HTMLElement>(".site-shell");
-  const event = main?.querySelector<HTMLElement>(".home-sword-duel");
-  const nativeTimeline = CSS.supports("animation-timeline: view()");
   let focused = !!section?.contains(document.activeElement) && !document.activeElement?.closest(".motion-toggle");
-  let visible = false, ready = false, disposed = false, scrollFrame = 0;
+  let visible = false, ready = false, disposed = false;
   let resolveMount: (controller: HomeSceneController | null) => void;
   const mounted = new Promise<HomeSceneController | null>(resolve => { resolveMount = resolve; });
 
   const dispose = () => {
     if (disposed) return;
     disposed = true;
-    cancelAnimationFrame(scrollFrame);
     window.removeEventListener("resize", resize);
-    window.removeEventListener("scroll", requestScroll);
-    shell?.removeEventListener("motionvisibility", requestScroll);
     section?.removeEventListener("focusin", focusIn);
     section?.removeEventListener("focusout", focusOut);
     worker.removeEventListener("message", message);
@@ -42,7 +35,6 @@ export async function mountHomeScene(node: HTMLElement, signal: AbortSignal): Pr
     signal.removeEventListener("abort", dispose);
     node.removeAttribute("data-scene-ready");
     node.removeAttribute("data-scene-active");
-    for (const property of ["--home-scene-progress", "--home-scene-emphasis", "--home-sword-approach", "--home-sword-contact"]) main?.style.removeProperty(property);
     canvas.remove();
     // Terminating the dedicated worker releases its context, pending loads and RAF.
     worker.terminate();
@@ -57,19 +49,8 @@ export async function mountHomeScene(node: HTMLElement, signal: AbortSignal): Pr
     node.append(canvas);
     node.dataset.sceneReady = "true";
     run();
-    resolveMount({ setVisible(value) { visible = value; run(); requestScroll(); }, dispose });
+    resolveMount({ setVisible(value) { visible = value; run(); }, dispose });
   }
-  function scroll() {
-    scrollFrame = 0;
-    if (disposed || nativeTimeline || !main || !event || event.dataset.sceneVisible !== "true") return;
-    const box = event.getBoundingClientRect();
-    const progress = Math.max(0, Math.min(1, (innerHeight - box.top) / (innerHeight + box.height)));
-    main.style.setProperty("--home-scene-progress", progress.toFixed(4));
-    main.style.setProperty("--home-scene-emphasis", Math.sin(progress * Math.PI).toFixed(4));
-    main.style.setProperty("--home-sword-approach", (progress < .5 ? progress * 2 : 1 - (progress - .5) * 1.74).toFixed(4));
-    main.style.setProperty("--home-sword-contact", (Math.max(0, 1 - Math.abs(progress - .5) / .04) * .65).toFixed(4));
-  }
-  function requestScroll() { if (!disposed && !nativeTimeline && !scrollFrame) scrollFrame = requestAnimationFrame(scroll); }
   function geometry() {
     const box = node.getBoundingClientRect();
     const scale = Math.min(devicePixelRatio || 1, 2);
@@ -85,7 +66,6 @@ export async function mountHomeScene(node: HTMLElement, signal: AbortSignal): Pr
   function resize() {
     if (disposed) return;
     worker.postMessage({ type: "resize", ...geometry() });
-    requestScroll();
   }
   function run() {
     if (disposed) return;
@@ -104,10 +84,6 @@ export async function mountHomeScene(node: HTMLElement, signal: AbortSignal): Pr
   worker.addEventListener("messageerror", failed);
   signal.addEventListener("abort", dispose, { once: true });
   window.addEventListener("resize", resize, { passive: true });
-  if (!nativeTimeline) {
-    window.addEventListener("scroll", requestScroll, { passive: true });
-    shell?.addEventListener("motionvisibility", requestScroll);
-  }
   section?.addEventListener("focusin", focusIn);
   section?.addEventListener("focusout", focusOut);
   try {
@@ -118,4 +94,62 @@ export async function mountHomeScene(node: HTMLElement, signal: AbortSignal): Pr
     worker.postMessage({ type: "init", canvas: offscreen, ...frame, small: matchMedia("(max-width: 680px)").matches }, [offscreen]);
   } catch { dispose(); }
   return mounted;
+}
+
+// This stage follows the document, independently of hero paint or GPU support.
+export function mountHomeSwords(node: HTMLElement, signal: AbortSignal): HomeSceneController | null {
+  if (signal.aborted) return null;
+  const nativeTimeline = typeof CSS !== "undefined" && CSS.supports("animation-timeline: scroll(root block)");
+  let disposed = false, visible = true, frame = 0;
+  function update() {
+    frame = 0;
+    if (disposed) return;
+    const focus = document.activeElement;
+    const keyboardFocus = focus instanceof Element && focus.matches(":focus-visible") && !focus.closest(".motion-toggle");
+    const active = visible && !document.hidden && document.body.style.position !== "fixed"
+      && document.body.style.overflow !== "hidden"
+      && !keyboardFocus
+      && !document.querySelector('[aria-modal="true"]:not([hidden]),[data-dropdown][data-open="true"]');
+    node.dataset.swordsActive = String(active);
+    if (active && !nativeTimeline) {
+      const distance = Math.max(1, document.documentElement.scrollHeight - innerHeight);
+      const progress = Math.max(0, Math.min(1, window.scrollY / distance));
+      node.style.setProperty("--home-sword-progress", progress.toFixed(5));
+    }
+  }
+  function sync() {
+    cancelAnimationFrame(frame);
+    update();
+  }
+  function request() {
+    if (disposed) return;
+    if (!visible || document.hidden) { sync(); return; }
+    if (!frame) frame = requestAnimationFrame(update);
+  }
+  function scroll() { if (node.dataset.swordsActive === "true") request(); }
+  const dispose = () => {
+    if (disposed) return;
+    disposed = true;
+    cancelAnimationFrame(frame);
+    window.removeEventListener("resize", request);
+    window.removeEventListener("scroll", scroll);
+    document.removeEventListener("focusin", sync);
+    document.removeEventListener("focusout", request);
+    document.removeEventListener("click", request);
+    document.removeEventListener("keydown", request);
+    signal.removeEventListener("abort", dispose);
+    node.removeAttribute("data-swords-ready");
+    node.removeAttribute("data-swords-active");
+    node.style.removeProperty("--home-sword-progress");
+  };
+  window.addEventListener("resize", request, { passive: true });
+  if (!nativeTimeline) window.addEventListener("scroll", scroll, { passive: true });
+  document.addEventListener("focusin", sync);
+  document.addEventListener("focusout", request);
+  document.addEventListener("click", request);
+  document.addEventListener("keydown", request);
+  signal.addEventListener("abort", dispose, { once: true });
+  sync();
+  node.dataset.swordsReady = "true";
+  return { setVisible(value) { visible = value; sync(); }, dispose };
 }

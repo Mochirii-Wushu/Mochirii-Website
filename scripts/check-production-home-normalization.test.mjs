@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { createRequire } from "node:module";
 import test from "node:test";
 import {
   canonicalizeProductionFlightResourceEnvelopeStream as canonicalize,
@@ -11,11 +13,17 @@ import {
 const checkerUrl = new URL("./check-production.mjs", import.meta.url);
 const privateTestSource = readFileSync(checkerUrl, "utf8")
   .replaceAll("import.meta.url", JSON.stringify(checkerUrl.href))
-  + "\nexport {canonicalizeProductionFlightResourceEnvelopeStreamWithProfile, productionDocumentPolicyForFlight, PRODUCTION_DOCUMENT_POLICIES};\n";
+  + "\nexport {canonicalizeProductionFlightResourceEnvelopeStreamWithProfile, productionDocumentPolicyForFlight, PRODUCTION_DOCUMENT_POLICIES, productionDocumentDigestMatches, PREVIEW4_DOCUMENT_SEALS, PREVIEW4_VISUAL_REVISION_SEALS, PREVIEW4_NATIVE_DELIVERY_SEALS, PREVIEW4_NATIVE_DELIVERY_SCHEDULE_SHA256, canonicalizeSealedPresentationDocument};\n";
 const {
   canonicalizeProductionFlightResourceEnvelopeStreamWithProfile: normalizeWithProfile,
   productionDocumentPolicyForFlight: selectPolicy,
   PRODUCTION_DOCUMENT_POLICIES: productionPolicies,
+  productionDocumentDigestMatches: digestMatches,
+  PREVIEW4_DOCUMENT_SEALS: preview4OriginalSeals,
+  PREVIEW4_VISUAL_REVISION_SEALS: preview4VisualRevisionSeals,
+  PREVIEW4_NATIVE_DELIVERY_SEALS: preview4NativeDeliverySeals,
+  PREVIEW4_NATIVE_DELIVERY_SCHEDULE_SHA256: nativeScheduleSha256,
+  canonicalizeSealedPresentationDocument,
 } = await import("data:text/javascript;base64," + Buffer.from(privateTestSource).toString("base64"));
 
 // Typed synthetic fixtures model the exact graphs independently observed in clean
@@ -284,4 +292,170 @@ test("source-derived policies retain exact header and source-group pairings", ()
   assert.equal(productionDocumentProfileMatches("home",
     "675E803BB871598DAD4CE0D1A3A64CB1ED1D30FB7616932CEA63CF25A98530F0",
     "3ED2476C6AE21876EADBE86B73FE0615C8FB8E1350C5E8CD9C8B34EF5B971820"), true);
+});
+
+test("the P4 visual revision has a separate closed seal and retains both original presentation seals", () => {
+  const original = [
+    "A47C773806F6FCF187AC1B96A2E5C59559B05DF6AF72FCE0AF084E0D9D365A57",
+    "A6005D2BED585E619AD6FB54FC8DD3175284B61C75B8B509CE9E21355D7A4851",
+  ];
+  const revision = "6C3955B2F9C6D178E9A85A2C9B978D819681B568D0747FF1FBEC809CE23678FF";
+  assert.deepEqual(preview4OriginalSeals, { home: original });
+  assert.deepEqual(preview4VisualRevisionSeals, { home: revision });
+  assert.ok(Object.isFrozen(preview4OriginalSeals));
+  assert.ok(Object.isFrozen(preview4OriginalSeals.home));
+  assert.ok(Object.isFrozen(preview4VisualRevisionSeals));
+  for (const digest of original) {
+    assert.equal(digestMatches(preview4OriginalSeals.home, digest), true);
+    assert.equal(digestMatches(preview4VisualRevisionSeals.home, digest), false);
+  }
+  assert.equal(digestMatches(preview4VisualRevisionSeals.home, revision), true);
+  assert.equal(digestMatches(preview4OriginalSeals.home, revision), false);
+  assert.equal(digestMatches(preview4VisualRevisionSeals.home, "0".repeat(64)), false);
+});
+
+test("separate P4 profiles do not enlarge the two-digest or two-policy rejection bounds", () => {
+  const combined = [...preview4OriginalSeals.home, preview4VisualRevisionSeals.home];
+  for (const digest of combined) assert.equal(digestMatches(combined, digest), false);
+  assert.equal(digestMatches([], combined[0]), false);
+  assert.equal(digestMatches([combined[0], combined[0]], combined[0]), false);
+  for (const invalid of [combined[0].toLowerCase(), combined[0].slice(1), combined[0] + " "]) {
+    assert.equal(digestMatches(invalid, invalid), false);
+  }
+  const header = "A".repeat(64), resources = "B".repeat(64);
+  const pair = { header, resources };
+  assert.equal(productionDocumentPolicyMatches({ variants: [pair, pair] }, header, resources), true);
+  assert.equal(productionDocumentPolicyMatches({ variants: [pair, pair, pair] }, header, resources), false);
+});
+
+// These small synthetic documents exercise the canonicalizer independently of
+// the complete captured-source seal. They never qualify as a sealed document.
+const rootRelativePublicSchedule = structuredClone(publicSchedule);
+for (const item of [...Object.values(rootRelativePublicSchedule.monthly), ...rootRelativePublicSchedule.weekly]) {
+  item.discordCoverImage = item.discordCoverImage.replace(/^\.\//, "/");
+}
+const nativeClock = "2026-10-27T03:25:39.292Z";
+const hash = value => createHash("sha256").update(value).digest("hex").toUpperCase();
+const htmlEscape = value => String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;")
+  .replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#x27;");
+const backgroundCandidates = [640, 828, 1080, 1200, 1536]
+  .map(width => `/assets/home/background/wuxia-bg-${width}.webp ${width}w`).join(", ");
+const scheduleHelpers = createRequire(import.meta.url)("../apps/web/lib/guild-schedule.ts");
+const {formatPublicDate} = createRequire(import.meta.url)("../apps/web/lib/public-date.ts");
+
+function sealedHomeFixture({scheduleData = rootRelativePublicSchedule, clock = nativeClock} = {}) {
+  const now = new Date(clock);
+  const event = scheduleHelpers.currentOrUpcomingEvent(scheduleHelpers.websiteEventCardsFromSchedule(scheduleData, now), now);
+  assert.ok(event);
+  const summary = "Each month, one active website member is selected for the guild Spotlight.";
+  const spotlight = element("div", {id: "spotlightCard", children: [
+    element("h3", {id: "spotlightTitle", children: "Member Spotlight"}),
+    element("p", {id: "spotlightSummary", children: summary}),
+    element("a", {href: "/spotlight", "aria-label": "Open the Member Spotlight", children: "View Spotlight"}),
+  ]});
+  const root = {P: null, c: [], q: "", i: false, f: [element("$L1", {
+    referenceTime: clock, scheduleData, imageSizes: "740px", emptyState: null,
+    children: element("span", {className: "home-link", children: "View event"}),
+  }), "$2"], m: "", G: [], S: false, h: null, r: "", s: "", a: "", l: "", p: "", d: "", b: "0123456789abcdefghijk"};
+  const flight = `1:I${JSON.stringify([94654, chunks, "HomeNextEvent"])}\n0:${JSON.stringify(root)}\n2:${JSON.stringify(spotlight)}\n`;
+  const cover = event.image.replace(/^\.\//, "/");
+  const image = `/_next/image?url=${encodeURIComponent(cover)}&amp;w=640&amp;q=75`;
+  const date = [formatPublicDate(new Date(event.date)), event.timeText, event.timezone].join(" • ");
+  return '<!doctype html><html><head></head><body><div class="site-shell"><header class="site-header"></header>'
+    + '<main id="main"><img class="bg-photo__image" srcset="' + backgroundCandidates + '" sizes="100vw" loading="eager" decoding="async" fetchpriority="low" src="/assets/bg/wuxia-bg.webp">'
+    + '<img src="/assets/home/icons/arrow-right.svg" alt=""><a id="featuredBulletin" href="/events">'
+    + '<span id="featuredBulletinType">' + (Date.parse(event.startIso) <= now.getTime() ? "Current Event" : "Next Event") + '</span>'
+    + '<h3 id="featuredBulletinTitle">' + htmlEscape(event.title) + '</h3><p id="featuredBulletinDate">' + htmlEscape(date) + '</p>'
+    + '<img id="featuredBulletinImage" src="' + image + '" srcset="' + image + ' 640w"></a>'
+    + '<div id="spotlightCard"><h3 id="spotlightTitle">Member Spotlight</h3><p id="spotlightSummary">' + summary + '</p>'
+    + '<a href="/spotlight" aria-label="Open the Member Spotlight">View Spotlight</a></div></main><footer></footer></div>'
+    + '<script>(self.__next_f=self.__next_f||[]).push([0])</script><script>self.__next_f.push('
+    + JSON.stringify([1, flight]).replaceAll("<", "\\u003c") + ')</script></body></html>';
+}
+
+const canonicalNative = (html, clock = nativeClock, seals = preview4NativeDeliverySeals) =>
+  canonicalizeSealedPresentationDocument(html, "home", contextFor(clock), seals)?.canonical ?? null;
+
+test("native Home delivery has one independent exact seal and identity-bound public projection", () => {
+  const digest = "FAB5D9739AA93F30C29168DA8983556DB032CD1B211D0CA9AD4C3E78B902BEB8";
+  assert.deepEqual(preview4NativeDeliverySeals, {home: digest});
+  assert.ok(Object.isFrozen(preview4NativeDeliverySeals));
+  assert.equal(hash(JSON.stringify(publicSchedule)), "F21C2A3EEE0AFC73327537CF36E8DFBE7F3A36176730D3889C2ABFBBD8F61EFD");
+  assert.equal(hash(JSON.stringify(rootRelativePublicSchedule)), nativeScheduleSha256);
+  assert.equal(nativeScheduleSha256, "63B52BE701306E728EEEDD729DDBAE60A5E2CA860B370F03582847B8FC3F8C60");
+  assert.equal(rootRelativePublicSchedule.weekly[0].summary, "$undefined");
+  assert.equal(rootRelativePublicSchedule.weekly[0].href, "$undefined");
+  assert.equal(digestMatches(preview4NativeDeliverySeals.home, digest), true);
+  for (const legacy of [...preview4OriginalSeals.home, preview4VisualRevisionSeals.home]) {
+    assert.equal(digestMatches(preview4NativeDeliverySeals.home, legacy), false);
+    assert.equal(digestMatches(legacy, digest), false);
+  }
+  const fixture = sealedHomeFixture();
+  const canonical = canonicalNative(fixture);
+  assert.equal(typeof canonical, "string");
+  assert.equal(digestMatches(digest, hash(canonical)), false, "a synthetic document cannot claim the captured source seal");
+  assert.equal(canonicalNative(fixture, nativeClock, preview4OriginalSeals), null);
+  assert.equal(canonicalNative(fixture, nativeClock, {...preview4NativeDeliverySeals}), null);
+  const legacyFixture = sealedHomeFixture({scheduleData: publicSchedule});
+  assert.equal(typeof canonicalNative(legacyFixture, nativeClock, preview4OriginalSeals), "string");
+  assert.equal(canonicalNative(legacyFixture), null);
+  assert.equal(canonicalizeSealedPresentationDocument(fixture, "recruitment", contextFor(nativeClock), preview4NativeDeliverySeals), null);
+  const combined = [...preview4OriginalSeals.home, preview4VisualRevisionSeals.home, digest];
+  for (const candidate of combined) assert.equal(digestMatches(combined, candidate), false);
+});
+
+test("native Home schedule rejects version, private fields, sentinels and coherent schedule substitution", () => {
+  const fixture = sealedHomeFixture();
+  for (const mutate of [
+    value => { value.monthly.gathering.discordCoverImage += "-other"; },
+    value => { value.monthly.gathering.discordCoverImage = "." + value.monthly.gathering.discordCoverImage; },
+    value => { value.monthly.gathering.discordCoverImage = "https://example.invalid/cover.png"; },
+    value => { value.monthly.gathering.discordChannelId = "private-field"; },
+    value => { value.weekly[0].summary = null; },
+    value => { delete value.weekly[0].href; },
+    value => { value.weekly[0].startTime = "20:00"; },
+    value => { value.weekly[0].title = "Different event"; },
+    value => { value.timezone.offsetMinutes = 0; },
+  ]) {
+    const scheduleData = structuredClone(rootRelativePublicSchedule);
+    mutate(scheduleData);
+    const changed = sealedHomeFixture({scheduleData});
+    assert.notEqual(changed, fixture);
+    assert.equal(canonicalNative(changed), null);
+  }
+});
+
+test("native Home clock and calculated current/upcoming presentation remain bounded and consistent", () => {
+  const fixture = sealedHomeFixture(), canonical = canonicalNative(fixture);
+  for (const clock of ["2026-10-27T13:35:00.000Z", "2027-01-05T03:25:39.292Z"]) {
+    assert.equal(canonicalNative(sealedHomeFixture({clock}), clock), canonical);
+  }
+  assert.equal(canonicalNative(fixture, "2000-01-01T00:00:00.000Z"), null);
+  for (const [before, after] of [
+    ['id="featuredBulletinTitle">Guild Party', 'id="featuredBulletinTitle">Different event'],
+    ['id="featuredBulletinDate">27 Oct 2026', 'id="featuredBulletinDate">28 Oct 2026'],
+    ['id="featuredBulletinType">Next Event', 'id="featuredBulletinType">Current Event'],
+    [encodeURIComponent("/assets/img/discord-events/guild-party.png?v=2026-10-09-uniform-covers"), encodeURIComponent("/assets/img/discord-events/guild-wars.png?v=2026-10-09-uniform-covers")],
+  ]) assert.equal(canonicalNative(change(fixture, before, after)), null);
+});
+
+test("native Home resource and unrelated graph changes never normalize into the same complete seal", () => {
+  const fixture = sealedHomeFixture(), canonical = canonicalNative(fixture);
+  for (const [before, after] of [
+    ["wuxia-bg-640.webp 640w", "wuxia-bg-640.webp 641w"],
+    ["wuxia-bg-828.webp", "wuxia-bg-other.webp"],
+    ["wuxia-bg-1080.webp", "wuxia-bg-1080.webp?foreign=1"],
+    ['sizes="100vw"', 'sizes="80vw"'],
+    ['src="/assets/bg/wuxia-bg.webp"', 'src="/assets/bg/other.webp"'],
+    ['loading="eager"', 'loading="lazy"'],
+    ['fetchpriority="low"', 'fetchpriority="high"'],
+    ['<header class="site-header">', '<header class="site-header" data-foreign="yes">'],
+    ["View Spotlight", "Different destination text"],
+    ["HomeNextEvent", "DifferentEvent"],
+    ["1coumcuouv5-a.js", "different-source.js"],
+  ]) {
+    const changed = canonicalNative(change(fixture, before, after));
+    assert.notEqual(changed, canonical, before);
+    if (changed !== null) assert.equal(digestMatches(preview4NativeDeliverySeals.home, hash(changed)), false);
+  }
 });

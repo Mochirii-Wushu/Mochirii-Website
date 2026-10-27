@@ -25,15 +25,15 @@ const libraryUrl = pathToFileURL(libraryPath).href;
 const appRouterLibraryPath = path.join(root, "scripts", "lib", "app-router-inventory.mjs");
 const productionCheckerPath = path.join(root, "scripts", "check-production.mjs");
 const configPath = path.join(root, "apps", "web", "config", "app-static-surface-inventory.v1.json");
-const expectedSuccess = "App static surface inventory OK (28 metadata routes, 344 public files, 52866173 bytes).\n";
+const expectedSuccess = "App static surface inventory OK (28 metadata routes, 350 public files, 53416473 bytes).\n";
 const expectedCheckerBytes = 12997;
-const expectedCheckerSha256 = "0B9C5E2C335C4C2FF30BC10D43D14D03EB631DCCCEBF776B6DC9A6DEFE134B2C";
+const expectedCheckerSha256 = "E5F5EC3BDFA646288E37F74CE7F3ECC297AFDF067371B46406AB95D43A91BC08";
 const expectedLibraryBytes = 26244;
 const expectedLibrarySha256 = "368BC8DF86CDCF0CFEFAAA11445514983CA6A989A4C3C23F252A2531DD44164C";
 const expectedAppRouterLibraryBytes = 59_423;
 const expectedAppRouterLibrarySha256 = "D3D31B84E7F8FD14CBCCFFE5B38C6E665446EA2AA708E3F3C052678D6DA06056";
-const expectedProductionCheckerBytes = 221371;
-const expectedProductionCheckerSha256 = "5BBA5BDDDBE04C491B952693E2AA10CF09421061A320F6ED628827FD1EF30D3E";
+const expectedProductionCheckerBytes = 222836;
+const expectedProductionCheckerSha256 = "1F2621E173BAA0CB31142DCAB552A81A2601F8AB0AE5CDA61C5A2841A5B17DE5";
 
 function sha256(buffer) {
   return createHash("sha256").update(buffer).digest("hex").toUpperCase();
@@ -270,8 +270,8 @@ test("current source builds the complete source-only inventory", () => {
     metadataRoutes: 28,
     indexedMetadataRoutes: 17,
     nonindexedMetadataRoutes: 11,
-    publicFiles: 344,
-    publicBytes: 52866173,
+    publicFiles: 350,
+    publicBytes: 53416473,
     sourceFiles: 43,
   });
   assert.deepEqual(inventory.coverage, {
@@ -336,10 +336,10 @@ test("public inventory covers every ordinary file with exact aggregate categorie
       .sort()
       .map((category) => [category, rows.filter((row) => row.category === category).length]),
   );
-  assert.equal(rows.length, 344);
-  assert.equal(rows.reduce((sum, row) => sum + row.bytes, 0), 52866173);
+  assert.equal(rows.length, 350);
+  assert.equal(rows.reduce((sum, row) => sum + row.bytes, 0), 53416473);
   assert.deepEqual(categoryCounts, {
-    asset: 325,
+    asset: 331,
     discovery: 3,
     icon: 1,
     public_data: 15,
@@ -412,7 +412,7 @@ test("checked-in canonical inventory validates through the actual library", () =
   assert.ok(readFileSync(configPath).length > 0);
   const result = validateAppStaticSurfaceInventory({ rootDirectory: root });
   assert.deepEqual(result.failures, []);
-  assert.equal(result.inventory.summary.publicFiles, 344);
+  assert.equal(result.inventory.summary.publicFiles, 350);
 });
 
 test("missing config remains categorical and path-free", () => {

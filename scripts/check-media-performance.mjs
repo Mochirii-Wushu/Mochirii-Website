@@ -165,10 +165,10 @@ function cssRuleBody(source, selector) {
   return end < 0 ? "" : source.slice(bodyStart, end);
 }
 
-function extractStaticImageBlock(source, id) {
+function extractImageBlock(source, id, component = "StaticImage") {
   const idIndex = source.indexOf(`id="${id}"`);
   if (idIndex < 0) return "";
-  const start = source.lastIndexOf("<StaticImage", idIndex);
+  const start = source.lastIndexOf(`<${component}`, idIndex);
   const end = source.indexOf("/>", idIndex);
   if (start < 0 || end < 0) return "";
   return source.slice(start, end + 2);
@@ -483,12 +483,12 @@ assert(
   "EXPORTED_RUNTIME_METHODS='[\"HEAPU8\"]'",
 ].forEach((snippet) => assertIncludes("reproducible gallery libwebp build", thumbnailValidatorBuild, snippet));
 
-const heroBlock = extractStaticImageBlock(homePage, "heroImage");
-const sealBlock = extractStaticImageBlock(homePage, "sealImage");
-assertIncludes("Home hero image", heroBlock, "priority");
+const heroBlock = extractImageBlock(homePage, "heroImage", "Image");
+const sealBlock = extractImageBlock(homePage, "sealImage");
+assertIncludes("Home hero image", heroBlock, 'unoptimized loading="eager" fetchPriority="high"');
 assert(sealBlock && !sealBlock.includes("priority"), "Home guild seal must not use priority preload.");
 
-const homePriorityCount = [...homePage.matchAll(/\bpriority\b/g)].length;
+const homePriorityCount = [...homePage.matchAll(/\bpriority\b|\bfetchPriority\s*=\s*(?:"high"|'high'|\{\s*["']high["']\s*\})/g)].length;
 assert(homePriorityCount === 1, `Home page should have exactly one priority image, found ${homePriorityCount}.`);
 
 [

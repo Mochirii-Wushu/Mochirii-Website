@@ -1,28 +1,33 @@
-/* Owned decorative swords stay in their own noninteractive strip. */
-.home-sword-duel{position:relative;height:200px;max-width:1200px;margin:0 auto;overflow:hidden;pointer-events:none;isolation:isolate;}
-.home-sword-duel::before{content:"";position:absolute;inset:20px 10%;border-radius:50%;background:radial-gradient(ellipse,#0b211dc7,transparent 70%);}
-.home-sword{position:absolute;left:50%;top:60%;width:clamp(210px,36vw,440px);transform-origin:16% 50%;}
+/* Two bounded pairs inhabit the background gutters, never the content column. */
+.home-sword-duel{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none;}
+.home-sword-side{position:absolute;inset-block:0;left:0;width:clamp(12px,calc(50vw - 622px),420px);overflow:hidden;opacity:.78;}
+.home-sword-side--right{left:auto;right:0;transform:scaleX(-1);}
+/* The reviewed upper-blade anchor (68%,50%) is shared by both contact poses. */
+.home-sword{position:absolute;left:50%;top:54%;width:clamp(250px,50vh,450px);transform-origin:68% 50%;}
 .home-sword img{display:block;width:100%;height:auto;}
-.home-sword--jade{transform:translate(-92%,-35%) rotate(-8deg);}
-.home-sword--celadon{transform:translate(52%,-35%) rotate(188deg);}
-.home-sword-contact{position:absolute;top:68%;left:calc(50% - 14px);width:28px;height:20px;opacity:0;background:radial-gradient(ellipse,#ffe9b19c,transparent 67%);}
-.home-sword-contact::after{content:"";position:absolute;inset:7px -12px 5px;border-top:1px solid #b5bda566;transform:rotate(-10deg);}
-/* Passive fallback values are computed only while this strip intersects. */
-.site-shell[data-decorative-motion="on"] .home-sword-duel[data-scene-visible="true"] .home-sword--jade{transform:translate(calc(-115% + var(--home-sword-approach,0) * 23%),-35%) rotate(calc(-12deg + var(--home-sword-approach,0) * 24deg));}
-.site-shell[data-decorative-motion="on"] .home-sword-duel[data-scene-visible="true"] .home-sword--celadon{transform:translate(calc(75% - var(--home-sword-approach,0) * 23%),-35%) rotate(calc(192deg - var(--home-sword-approach,0) * 24deg));}
-.site-shell[data-decorative-motion="on"] .home-sword-duel[data-scene-visible="true"] .home-sword-contact{opacity:var(--home-sword-contact,0);}
-@supports(animation-timeline:view()){
- @media(prefers-reduced-motion:no-preference){
- .site-shell[data-decorative-motion="on"] .home-sword-duel[data-scene-visible="true"]{view-timeline-name:--home-duel;view-timeline-axis:block;}
- .site-shell[data-decorative-motion="on"] .home-sword-duel[data-scene-visible="true"] .home-sword{animation:home-jian-jade linear both;animation-timeline:--home-duel;animation-range:entry 0% exit 100%;}
- .site-shell[data-decorative-motion="on"] .home-sword-duel[data-scene-visible="true"] .home-sword--celadon{animation-name:home-jian-celadon;}
- .site-shell[data-decorative-motion="on"] .home-sword-duel[data-scene-visible="true"] .home-sword-contact{animation:home-jian-contact linear both;animation-timeline:--home-duel;animation-range:entry 0% exit 100%;}
+/* Static object contour excludes generation matte debris; no animated filter or mask asset. */
+.home-sword img{clip-path:polygon(0 50%,.5% 35%,2% 21%,3.8% 19%,5.4% 25%,6.9% 34%,20.7% 34%,21.7% 25%,22.4% 10%,23.6% 0%,24.5% 1%,25.4% 8%,25.4% 15%,24.5% 30%,25% 34%,85% 38%,94% 44%,98% 48%,100% 51%,98% 56%,94% 63%,85% 65%,25% 67%,24.5% 73%,25.3% 87%,25.1% 95%,24% 100%,22.9% 94%,21.8% 77%,20.8% 66%,6.8% 66%,5.2% 80%,3.3% 84%,1.7% 80%,.5% 68%);}
+.home-sword--jade{transform:translate(calc(-68% - 20px),-50%) rotate(-64deg);}
+.home-sword--celadon{transform:translate(calc(-68% + 20px),-50%) rotate(-116deg);}
+.home-sword-contact{position:absolute;left:50%;top:54%;width:0;height:0;}
+.home-sword-contact > span{position:absolute;width:7px;height:1px;opacity:0;background:#e8be7f;--spark-x:14px;--spark-y:-9px;--spark-angle:-32deg;}
+.home-sword-contact > span:nth-child(2){--spark-x:-13px;--spark-y:-12px;--spark-angle:42deg;width:5px;}
+.home-sword-contact > span:nth-child(3){--spark-x:8px;--spark-y:16px;--spark-angle:65deg;width:4px;}
+.home-sword-contact > span:nth-child(4){--spark-x:-8px;--spark-y:10px;--spark-angle:-48deg;width:3px;}
+.home-sword-contact > span:nth-child(5){--spark-x:2px;--spark-y:-18px;--spark-angle:82deg;width:5px;}
+/* A fixed pool scrubs exactly with root scroll; no clocks, particles or accumulation. */
+@media(prefers-reduced-motion:no-preference){
+ .site-shell[data-decorative-motion="on"] .home-sword-duel[data-swords-ready="true"] :where(.home-sword,.home-sword-contact > span){animation:home-jian-jade 1s linear both paused;animation-delay:calc(var(--home-sword-progress,0) * -1s);}
+ .site-shell[data-decorative-motion="on"] .home-sword-duel[data-swords-ready="true"] .home-sword--celadon{animation-name:home-jian-celadon;}
+ .site-shell[data-decorative-motion="on"] .home-sword-duel[data-swords-ready="true"] .home-sword-contact > span{animation-name:home-jian-spark;}
+ @supports(animation-timeline:scroll(root block)){
+  .site-shell[data-decorative-motion="on"] .home-sword-duel[data-swords-ready="true"] :where(.home-sword,.home-sword-contact > span){animation-duration:auto;animation-delay:0s;animation-play-state:running;animation-timeline:scroll(root block);}
  }
 }
-@keyframes home-jian-jade{0%{transform:translate(-115%,-35%) rotate(-12deg);}36%{transform:translate(-96%,-35%) rotate(2deg);}50%{transform:translate(-92%,-35%) rotate(12deg);}62%{transform:translate(-96%,-35%) rotate(4deg);}100%{transform:translate(-112%,-35%) rotate(-10deg);}}
-@keyframes home-jian-celadon{0%{transform:translate(75%,-35%) rotate(192deg);}36%{transform:translate(56%,-35%) rotate(178deg);}50%{transform:translate(52%,-35%) rotate(168deg);}62%{transform:translate(56%,-35%) rotate(176deg);}100%{transform:translate(72%,-35%) rotate(190deg);}}
-@keyframes home-jian-contact{0%,46%,56%,100%{opacity:0;}50%{opacity:.65;}}
-.home-sword-duel:target .home-sword{animation:none!important;}
+.home-sword-duel[data-swords-ready="true"]:not([data-swords-active="true"]){visibility:hidden;}
+@keyframes home-jian-jade{0%{transform:translate(calc(-68% - 20px),-50%) rotate(-64deg);}22%{transform:translate(calc(-68% - 8px),-50%) rotate(-69deg);}32%{transform:translate(calc(-68% - 1px),-50%) rotate(-76deg);}45%{transform:translate(calc(-68% - 20px),-50%) rotate(-61deg);}60%{transform:translate(calc(-68% - 10px),-50%) rotate(-72deg);}72%{transform:translate(calc(-68% - 1px),-50%) rotate(-82deg);}85%{transform:translate(calc(-68% - 22px),-50%) rotate(-69deg);}100%{transform:translate(calc(-68% - 28px),-50%) rotate(-63deg);}}
+@keyframes home-jian-celadon{0%{transform:translate(calc(-68% + 20px),-50%) rotate(-116deg);}22%{transform:translate(calc(-68% + 8px),-50%) rotate(-111deg);}32%{transform:translate(calc(-68% + 1px),-50%) rotate(-104deg);}45%{transform:translate(calc(-68% + 20px),-50%) rotate(-119deg);}60%{transform:translate(calc(-68% + 10px),-50%) rotate(-108deg);}72%{transform:translate(calc(-68% + 1px),-50%) rotate(-98deg);}85%{transform:translate(calc(-68% + 22px),-50%) rotate(-111deg);}100%{transform:translate(calc(-68% + 28px),-50%) rotate(-117deg);}}
+@keyframes home-jian-spark{0%,30%,35%,70%,75%,100%{opacity:0;transform:translate(0,0) rotate(var(--spark-angle)) scale(.2);}32%,72%{opacity:.48;transform:translate(calc(var(--spark-x) * .25),calc(var(--spark-y) * .25)) rotate(var(--spark-angle)) scale(1);}34%,74%{opacity:0;transform:translate(var(--spark-x),var(--spark-y)) rotate(var(--spark-angle)) scale(.3);}}
 .home-pvp{margin-top:22px;padding:20px;border:1px solid #b5a67977;border-radius:var(--home-radius);background:linear-gradient(120deg,#0d2b22f5,#15251df5);}
 .home-pvp-heading{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;}
 .home-page .home-pvp-heading h3{margin:0;font:400 28px/1.3 var(--font-display);color:var(--home-ivory);}
@@ -43,5 +48,5 @@
 .home-page .home-pvp-status{font-size:13px;color:#fff5e4;padding-inline:12px;}
 .home-page .home-pvp-status:empty{display:none;}
 @media(max-width:900px){.home-pvp-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
-@media(max-width:680px){.home-sword-duel{height:160px;}.home-pvp{padding:16px;}.home-pvp-grid{grid-template-columns:1fr;}.home-scenery img{object-position:58% 50%;}}
+@media(max-width:680px){.home-sword-side{opacity:.4;}.home-pvp{padding:16px;}.home-pvp-grid{grid-template-columns:1fr;}}
 @media(prefers-reduced-motion:reduce){.home-sword{animation:none!important;}.home-sword-contact{display:none;}}

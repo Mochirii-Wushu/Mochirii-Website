@@ -13,8 +13,8 @@
     "metadataRoutes": 28,
     "indexedMetadataRoutes": 17,
     "nonindexedMetadataRoutes": 11,
-    "publicFiles": 344,
-    "publicBytes": 52866173,
+    "publicFiles": 350,
+    "publicBytes": 53416473,
     "sourceFiles": 43
   },
   "sourceCatalog": [
@@ -105,8 +105,8 @@
     },
     {
       "path": "apps/web/app/page.tsx",
-      "bytes": 16477,
-      "sha256": "E9EF90593DB477BC5223553F40490C7C14BB5376F2F09FE9B5D9BA7F5DEA161D"
+      "bytes": 16483,
+      "sha256": "7A50D842E7C3C0FD39A7D9900664693765BC74140C000134811CC6440F7B47F3"
     },
     {
       "path": "apps/web/app/privacy/page.tsx",
@@ -206,7 +206,7 @@
     {
       "path": "scripts/check-app-static-surface-inventory.mjs",
       "bytes": 12997,
-      "sha256": "0B9C5E2C335C4C2FF30BC10D43D14D03EB631DCCCEBF776B6DC9A6DEFE134B2C"
+      "sha256": "E5F5EC3BDFA646288E37F74CE7F3ECC297AFDF067371B46406AB95D43A91BC08"
     },
     {
       "path": "scripts/check-assets.mjs",
@@ -231,7 +231,7 @@
     {
       "path": "scripts/lib/app-static-surface-inventory.test.mjs",
       "bytes": 134025,
-      "sha256": "1810A22DF648B7FE0C18C41A82620BF574EAABB61F88188C7761597C9F5CCE61"
+      "sha256": "1C36539FF00DF97A4E41267DBDBB1100110C3EEB0EA35F1617A51B0EF1D29344"
     }
   ],
   "metadataRoutes": [
@@ -642,6 +642,46 @@
       "format": "css"
     },
     {
+      "url": "/assets/home/background/wuxia-bg-1080.webp",
+      "source": "apps/web/public/assets/home/background/wuxia-bg-1080.webp",
+      "bytes": 100530,
+      "sha256": "F52EBE41D5E7B82C0A7E66FA5218A12E967D75182B483608446A73743189CCE4",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/home/background/wuxia-bg-1200.webp",
+      "source": "apps/web/public/assets/home/background/wuxia-bg-1200.webp",
+      "bytes": 115394,
+      "sha256": "A25A9ED73CEA7E2D0258580249D32730F779F14CB9E412840D87203A2FD30CF2",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/home/background/wuxia-bg-1536.webp",
+      "source": "apps/web/public/assets/home/background/wuxia-bg-1536.webp",
+      "bytes": 204764,
+      "sha256": "A49978E2AD6E7B597E88983E65F6B4CA762BF378194F92E8DB0F89A841165DF9",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/home/background/wuxia-bg-640.webp",
+      "source": "apps/web/public/assets/home/background/wuxia-bg-640.webp",
+      "bytes": 44010,
+      "sha256": "C2C5B70FB22DA97B392EE7E603C4080A2A5D1235941ECB5B747A707B97C5EF02",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
+      "url": "/assets/home/background/wuxia-bg-828.webp",
+      "source": "apps/web/public/assets/home/background/wuxia-bg-828.webp",
+      "bytes": 66812,
+      "sha256": "7D3ABFADE4E3FA32E1D8C91B75D842039BC7ECD03A33AAA633D6F6C80CB62BA3",
+      "category": "asset",
+      "format": "webp"
+    },
+    {
       "url": "/assets/home/decor/cherry-valley-mist-far.webp",
       "source": "apps/web/public/assets/home/decor/cherry-valley-mist-far.webp",
       "bytes": 2500,
@@ -776,6 +816,14 @@
       "sha256": "65B099B5C9584B22442C62008C4F5A8AB3530A0C22CD6BDEA9972D0A6D7C6E0A",
       "category": "asset",
       "format": "svg"
+    },
+    {
+      "url": "/assets/home/transitions/sword-duel/forged-jian-1024.webp",
+      "source": "apps/web/public/assets/home/transitions/sword-duel/forged-jian-1024.webp",
+      "bytes": 18790,
+      "sha256": "FA0FA4C17A26DCC3E333CDA28D1ACBC12866CB833CDCF321FE83162A59E004D1",
+      "category": "asset",
+      "format": "webp"
     },
     {
       "url": "/assets/home/transitions/sword-duel/jade-jian.svg",

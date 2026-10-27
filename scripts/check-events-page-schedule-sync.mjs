@@ -40,6 +40,7 @@ assertIncludes("Public schedule projection", publicScheduleSource, 'item.id !== 
 assertIncludes("Public schedule projection", publicScheduleSource, "guildScheduleData.timezone");
 assertIncludes("Public schedule projection", publicScheduleSource, 'startDayOffset: "startDayOffset" in item ? item.startDayOffset : 0');
 assertIncludes("Public schedule projection", publicScheduleSource, "encodeURIComponent(guildScheduleData.discordCoverVersion)");
+assertIncludes("Public schedule projection", publicScheduleSource, 'cover.replace(/^\\.\\//, "/")');
 assertIncludes("Public schedule projection", publicScheduleSource, "discordCoverImage: eventCoverUrl(item.discordCoverImage)");
 assertNotIncludes("EventsPage", eventsSource, "records(data.upcoming)");
 assertNotIncludes("EventsPage", eventsSource, "eventBoardItemsFromSchedule");
@@ -48,17 +49,20 @@ assertIncludes("Home", homeSource, "<HomeNextEvent");
 assertIncludes("Home", homeSource, "referenceTime={referenceTime}");
 assertIncludes("Home event navigation", homeSource, 'href="/events"');
 assertIncludes("Home event navigation", homeSource, 'View all events');
-assertIncludes("Home selected event cover", homeEventSource, 'src={event.image.replace(/^\\.\\//, "/")}');
+assertIncludes("Home selected event cover", homeEventSource, 'src={event.image}');
 assertIncludes("Home empty event fallback", homeSource, 'No event is scheduled.');
 assertIncludes("Home empty event behavior", homeEventSource, 'if (!event) return emptyState;');
 assertIncludes("Home responsive event cover", homeEventSource, 'import Image from "next/image";');
-assertIncludes("Home deferred event cover", homeEventSource, 'loading="lazy"');
+assertIncludes("Home visible event cover", homeEventSource, 'loading="eager"');
+assertIncludes("Home secondary event priority", homeEventSource, 'fetchPriority="low"');
 assertIncludes("Home current event label", homeEventSource, '"Current Event"');
 assertNotIncludes("Home", homeSource, "monthlyScheduleDate");
 for (const [label, source] of [["Home next event", homeEventSource], ["Events featured", eventsScheduleSource]]) {
   assertIncludes(label, source, "useGuildSchedule(scheduleData, referenceTime)");
-  assertIncludes(label, source, "currentOrUpcomingEvent(schedule.items, new Date(schedule.referenceTime))");
 }
+assertIncludes("Home preordered event selection", homeEventSource, "schedule.items.find((card) => Date.parse(card.endIso) > referenceTimeMs)");
+assertIncludes("Home reference clock", homeEventSource, "Date.parse(schedule.referenceTime)");
+assertIncludes("Events event selection", eventsScheduleSource, "currentOrUpcomingEvent(schedule.items, new Date(schedule.referenceTime))");
 const homeGathering = (home.bulletins || []).find((item) => item.scheduleId === "monthly-gathering");
 if (!homeGathering) fail("Home must keep its gathering bulletin bound to monthly-gathering.");
 

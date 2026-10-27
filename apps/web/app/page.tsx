@@ -8,6 +8,7 @@ import "./styles/shell-gallery-media.css";
 import "./styles/shell-lightbox.css";
 import { Fragment, Suspense } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import homeData from "@/public/data/home.json";
 import galleryData from "@/public/data/gallery.json";
 import raffleData from "@/public/data/raffles.json";
@@ -127,7 +128,7 @@ export default function Home() {
       <main className="home-page" id="main" tabIndex={-1}>
         <section className="home-hero" aria-labelledby="homeHeading">
           <div className="home-hero__art" data-home-scene="cherry-valley-dawn" data-motion-key="hero-scene">
-            <StaticImage id="heroImage" className="home-hero__image" src={publicPath(homeData.hero.image)} alt="" width={1344} height={490} priority sizes="(max-width: 680px) 170vw, (max-width: 1232px) calc(100vw - 32px), 1200px" />
+            <Image id="heroImage" className="home-hero__image" src={publicPath(homeData.hero.image)} alt="" width={1344} height={490} unoptimized loading="eager" fetchPriority="high" />
             <div className="home-petals" aria-hidden="true">{Array.from({ length: 10 }, (_, i) => <i key={i} />)}</div>
             <span className="home-mist" aria-hidden="true"><span className="home-mist-layer home-mist-layer--near" /><span className="home-mist-layer home-mist-layer--far" /></span>
           </div>
@@ -143,13 +144,14 @@ export default function Home() {
           </div>
           <div className="home-hero__motion"><MotionToggle /></div>
         </section>
-        <div className="home-sword-duel" aria-hidden="true" data-motion-key="home-swords" data-motion-persistent>
-          <span className="home-sword home-sword--jade"><img src="/assets/home/transitions/sword-duel/jade-jian.svg" width={480} height={104} alt="" loading="lazy" /></span>
-          <span className="home-sword home-sword--celadon"><img src="/assets/home/transitions/sword-duel/celadon-jian.svg" width={480} height={104} alt="" loading="lazy" /></span>
-          <span className="home-sword-contact" />
+        <div className="home-sword-duel" aria-hidden="true">
+          {["left", "right"].map(side => <div className={"home-sword-side home-sword-side--" + side} key={side}>
+            <span className="home-sword home-sword--jade"><img src="/assets/home/transitions/sword-duel/forged-jian-1024.webp" width={1024} height={118} alt="" loading="eager" decoding="async" fetchPriority="low" /></span>
+            <span className="home-sword home-sword--celadon"><img src="/assets/home/transitions/sword-duel/forged-jian-1024.webp" width={1024} height={118} alt="" loading="eager" decoding="async" fetchPriority="low" /></span>
+            <span className="home-sword-contact">{Array.from({ length: 5 }, (_, i) => <span key={i} />)}</span>
+          </div>)}
         </div>
         <div className="home-content container">
-          <div className="home-scenery" aria-hidden="true"><img src="/assets/home/scenery/bamboo-valley-tall-1024.webp" alt="" width={1024} height={1536} loading="lazy" decoding="async" fetchPriority="low" /></div>
           <section className="home-section home-event-section" aria-labelledby="home-event-heading" data-motion-key="home-event" data-motion-featured data-motion-persistent>
             <h2 id="home-event-heading" className="section-title">Your next guild event</h2>
             <Link id="featuredBulletin" className="home-featured" href="/events">

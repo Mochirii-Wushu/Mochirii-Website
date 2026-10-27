@@ -4,7 +4,7 @@
   --home-ivory:#fff5e4;--home-secondary:#c7d1cd;--home-gold:#e3c684;
   --home-rose:#bf9fab;--home-celadon:#a0c7b1;--home-line:#688777;
   --home-jade:#28684f;--home-jade-deep:#123b30;--home-radius:10px;--home-gap:18px;
-  position:relative;isolation:isolate;color:var(--home-ivory);padding-top:12px;background:#081014;
+  position:relative;isolation:isolate;color:var(--home-ivory);padding-top:12px;background:transparent;
   font-size:16px;line-height:1.6;overflow:clip;
 }
 .home-page :is(h2,h3){font-family:var(--font-body);font-weight:600;line-height:1.3;text-wrap:balance;}
@@ -18,9 +18,6 @@
 .home-page .section-title::after{content:"";height:1px;flex:1;background:linear-gradient(90deg,#9dba9a88,#e3c68466,transparent);transform-origin:left;}
 .home-content{position:relative;isolation:isolate;padding-top:0;}
 .home-section{margin:28px 0;scroll-margin-top:110px;}
-.home-scenery{position:absolute;inset:0 calc((100vw - 100%) / -2);z-index:-1;overflow:hidden;pointer-events:none;}
-.home-scenery img{width:100%;height:100%;object-fit:cover;object-position:50% 44%;opacity:1;}
-.home-scenery::after{content:"";position:absolute;inset:0;background:linear-gradient(#081014 0,transparent 220px,transparent calc(100% - 120px),#081014);}
 .home-page .home-guild-seal{background:linear-gradient(0deg,transparent,#081014f0 16px,#081014f0 calc(100% - 16px),transparent);}
 .home-hero{position:relative;isolation:isolate;max-width:1200px;min-height:420px;margin:0 auto;overflow:hidden;border-radius:8px;border:1px solid #71867866;background:#10191d;}
 .home-hero__art{position:absolute;inset:0;overflow:hidden;}
@@ -115,6 +112,44 @@
 @keyframes home-featured-edge{0%{opacity:0;clip-path:inset(0 100% 0 0);}15%{opacity:.7;}85%{opacity:.7;}100%{opacity:0;clip-path:inset(0 0 0 0);}}
 @keyframes home-ink-heading{from{transform:scaleX(.25);opacity:.65;}to{transform:scaleX(1);opacity:1;}}
 @media(hover:hover) and (pointer:fine){.site-shell[data-decorative-motion="on"] .home-page :is(.home-activity-card[href],.home-resource-links > a){transition:border-color 180ms var(--ease);}.site-shell[data-decorative-motion="on"] .home-page .home-activity-card[href]:hover{border-color:#d4bd83;}.site-shell[data-decorative-motion="on"] .home-page .home-resource-links > a:hover{border-color:#d4bd83;}}
+/* Zoom the complete hero stack so the worker canvas and poster stay registered. */
+@media(prefers-reduced-motion:no-preference){
+  .site-shell[data-decorative-motion="on"] .home-page :where(.home-hero__art,.home-featured__img,.home-activity-card[href] > img,.home-thumb .responsive-gallery-media__image,.home-spotlight__img,.home-guild-seal > img,.home-pvp-play img){
+    transition:transform 320ms var(--ease);
+  }
+  .site-shell[data-decorative-motion="on"] .home-page .home-thumb .responsive-gallery-media__image{
+    transition:transform 320ms var(--ease),opacity .18s var(--ease);
+  }
+  .site-shell[data-decorative-motion="on"] .home-page .home-hero:focus-within .home-hero__art,
+  .site-shell[data-decorative-motion="on"] .home-page .home-featured:focus-visible .home-featured__img,
+  .site-shell[data-decorative-motion="on"] .home-page .home-activity-card[href]:focus-visible > img,
+  .site-shell[data-decorative-motion="on"] .home-page .home-thumb:focus-visible .responsive-gallery-media__image,
+  .site-shell[data-decorative-motion="on"] .home-page .home-spotlight:focus-within .home-spotlight__img,
+  .site-shell[data-decorative-motion="on"] .home-page .home-pvp-play:focus-visible img{
+    transform:scale(1.035);
+  }
+}
+@media(hover:hover) and (pointer:fine) and (prefers-reduced-motion:no-preference){
+  .site-shell[data-decorative-motion="on"] .home-page .home-hero:hover .home-hero__art,
+  .site-shell[data-decorative-motion="on"] .home-page .home-featured:hover .home-featured__img,
+  .site-shell[data-decorative-motion="on"] .home-page .home-activity-card[href]:hover > img,
+  .site-shell[data-decorative-motion="on"] .home-page .home-thumb:hover .responsive-gallery-media__image,
+  .site-shell[data-decorative-motion="on"] .home-page .home-spotlight:hover .home-spotlight__img,
+  .site-shell[data-decorative-motion="on"] .home-page .home-guild-seal > img:hover,
+  .site-shell[data-decorative-motion="on"] .home-page .home-pvp-play:hover img{
+    transform:scale(1.035);
+  }
+}
+.site-shell[data-decorative-motion="off"] .home-page :where(.home-hero__art,.home-featured__img,.home-activity-card[href] > img,.home-thumb .responsive-gallery-media__image,.home-spotlight__img,.home-guild-seal > img,.home-pvp-play img){
+  transform:none;
+  transition:none;
+}
+@media(prefers-reduced-motion:reduce){
+  .home-page :where(.home-hero__art,.home-featured__img,.home-activity-card[href] > img,.home-thumb .responsive-gallery-media__image,.home-spotlight__img,.home-guild-seal > img,.home-pvp-play img){
+    transform:none!important;
+    transition:none!important;
+  }
+}
 @media(max-width:900px){.home-lanterns{width:100%;}}
 @media(max-width:680px){.home-petals i:nth-child(n+7){display:none;}.home-mist-layer{mask-position:100% 50%;}}
 

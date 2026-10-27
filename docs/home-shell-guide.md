@@ -19,6 +19,9 @@ Current Home order is the compact panoramic hero, current/upcoming event, three 
 Team play and the live Gallery mosaic), current-month Spotlight and updates, three onboarding steps,
 resources, the unboxed protected Guild Seal, then the global footer. Keep current/actionable information
 ahead of supporting identity material. The mosaic is an intentional difference from the design board.
+Home reveals the existing site-wide fixed photograph behind its content. Keep that backdrop unscaled and
+unfiltered; do not restore the separate full-page bamboo scenery layer. Decorative swords occupy clipped
+background gutters on both sides rather than a space between content sections.
 
 ## 2. Data Source
 
@@ -332,12 +335,17 @@ The footer and first-scene controls synchronize and have unique descriptions. Ex
 live OS reduced motion and unavailable storage force static presentation. Spinner retains its own setting
 and isolated shell. Server-rendered and no-JavaScript content is always visible.
 
-One shared observer handles once-per-visit entrances (420 ms, decorative rules move 12 px; card opacity .94 to 1,
+One shared observer, when available, handles once-per-visit entrances (420 ms, decorative rules move 12 px; card opacity .94 to 1,
 50 ms staggers capped below 600 ms) and scene visibility. Focus/anchor targeting finishes entrances.
-Fine-pointer card hover uses 180 ms border-color feedback. Card frames, text and controls stay in place. Text, controls and card frames do not follow scrolling.
+Fine-pointer card hover retains 180 ms border-color feedback. With Motion On and no OS reduction, foreground
+hero/event/activity/gallery/Spotlight media and published PvP posters zoom to 1.035 over 320 ms on the applicable hover or keyboard-focus
+state; the seal image supports pointer hover. The complete hero art stack scales together, keeping its poster
+and worker canvas registered. Card frames, text and controls stay in place. Touch does not force pointer-hover
+effects. Off and reduced motion remove these transforms and transitions. The fixed global backdrop never zooms.
 
-Home alone imports `components/home-scene.ts` after the usable poster has painted, preferences permit motion
-and the scene is visible. This DOM controller transfers its canvas to the Next-managed
+The Home-only `components/home-scene.ts` module contains independent hero and sword controllers. Hero enhancement
+starts after the usable poster has painted, preferences permit motion and the scene is visible. Its DOM
+controller transfers the canvas to the Next-managed
 `components/home-scene-worker.js` module asset; graphics setup and drawing run in that dedicated worker.
 Neither module has package imports. A 30 fps capped, low-power WebGL mesh uses
 three registered local textures: a 1280 × 853 underpainted backdrop, a cropped original-pixel hair/fabric
@@ -351,10 +359,16 @@ use a conservative post-load fallback. Petals and separate mist layers remain de
 Fragment highp support is enforced by the shader preprocessor and existing compile/link failure path,
 after required texture decoding; no redundant precision query synchronizes immediate context startup.
 
-The Preview 4 sword strip uses two original, closed-profile jian SVG images. Native view timelines retrace
-approach, one contact and separation in either scroll direction, with a passive, frame-coalesced fallback.
-Off and reduced motion retain deliberate static poses. Its view timeline is registered only for a visible
-sword strip with Motion On and no OS reduced-motion preference. Hero badge borders remain static,
+The background sword stage contains two pairs, one in each clipped gutter, reusing one original jian-inspired
+illustration. Ten fixed spark spans scrub two bounded contact windows; no particles, random state or elapsed-time
+emission accumulate. Native root-scroll timelines and the passive, frame-coalesced fallback use the same finite
+CSS keyframes over the complete document scroll range. Returning to the same document progress retraces the
+same poses and sparks; holding progress holds that pose. The sword controller starts on the first native scroll
+or restored scroll position and works independently of hero visibility, WebGL, Worker, OffscreenCanvas and
+IntersectionObserver availability. Visible keyboard focus outside the Motion controls, open dialogs/dropdowns, body scroll locking and hidden documents hide
+the active stage; resuming uses current document progress. Off, reduced motion and no JavaScript retain deliberate
+static poses without sparks. Preference changes and navigation dispose listeners, pending frames and runtime
+attributes. Hero badge borders remain static,
 including before hydration and without JavaScript. The heading ink reveal lasts 420 ms; the featured
 edge is finite at 1350 ms. Lantern glow/flame accents apply only to the suitable Guild Party cover; approved event pixels
 remain unchanged. The selected hero has no moon or flags, so those effects are not applicable. The seal
@@ -399,6 +413,8 @@ inline SVG, injected media, arbitrary Flight records and substituted resource gr
 Run `node scripts/smoke-preview4-document-profile.mjs http://127.0.0.1:8765/` and
 `node scripts/smoke-homepage-preview-4.mjs --base-url http://127.0.0.1:8765/` against the reviewed loopback build.
 Do not replace a seal without reviewing its complete canonical document and resource graph.
+The later visual revision has its own single exact seal set. Both original P4 seals and the generic
+two-digest/two-policy limits remain unchanged; an additional revision never expands those generic bounds.
 
 PvP Highlights follows the activity cards and precedes Spotlight. Its publication-cleared manifest is
 empty until the separate media handoff and hosting gates in `docs/homepage-pvp-media.md` pass. Real native

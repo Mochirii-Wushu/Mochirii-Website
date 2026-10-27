@@ -3,7 +3,7 @@ import guildScheduleData from "@/public/data/guild-schedule.json";
 import type { GuildScheduleData } from "@/lib/guild-schedule";
 
 function eventCoverUrl(cover: string) {
-  return `${cover}?v=${encodeURIComponent(guildScheduleData.discordCoverVersion)}`;
+  return `${cover.replace(/^\.\//, "/")}?v=${encodeURIComponent(guildScheduleData.discordCoverVersion)}`;
 }
 
 // Client displays need timing and public presentation, not the Discord management fields.

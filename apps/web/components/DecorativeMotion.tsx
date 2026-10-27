@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { DECORATIVE_MOTION_KEY, decorativeMotionPreference, type DecorativeMotionPreference } from "@/lib/decorative-motion";
 
 type MotionState = { ready: boolean; available: boolean; reduced: boolean; preference: DecorativeMotionPreference };
+type MotionController = { setVisible: (visible: boolean) => void; dispose: () => void };
 const initialState: MotionState = { ready: false, available: false, reduced: true, preference: "off" };
 const MotionContext = createContext({ ...initialState, enabled: false, toggle: () => {} });
 
@@ -37,11 +38,12 @@ export function DecorativeMotion({ children }: { children: ReactNode }) {
     const shell = root.current;
     if (!shell) return;
     const nodes = Array.from(shell.querySelectorAll<HTMLElement>("[data-motion-key]"));
-    if (!enabled || !("IntersectionObserver" in window)) return;
+    if (!enabled) return;
     const timers = new Map<HTMLElement, ReturnType<typeof setTimeout>>();
     let active = true;
     let started = false;
     const scene = shell.querySelector<HTMLElement>("[data-home-scene]");
+    const swords = shell.querySelector<HTMLElement>(".home-sword-duel");
     const poster = scene?.querySelector<HTMLImageElement>("#heroImage");
     const abort = new AbortController();
     let sceneVisible = false;
@@ -58,7 +60,8 @@ export function DecorativeMotion({ children }: { children: ReactNode }) {
       enhance();
     };
     const fallbackAfterLoad = () => { paintFallback = setTimeout(painted, 1200); };
-    let sceneController: { setVisible: (visible: boolean) => void; dispose: () => void } | null = null;
+    let sceneController: MotionController | null = null;
+    let swordsController: MotionController | null = null;
     const enhance = () => {
       if (!active || !scene || !poster || scenePending || !sceneVisible || document.hidden) return;
       if (!poster.complete || !poster.naturalWidth) return;
@@ -95,9 +98,9 @@ export function DecorativeMotion({ children }: { children: ReactNode }) {
       timers.delete(node);
       node.removeAttribute("data-motion-state");
       if (node.dataset.motionKey) seen.current.add(node.dataset.motionKey);
-      if (!node.hasAttribute("data-motion-persistent") && node !== scene) observer.unobserve(node);
+      if (!node.hasAttribute("data-motion-persistent") && node !== scene) observer?.unobserve(node);
     };
-    const observer = new IntersectionObserver(entries => {
+    const observer = "IntersectionObserver" in window ? new IntersectionObserver(entries => {
       if (!active) return;
       for (const entry of entries) {
         const node = entry.target as HTMLElement;
@@ -119,10 +122,20 @@ export function DecorativeMotion({ children }: { children: ReactNode }) {
         node.dataset.motionState = "enter";
         timers.set(node, setTimeout(() => finish(node), node.hasAttribute("data-motion-featured") ? 1450 : 650));
       }
-    }, { threshold: .12, rootMargin: "0px 0px -24px 0px" });
-    const observe = () => { for (const node of nodes) if (node === scene || node.hasAttribute("data-motion-persistent") || started && !seen.current.has(node.dataset.motionKey || "")) { observer.unobserve(node); observer.observe(node); } };
+    }, { threshold: .12, rootMargin: "0px 0px -24px 0px" }) : null;
+    const observe = () => { for (const node of nodes) if (node === scene || node.hasAttribute("data-motion-persistent") || started && !seen.current.has(node.dataset.motionKey || "")) { observer?.unobserve(node); observer?.observe(node); } };
     // First-paint content stays static. Decoration begins only after native scrolling.
-    const start = () => { if (started || document.hidden) return; started = true; window.removeEventListener("scroll", start); observe(); };
+    const start = () => {
+      if (started || document.hidden) return;
+      started = true;
+      window.removeEventListener("scroll", start);
+      if (swords) void import("./home-scene").then(module => {
+        if (!active) return;
+        swordsController = module.mountHomeSwords(swords, abort.signal);
+        swordsController?.setVisible(!document.hidden);
+      }).catch(() => { /* Static sword poses remain available. */ });
+      observe();
+    };
     const finishTarget = (target: EventTarget | null) => {
       if (!(target instanceof Element)) return;
       const parent = target.closest<HTMLElement>("[data-motion-key]");
@@ -135,12 +148,13 @@ export function DecorativeMotion({ children }: { children: ReactNode }) {
     };
     const visibility = () => {
       shell.toggleAttribute("data-motion-hidden", document.hidden);
+      swordsController?.setVisible(!document.hidden);
       if (document.hidden) {
         sceneVisible = false;
         sceneController?.setVisible(false);
         for (const node of nodes) if (node.hasAttribute("data-scene-visible")) node.dataset.sceneVisible = "false";
         for (const node of [...timers.keys()]) finish(node);
-        observer.disconnect();
+        observer?.disconnect();
       } else observe();
     };
     shell.addEventListener("focusin", focus);
@@ -158,8 +172,9 @@ export function DecorativeMotion({ children }: { children: ReactNode }) {
       clearTimeout(paintFallback);
       window.removeEventListener("load", fallbackAfterLoad);
       sceneController?.dispose();
+      swordsController?.dispose();
       poster?.removeEventListener("load", enhance);
-      observer.disconnect();
+      observer?.disconnect();
       for (const [node, timer] of timers) { clearTimeout(timer); node.removeAttribute("data-motion-state"); }
       shell.removeEventListener("focusin", focus);
       window.removeEventListener("hashchange", hash);

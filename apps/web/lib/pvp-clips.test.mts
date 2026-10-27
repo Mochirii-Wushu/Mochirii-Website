@@ -41,6 +41,7 @@ test("selection is bounded, unique, shuffled once on the server, and does not mu
   assert.deepEqual(selectPvpClips([], []), []);
   assert.equal(selectPvpClips([clip(), clip(), clip("duel-02")]).length, 2);
   assert.deepEqual(selectPvpClips(values, [], () => .5), selected);
+  assert.notDeepEqual(selectPvpClips(values, [], () => 0).map(value => value.id), selected.map(value => value.id), "Different visit samples can showcase a different reviewed selection");
 });
 test("invalid bounds, malformed metadata and invalid RNG cannot leak unreviewed data", () => {
   for (const value of [null, [], {}, { ...clip(), id: "../duel" }, { ...clip(), title: "<script>" }, { ...clip(), durationSeconds: Infinity }, { ...clip(), durationSeconds: 0 }, { ...clip(), width: 0 }, { ...clip(), height: 10000 }, { ...clip(), export: { ...clip().export, sha256: "fake" } }]) assert.equal(reviewedPvpClip(value), false);
